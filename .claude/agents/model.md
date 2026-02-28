@@ -120,6 +120,20 @@ class DocumentSelection {
 ### DocumentEditingController
 Analogous to `TextEditingController`. Extends `ChangeNotifier`. Holds `MutableDocument document`, `DocumentSelection? selection`, `ComposerPreferences preferences`. Method `buildNodeSpan(DocumentNode node)` analogous to `TextEditingController.buildTextSpan`.
 
+## Quality checks — ALWAYS use scripts/ci/
+
+**NEVER run `flutter test`, `flutter analyze`, `dart format`, or `dart fix` directly.**
+Always use the scripts in `scripts/ci/`. They handle output capture internally — no `2>&1` or redirects needed.
+
+```bash
+scripts/ci/ci_gate.sh                        # full gate (analyze + format + test)
+scripts/ci/ci_gate.sh test/src/model/        # gate scoped to model layer
+scripts/ci/flutter_test.sh test/src/model/   # run model tests only
+scripts/ci/flutter_analyze.sh                # run analyzer
+scripts/ci/dart_format.sh check              # check formatting
+scripts/ci/dart_format.sh fix                # apply formatting
+```
+
 ## Code style
 
 - Page width: 100 characters.

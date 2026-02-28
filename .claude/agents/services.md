@@ -48,6 +48,21 @@ test/src/services/
 4. Ask the `qa` agent for coverage: `bash scripts/ci/coverage.sh test/src/services/ 100` — **must be 100% branch coverage.**
 5. Commit: `feat(services):`, `fix(services):`, or `test(services):`.
 
+## Quality checks — ALWAYS use scripts/ci/
+
+**NEVER run `flutter test`, `flutter analyze`, `dart format`, or `dart fix` directly.**
+Always use the scripts in `scripts/ci/`. They handle output capture internally — no `2>&1` or redirects needed.
+
+```bash
+scripts/ci/ci_gate.sh                          # full gate
+scripts/ci/ci_gate.sh test/src/services/       # gate scoped to services layer
+scripts/ci/flutter_test.sh test/src/services/  # run services tests only
+scripts/ci/flutter_analyze.sh                  # run analyzer
+scripts/ci/dart_format.sh check                # check formatting
+scripts/ci/dart_format.sh fix                  # apply formatting
+scripts/ci/coverage.sh test/src/services/ 100  # coverage (must be 100%)
+```
+
 ## The IME bridge — the hardest engineering problem in this package
 
 Flutter's platform IME API expects a single flat `TextEditingValue` (one string, one selection, one composing region). The document model has N heterogeneous blocks. You must bridge this gap without the platform knowing.

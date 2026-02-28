@@ -63,6 +63,20 @@ test/goldens/widgets/
 4. For visual changes: ask the `qa` agent to run `bash scripts/ci/flutter_test.sh --update-goldens test/src/widgets/` on Linux only.
 5. Commit: `feat(widgets):`, `fix(widgets):`, or `test(widgets):`.
 
+## Quality checks — ALWAYS use scripts/ci/
+
+**NEVER run `flutter test`, `flutter analyze`, `dart format`, or `dart fix` directly.**
+Always use the scripts in `scripts/ci/`. They handle output capture internally — no `2>&1` or redirects needed.
+
+```bash
+scripts/ci/ci_gate.sh                         # full gate
+scripts/ci/ci_gate.sh test/src/widgets/       # gate scoped to widgets layer
+scripts/ci/flutter_test.sh test/src/widgets/  # run widget tests only
+scripts/ci/flutter_analyze.sh                 # run analyzer
+scripts/ci/dart_format.sh check               # check formatting
+scripts/ci/dart_format.sh fix                 # apply formatting
+```
+
 ## EditableDocument parameter surface — mirror EditableText exactly
 
 ```dart
