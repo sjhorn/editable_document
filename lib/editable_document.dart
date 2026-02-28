@@ -28,3 +28,4 @@ export 'src/model/mutable_document.dart';
 export 'src/model/node_position.dart';
 export 'src/model/paragraph_node.dart';
 export 'src/model/text_node.dart';
+export 'src/model/undoable_editor.dart';

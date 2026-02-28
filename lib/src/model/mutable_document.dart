@@ -236,6 +236,27 @@ class MutableDocument extends Document {
     _notify([NodeReplaced(oldNodeId: oldNode.id, newNodeId: newNode.id)]);
   }
 
+  /// Replaces all nodes with [newNodes], emitting change events.
+  ///
+  /// Emits a [NodeDeleted] event for each existing node (in removal order) and
+  /// a [NodeInserted] event for each node in [newNodes] (in insertion order).
+  ///
+  /// This is used internally by [UndoableEditor] for snapshot-based state
+  /// restoration during undo/redo. Prefer the individual mutation methods for
+  /// all other use cases.
+  void reset(List<DocumentNode> newNodes) {
+    _ensureInitialised();
+    final oldIds = _mutableNodes.map((n) => n.id).toList();
+    _mutableNodes
+      ..clear()
+      ..addAll(newNodes);
+    final events = <DocumentChangeEvent>[
+      for (var i = 0; i < oldIds.length; i++) NodeDeleted(nodeId: oldIds[i], index: 0),
+      for (var i = 0; i < newNodes.length; i++) NodeInserted(nodeId: newNodes[i].id, index: i),
+    ];
+    _notify(events);
+  }
+
   // -------------------------------------------------------------------------
   // Private helpers
   // -------------------------------------------------------------------------

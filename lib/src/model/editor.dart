@@ -5,6 +5,8 @@
 /// and finally delivers all events to [EditListener]s.
 library;
 
+import 'package:flutter/foundation.dart';
+
 import 'document_change_event.dart';
 import 'edit_command.dart';
 import 'edit_context.dart';
@@ -50,6 +52,14 @@ class Editor {
   /// The shared execution context passed to every [EditCommand].
   final EditContext _context;
 
+  /// The execution context for this editor, accessible to subclasses.
+  ///
+  /// Subclasses such as [UndoableEditor] may read [editContext] to snapshot
+  /// or restore document state. Callers must not mutate the document directly
+  /// through this reference; always go through [submit].
+  @protected
+  EditContext get editContext => _context;
+
   final List<EditReaction> _reactions;
   final List<EditListener> _listeners;
 
@@ -88,7 +98,7 @@ class Editor {
   void submit(EditRequest request) {
     final allEvents = <DocumentChangeEvent>[];
     _processRequest(request, allEvents, depth: 0);
-    _notifyListeners(allEvents);
+    notifyEditListeners(allEvents);
   }
 
   /// Recursively processes [request] and any follow-up requests from reactions.
@@ -149,7 +159,12 @@ class Editor {
   }
 
   /// Notifies all registered listeners with the accumulated event list.
-  void _notifyListeners(List<DocumentChangeEvent> events) {
+  ///
+  /// This method is marked `@protected` so that subclasses such as
+  /// [UndoableEditor] can deliver synthetic change events (e.g. from a
+  /// snapshot restore) through the same listener pipeline.
+  @protected
+  void notifyEditListeners(List<DocumentChangeEvent> events) {
     final snapshot = List<EditListener>.of(_listeners);
     for (final listener in snapshot) {
       listener.onEdit(List<DocumentChangeEvent>.unmodifiable(events));
