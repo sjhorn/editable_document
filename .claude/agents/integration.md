@@ -131,19 +131,26 @@ void main() {
 
 ## Run integration tests
 
+Always via the `qa` agent using `flutter_test.sh`, which handles all output piping:
+
 ```bash
 # Desktop (fast, no device needed)
-flutter test integration_test/caret_placement_test.dart
+bash scripts/ci/flutter_test.sh integration_test/caret_placement_test.dart
 
 # iOS simulator
-flutter test integration_test/ --device-id <ios-simulator-id>
+bash scripts/ci/flutter_test.sh integration_test/ --device-id <ios-simulator-id>
 
 # Android emulator
-flutter test integration_test/ --device-id <android-emulator-id>
+bash scripts/ci/flutter_test.sh integration_test/ --device-id <android-emulator-id>
 
-# With performance profiling
-flutter drive --driver=test_driver/integration_test.dart \
-  --target=integration_test/scroll_test.dart --profile
+# With performance profiling (profile mode via flutter drive — qa agent runs this directly)
+bash scripts/ci/flutter_test.sh integration_test/scroll_test.dart --profile
+```
+
+Then read results:
+```bash
+bash scripts/ci/log_tail.sh summary
+bash scripts/ci/log_tail.sh failures
 ```
 
 ## Commit prefix

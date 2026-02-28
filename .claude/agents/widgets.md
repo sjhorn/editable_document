@@ -59,8 +59,8 @@ test/goldens/widgets/
 
 1. Write failing test first. Confirm RED.
 2. Implement minimum. Confirm GREEN.
-3. `flutter analyze && dart format --line-length 100 --set-exit-if-changed .` — zero issues.
-4. For visual changes: `flutter test --update-goldens test/src/widgets/` on Linux only.
+3. Ask the `qa` agent: `bash scripts/ci/ci_gate.sh test/src/widgets/` — zero issues.
+4. For visual changes: ask the `qa` agent to run `bash scripts/ci/flutter_test.sh --update-goldens test/src/widgets/` on Linux only.
 5. Commit: `feat(widgets):`, `fix(widgets):`, or `test(widgets):`.
 
 ## EditableDocument parameter surface — mirror EditableText exactly

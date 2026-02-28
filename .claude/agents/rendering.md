@@ -56,8 +56,8 @@ test/goldens/rendering/
 
 1. Write failing test. Run. Confirm RED.
 2. Implement minimum. Run. Confirm GREEN.
-3. `flutter analyze && dart format --line-length 100 --set-exit-if-changed .` — zero issues.
-4. For visual changes: update goldens only via `flutter test --update-goldens` on Linux.
+3. Ask the `qa` agent: `bash scripts/ci/ci_gate.sh test/src/rendering/` — zero issues.
+4. For visual changes: ask the `qa` agent to run `bash scripts/ci/flutter_test.sh --update-goldens test/src/rendering/` on Linux only.
 5. Commit: `feat(rendering):`, `fix(rendering):`, or `test(rendering):`.
 
 ## Key render object patterns
@@ -147,7 +147,7 @@ testWidgets('caret renders at line start', (WidgetTester tester) async {
 });
 ```
 
-Update goldens only with: `flutter test --update-goldens test/src/rendering/`
+Ask the `qa` agent to update goldens: `bash scripts/ci/flutter_test.sh --update-goldens test/src/rendering/`
 
 ## Commit prefix
 

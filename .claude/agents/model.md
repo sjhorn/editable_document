@@ -47,9 +47,20 @@ test/src/model/
 
 1. Write the failing test first. Run it. Confirm RED.
 2. Write minimum implementation. Run it. Confirm GREEN.
-3. `flutter analyze && dart format --line-length 100 --set-exit-if-changed .` — zero issues.
+3. Run `scripts/ci/ci_gate.sh test/src/model/` — zero issues. **Never add `2>&1` or other redirects** — the scripts capture verbose output to `/tmp/ed_*.txt` internally and print only a summary to stdout.
 4. Refactor. Rerun tests.
 5. Commit: `feat(model): <description>` or `test(model): <description>` or `fix(model): <description>`.
+
+### Running individual scripts (no redirects needed)
+
+```bash
+scripts/ci/flutter_test.sh test/src/model/   # run model tests
+scripts/ci/flutter_analyze.sh                # run analyzer
+scripts/ci/dart_format.sh check              # check formatting
+scripts/ci/dart_format.sh fix                # apply formatting
+scripts/ci/log_tail.sh summary              # read all summaries
+scripts/ci/log_tail.sh failures             # see only failures
+```
 
 ## Key classes to implement
 
