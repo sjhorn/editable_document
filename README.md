@@ -1,39 +1,28 @@
-<!--
-This README describes the package. If you publish this package to pub.dev,
-this README's contents appear on the landing page for your package.
+# editable_document
 
-For information about how to write a good package README, see the guide for
-[writing package pages](https://dart.dev/tools/pub/writing-package-pages).
+[![pub package](https://img.shields.io/pub/v/editable_document.svg)](https://pub.dev/packages/editable_document)
+[![CI](https://github.com/sjhorn/editable_document/actions/workflows/ci.yml/badge.svg)](https://github.com/sjhorn/editable_document/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/sjhorn/editable_document/branch/main/graph/badge.svg)](https://codecov.io/gh/sjhorn/editable_document)
 
-For general information about developing packages, see the Dart guide for
-[creating packages](https://dart.dev/guides/libraries/create-packages)
-and the Flutter guide for
-[developing packages and plugins](https://flutter.dev/to/develop-packages).
--->
+A drop-in replacement for Flutter's `EditableText` with full block-level
+document model support. `EditableDocument` is to block documents what
+`EditableText` is to single-field text.
 
-TODO: Put a short description of the package here that helps potential users
-know whether this package might be useful for them.
+## Status
 
-## Features
+This package is under active development. See the
+[ROADMAP](https://github.com/sjhorn/editable_document/blob/main/ROADMAP.md)
+for the current progress.
 
-TODO: List what your package can do. Maybe include images, gifs, or videos.
-
-## Getting started
-
-TODO: List prerequisites and provide or point to information on how to
-start using the package.
-
-## Usage
-
-TODO: Include short and useful examples for package users. Add longer examples
-to `/example` folder.
+## Quick start
 
 ```dart
-const like = 'sample';
+import 'package:editable_document/editable_document.dart';
 ```
 
-## Additional information
+Full usage examples will be added as the API stabilises.
 
-TODO: Tell users more about the package: where to find more information, how to
-contribute to the package, how to file issues, what response they can expect
-from the package authors, and more.
+## License
+
+BSD-3-Clause. See
+[LICENSE](https://github.com/sjhorn/editable_document/blob/main/LICENSE).

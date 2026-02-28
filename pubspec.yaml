@@ -1,0 +1,26 @@
+name: editable_document
+description: >-
+  A drop-in replacement for Flutter's EditableText with full block-level
+  document model support, targeting eventual merge into the Flutter framework.
+version: 0.1.0-dev.1
+homepage: https://github.com/sjhorn/editable_document
+repository: https://github.com/sjhorn/editable_document
+issue_tracker: https://github.com/sjhorn/editable_document/issues
+topics:
+  - text-editing
+  - rich-text
+  - document
+  - editor
+  - widgets
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+  flutter: '>=3.19.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter

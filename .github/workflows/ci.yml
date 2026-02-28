@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter pub get
+      - run: dart format --line-length 100 --set-exit-if-changed .
+      - run: flutter analyze --fatal-infos
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter pub get
+      - run: flutter test --coverage
+      - name: Check coverage threshold
+        run: |
+          if [ -f coverage/lcov.info ]; then
+            total=$(grep -c 'DA:' coverage/lcov.info || echo 0)
+            hit=$(grep 'DA:' coverage/lcov.info | grep -cv ',0$' || echo 0)
+            if [ "$total" -gt 0 ]; then
+              pct=$((hit * 100 / total))
+              echo "Coverage: $pct% ($hit/$total lines)"
+              if [ "$pct" -lt 90 ]; then
+                echo "::error::Coverage $pct% is below 90% threshold"
+                exit 1
+              fi
+            else
+              echo "No coverage data found — skipping threshold check."
+            fi
+          else
+            echo "No coverage/lcov.info — skipping threshold check."
+          fi
+
+  integration_test:
+    name: Integration test (${{ matrix.os }})
+    needs: [analyze, test]
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter pub get
+      - name: Run integration tests
+        if: hashFiles('integration_test/**') != ''
+        run: flutter test integration_test/
+
+  golden_test:
+    name: Golden tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter pub get
+      - name: Run golden tests
+        run: flutter test --tags golden
+        continue-on-error: true
+
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter pub get
+      - run: dart doc --validate-links

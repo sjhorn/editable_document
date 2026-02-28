@@ -1,0 +1,27 @@
+analyzer:
+  language:
+    strict-casts: true
+    strict-inference: true
+    strict-raw-types: true
+  errors:
+    missing_return: error
+    dead_code: error
+
+formatter:
+  page_width: 100
+
+linter:
+  rules:
+    - always_declare_return_types
+    - avoid_dynamic_calls
+    - avoid_print
+    - diagnostic_describe_all_properties
+    - flutter_style_todos
+    - missing_code_block_language_in_doc_comment
+    - prefer_const_constructors
+    - prefer_relative_imports
+    - prefer_single_quotes
+    - public_member_api_docs
+    - sort_child_properties_last
+    - use_key_in_widget_constructors
+    - use_super_parameters
