@@ -7,4 +7,11 @@ library editable_document;
 
 export 'src/model/attribution.dart';
 export 'src/model/attributed_text.dart';
+export 'src/model/code_block_node.dart';
+export 'src/model/document_node.dart';
+export 'src/model/horizontal_rule_node.dart';
+export 'src/model/image_node.dart';
+export 'src/model/list_item_node.dart';
 export 'src/model/node_position.dart';
+export 'src/model/paragraph_node.dart';
+export 'src/model/text_node.dart';
