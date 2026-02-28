@@ -332,3 +332,62 @@ class RemoveAttributionRequest extends EditRequest {
   @override
   String toString() => 'RemoveAttributionRequest(selection: $selection, attribution: $attribution)';
 }
+
+// ---------------------------------------------------------------------------
+// IndentListItemRequest
+// ---------------------------------------------------------------------------
+
+/// Request to increase the indent level of the [ListItemNode] identified by
+/// [nodeId] by one step.
+///
+/// The node must be a [ListItemNode]; an [Editor] that handles this request
+/// should be a no-op (or clamp) when the indent is already at the maximum
+/// nesting depth.
+class IndentListItemRequest extends EditRequest {
+  /// Creates an [IndentListItemRequest].
+  const IndentListItemRequest({required this.nodeId});
+
+  /// The id of the [ListItemNode] to indent.
+  final String nodeId;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is IndentListItemRequest && other.nodeId == nodeId;
+  }
+
+  @override
+  int get hashCode => nodeId.hashCode;
+
+  @override
+  String toString() => 'IndentListItemRequest(nodeId: $nodeId)';
+}
+
+// ---------------------------------------------------------------------------
+// UnindentListItemRequest
+// ---------------------------------------------------------------------------
+
+/// Request to decrease the indent level of the [ListItemNode] identified by
+/// [nodeId] by one step.
+///
+/// The node must be a [ListItemNode]; an [Editor] that handles this request
+/// should be a no-op (or clamp) when the indent is already at `0`.
+class UnindentListItemRequest extends EditRequest {
+  /// Creates an [UnindentListItemRequest].
+  const UnindentListItemRequest({required this.nodeId});
+
+  /// The id of the [ListItemNode] to unindent.
+  final String nodeId;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is UnindentListItemRequest && other.nodeId == nodeId;
+  }
+
+  @override
+  int get hashCode => nodeId.hashCode;
+
+  @override
+  String toString() => 'UnindentListItemRequest(nodeId: $nodeId)';
+}
