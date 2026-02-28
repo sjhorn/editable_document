@@ -1,0 +1,291 @@
+/// Tests for [EditRequest] and all concrete request subtypes.
+library;
+
+import 'package:editable_document/editable_document.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  // =========================================================================
+  // InsertTextRequest
+  // =========================================================================
+
+  group('InsertTextRequest', () {
+    test('1. stores nodeId, offset, and text', () {
+      final text = AttributedText('hello');
+      final req = InsertTextRequest(nodeId: 'p1', offset: 3, text: text);
+
+      expect(req.nodeId, 'p1');
+      expect(req.offset, 3);
+      expect(req.text, same(text));
+    });
+
+    test('2. equality: same fields are equal', () {
+      final text = AttributedText('hello');
+      final a = InsertTextRequest(nodeId: 'p1', offset: 3, text: text);
+      final b = InsertTextRequest(nodeId: 'p1', offset: 3, text: text);
+      expect(a, equals(b));
+    });
+
+    test('3. equality: different nodeId not equal', () {
+      final text = AttributedText('hello');
+      final a = InsertTextRequest(nodeId: 'p1', offset: 3, text: text);
+      final b = InsertTextRequest(nodeId: 'p2', offset: 3, text: text);
+      expect(a, isNot(equals(b)));
+    });
+
+    test('4. toString includes class name and key fields', () {
+      final req = InsertTextRequest(nodeId: 'p1', offset: 3, text: AttributedText('x'));
+      expect(req.toString(), contains('InsertTextRequest'));
+      expect(req.toString(), contains('p1'));
+    });
+  });
+
+  // =========================================================================
+  // DeleteContentRequest
+  // =========================================================================
+
+  group('DeleteContentRequest', () {
+    test('1. stores selection', () {
+      final sel = const DocumentSelection(
+        base: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 0)),
+        extent: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 5)),
+      );
+      final req = DeleteContentRequest(selection: sel);
+      expect(req.selection, equals(sel));
+    });
+
+    test('2. equality: same selection equal', () {
+      final sel = const DocumentSelection(
+        base: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 0)),
+        extent: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 5)),
+      );
+      expect(DeleteContentRequest(selection: sel), equals(DeleteContentRequest(selection: sel)));
+    });
+
+    test('3. toString includes class name', () {
+      final sel = const DocumentSelection.collapsed(
+        position: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 0)),
+      );
+      expect(DeleteContentRequest(selection: sel).toString(), contains('DeleteContentRequest'));
+    });
+  });
+
+  // =========================================================================
+  // ReplaceNodeRequest
+  // =========================================================================
+
+  group('ReplaceNodeRequest', () {
+    test('1. stores nodeId and newNode', () {
+      final newNode = ParagraphNode(id: 'p1', text: AttributedText('New'));
+      final req = ReplaceNodeRequest(nodeId: 'p1', newNode: newNode);
+      expect(req.nodeId, 'p1');
+      expect(req.newNode, same(newNode));
+    });
+
+    test('2. equality: same fields equal', () {
+      final newNode = ParagraphNode(id: 'p1', text: AttributedText('New'));
+      final a = ReplaceNodeRequest(nodeId: 'p1', newNode: newNode);
+      final b = ReplaceNodeRequest(nodeId: 'p1', newNode: newNode);
+      expect(a, equals(b));
+    });
+
+    test('3. toString includes class name', () {
+      final req = ReplaceNodeRequest(
+        nodeId: 'p1',
+        newNode: ParagraphNode(id: 'p1', text: AttributedText('')),
+      );
+      expect(req.toString(), contains('ReplaceNodeRequest'));
+    });
+  });
+
+  // =========================================================================
+  // SplitParagraphRequest
+  // =========================================================================
+
+  group('SplitParagraphRequest', () {
+    test('1. stores nodeId and splitOffset', () {
+      final req = const SplitParagraphRequest(nodeId: 'p1', splitOffset: 5);
+      expect(req.nodeId, 'p1');
+      expect(req.splitOffset, 5);
+    });
+
+    test('2. equality: same fields equal', () {
+      final a = const SplitParagraphRequest(nodeId: 'p1', splitOffset: 5);
+      final b = const SplitParagraphRequest(nodeId: 'p1', splitOffset: 5);
+      expect(a, equals(b));
+    });
+
+    test('3. equality: different offset not equal', () {
+      final a = const SplitParagraphRequest(nodeId: 'p1', splitOffset: 5);
+      final b = const SplitParagraphRequest(nodeId: 'p1', splitOffset: 6);
+      expect(a, isNot(equals(b)));
+    });
+
+    test('4. toString includes class name', () {
+      expect(
+        const SplitParagraphRequest(nodeId: 'p1', splitOffset: 5).toString(),
+        contains('SplitParagraphRequest'),
+      );
+    });
+  });
+
+  // =========================================================================
+  // MergeNodeRequest
+  // =========================================================================
+
+  group('MergeNodeRequest', () {
+    test('1. stores firstNodeId and secondNodeId', () {
+      final req = const MergeNodeRequest(firstNodeId: 'p1', secondNodeId: 'p2');
+      expect(req.firstNodeId, 'p1');
+      expect(req.secondNodeId, 'p2');
+    });
+
+    test('2. equality', () {
+      final a = const MergeNodeRequest(firstNodeId: 'p1', secondNodeId: 'p2');
+      final b = const MergeNodeRequest(firstNodeId: 'p1', secondNodeId: 'p2');
+      expect(a, equals(b));
+    });
+
+    test('3. toString includes class name', () {
+      expect(
+        const MergeNodeRequest(firstNodeId: 'p1', secondNodeId: 'p2').toString(),
+        contains('MergeNodeRequest'),
+      );
+    });
+  });
+
+  // =========================================================================
+  // MoveNodeRequest
+  // =========================================================================
+
+  group('MoveNodeRequest', () {
+    test('1. stores nodeId and newIndex', () {
+      final req = const MoveNodeRequest(nodeId: 'p1', newIndex: 2);
+      expect(req.nodeId, 'p1');
+      expect(req.newIndex, 2);
+    });
+
+    test('2. equality', () {
+      expect(
+        const MoveNodeRequest(nodeId: 'p1', newIndex: 2),
+        equals(const MoveNodeRequest(nodeId: 'p1', newIndex: 2)),
+      );
+    });
+
+    test('3. toString includes class name', () {
+      expect(
+        const MoveNodeRequest(nodeId: 'p1', newIndex: 2).toString(),
+        contains('MoveNodeRequest'),
+      );
+    });
+  });
+
+  // =========================================================================
+  // ChangeBlockTypeRequest
+  // =========================================================================
+
+  group('ChangeBlockTypeRequest', () {
+    test('1. stores nodeId and newBlockType', () {
+      final req = const ChangeBlockTypeRequest(
+        nodeId: 'p1',
+        newBlockType: ParagraphBlockType.header1,
+      );
+      expect(req.nodeId, 'p1');
+      expect(req.newBlockType, ParagraphBlockType.header1);
+    });
+
+    test('2. equality', () {
+      final a =
+          const ChangeBlockTypeRequest(nodeId: 'p1', newBlockType: ParagraphBlockType.header2);
+      final b =
+          const ChangeBlockTypeRequest(nodeId: 'p1', newBlockType: ParagraphBlockType.header2);
+      expect(a, equals(b));
+    });
+
+    test('3. toString includes class name', () {
+      expect(
+        const ChangeBlockTypeRequest(nodeId: 'p1', newBlockType: ParagraphBlockType.paragraph)
+            .toString(),
+        contains('ChangeBlockTypeRequest'),
+      );
+    });
+  });
+
+  // =========================================================================
+  // ApplyAttributionRequest
+  // =========================================================================
+
+  group('ApplyAttributionRequest', () {
+    test('1. stores selection and attribution', () {
+      final sel = const DocumentSelection(
+        base: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 0)),
+        extent: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 5)),
+      );
+      final req = ApplyAttributionRequest(
+        selection: sel,
+        attribution: NamedAttribution.bold,
+      );
+      expect(req.selection, equals(sel));
+      expect(req.attribution, equals(NamedAttribution.bold));
+    });
+
+    test('2. equality', () {
+      final sel = const DocumentSelection(
+        base: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 0)),
+        extent: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 5)),
+      );
+      final a = ApplyAttributionRequest(selection: sel, attribution: NamedAttribution.bold);
+      final b = ApplyAttributionRequest(selection: sel, attribution: NamedAttribution.bold);
+      expect(a, equals(b));
+    });
+
+    test('3. toString includes class name', () {
+      final sel = const DocumentSelection.collapsed(
+        position: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 0)),
+      );
+      expect(
+        ApplyAttributionRequest(selection: sel, attribution: NamedAttribution.bold).toString(),
+        contains('ApplyAttributionRequest'),
+      );
+    });
+  });
+
+  // =========================================================================
+  // RemoveAttributionRequest
+  // =========================================================================
+
+  group('RemoveAttributionRequest', () {
+    test('1. stores selection and attribution', () {
+      final sel = const DocumentSelection(
+        base: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 0)),
+        extent: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 5)),
+      );
+      final req = RemoveAttributionRequest(
+        selection: sel,
+        attribution: NamedAttribution.bold,
+      );
+      expect(req.selection, equals(sel));
+      expect(req.attribution, equals(NamedAttribution.bold));
+    });
+
+    test('2. equality', () {
+      final sel = const DocumentSelection(
+        base: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 0)),
+        extent: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 5)),
+      );
+      final a = RemoveAttributionRequest(selection: sel, attribution: NamedAttribution.bold);
+      final b = RemoveAttributionRequest(selection: sel, attribution: NamedAttribution.bold);
+      expect(a, equals(b));
+    });
+
+    test('3. toString includes class name', () {
+      final sel = const DocumentSelection.collapsed(
+        position: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 0)),
+      );
+      expect(
+        RemoveAttributionRequest(selection: sel, attribution: NamedAttribution.bold).toString(),
+        contains('RemoveAttributionRequest'),
+      );
+    });
+  });
+}
