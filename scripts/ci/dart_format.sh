@@ -4,9 +4,10 @@
 # Check or apply dart format with line-length 100.
 # Verbose output captured to /tmp, summary printed to stdout.
 # Usage:
-#   ./scripts/ci/dart_format.sh check          # check only (default, exits non-zero if unformatted)
-#   ./scripts/ci/dart_format.sh fix            # apply formatting
-#   ./scripts/ci/dart_format.sh check lib/     # check specific directory
+#   ./scripts/ci/dart_format.sh check              # summary only (default)
+#   ./scripts/ci/dart_format.sh fix                # apply formatting
+#   ./scripts/ci/dart_format.sh check --verbose    # summary + full output
+#   ./scripts/ci/dart_format.sh check lib/         # check specific directory
 #
 # Output files written:
 #   /tmp/ed_format_full.txt    — complete dart format output
@@ -15,13 +16,23 @@
 
 set -uo pipefail
 
+VERBOSE=false
+ARGS=()
+for arg in "$@"; do
+  if [ "$arg" = "--verbose" ]; then
+    VERBOSE=true
+  else
+    ARGS+=("$arg")
+  fi
+done
+
 LOGFILE="/tmp/ed_format_full.txt"
 DIFFFILE="/tmp/ed_format_diff.txt"
 SUMMARYFILE="/tmp/ed_format_summary.txt"
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
 
-MODE="${1:-check}"
-TARGET="${2:-.}"
+MODE="${ARGS[0]:-check}"
+TARGET="${ARGS[1]:-.}"
 
 echo "[$TIMESTAMP] dart format mode=$MODE target=$TARGET" >"$LOGFILE"
 
@@ -59,6 +70,11 @@ CHANGED_COUNT=$(wc -l <"$DIFFFILE" | tr -d ' ')
     else
       echo "Formatting applied."
     fi
+  fi
+  if [ "$VERBOSE" = true ]; then
+    echo ""
+    echo "--- Full output ---"
+    cat "$LOGFILE"
   fi
 } | tee "$SUMMARYFILE"
 

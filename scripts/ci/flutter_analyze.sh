@@ -3,8 +3,9 @@
 #
 # Run flutter analyze, capture verbose output to /tmp, print summary to stdout.
 # Usage:
-#   ./scripts/ci/flutter_analyze.sh              # full analysis
-#   ./scripts/ci/flutter_analyze.sh lib/src/model/  # specific directory
+#   ./scripts/ci/flutter_analyze.sh                    # summary with info breakdown
+#   ./scripts/ci/flutter_analyze.sh --verbose          # summary + full analyzer output
+#   ./scripts/ci/flutter_analyze.sh lib/src/model/     # specific directory
 #
 # Output files written:
 #   /tmp/ed_analyze_full.txt    — complete analyzer output
@@ -14,13 +15,23 @@
 
 set -uo pipefail
 
+VERBOSE=false
+ARGS=()
+for arg in "$@"; do
+  if [ "$arg" = "--verbose" ]; then
+    VERBOSE=true
+  else
+    ARGS+=("$arg")
+  fi
+done
+
 LOGFILE="/tmp/ed_analyze_full.txt"
 ERRORFILE="/tmp/ed_analyze_errors.txt"
 WARNFILE="/tmp/ed_analyze_warnings.txt"
 SUMMARYFILE="/tmp/ed_analyze_summary.txt"
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
 
-TARGET="${1:-}"
+TARGET="${ARGS[0]:-}"
 
 echo "[$TIMESTAMP] flutter analyze $TARGET" >"$LOGFILE"
 if [ -n "$TARGET" ]; then
@@ -58,9 +69,20 @@ INFO_COUNT=${INFO_COUNT:-0}
   if [ "$WARN_COUNT" -gt 0 ]; then
     echo "--- Warnings ---"
     cat "$WARNFILE"
+    echo ""
+  fi
+  if [ "$INFO_COUNT" -gt 0 ]; then
+    echo "--- Info by rule ---"
+    grep -E "^\s*info\s*•" "$LOGFILE" | sed 's/.*• //' | sort | uniq -c | sort -rn
+    echo ""
   fi
   if [ "$ANALYZE_EXIT" -eq 0 ]; then
     echo "No issues found."
+  fi
+  if [ "$VERBOSE" = true ]; then
+    echo ""
+    echo "--- Full output ---"
+    cat "$LOGFILE"
   fi
 } | tee "$SUMMARYFILE"
 

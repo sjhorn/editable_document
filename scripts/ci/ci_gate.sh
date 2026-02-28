@@ -6,7 +6,8 @@
 # and prints only a summary to stdout.
 #
 # Usage:
-#   ./scripts/ci/ci_gate.sh                  # full gate on everything
+#   ./scripts/ci/ci_gate.sh                  # full gate, summary only
+#   ./scripts/ci/ci_gate.sh --verbose        # full gate, verbose output
 #   ./scripts/ci/ci_gate.sh test/src/model/  # gate scoped to one layer
 #
 # Output files written:
@@ -15,11 +16,26 @@
 
 set -uo pipefail
 
+VERBOSE=false
+ARGS=()
+for arg in "$@"; do
+  if [ "$arg" = "--verbose" ]; then
+    VERBOSE=true
+  else
+    ARGS+=("$arg")
+  fi
+done
+
 SUMMARYFILE="/tmp/ed_gate_summary.txt"
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
-SCOPE="${1:-}"
+SCOPE="${ARGS[0]:-}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+VERBOSE_FLAG=""
+if [ "$VERBOSE" = true ]; then
+  VERBOSE_FLAG="--verbose"
+fi
 
 RESULT_ANALYZE="SKIP"
 RESULT_FORMAT="SKIP"
@@ -27,7 +43,7 @@ RESULT_TEST="SKIP"
 
 # Step 1: analyze
 echo ">>> flutter analyze"
-if bash "$SCRIPT_DIR/flutter_analyze.sh" ${SCOPE:+"$SCOPE"}; then
+if bash "$SCRIPT_DIR/flutter_analyze.sh" $VERBOSE_FLAG ${SCOPE:+"$SCOPE"}; then
   RESULT_ANALYZE="PASS"
 else
   RESULT_ANALYZE="FAIL"
@@ -36,7 +52,7 @@ echo ""
 
 # Step 2: format check
 echo ">>> dart format check"
-if bash "$SCRIPT_DIR/dart_format.sh" check ${SCOPE:+"$SCOPE"}; then
+if bash "$SCRIPT_DIR/dart_format.sh" check $VERBOSE_FLAG ${SCOPE:+"$SCOPE"}; then
   RESULT_FORMAT="PASS"
 else
   RESULT_FORMAT="FAIL"
@@ -45,7 +61,7 @@ echo ""
 
 # Step 3: tests
 echo ">>> flutter test"
-if bash "$SCRIPT_DIR/flutter_test.sh" ${SCOPE:+"$SCOPE"}; then
+if bash "$SCRIPT_DIR/flutter_test.sh" $VERBOSE_FLAG ${SCOPE:+"$SCOPE"}; then
   RESULT_TEST="PASS"
 else
   RESULT_TEST="FAIL"

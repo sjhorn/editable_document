@@ -72,10 +72,14 @@ Always use the scripts in `scripts/ci/`. They handle output capture internally â
 scripts/ci/ci_gate.sh                         # full gate
 scripts/ci/ci_gate.sh test/src/widgets/       # gate scoped to widgets layer
 scripts/ci/flutter_test.sh test/src/widgets/  # run widget tests only
-scripts/ci/flutter_analyze.sh                 # run analyzer
+scripts/ci/flutter_analyze.sh                 # run analyzer (info breakdown by rule)
+scripts/ci/flutter_analyze.sh --verbose       # analyzer with full output
 scripts/ci/dart_format.sh check               # check formatting
 scripts/ci/dart_format.sh fix                 # apply formatting
+scripts/ci/dart_fix.sh apply                  # auto-fix lint issues (prefer_const, etc.)
 ```
+
+All scripts accept `--verbose` to show full output. Default is summary only.
 
 ## EditableDocument parameter surface â€” mirror EditableText exactly
 

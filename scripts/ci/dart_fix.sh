@@ -4,9 +4,10 @@
 # Run dart fix to apply automated lint fixes.
 # Verbose output captured to /tmp, summary printed to stdout.
 # Usage:
-#   ./scripts/ci/dart_fix.sh preview         # show what would change (default)
-#   ./scripts/ci/dart_fix.sh apply           # apply fixes
-#   ./scripts/ci/dart_fix.sh preview lib/    # preview specific directory
+#   ./scripts/ci/dart_fix.sh preview            # summary only (default)
+#   ./scripts/ci/dart_fix.sh apply              # apply fixes
+#   ./scripts/ci/dart_fix.sh preview --verbose  # summary + full output
+#   ./scripts/ci/dart_fix.sh preview lib/       # preview specific directory
 #
 # Output files written:
 #   /tmp/ed_fix_full.txt    — complete dart fix output
@@ -15,13 +16,23 @@
 
 set -uo pipefail
 
+VERBOSE=false
+ARGS=()
+for arg in "$@"; do
+  if [ "$arg" = "--verbose" ]; then
+    VERBOSE=true
+  else
+    ARGS+=("$arg")
+  fi
+done
+
 LOGFILE="/tmp/ed_fix_full.txt"
 CHANGEFILE="/tmp/ed_fix_changes.txt"
 SUMMARYFILE="/tmp/ed_fix_summary.txt"
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
 
-MODE="${1:-preview}"
-TARGET="${2:-.}"
+MODE="${ARGS[0]:-preview}"
+TARGET="${ARGS[1]:-.}"
 
 echo "[$TIMESTAMP] dart fix mode=$MODE target=$TARGET" >"$LOGFILE"
 
@@ -53,6 +64,11 @@ CHANGE_COUNT=$(wc -l <"$CHANGEFILE" | tr -d ' ')
     cat "$CHANGEFILE"
   else
     echo "No fixes available."
+  fi
+  if [ "$VERBOSE" = true ]; then
+    echo ""
+    echo "--- Full output ---"
+    cat "$LOGFILE"
   fi
 } | tee "$SUMMARYFILE"
 

@@ -4,9 +4,10 @@
 # Run flutter test --coverage, generate HTML report, check thresholds.
 # Verbose output captured to /tmp, summary printed to stdout.
 # Usage:
-#   ./scripts/ci/coverage.sh                     # all tests, threshold 90%
-#   ./scripts/ci/coverage.sh test/src/services/  # specific path, threshold 100%
-#   ./scripts/ci/coverage.sh "" 95               # all tests, custom threshold
+#   ./scripts/ci/coverage.sh                        # all tests, threshold 90%
+#   ./scripts/ci/coverage.sh test/src/services/     # specific path, threshold 100%
+#   ./scripts/ci/coverage.sh "" 95                  # all tests, custom threshold
+#   ./scripts/ci/coverage.sh --verbose              # summary + full output
 #
 # Requires: lcov (brew install lcov / apt install lcov)
 #
@@ -18,12 +19,22 @@
 
 set -uo pipefail
 
+VERBOSE=false
+ARGS=()
+for arg in "$@"; do
+  if [ "$arg" = "--verbose" ]; then
+    VERBOSE=true
+  else
+    ARGS+=("$arg")
+  fi
+done
+
 LOGFILE="/tmp/ed_coverage_full.txt"
 SUMMARYFILE="/tmp/ed_coverage_summary.txt"
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
 
-TEST_PATH="${1:-}"
-THRESHOLD="${2:-90}"
+TEST_PATH="${ARGS[0]:-}"
+THRESHOLD="${ARGS[1]:-90}"
 
 # Services path always requires 100%
 if echo "$TEST_PATH" | grep -q "services"; then
@@ -81,6 +92,11 @@ fi
   if command -v lcov >/dev/null 2>&1; then
     echo "--- Per-file coverage ---"
     lcov --summary coverage/lcov.info 2>&1 | grep -E "lines|functions|branches" || true
+  fi
+  if [ "$VERBOSE" = true ]; then
+    echo ""
+    echo "--- Full output ---"
+    cat "$LOGFILE"
   fi
 } | tee "$SUMMARYFILE"
 

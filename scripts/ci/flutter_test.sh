@@ -3,7 +3,8 @@
 #
 # Run flutter test, capture verbose output to /tmp, print summary to stdout.
 # Usage:
-#   ./scripts/ci/flutter_test.sh                        # all tests
+#   ./scripts/ci/flutter_test.sh                        # summary only
+#   ./scripts/ci/flutter_test.sh --verbose              # summary + full output
 #   ./scripts/ci/flutter_test.sh test/src/model/        # specific path
 #   ./scripts/ci/flutter_test.sh --coverage             # with coverage
 #   ./scripts/ci/flutter_test.sh --update-goldens       # update goldens
@@ -16,12 +17,21 @@
 
 set -uo pipefail
 
+VERBOSE=false
+FLUTTER_ARGS=()
+for arg in "$@"; do
+  if [ "$arg" = "--verbose" ]; then
+    VERBOSE=true
+  else
+    FLUTTER_ARGS+=("$arg")
+  fi
+done
+
 LOGFILE="/tmp/ed_test_full.txt"
 FAILFILE="/tmp/ed_test_fail.txt"
 SUMMARYFILE="/tmp/ed_test_summary.txt"
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
 
-FLUTTER_ARGS=("$@")
 if [ ${#FLUTTER_ARGS[@]} -eq 0 ]; then
   FLUTTER_ARGS=("test")
 fi
@@ -73,6 +83,11 @@ fi
     cat "$FAILFILE"
   else
     echo "All tests passed."
+  fi
+  if [ "$VERBOSE" = true ]; then
+    echo ""
+    echo "--- Full output ---"
+    cat "$LOGFILE"
   fi
 } | tee "$SUMMARYFILE"
 

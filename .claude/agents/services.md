@@ -57,11 +57,15 @@ Always use the scripts in `scripts/ci/`. They handle output capture internally â
 scripts/ci/ci_gate.sh                          # full gate
 scripts/ci/ci_gate.sh test/src/services/       # gate scoped to services layer
 scripts/ci/flutter_test.sh test/src/services/  # run services tests only
-scripts/ci/flutter_analyze.sh                  # run analyzer
+scripts/ci/flutter_analyze.sh                  # run analyzer (info breakdown by rule)
+scripts/ci/flutter_analyze.sh --verbose        # analyzer with full output
 scripts/ci/dart_format.sh check                # check formatting
 scripts/ci/dart_format.sh fix                  # apply formatting
+scripts/ci/dart_fix.sh apply                   # auto-fix lint issues (prefer_const, etc.)
 scripts/ci/coverage.sh test/src/services/ 100  # coverage (must be 100%)
 ```
+
+All scripts accept `--verbose` to show full output. Default is summary only.
 
 ## The IME bridge â€” the hardest engineering problem in this package
 
