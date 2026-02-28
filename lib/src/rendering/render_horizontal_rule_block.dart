@@ -111,6 +111,16 @@ class RenderHorizontalRuleBlock extends RenderDocumentBlock {
   }
 
   // ---------------------------------------------------------------------------
+  // Intrinsic sizes
+  // ---------------------------------------------------------------------------
+
+  @override
+  double computeMinIntrinsicHeight(double width) => _thickness + 2 * _verticalPadding;
+
+  @override
+  double computeMaxIntrinsicHeight(double width) => _thickness + 2 * _verticalPadding;
+
+  // ---------------------------------------------------------------------------
   // Layout
   // ---------------------------------------------------------------------------
 
