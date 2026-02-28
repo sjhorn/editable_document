@@ -11,6 +11,8 @@ export 'src/model/code_block_node.dart';
 export 'src/model/document.dart';
 export 'src/model/document_change_event.dart';
 export 'src/model/document_node.dart';
+export 'src/model/document_position.dart';
+export 'src/model/document_selection.dart';
 export 'src/model/horizontal_rule_node.dart';
 export 'src/model/image_node.dart';
 export 'src/model/list_item_node.dart';
