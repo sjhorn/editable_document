@@ -347,6 +347,7 @@ class DocumentSelectionOverlayState extends State<DocumentSelectionOverlay> {
               layoutKey: widget.layoutKey,
               selection: selection,
               color: widget.caretColor,
+              devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
             ),
           ),
 
@@ -444,11 +445,13 @@ class _CaretRenderWidget extends LeafRenderObjectWidget {
     required this.layoutKey,
     required this.selection,
     required this.color,
+    required this.devicePixelRatio,
   });
 
   final GlobalKey<DocumentLayoutState> layoutKey;
   final DocumentSelection? selection;
   final Color color;
+  final double devicePixelRatio;
 
   @override
   RenderDocumentCaret createRenderObject(BuildContext context) {
@@ -456,15 +459,20 @@ class _CaretRenderWidget extends LeafRenderObjectWidget {
       documentLayout: layoutKey.currentState?.renderObject,
       selection: selection,
       color: color,
+      devicePixelRatio: devicePixelRatio,
     );
   }
 
   @override
-  void updateRenderObject(BuildContext context, RenderDocumentCaret renderObject) {
+  void updateRenderObject(
+    BuildContext context,
+    RenderDocumentCaret renderObject,
+  ) {
     renderObject
       ..documentLayout = layoutKey.currentState?.renderObject
       ..selection = selection
-      ..color = color;
+      ..color = color
+      ..devicePixelRatio = devicePixelRatio;
   }
 
   @override
@@ -473,5 +481,6 @@ class _CaretRenderWidget extends LeafRenderObjectWidget {
     properties.add(DiagnosticsProperty<GlobalKey<DocumentLayoutState>>('layoutKey', layoutKey));
     properties.add(DiagnosticsProperty<DocumentSelection?>('selection', selection));
     properties.add(ColorProperty('color', color));
+    properties.add(DoubleProperty('devicePixelRatio', devicePixelRatio));
   }
 }

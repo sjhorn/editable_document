@@ -333,6 +333,7 @@ class CaretDocumentOverlayState extends State<CaretDocumentOverlay> {
       width: widget.caretWidth,
       cornerRadius: widget.cornerRadius,
       visible: _blinkVisible && widget.showCaret,
+      devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
     );
   }
 
@@ -363,6 +364,7 @@ class _CaretRenderWidget extends LeafRenderObjectWidget {
     required this.width,
     required this.cornerRadius,
     required this.visible,
+    required this.devicePixelRatio,
   });
 
   final GlobalKey<DocumentLayoutState> layoutKey;
@@ -371,6 +373,7 @@ class _CaretRenderWidget extends LeafRenderObjectWidget {
   final double width;
   final double cornerRadius;
   final bool visible;
+  final double devicePixelRatio;
 
   @override
   RenderDocumentCaret createRenderObject(BuildContext context) {
@@ -381,18 +384,23 @@ class _CaretRenderWidget extends LeafRenderObjectWidget {
       width: width,
       cornerRadius: cornerRadius,
       visible: visible,
+      devicePixelRatio: devicePixelRatio,
     );
   }
 
   @override
-  void updateRenderObject(BuildContext context, RenderDocumentCaret renderObject) {
+  void updateRenderObject(
+    BuildContext context,
+    RenderDocumentCaret renderObject,
+  ) {
     renderObject
       ..documentLayout = layoutKey.currentState?.renderObject
       ..selection = selection
       ..color = color
       ..width = width
       ..cornerRadius = cornerRadius
-      ..visible = visible;
+      ..visible = visible
+      ..devicePixelRatio = devicePixelRatio;
   }
 
   @override
@@ -406,5 +414,6 @@ class _CaretRenderWidget extends LeafRenderObjectWidget {
     properties.add(DoubleProperty('width', width));
     properties.add(DoubleProperty('cornerRadius', cornerRadius));
     properties.add(FlagProperty('visible', value: visible, ifTrue: 'visible'));
+    properties.add(DoubleProperty('devicePixelRatio', devicePixelRatio));
   }
 }

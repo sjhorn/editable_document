@@ -68,12 +68,14 @@ class RenderDocumentCaret extends RenderBox {
     double width = 2.0,
     double cornerRadius = 1.0,
     bool visible = true,
+    double devicePixelRatio = 1.0,
   })  : _documentLayout = documentLayout,
         _selection = selection,
         _color = color,
         _width = width,
         _cornerRadius = cornerRadius,
-        _visible = visible;
+        _visible = visible,
+        _devicePixelRatio = devicePixelRatio;
 
   // ---------------------------------------------------------------------------
   // documentLayout
@@ -190,6 +192,27 @@ class RenderDocumentCaret extends RenderBox {
   }
 
   // ---------------------------------------------------------------------------
+  // devicePixelRatio
+  // ---------------------------------------------------------------------------
+
+  double _devicePixelRatio;
+
+  /// The pixel ratio of the current device.
+  ///
+  /// Used to snap the caret to physical pixel boundaries so it renders at a
+  /// consistent width regardless of text position.  Obtain this value from
+  /// `MediaQuery.devicePixelRatioOf(context)`.
+  // ignore: diagnostic_describe_all_properties
+  double get devicePixelRatio => _devicePixelRatio;
+
+  /// Sets [devicePixelRatio] and schedules a repaint when the value changes.
+  set devicePixelRatio(double value) {
+    if (_devicePixelRatio == value) return;
+    _devicePixelRatio = value;
+    markNeedsPaint();
+  }
+
+  // ---------------------------------------------------------------------------
   // Layout
   // ---------------------------------------------------------------------------
 
@@ -220,14 +243,49 @@ class RenderDocumentCaret extends RenderBox {
     final rect = layout.getRectForDocumentPosition(sel.extent);
     if (rect == null) return;
 
+    // Snap the caret origin to physical pixels so it never straddles a pixel
+    // boundary (which would make it appear thinner at certain positions).
+    // This mirrors RenderEditable._snapToPhysicalPixel in the Flutter
+    // framework.
+    final rawOrigin = Offset(offset.dx + rect.left, offset.dy + rect.top);
+    final snapped = _snapToPhysicalPixel(rawOrigin);
+
     final paintedRect = Rect.fromLTWH(
-      offset.dx + rect.left,
-      offset.dy + rect.top,
+      snapped.dx,
+      snapped.dy,
       _width,
       rect.height,
     );
     final rrect = RRect.fromRectAndRadius(paintedRect, Radius.circular(_cornerRadius));
     context.canvas.drawRRect(rrect, Paint()..color = _color);
+  }
+
+  /// Snaps [sourceOffset] to the nearest physical pixel boundary.
+  ///
+  /// Converts the local offset to global coordinates, rounds each component
+  /// to the nearest device pixel, and returns the snapped local offset.
+  /// This prevents the caret from straddling pixel boundaries, which causes
+  /// it to appear thinner at some text positions (e.g. after a space).
+  ///
+  /// Falls back to [sourceOffset] unmodified when the render object is not
+  /// attached to a render tree (e.g. during unit tests).
+  Offset _snapToPhysicalPixel(Offset sourceOffset) {
+    if (!attached) return sourceOffset;
+
+    final globalOffset = localToGlobal(sourceOffset);
+    final pixelMultiple = 1.0 / _devicePixelRatio;
+    return Offset(
+      globalOffset.dx.isFinite
+          ? (globalOffset.dx / pixelMultiple).round() * pixelMultiple -
+              globalOffset.dx +
+              sourceOffset.dx
+          : sourceOffset.dx,
+      globalOffset.dy.isFinite
+          ? (globalOffset.dy / pixelMultiple).round() * pixelMultiple -
+              globalOffset.dy +
+              sourceOffset.dy
+          : sourceOffset.dy,
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -251,5 +309,6 @@ class RenderDocumentCaret extends RenderBox {
     properties.add(DoubleProperty('width', _width));
     properties.add(DoubleProperty('cornerRadius', _cornerRadius));
     properties.add(DiagnosticsProperty<bool>('visible', _visible));
+    properties.add(DoubleProperty('devicePixelRatio', _devicePixelRatio));
   }
 }
