@@ -41,6 +41,19 @@ typedef VerticalMoveResolver = DocumentPosition? Function({
   required bool forward,
 });
 
+// ---------------------------------------------------------------------------
+// LineMoveResolver
+// ---------------------------------------------------------------------------
+
+/// Resolves a line-boundary movement (Cmd+Left/Right on macOS, Alt+Left/Right
+/// on other platforms). Returns the target [DocumentPosition] at the start or
+/// end of the current visual line, or `null` when the resolver cannot
+/// determine a visual-line boundary (e.g. for binary nodes).
+typedef LineMoveResolver = DocumentPosition? Function({
+  required DocumentPosition from,
+  required bool forward,
+});
+
 /// Maps raw [KeyEvent]s to [EditRequest]s for the document editor.
 ///
 /// Handles keys NOT covered by the IME delta model — primarily desktop
@@ -54,8 +67,9 @@ typedef VerticalMoveResolver = DocumentPosition? Function({
 ///   start/end of the current word or adjacent word boundary).
 /// * **Word modifier + Up/Down** — node start/end navigation (jumps to the
 ///   first/last position of the current block).
-/// * **Line modifier + Left/Right** — line start/end navigation (moves to
-///   the start/end of the current text node, equivalent to line start/end).
+/// * **Line modifier + Left/Right** — visual line start/end navigation (when
+///   a [lineMoveResolver] is provided, moves to the start/end of the current
+///   visual line; otherwise falls back to node start/end).
 /// * **Line modifier + Up/Down** — document start/end navigation (jumps to
 ///   the very first/last position in the document).
 /// * **Home / End** — move to the start/end of the current text node.
@@ -130,12 +144,16 @@ class DocumentKeyboardHandler {
   ///   Up/Down arrow movement to a target [DocumentPosition]. When `null`,
   ///   plain Up/Down falls back to block-level movement (previous/next node
   ///   start).
+  /// * [lineMoveResolver] — optional callback that resolves line-boundary
+  ///   Left/Right movement to a target [DocumentPosition]. When `null`,
+  ///   line-modifier + Left/Right falls back to node start/end.
   DocumentKeyboardHandler({
     required Document document,
     required DocumentEditingController controller,
     required void Function(EditRequest request) requestHandler,
     this.pageMoveResolver,
     this.verticalMoveResolver,
+    this.lineMoveResolver,
   })  : _document = document,
         _controller = controller,
         _requestHandler = requestHandler;
@@ -164,6 +182,18 @@ class DocumentKeyboardHandler {
   /// When `null`, Up/Down falls back to block-level movement (previous/next
   /// node start).
   final VerticalMoveResolver? verticalMoveResolver;
+
+  /// Optional callback that resolves line-boundary caret movement.
+  ///
+  /// When non-null, line-modifier + Left/Right keys (Cmd+Left/Right on macOS,
+  /// Alt+Left/Right on other platforms) invoke this resolver to determine the
+  /// target [DocumentPosition] at the visual line start or end. When the
+  /// resolver returns `null` (e.g. for binary nodes without visual lines),
+  /// the handler falls back to node start/end.
+  ///
+  /// When this field is `null`, line-modifier + Left/Right always moves to
+  /// node start/end (the pre-existing behavior).
+  final LineMoveResolver? lineMoveResolver;
 
   // -------------------------------------------------------------------------
   // Public entry point
@@ -300,7 +330,7 @@ class DocumentKeyboardHandler {
 
     final DocumentPosition newExtent;
     if (lineModifier) {
-      newExtent = _startOfNode(node);
+      newExtent = lineMoveResolver?.call(from: extentPos, forward: false) ?? _startOfNode(node);
     } else if (wordModifier) {
       newExtent = _moveToWordStart(extentPos, node);
     } else {
@@ -335,7 +365,7 @@ class DocumentKeyboardHandler {
 
     final DocumentPosition newExtent;
     if (lineModifier) {
-      newExtent = _endOfNode(node);
+      newExtent = lineMoveResolver?.call(from: extentPos, forward: true) ?? _endOfNode(node);
     } else if (wordModifier) {
       newExtent = _moveToWordEnd(extentPos, node);
     } else {

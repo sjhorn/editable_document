@@ -3417,4 +3417,166 @@ void main() {
       debugDefaultTargetPlatformOverride = null;
     });
   });
+
+  // =========================================================================
+  // line move resolver (Cmd+Left / Cmd+Right on macOS)
+  // =========================================================================
+
+  group('line move resolver (Left/Right with line modifier)', () {
+    testWidgets('lineMoveResolver called with correct args for Cmd+Left on macOS', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _singleParagraph('Hello world');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 6));
+      final requests = <EditRequest>[];
+
+      const targetPosition = DocumentPosition(
+        nodeId: 'p1',
+        nodePosition: TextNodePosition(offset: 0),
+      );
+      DocumentPosition? capturedFrom;
+      bool? capturedForward;
+
+      final handler = DocumentKeyboardHandler(
+        document: doc,
+        controller: controller,
+        requestHandler: requests.add,
+        lineMoveResolver: ({required DocumentPosition from, required bool forward}) {
+          capturedFrom = from;
+          capturedForward = forward;
+          return targetPosition;
+        },
+      );
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+
+      expect(capturedForward, isFalse);
+      expect(capturedFrom, equals(_collapsed('p1', 6).extent));
+      // Resolver result is used — NOT node start (same here, but resolver was called).
+      expect(controller.selection!.isCollapsed, isTrue);
+      expect(controller.selection!.extent.nodeId, equals('p1'));
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(0),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('lineMoveResolver called with correct args for Cmd+Right on macOS', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _singleParagraph('Hello world');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 6));
+      final requests = <EditRequest>[];
+
+      // Resolver returns an interior position (not the full node end),
+      // proving the resolver result is used rather than _endOfNode.
+      const targetPosition = DocumentPosition(
+        nodeId: 'p1',
+        nodePosition: TextNodePosition(offset: 8),
+      );
+      DocumentPosition? capturedFrom;
+      bool? capturedForward;
+
+      final handler = DocumentKeyboardHandler(
+        document: doc,
+        controller: controller,
+        requestHandler: requests.add,
+        lineMoveResolver: ({required DocumentPosition from, required bool forward}) {
+          capturedFrom = from;
+          capturedForward = forward;
+          return targetPosition;
+        },
+      );
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+
+      expect(capturedForward, isTrue);
+      expect(capturedFrom, equals(_collapsed('p1', 6).extent));
+      expect(controller.selection!.isCollapsed, isTrue);
+      expect(controller.selection!.extent.nodeId, equals('p1'));
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(8),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('lineMoveResolver returning null falls back to node start for Left',
+        (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _singleParagraph('Hello world');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 6));
+      final requests = <EditRequest>[];
+
+      final handler = DocumentKeyboardHandler(
+        document: doc,
+        controller: controller,
+        requestHandler: requests.add,
+        lineMoveResolver: ({required DocumentPosition from, required bool forward}) => null,
+      );
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+
+      // Falls back to node start (offset 0).
+      expect(controller.selection!.isCollapsed, isTrue);
+      expect(controller.selection!.extent.nodeId, equals('p1'));
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(0),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('lineMoveResolver returning null falls back to node end for Right', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _singleParagraph('Hello world');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 6));
+      final requests = <EditRequest>[];
+
+      final handler = DocumentKeyboardHandler(
+        document: doc,
+        controller: controller,
+        requestHandler: requests.add,
+        lineMoveResolver: ({required DocumentPosition from, required bool forward}) => null,
+      );
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+
+      // Falls back to node end (offset 11 = 'Hello world'.length).
+      expect(controller.selection!.isCollapsed, isTrue);
+      expect(controller.selection!.extent.nodeId, equals('p1'));
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(11),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+  });
 }
