@@ -59,8 +59,9 @@ class _DocumentDemoState extends State<DocumentDemo> {
   late final MutableDocument _document;
   late final DocumentEditingController _controller;
   late final UndoableEditor _editor;
+  late final FocusNode _focusNode;
 
-  // Phase 6: selection overlay support.
+  // Phase 6: selection overlay and mouse interaction support.
   final _layoutKey = GlobalKey<DocumentLayoutState>();
   final _startHandleLayerLink = LayerLink();
   final _endHandleLayerLink = LayerLink();
@@ -76,6 +77,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
     _editor = UndoableEditor(
       editContext: EditContext(document: _document, controller: _controller),
     );
+    _focusNode = FocusNode(debugLabel: 'DocumentDemo');
     // Listen for document changes to rebuild the UI.
     _document.changes.addListener(_onDocumentChanged);
   }
@@ -83,6 +85,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
   @override
   void dispose() {
     _document.changes.removeListener(_onDocumentChanged);
+    _focusNode.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -308,20 +311,29 @@ class _DocumentDemoState extends State<DocumentDemo> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Render document with selection overlay (Phase 6).
-            // DocumentSelectionOverlay layers caret and selection
-            // highlights over the DocumentLayout, with LayerLink pairs
-            // for platform handle positioning.
-            DocumentSelectionOverlay(
+            // Interactive document editor (Phases 5-6).
+            // Mouse clicks place the caret, drags create selections,
+            // the overlay renders caret + selection highlights, and
+            // Focus + keyboard handler enable arrow navigation.
+            DocumentMouseInteractor(
               controller: _controller,
               layoutKey: _layoutKey,
-              startHandleLayerLink: _startHandleLayerLink,
-              endHandleLayerLink: _endHandleLayerLink,
-              child: DocumentLayout(
-                key: _layoutKey,
-                document: _document,
+              document: _document,
+              child: DocumentSelectionOverlay(
                 controller: _controller,
-                componentBuilders: defaultComponentBuilders,
+                layoutKey: _layoutKey,
+                startHandleLayerLink: _startHandleLayerLink,
+                endHandleLayerLink: _endHandleLayerLink,
+                child: Focus(
+                  focusNode: _focusNode,
+                  autofocus: true,
+                  child: DocumentLayout(
+                    key: _layoutKey,
+                    document: _document,
+                    controller: _controller,
+                    componentBuilders: defaultComponentBuilders,
+                  ),
+                ),
               ),
             ),
 
