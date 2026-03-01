@@ -7,6 +7,7 @@ library;
 import 'package:flutter/rendering.dart';
 
 import '../model/list_item_node.dart';
+import '../model/node_position.dart';
 import 'render_text_block.dart';
 
 /// Width reserved for the list marker (bullet or number) at each indent level.
@@ -132,6 +133,31 @@ class RenderListItemBlock extends RenderTextBlock {
     final markerX = _textIndentOffset - markerPainter.width - 4.0;
     final markerY = (size.height - markerPainter.height) / 2;
     markerPainter.paint(canvas, blockOffset.translate(markerX, markerY));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Geometry queries — adjust for text indent
+  // ---------------------------------------------------------------------------
+
+  @override
+  Rect getLocalRectForPosition(NodePosition position) {
+    return super.getLocalRectForPosition(position).translate(_textIndentOffset, 0);
+  }
+
+  @override
+  NodePosition getPositionAtOffset(Offset localOffset) {
+    // Remove the indent before delegating to the text painter so that the
+    // returned position refers to the correct character rather than a position
+    // shifted by the marker gutter.
+    return super.getPositionAtOffset(localOffset.translate(-_textIndentOffset, 0));
+  }
+
+  @override
+  List<Rect> getEndpointsForSelection(NodePosition base, NodePosition extent) {
+    return super
+        .getEndpointsForSelection(base, extent)
+        .map((r) => r.translate(_textIndentOffset, 0))
+        .toList();
   }
 
   // ---------------------------------------------------------------------------
