@@ -38,6 +38,7 @@ Every implementation task follows this exact chain, no exceptions:
 7. If FAIL → owning agent fixes, loops back to step 5
 8. If PASS → owning agent commits, ticks the ROADMAP checkbox
 9. If the change adds or modifies a public API → use the docs agent to update dartdoc
+10. use the docs agent to update example/main.dart to demonstrate the new feature
 ```
 
 ### When to invoke each agent
@@ -57,6 +58,7 @@ Every implementation task follows this exact chain, no exceptions:
 
 - **Before every single commit** → `use the qa agent to run the full gate`
 - **After any public API surface change** → `use the docs agent to update dartdoc and examples`
+- **After every phase completion** → `use the docs agent to update example/main.dart` so the example always demonstrates the latest features
 - **After Phase 3 (rendering) is complete** → `use the integration agent to add golden tests`
 - **After Phase 5 (widgets) is complete** → `use the integration agent to add caret and selection precision tests`
 - **After Phase 9 (benchmarks) is complete** → `use the benchmark agent to record baselines`

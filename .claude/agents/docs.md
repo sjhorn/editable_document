@@ -78,7 +78,9 @@ Use `{@tool snippet}` for inline examples. Use `/// See also:` sections liberall
 
 ## Example app requirements
 
-The example app must demonstrate all Phase 1 block types and be platform-adaptive:
+**The example app must stay current.** After every phase completion, update `example/main.dart` to demonstrate the newly implemented features. The example is the living showcase of the package — if a feature exists but isn't visible in the example, it may as well not exist.
+
+The example app must demonstrate all implemented features and be platform-adaptive:
 
 ```
 Toolbar: Bold · Italic · Underline · H1 · H2 · H3
