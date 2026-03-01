@@ -220,6 +220,10 @@ class DocumentImeInputClient implements DeltaTextInputClient {
     for (final request in requests) {
       requestHandler(request);
     }
+
+    // After processing all deltas, push the updated document state back to
+    // the platform IME so the next delta is based on current text/selection.
+    syncToIme();
   }
 
   /// Called by the platform when the user activates the keyboard action button

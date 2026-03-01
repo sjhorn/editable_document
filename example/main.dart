@@ -249,38 +249,43 @@ class _DocumentDemoState extends State<DocumentDemo> {
   // Command pipeline demo actions
   // ---------------------------------------------------------------------------
 
+  /// Returns the insert index after the currently selected node, or the end
+  /// of the document if nothing is selected.
+  int _insertIndex() {
+    final sel = _controller.selection;
+    if (sel != null) {
+      final idx = _document.getNodeIndexById(sel.extent.nodeId);
+      if (idx >= 0) return idx + 1;
+    }
+    return _document.nodeCount;
+  }
+
   void _addParagraph() {
     final newId = 'dynamic-${_nextNodeId++}';
     _document.insertNode(
-      _document.nodeCount,
+      _insertIndex(),
       ParagraphNode(
         id: newId,
         text: AttributedText('New paragraph added via command pipeline.'),
       ),
     );
-    // Note: direct document mutations bypass the command pipeline.
-    // Use editor.submit(EditRequest) for undo-tracked changes.
   }
 
   void _addListItem() {
     final newId = 'dynamic-${_nextNodeId++}';
     _document.insertNode(
-      _document.nodeCount,
+      _insertIndex(),
       ListItemNode(
         id: newId,
         text: AttributedText('Dynamically added list item'),
         type: ListItemType.unordered,
       ),
     );
-    // Note: direct document mutations bypass the command pipeline.
-    // Use editor.submit(EditRequest) for undo-tracked changes.
   }
 
   void _removeLastNode() {
     if (_document.nodeCount > 1) {
       _document.deleteNode(_document.nodes.last.id);
-      // Note: direct document mutations bypass the command pipeline.
-      // Use editor.submit(EditRequest) for undo-tracked changes.
     }
   }
 
