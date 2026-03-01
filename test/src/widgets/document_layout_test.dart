@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:editable_document/editable_document.dart';
-import 'package:editable_document/src/widgets/document_layout.dart';
 
 // ---------------------------------------------------------------------------
 // Test helpers

@@ -43,3 +43,4 @@ export 'src/services/document_ime_serializer.dart';
 export 'src/services/document_ime_input_client.dart';
 export 'src/services/document_keyboard_handler.dart';
 export 'src/widgets/component_builder.dart';
+export 'src/widgets/document_layout.dart';

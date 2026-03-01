@@ -11,6 +11,7 @@
 /// - **Phase 3**: Rendering — per-block render objects via ComponentBuilder
 /// - **Phase 4**: Services — IME serialization preview, keyboard handler info
 /// - **Phase 5.1**: ComponentBuilder — automatic node → widget mapping
+/// - **Phase 5.2**: DocumentLayout — automatic document rendering widget
 ///
 /// Run with: `flutter run -t example/main.dart`
 library;
@@ -278,12 +279,6 @@ class _DocumentDemoState extends State<DocumentDemo> {
 
   @override
   Widget build(BuildContext context) {
-    final context0 = ComponentContext(
-      document: _document,
-      selection: _controller.selection,
-      stylesheet: null,
-    );
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('editable_document'),
@@ -305,11 +300,13 @@ class _DocumentDemoState extends State<DocumentDemo> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Render each node via ComponentBuilder system (Phase 5.1).
-            for (final node in _document.nodes) ...[
-              _buildComponent(node, context0) ?? Text('Unknown node: ${node.runtimeType}'),
-              const SizedBox(height: 12),
-            ],
+            // Render document using DocumentLayout (Phase 5.2).
+            // This automatically maps nodes → widgets via ComponentBuilder.
+            DocumentLayout(
+              document: _document,
+              controller: _controller,
+              componentBuilders: defaultComponentBuilders,
+            ),
 
             const Divider(height: 32),
 
@@ -349,16 +346,6 @@ class _DocumentDemoState extends State<DocumentDemo> {
         ],
       ),
     );
-  }
-
-  Widget? _buildComponent(DocumentNode node, ComponentContext context0) {
-    for (final builder in defaultComponentBuilders) {
-      final viewModel = builder.createViewModel(_document, node);
-      if (viewModel != null) {
-        return builder.createComponent(viewModel, context0);
-      }
-    }
-    return null;
   }
 
   Widget _buildInfoPanel() {
