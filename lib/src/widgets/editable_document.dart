@@ -517,9 +517,13 @@ class EditableDocumentState extends State<EditableDocument> {
 
     final range = component.getLineBoundary(textPos);
     final targetOffset = forward ? range.end : range.start;
+    // When moving forward to a soft line break, use upstream affinity so the
+    // caret renders at the trailing edge of the current visual line rather
+    // than the leading edge of the next line.
+    final affinity = forward ? TextAffinity.upstream : TextAffinity.downstream;
     return DocumentPosition(
       nodeId: from.nodeId,
-      nodePosition: TextNodePosition(offset: targetOffset),
+      nodePosition: TextNodePosition(offset: targetOffset, affinity: affinity),
     );
   }
 

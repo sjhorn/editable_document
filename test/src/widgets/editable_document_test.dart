@@ -1494,21 +1494,29 @@ void main() {
       await tester.pump();
 
       expect(controller.selection, isNotNull);
-      final offset = (controller.selection!.extent.nodePosition as TextNodePosition).offset;
+      final pos = controller.selection!.extent.nodePosition as TextNodePosition;
 
       // The visual line boundary resolver should move to the end of the
       // first visual line — which is NOT wrappingText.length (node end)
       // since the text wraps at 200 px.
       expect(
-        offset,
+        pos.offset,
         lessThan(wrappingText.length),
         reason: 'Cmd+Right from start of first visual line should move to '
             'the END of that line, not to node end (offset ${wrappingText.length})',
       );
       expect(
-        offset,
+        pos.offset,
         greaterThan(0),
         reason: 'Cmd+Right must move forward from offset 0',
+      );
+      // At a soft wrap, upstream affinity places the caret at the trailing
+      // edge of the current line rather than the leading edge of the next.
+      expect(
+        pos.affinity,
+        TextAffinity.upstream,
+        reason: 'Cmd+Right should use upstream affinity so the caret '
+            'renders at the end of the current visual line',
       );
 
       controller.dispose();
