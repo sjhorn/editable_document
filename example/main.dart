@@ -2,13 +2,15 @@
 // Use of this source code is governed by a BSD-3-Clause license that can be
 // found in the LICENSE file.
 
-/// Minimal example demonstrating the editable_document model and rendering
-/// layers.
+/// Comprehensive example demonstrating all implemented layers of the
+/// editable_document package.
 ///
-/// This example creates a document with various block types — headings,
-/// paragraphs with attributed text, list items, a code block, a horizontal
-/// rule, and an image placeholder — then renders them on screen using thin
-/// [LeafRenderObjectWidget] wrappers around the per-block render objects.
+/// Demonstrates:
+/// - **Phase 1**: Document model — nodes, attributed text, positions, selections
+/// - **Phase 2**: Command pipeline — edit requests, undo/redo
+/// - **Phase 3**: Rendering — per-block render objects via ComponentBuilder
+/// - **Phase 4**: Services — IME serialization preview, keyboard handler info
+/// - **Phase 5.1**: ComponentBuilder — automatic node → widget mapping
 ///
 /// Run with: `flutter run -t example/main.dart`
 library;
@@ -40,7 +42,7 @@ class ExampleApp extends StatelessWidget {
   }
 }
 
-/// Demonstrates document model + rendering.
+/// Demonstrates all implemented editable_document layers.
 class DocumentDemo extends StatefulWidget {
   /// Creates the demo screen.
   const DocumentDemo({super.key});
@@ -54,6 +56,9 @@ class _DocumentDemoState extends State<DocumentDemo> {
   late final DocumentEditingController _controller;
   late final UndoableEditor _editor;
 
+  /// Counter for generating unique node IDs.
+  int _nextNodeId = 100;
+
   @override
   void initState() {
     super.initState();
@@ -62,17 +67,33 @@ class _DocumentDemoState extends State<DocumentDemo> {
     _editor = UndoableEditor(
       editContext: EditContext(document: _document, controller: _controller),
     );
+    // Listen for document changes to rebuild the UI.
+    _document.changes.addListener(_onDocumentChanged);
   }
 
   @override
   void dispose() {
+    _document.changes.removeListener(_onDocumentChanged);
     _controller.dispose();
     super.dispose();
   }
 
+  void _onDocumentChanged() {
+    setState(() {});
+  }
+
   MutableDocument _buildSampleDocument() {
+    // Rich text with bold attribution.
     final boldHello = AttributedText('Hello, editable_document!')
       ..applyAttribution(NamedAttribution.bold, 0, 4);
+
+    // Rich text with italic and underline.
+    final styledDesc = AttributedText(
+      'A drop-in replacement for EditableText with full block-level '
+      'document model support. This text has italic and underline styling.',
+    )
+      ..applyAttribution(NamedAttribution.italics, 27, 40)
+      ..applyAttribution(NamedAttribution.underline, 77, 82);
 
     return MutableDocument([
       ParagraphNode(
@@ -86,37 +107,79 @@ class _DocumentDemoState extends State<DocumentDemo> {
       ),
       ParagraphNode(
         id: 'desc',
-        text: AttributedText(
-          'A drop-in replacement for EditableText with full block-level '
-          'document model support.',
-        ),
+        text: styledDesc,
       ),
+      ParagraphNode(
+        id: 'phases-heading',
+        text: AttributedText('Implemented Phases'),
+        blockType: ParagraphBlockType.header2,
+      ),
+      // Ordered list items demonstrating Phase 1 model.
+      ListItemNode(
+        id: 'phase-1',
+        text: AttributedText('Document model (nodes, text, positions, selections)'),
+        type: ListItemType.ordered,
+      ),
+      ListItemNode(
+        id: 'phase-2',
+        text: AttributedText('Command pipeline with undo/redo'),
+        type: ListItemType.ordered,
+      ),
+      ListItemNode(
+        id: 'phase-3',
+        text: AttributedText('Per-block render objects and layout'),
+        type: ListItemType.ordered,
+      ),
+      ListItemNode(
+        id: 'phase-4',
+        text: AttributedText('IME bridge (serializer, input client, keyboard)'),
+        type: ListItemType.ordered,
+      ),
+      ListItemNode(
+        id: 'phase-5',
+        text: AttributedText('ComponentBuilder widget system'),
+        type: ListItemType.ordered,
+      ),
+      HorizontalRuleNode(id: 'rule-1'),
       ParagraphNode(
         id: 'features-heading',
         text: AttributedText('Features'),
         blockType: ParagraphBlockType.header2,
       ),
+      // Unordered list with nested indent levels.
       ListItemNode(
         id: 'feature-1',
         text: AttributedText('Block-level document model'),
         type: ListItemType.unordered,
       ),
       ListItemNode(
-        id: 'feature-2',
-        text: AttributedText('Per-block render objects'),
+        id: 'feature-1a',
+        text: AttributedText('Paragraph, list, code, image, HR nodes'),
         type: ListItemType.unordered,
+        indent: 1,
       ),
       ListItemNode(
-        id: 'feature-3',
+        id: 'feature-1b',
+        text: AttributedText('Rich text attributions (bold, italic, underline)'),
+        type: ListItemType.unordered,
+        indent: 1,
+      ),
+      ListItemNode(
+        id: 'feature-2',
         text: AttributedText('Event-sourced command pipeline'),
         type: ListItemType.unordered,
       ),
       ListItemNode(
-        id: 'feature-4',
+        id: 'feature-3',
         text: AttributedText('Snapshot-based undo/redo'),
         type: ListItemType.unordered,
       ),
-      HorizontalRuleNode(id: 'rule'),
+      ListItemNode(
+        id: 'feature-4',
+        text: AttributedText('IME delta model bridge'),
+        type: ListItemType.unordered,
+      ),
+      HorizontalRuleNode(id: 'rule-2'),
       ParagraphNode(
         id: 'code-heading',
         text: AttributedText('Code example'),
@@ -125,12 +188,19 @@ class _DocumentDemoState extends State<DocumentDemo> {
       CodeBlockNode(
         id: 'code',
         text: AttributedText(
-          'final doc = MutableDocument(nodes: [\n'
+          'final doc = MutableDocument([\n'
           '  ParagraphNode(\n'
           '    id: "1",\n'
           '    text: AttributedText("Hello"),\n'
           '  ),\n'
-          ']);',
+          ']);\n'
+          '\n'
+          'final editor = UndoableEditor(\n'
+          '  editContext: EditContext(\n'
+          '    document: doc,\n'
+          '    controller: controller,\n'
+          '  ),\n'
+          ');',
         ),
       ),
       ImageNode(
@@ -146,11 +216,74 @@ class _DocumentDemoState extends State<DocumentDemo> {
         ),
         blockType: ParagraphBlockType.blockquote,
       ),
+      ParagraphNode(
+        id: 'ime-heading',
+        text: AttributedText('IME Serialization'),
+        blockType: ParagraphBlockType.header3,
+      ),
+      ParagraphNode(
+        id: 'ime-desc',
+        text: AttributedText(
+          'The DocumentImeSerializer converts between the block document model '
+          'and the flat TextEditingValue that platform IMEs expect. '
+          'The DocumentKeyboardHandler maps non-IME key events (arrows, '
+          'Home/End, Delete, Tab) to EditRequests.',
+        ),
+      ),
     ]);
   }
 
+  // ---------------------------------------------------------------------------
+  // Command pipeline demo actions
+  // ---------------------------------------------------------------------------
+
+  void _addParagraph() {
+    final newId = 'dynamic-${_nextNodeId++}';
+    _document.insertNode(
+      _document.nodeCount,
+      ParagraphNode(
+        id: newId,
+        text: AttributedText('New paragraph added via command pipeline.'),
+      ),
+    );
+    // Note: direct document mutations bypass the command pipeline.
+    // Use editor.submit(EditRequest) for undo-tracked changes.
+  }
+
+  void _addListItem() {
+    final newId = 'dynamic-${_nextNodeId++}';
+    _document.insertNode(
+      _document.nodeCount,
+      ListItemNode(
+        id: newId,
+        text: AttributedText('Dynamically added list item'),
+        type: ListItemType.unordered,
+      ),
+    );
+    // Note: direct document mutations bypass the command pipeline.
+    // Use editor.submit(EditRequest) for undo-tracked changes.
+  }
+
+  void _removeLastNode() {
+    if (_document.nodeCount > 1) {
+      _document.deleteNode(_document.nodes.last.id);
+      // Note: direct document mutations bypass the command pipeline.
+      // Use editor.submit(EditRequest) for undo-tracked changes.
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------------
+
   @override
   Widget build(BuildContext context) {
+    final context0 = ComponentContext(
+      document: _document,
+      selection: _controller.selection,
+      stylesheet: null,
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('editable_document'),
@@ -172,210 +305,153 @@ class _DocumentDemoState extends State<DocumentDemo> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Render each node via ComponentBuilder system (Phase 5.1).
             for (final node in _document.nodes) ...[
-              _buildBlockWidget(node),
+              _buildComponent(node, context0) ?? Text('Unknown node: ${node.runtimeType}'),
               const SizedBox(height: 12),
             ],
+
+            const Divider(height: 32),
+
+            // Info panel showing document stats.
+            _buildInfoPanel(),
+
+            const SizedBox(height: 16),
+
+            // IME serialization preview.
+            _buildImePreview(),
+          ],
+        ),
+      ),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FloatingActionButton.small(
+            heroTag: 'add-paragraph',
+            onPressed: _addParagraph,
+            tooltip: 'Add paragraph',
+            child: const Icon(Icons.text_fields),
+          ),
+          const SizedBox(height: 8),
+          FloatingActionButton.small(
+            heroTag: 'add-list',
+            onPressed: _addListItem,
+            tooltip: 'Add list item',
+            child: const Icon(Icons.format_list_bulleted),
+          ),
+          const SizedBox(height: 8),
+          FloatingActionButton.small(
+            heroTag: 'remove-last',
+            onPressed: _document.nodeCount > 1 ? _removeLastNode : null,
+            tooltip: 'Remove last node',
+            child: const Icon(Icons.delete_outline),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget? _buildComponent(DocumentNode node, ComponentContext context0) {
+    for (final builder in defaultComponentBuilders) {
+      final viewModel = builder.createViewModel(_document, node);
+      if (viewModel != null) {
+        return builder.createComponent(viewModel, context0);
+      }
+    }
+    return null;
+  }
+
+  Widget _buildInfoPanel() {
+    final textNodeCount = _document.nodes.whereType<TextNode>().length;
+    final totalChars =
+        _document.nodes.whereType<TextNode>().fold<int>(0, (sum, n) => sum + n.text.text.length);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Document Stats',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text('Total nodes: ${_document.nodeCount}'),
+            Text('Text nodes: $textNodeCount'),
+            Text('Total characters: $totalChars'),
+            Text('Can undo: ${_editor.canUndo}'),
+            Text('Can redo: ${_editor.canRedo}'),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildBlockWidget(DocumentNode node) {
-    return switch (node) {
-      ParagraphNode() => ParagraphBlockWidget(node: node),
-      ListItemNode() => ListItemBlockWidget(
-          node: node,
-          ordinalIndex: _ordinalIndexFor(node),
+  Widget _buildImePreview() {
+    const serializer = DocumentImeSerializer();
+    final value = serializer.toTextEditingValue(
+      document: _document,
+      selection: _controller.selection,
+    );
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'IME Serialization Preview',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'TextEditingValue text length: ${value.text.length}',
+            ),
+            Text(
+              'Selection: ${value.selection}',
+            ),
+            Text(
+              'Composing: ${value.composing}',
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'First 200 chars of serialized text:',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                value.text.length > 200 ? '${value.text.substring(0, 200)}...' : value.text,
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 11,
+                ),
+              ),
+            ),
+          ],
         ),
-      CodeBlockNode() => CodeBlockWidget(node: node),
-      HorizontalRuleNode() => HorizontalRuleBlockWidget(node: node),
-      ImageNode() => ImageBlockWidget(node: node),
-      _ => const SizedBox.shrink(),
-    };
-  }
-
-  int _ordinalIndexFor(ListItemNode node) {
-    var index = 1;
-    for (final n in _document.nodes) {
-      if (n.id == node.id) break;
-      if (n is ListItemNode && n.type == ListItemType.ordered && n.indent == node.indent) {
-        index++;
-      }
-    }
-    return index;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Thin LeafRenderObjectWidget wrappers
-// ---------------------------------------------------------------------------
-
-/// Renders a [ParagraphNode] using [RenderParagraphBlock].
-class ParagraphBlockWidget extends LeafRenderObjectWidget {
-  /// Creates a paragraph block widget.
-  const ParagraphBlockWidget({super.key, required this.node});
-
-  /// The paragraph node to render.
-  final ParagraphNode node;
-
-  @override
-  RenderParagraphBlock createRenderObject(BuildContext context) {
-    return RenderParagraphBlock(
-      nodeId: node.id,
-      text: node.text,
-      blockType: node.blockType,
-      baseTextStyle: DefaultTextStyle.of(context).style,
+      ),
     );
   }
 
   @override
-  void updateRenderObject(BuildContext context, RenderParagraphBlock renderObject) {
-    renderObject
-      ..nodeId = node.id
-      ..text = node.text
-      ..blockType = node.blockType
-      ..baseTextStyle = DefaultTextStyle.of(context).style;
-  }
-
-  @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
-    properties.add(DiagnosticsProperty<ParagraphNode>('node', node));
-  }
-}
-
-/// Renders a [ListItemNode] using [RenderListItemBlock].
-class ListItemBlockWidget extends LeafRenderObjectWidget {
-  /// Creates a list item block widget.
-  const ListItemBlockWidget({
-    super.key,
-    required this.node,
-    this.ordinalIndex = 1,
-  });
-
-  /// The list item node to render.
-  final ListItemNode node;
-
-  /// The 1-based ordinal index for ordered list items.
-  final int ordinalIndex;
-
-  @override
-  RenderListItemBlock createRenderObject(BuildContext context) {
-    return RenderListItemBlock(
-      nodeId: node.id,
-      text: node.text,
-      type: node.type,
-      indent: node.indent,
-      ordinalIndex: ordinalIndex,
-      textStyle: DefaultTextStyle.of(context).style,
+    properties.add(
+      DiagnosticsProperty<MutableDocument>('document', _document),
     );
-  }
-
-  @override
-  void updateRenderObject(BuildContext context, RenderListItemBlock renderObject) {
-    renderObject
-      ..nodeId = node.id
-      ..text = node.text
-      ..type = node.type
-      ..indent = node.indent
-      ..ordinalIndex = ordinalIndex
-      ..textStyle = DefaultTextStyle.of(context).style;
-  }
-
-  @override
-  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
-    super.debugFillProperties(properties);
-    properties.add(DiagnosticsProperty<ListItemNode>('node', node));
-    properties.add(IntProperty('ordinalIndex', ordinalIndex));
-  }
-}
-
-/// Renders a [CodeBlockNode] using [RenderCodeBlock].
-class CodeBlockWidget extends LeafRenderObjectWidget {
-  /// Creates a code block widget.
-  const CodeBlockWidget({super.key, required this.node});
-
-  /// The code block node to render.
-  final CodeBlockNode node;
-
-  @override
-  RenderCodeBlock createRenderObject(BuildContext context) {
-    return RenderCodeBlock(
-      nodeId: node.id,
-      text: node.text,
-      baseTextStyle: DefaultTextStyle.of(context).style,
+    properties.add(
+      DiagnosticsProperty<DocumentEditingController>(
+        'controller',
+        _controller,
+      ),
     );
-  }
-
-  @override
-  void updateRenderObject(BuildContext context, RenderCodeBlock renderObject) {
-    renderObject
-      ..nodeId = node.id
-      ..text = node.text;
-  }
-
-  @override
-  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
-    super.debugFillProperties(properties);
-    properties.add(DiagnosticsProperty<CodeBlockNode>('node', node));
-  }
-}
-
-/// Renders a [HorizontalRuleNode] using [RenderHorizontalRuleBlock].
-class HorizontalRuleBlockWidget extends LeafRenderObjectWidget {
-  /// Creates a horizontal rule widget.
-  const HorizontalRuleBlockWidget({super.key, required this.node});
-
-  /// The horizontal rule node to render.
-  final HorizontalRuleNode node;
-
-  @override
-  RenderHorizontalRuleBlock createRenderObject(BuildContext context) {
-    return RenderHorizontalRuleBlock(nodeId: node.id);
-  }
-
-  @override
-  void updateRenderObject(BuildContext context, RenderHorizontalRuleBlock renderObject) {
-    renderObject.nodeId = node.id;
-  }
-
-  @override
-  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
-    super.debugFillProperties(properties);
-    properties.add(DiagnosticsProperty<HorizontalRuleNode>('node', node));
-  }
-}
-
-/// Renders an [ImageNode] using [RenderImageBlock].
-class ImageBlockWidget extends LeafRenderObjectWidget {
-  /// Creates an image block widget.
-  const ImageBlockWidget({super.key, required this.node});
-
-  /// The image node to render.
-  final ImageNode node;
-
-  @override
-  RenderImageBlock createRenderObject(BuildContext context) {
-    return RenderImageBlock(
-      nodeId: node.id,
-      imageWidth: node.width,
-      imageHeight: node.height,
-    );
-  }
-
-  @override
-  void updateRenderObject(BuildContext context, RenderImageBlock renderObject) {
-    renderObject
-      ..nodeId = node.id
-      ..imageWidth = node.width
-      ..imageHeight = node.height;
-  }
-
-  @override
-  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
-    super.debugFillProperties(properties);
-    properties.add(DiagnosticsProperty<ImageNode>('node', node));
   }
 }
