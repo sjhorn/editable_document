@@ -132,11 +132,11 @@ cat ROADMAP.md                          # find next unchecked checkbox
 
 # 3. After implementation, always run the gate via qa agent
 #    e.g. "use the qa agent to run the full gate"
-bash scripts/ci/ci_gate.sh
-bash scripts/ci/log_tail.sh summary
+scripts/ci/ci_gate.sh
+scripts/ci/log_tail.sh summary
 
 # 4. Inspect any failures
-bash scripts/ci/log_tail.sh failures
+scripts/ci/log_tail.sh failures
 ```
 
 **Never type `flutter test`, `flutter analyze`, or `dart format` directly. Always go through the `qa` agent.**
