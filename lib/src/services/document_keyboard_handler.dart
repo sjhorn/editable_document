@@ -19,8 +19,15 @@ import '../model/node_position.dart';
 import '../model/text_node.dart';
 
 // ---------------------------------------------------------------------------
-// DocumentKeyboardHandler
+// PageMoveResolver
 // ---------------------------------------------------------------------------
+
+/// Resolves a Page Up/Down movement. Returns the target [DocumentPosition],
+/// or `null` if the move cannot be resolved.
+typedef PageMoveResolver = DocumentPosition? Function({
+  required DocumentPosition from,
+  required bool forward,
+});
 
 /// Maps raw [KeyEvent]s to [EditRequest]s for the document editor.
 ///
@@ -41,6 +48,11 @@ import '../model/text_node.dart';
 /// * **Home / End** — move to the start/end of the current text node.
 /// * **Primary modifier + Home / End** — move to the very start/end of the
 ///   document.
+/// * **Page Up** — move the caret up by one viewport height (requires
+///   [pageMoveResolver]).
+/// * **Page Down** — move the caret down by one viewport height (requires
+///   [pageMoveResolver]).
+/// * **Shift + Page Up/Down** — extend the selection by one viewport height.
 /// * **Delete** — forward-delete one character (or delete current selection).
 /// * **Backspace** (fallback) — backward-delete one character.
 /// * **Tab** — [IndentListItemRequest] when cursor is in a [ListItemNode];
@@ -98,10 +110,14 @@ class DocumentKeyboardHandler {
   /// * [controller] — provides and mutates the current [DocumentSelection].
   /// * [requestHandler] — called with each [EditRequest] produced by a key
   ///   event (typically `editor.submit`).
+  /// * [pageMoveResolver] — optional callback that resolves Page Up/Down
+  ///   movement to a target [DocumentPosition]. When `null`, Page Up/Down
+  ///   key events return `false` (unhandled).
   DocumentKeyboardHandler({
     required Document document,
     required DocumentEditingController controller,
     required void Function(EditRequest request) requestHandler,
+    this.pageMoveResolver,
   })  : _document = document,
         _controller = controller,
         _requestHandler = requestHandler;
@@ -109,6 +125,16 @@ class DocumentKeyboardHandler {
   final Document _document;
   final DocumentEditingController _controller;
   final void Function(EditRequest) _requestHandler;
+
+  /// Optional callback that resolves page-level vertical caret movement.
+  ///
+  /// When non-null, Page Up/Down keys invoke this resolver to determine the
+  /// target [DocumentPosition] one viewport height above or below the current
+  /// extent. The widgets layer typically provides the implementation since it
+  /// has access to layout geometry and viewport dimensions.
+  ///
+  /// When `null`, Page Up/Down key events return `false` (unhandled).
+  final PageMoveResolver? pageMoveResolver;
 
   // -------------------------------------------------------------------------
   // Public entry point
@@ -178,6 +204,12 @@ class DocumentKeyboardHandler {
     }
     if (logicalKey == LogicalKeyboardKey.end) {
       return _handleEnd(primaryModifier: primaryModifier, shift: shiftPressed);
+    }
+    if (logicalKey == LogicalKeyboardKey.pageUp) {
+      return _handlePageMove(forward: false, shift: shiftPressed);
+    }
+    if (logicalKey == LogicalKeyboardKey.pageDown) {
+      return _handlePageMove(forward: true, shift: shiftPressed);
     }
     if (logicalKey == LogicalKeyboardKey.delete) {
       return _handleDeleteForward();
@@ -410,6 +442,20 @@ class DocumentKeyboardHandler {
     }
 
     _updateSelection(newExtent, extend: shift);
+    return true;
+  }
+
+  // -------------------------------------------------------------------------
+  // Page Up / Page Down
+  // -------------------------------------------------------------------------
+
+  bool _handlePageMove({required bool forward, required bool shift}) {
+    if (pageMoveResolver == null) return false;
+    final selection = _controller.selection;
+    if (selection == null) return false;
+    final resolved = pageMoveResolver!(from: selection.extent, forward: forward);
+    if (resolved == null) return false;
+    _updateSelection(resolved, extend: shift);
     return true;
   }
 

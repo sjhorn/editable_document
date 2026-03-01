@@ -639,6 +639,173 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
+  // Page Up / Page Down
+  // -------------------------------------------------------------------------
+
+  group('EditableDocument — Page Up/Down', () {
+    testWidgets('Page Down moves selection to a later paragraph', (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      // 20 paragraphs — enough to overflow a 200 px viewport.
+      final nodes = List.generate(
+        20,
+        (i) => ParagraphNode(id: 'p$i', text: AttributedText('Line $i')),
+      );
+      final doc = MutableDocument(nodes);
+      final controller = DocumentEditingController(document: doc);
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      // Set selection at the very beginning of the document.
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p0',
+            nodePosition: TextNodePosition(offset: 0),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          SizedBox(
+            height: 200,
+            child: SingleChildScrollView(
+              child: EditableDocument(
+                controller: controller,
+                focusNode: focusNode,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      // Send Page Down — the resolver should move selection one viewport height
+      // down, landing in a later paragraph.
+      await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
+      await tester.pump();
+
+      // The selection must have moved: extent should no longer be in 'p0'.
+      expect(controller.selection, isNotNull);
+      expect(
+        controller.selection!.extent.nodeId,
+        isNot('p0'),
+        reason: 'Page Down should move selection out of the first paragraph',
+      );
+    });
+
+    testWidgets('Page Up moves selection back toward start after Page Down', (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final nodes = List.generate(
+        20,
+        (i) => ParagraphNode(id: 'p$i', text: AttributedText('Line $i')),
+      );
+      final doc = MutableDocument(nodes);
+      final controller = DocumentEditingController(document: doc);
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      // Start at paragraph 0.
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p0',
+            nodePosition: TextNodePosition(offset: 0),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          SizedBox(
+            height: 200,
+            child: SingleChildScrollView(
+              child: EditableDocument(
+                controller: controller,
+                focusNode: focusNode,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      // Page Down to move selection forward.
+      await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
+      await tester.pump();
+
+      final afterPageDown = controller.selection!.extent.nodeId;
+      expect(afterPageDown, isNot('p0'));
+
+      // Page Up should move back up — ending up earlier in the document than
+      // where Page Down landed (ideally back at p0, but clamping is acceptable).
+      await tester.sendKeyEvent(LogicalKeyboardKey.pageUp);
+      await tester.pump();
+
+      expect(controller.selection, isNotNull);
+      // The node index after Page Up should be <= the node index after Page Down.
+      final afterPageDownIndex = int.parse(afterPageDown.substring(1));
+      final afterPageUpId = controller.selection!.extent.nodeId;
+      final afterPageUpIndex = int.parse(afterPageUpId.substring(1));
+      expect(
+        afterPageUpIndex,
+        lessThanOrEqualTo(afterPageDownIndex),
+        reason: 'Page Up should move selection toward the start of the document',
+      );
+    });
+
+    testWidgets('Page Down does nothing without a selection', (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final nodes = List.generate(
+        5,
+        (i) => ParagraphNode(id: 'p$i', text: AttributedText('Line $i')),
+      );
+      final doc = MutableDocument(nodes);
+      final controller = DocumentEditingController(document: doc);
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      // No selection set.
+      await tester.pumpWidget(
+        _wrap(
+          SizedBox(
+            height: 200,
+            child: SingleChildScrollView(
+              child: EditableDocument(
+                controller: controller,
+                focusNode: focusNode,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
+      await tester.pump();
+
+      // Selection was null before and should remain null.
+      expect(controller.selection, isNull);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // Auto-scroll to caret
   // -------------------------------------------------------------------------
 

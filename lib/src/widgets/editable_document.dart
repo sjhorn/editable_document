@@ -16,10 +16,12 @@ library;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import '../model/document_editing_controller.dart';
+import '../model/document_position.dart';
 import '../model/document_selection.dart';
 import '../model/edit_request.dart';
 import '../model/editor.dart';
@@ -268,6 +270,7 @@ class EditableDocumentState extends State<EditableDocument> {
       document: widget.controller.document,
       controller: widget.controller,
       requestHandler: _handleRequest,
+      pageMoveResolver: _resolvePageMove,
     );
     widget.focusNode.addListener(_onFocusChanged);
     widget.controller.addListener(_onControllerChanged);
@@ -287,6 +290,7 @@ class EditableDocumentState extends State<EditableDocument> {
         document: widget.controller.document,
         controller: widget.controller,
         requestHandler: _handleRequest,
+        pageMoveResolver: _resolvePageMove,
       );
       // Rebuild IME client for the new controller.
       _imeClient = DocumentImeInputClient(
@@ -380,6 +384,43 @@ class EditableDocumentState extends State<EditableDocument> {
         curve: Curves.fastOutSlowIn,
       );
     });
+  }
+
+  // -------------------------------------------------------------------------
+  // Page-move resolver
+  // -------------------------------------------------------------------------
+
+  /// Resolves a Page Up/Down movement by computing the [DocumentPosition]
+  /// one viewport height above or below [from].
+  ///
+  /// Returns `null` when the layout state is unavailable or the target
+  /// offset falls outside the document bounds.
+  DocumentPosition? _resolvePageMove({
+    required DocumentPosition from,
+    required bool forward,
+  }) {
+    final layoutState = _layoutKey.currentState;
+    if (layoutState == null) return null;
+    final caretRect = layoutState.rectForDocumentPosition(from);
+    if (caretRect == null) return null;
+    final renderObject = layoutState.context.findRenderObject();
+    if (renderObject is! RenderBox) return null;
+
+    final viewportHeight = _getViewportHeight(renderObject) ?? renderObject.size.height;
+    final targetY = forward ? caretRect.top + viewportHeight : caretRect.top - viewportHeight;
+    return layoutState.documentPositionNearestToOffset(
+      Offset(caretRect.left, targetY),
+    );
+  }
+
+  /// Walks up the render tree to find the nearest viewport and returns its
+  /// height. Returns `null` when there is no viewport ancestor.
+  double? _getViewportHeight(RenderObject renderObject) {
+    final viewport = RenderAbstractViewport.maybeOf(renderObject);
+    if (viewport != null && viewport is RenderBox) {
+      return (viewport as RenderBox).size.height;
+    }
+    return null;
   }
 
   // -------------------------------------------------------------------------

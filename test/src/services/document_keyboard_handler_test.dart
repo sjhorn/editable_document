@@ -2745,4 +2745,234 @@ void main() {
       debugDefaultTargetPlatformOverride = null;
     });
   });
+
+  // =========================================================================
+  // Page Up / Page Down
+  // =========================================================================
+
+  group('Page Up/Down', () {
+    test('Page Down moves caret forward via resolver', () {
+      final doc = _twoParagraphs(firstText: 'Hello', secondText: 'World');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 2));
+      final requests = <EditRequest>[];
+
+      // Resolver: when forward, return start of p2.
+      final targetPosition = const DocumentPosition(
+        nodeId: 'p2',
+        nodePosition: TextNodePosition(offset: 0),
+      );
+      DocumentPosition? capturedFrom;
+      bool? capturedForward;
+
+      final handler = DocumentKeyboardHandler(
+        document: doc,
+        controller: controller,
+        requestHandler: requests.add,
+        pageMoveResolver: ({required DocumentPosition from, required bool forward}) {
+          capturedFrom = from;
+          capturedForward = forward;
+          return forward ? targetPosition : null;
+        },
+      );
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.pageDown));
+
+      expect(result, isTrue);
+      expect(capturedForward, isTrue);
+      expect(capturedFrom, equals(_collapsed('p1', 2).extent));
+      expect(controller.selection!.isCollapsed, isTrue);
+      expect(controller.selection!.extent.nodeId, equals('p2'));
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(0),
+      );
+    });
+
+    test('Page Up moves caret backward via resolver', () {
+      final doc = _twoParagraphs(firstText: 'Hello', secondText: 'World');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p2', 3));
+      final requests = <EditRequest>[];
+
+      // Resolver: when not forward, return start of p1.
+      final targetPosition = const DocumentPosition(
+        nodeId: 'p1',
+        nodePosition: TextNodePosition(offset: 0),
+      );
+
+      final handler = DocumentKeyboardHandler(
+        document: doc,
+        controller: controller,
+        requestHandler: requests.add,
+        pageMoveResolver: ({required DocumentPosition from, required bool forward}) {
+          return forward ? null : targetPosition;
+        },
+      );
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.pageUp));
+
+      expect(result, isTrue);
+      expect(controller.selection!.isCollapsed, isTrue);
+      expect(controller.selection!.extent.nodeId, equals('p1'));
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(0),
+      );
+    });
+
+    testWidgets('Shift+Page Down extends selection forward', (tester) async {
+      final doc = _twoParagraphs(firstText: 'Hello', secondText: 'World');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 2));
+      final requests = <EditRequest>[];
+
+      final targetPosition = const DocumentPosition(
+        nodeId: 'p2',
+        nodePosition: TextNodePosition(offset: 3),
+      );
+
+      final handler = DocumentKeyboardHandler(
+        document: doc,
+        controller: controller,
+        requestHandler: requests.add,
+        pageMoveResolver: ({required DocumentPosition from, required bool forward}) {
+          return forward ? targetPosition : null;
+        },
+      );
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.pageDown);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.pageDown);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);
+
+      expect(controller.selection!.isExpanded, isTrue);
+      // Base stays at the original position.
+      expect(controller.selection!.base.nodeId, equals('p1'));
+      expect(
+        (controller.selection!.base.nodePosition as TextNodePosition).offset,
+        equals(2),
+      );
+      // Extent moves to the resolved position.
+      expect(controller.selection!.extent.nodeId, equals('p2'));
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(3),
+      );
+    });
+
+    testWidgets('Shift+Page Up extends selection backward', (tester) async {
+      final doc = _twoParagraphs(firstText: 'Hello', secondText: 'World');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p2', 3));
+      final requests = <EditRequest>[];
+
+      final targetPosition = const DocumentPosition(
+        nodeId: 'p1',
+        nodePosition: TextNodePosition(offset: 1),
+      );
+
+      final handler = DocumentKeyboardHandler(
+        document: doc,
+        controller: controller,
+        requestHandler: requests.add,
+        pageMoveResolver: ({required DocumentPosition from, required bool forward}) {
+          return forward ? null : targetPosition;
+        },
+      );
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.pageUp);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.pageUp);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);
+
+      expect(controller.selection!.isExpanded, isTrue);
+      // Base stays at the original position.
+      expect(controller.selection!.base.nodeId, equals('p2'));
+      expect(
+        (controller.selection!.base.nodePosition as TextNodePosition).offset,
+        equals(3),
+      );
+      // Extent moves to the resolved position.
+      expect(controller.selection!.extent.nodeId, equals('p1'));
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(1),
+      );
+    });
+
+    test('returns false when pageMoveResolver is null — Page Down', () {
+      final doc = _singleParagraph('Hello');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 2));
+      final requests = <EditRequest>[];
+
+      // No pageMoveResolver provided.
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.pageDown));
+
+      expect(result, isFalse);
+      // Selection must be unchanged.
+      expect(controller.selection, _collapsed('p1', 2));
+    });
+
+    test('returns false when pageMoveResolver is null — Page Up', () {
+      final doc = _singleParagraph('Hello');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 2));
+      final requests = <EditRequest>[];
+
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.pageUp));
+
+      expect(result, isFalse);
+      expect(controller.selection, _collapsed('p1', 2));
+    });
+
+    test('returns false when selection is null', () {
+      final doc = _singleParagraph('Hello');
+      // No initial selection.
+      final controller = DocumentEditingController(document: doc);
+      final requests = <EditRequest>[];
+
+      final handler = DocumentKeyboardHandler(
+        document: doc,
+        controller: controller,
+        requestHandler: requests.add,
+        pageMoveResolver: ({required DocumentPosition from, required bool forward}) {
+          return const DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 0),
+          );
+        },
+      );
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.pageDown));
+
+      expect(result, isFalse);
+      expect(controller.selection, isNull);
+    });
+
+    test('returns false when resolver returns null', () {
+      final doc = _singleParagraph('Hello');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 2));
+      final requests = <EditRequest>[];
+
+      // Resolver always returns null.
+      final handler = DocumentKeyboardHandler(
+        document: doc,
+        controller: controller,
+        requestHandler: requests.add,
+        pageMoveResolver: ({required DocumentPosition from, required bool forward}) => null,
+      );
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.pageDown));
+
+      expect(result, isFalse);
+      // Selection must be unchanged.
+      expect(controller.selection, _collapsed('p1', 2));
+    });
+  });
 }
