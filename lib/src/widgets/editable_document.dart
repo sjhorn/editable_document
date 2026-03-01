@@ -317,6 +317,9 @@ class EditableDocumentState extends State<EditableDocument> {
 
   void _onControllerChanged() {
     widget.onSelectionChanged?.call(widget.controller.selection);
+    // Keep the platform IME in sync with the current selection so that
+    // subsequent typing inserts at the correct position.
+    _imeClient.syncToIme();
   }
 
   // -------------------------------------------------------------------------
