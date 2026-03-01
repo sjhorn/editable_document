@@ -264,11 +264,14 @@ class _DocumentDemoState extends State<DocumentDemo> {
     final newId = 'dynamic-${_nextNodeId++}';
     _document.insertNode(
       _insertIndex(),
-      ParagraphNode(
-        id: newId,
-        text: AttributedText('New paragraph added via command pipeline.'),
-      ),
+      ParagraphNode(id: newId, text: AttributedText()),
     );
+    _controller.setSelection(DocumentSelection.collapsed(
+      position: DocumentPosition(
+        nodeId: newId,
+        nodePosition: const TextNodePosition(offset: 0),
+      ),
+    ));
   }
 
   void _addListItem() {
@@ -277,15 +280,35 @@ class _DocumentDemoState extends State<DocumentDemo> {
       _insertIndex(),
       ListItemNode(
         id: newId,
-        text: AttributedText('Dynamically added list item'),
+        text: AttributedText(),
         type: ListItemType.unordered,
       ),
     );
+    _controller.setSelection(DocumentSelection.collapsed(
+      position: DocumentPosition(
+        nodeId: newId,
+        nodePosition: const TextNodePosition(offset: 0),
+      ),
+    ));
   }
 
   void _removeLastNode() {
     if (_document.nodeCount > 1) {
-      _document.deleteNode(_document.nodes.last.id);
+      final lastId = _document.nodes.last.id;
+      // If selection is in the node being deleted, move it first.
+      final sel = _controller.selection;
+      if (sel != null && (sel.base.nodeId == lastId || sel.extent.nodeId == lastId)) {
+        final newLast = _document.nodes[_document.nodeCount - 2];
+        _controller.setSelection(DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: newLast.id,
+            nodePosition: newLast is TextNode
+                ? TextNodePosition(offset: newLast.text.text.length)
+                : const BinaryNodePosition.downstream(),
+          ),
+        ));
+      }
+      _document.deleteNode(lastId);
     }
   }
 
