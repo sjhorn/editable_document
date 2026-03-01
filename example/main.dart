@@ -324,18 +324,32 @@ class _DocumentDemoState extends State<DocumentDemo> {
               controller: _controller,
               layoutKey: _layoutKey,
               document: _document,
-              child: DocumentSelectionOverlay(
-                controller: _controller,
-                layoutKey: _layoutKey,
-                startHandleLayerLink: _startHandleLayerLink,
-                endHandleLayerLink: _endHandleLayerLink,
-                child: EditableDocument(
-                  controller: _controller,
-                  focusNode: _focusNode,
-                  layoutKey: _layoutKey,
-                  autofocus: true,
-                  editor: _editor,
-                ),
+              child: Stack(
+                children: [
+                  // Selection highlights (no static caret — the blinking
+                  // overlay below handles that).
+                  DocumentSelectionOverlay(
+                    controller: _controller,
+                    layoutKey: _layoutKey,
+                    startHandleLayerLink: _startHandleLayerLink,
+                    endHandleLayerLink: _endHandleLayerLink,
+                    showCaret: false,
+                    child: EditableDocument(
+                      controller: _controller,
+                      focusNode: _focusNode,
+                      layoutKey: _layoutKey,
+                      autofocus: true,
+                      editor: _editor,
+                    ),
+                  ),
+                  // Blinking caret overlay.
+                  Positioned.fill(
+                    child: CaretDocumentOverlay(
+                      controller: _controller,
+                      layoutKey: _layoutKey,
+                    ),
+                  ),
+                ],
               ),
             ),
 
