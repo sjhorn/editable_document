@@ -637,4 +637,109 @@ void main() {
       expect(find.byType(DocumentLayout), findsOneWidget);
     });
   });
+
+  // -------------------------------------------------------------------------
+  // Auto-scroll to caret
+  // -------------------------------------------------------------------------
+
+  group('EditableDocument — auto-scroll to caret', () {
+    testWidgets('scrolls to caret when selection changes beyond viewport', (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      // Create a document with many paragraphs to overflow a small viewport.
+      final nodes = List.generate(
+        20,
+        (i) => ParagraphNode(id: 'p$i', text: AttributedText('Line $i')),
+      );
+      final doc = MutableDocument(nodes);
+      final controller = DocumentEditingController(document: doc);
+      final focusNode = FocusNode();
+      final scrollController = ScrollController();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+      addTearDown(scrollController.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          SizedBox(
+            height: 100,
+            child: SingleChildScrollView(
+              controller: scrollController,
+              child: EditableDocument(
+                controller: controller,
+                focusNode: focusNode,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Initially scroll should be at 0.
+      expect(scrollController.offset, 0.0);
+
+      // Set selection to the last paragraph.
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p19',
+            nodePosition: TextNodePosition(offset: 0),
+          ),
+        ),
+      );
+
+      // Pump to trigger post-frame callback, then settle for animation.
+      await tester.pumpAndSettle();
+
+      // The viewport should have scrolled down.
+      expect(scrollController.offset, greaterThan(0));
+    });
+
+    testWidgets('scrollPadding defaults to EdgeInsets.all(20.0)', (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final controller = _makeController();
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+          ),
+        ),
+      );
+
+      final widget = tester.widget<EditableDocument>(find.byType(EditableDocument));
+      expect(widget.scrollPadding, const EdgeInsets.all(20.0));
+    });
+
+    testWidgets('custom scrollPadding is stored on the widget', (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final controller = _makeController();
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      const customPadding = EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0);
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+            scrollPadding: customPadding,
+          ),
+        ),
+      );
+
+      final widget = tester.widget<EditableDocument>(find.byType(EditableDocument));
+      expect(widget.scrollPadding, customPadding);
+    });
+  });
 }

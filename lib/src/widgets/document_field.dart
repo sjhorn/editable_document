@@ -91,6 +91,7 @@ class DocumentField extends StatefulWidget {
     this.editor,
     this.maxLength,
     this.enabled = true,
+    this.scrollPadding = const EdgeInsets.all(20.0),
   });
 
   /// The controller for the document being edited.
@@ -198,6 +199,15 @@ class DocumentField extends StatefulWidget {
   /// Defaults to `true`.
   final bool enabled;
 
+  /// {@macro editable_document.scrollPadding}
+  ///
+  /// Padding around the caret to ensure it is not flush against the viewport
+  /// edge after auto-scrolling.
+  ///
+  /// Defaults to `EdgeInsets.all(20.0)`. Forwarded to the inner
+  /// [EditableDocument].
+  final EdgeInsets scrollPadding;
+
   @override
   State<DocumentField> createState() => DocumentFieldState();
 
@@ -240,6 +250,7 @@ class DocumentField extends StatefulWidget {
     properties.add(DiagnosticsProperty<Editor?>('editor', editor, defaultValue: null));
     properties.add(IntProperty('maxLength', maxLength, defaultValue: null));
     properties.add(FlagProperty('enabled', value: enabled, ifFalse: 'disabled'));
+    properties.add(DiagnosticsProperty<EdgeInsets>('scrollPadding', scrollPadding));
   }
 }
 
@@ -469,6 +480,7 @@ class DocumentFieldState extends State<DocumentField> {
           blockSpacing: widget.blockSpacing,
           stylesheet: widget.stylesheet,
           editor: widget.editor,
+          scrollPadding: widget.scrollPadding,
         ),
       ),
     );

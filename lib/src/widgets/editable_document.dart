@@ -16,6 +16,7 @@ library;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import '../model/document_editing_controller.dart';
@@ -83,6 +84,7 @@ class EditableDocument extends StatefulWidget {
     this.blockSpacing = 12.0,
     this.stylesheet,
     this.editor,
+    this.scrollPadding = const EdgeInsets.all(20.0),
   });
 
   /// The document editing controller holding the [MutableDocument] and current
@@ -175,6 +177,12 @@ class EditableDocument extends StatefulWidget {
   /// applied directly to [controller] using a minimal built-in handler.
   final Editor? editor;
 
+  /// Padding around the caret to ensure it is not flush against the viewport
+  /// edge after auto-scrolling.
+  ///
+  /// Defaults to `EdgeInsets.all(20.0)`, matching [EditableText.scrollPadding].
+  final EdgeInsets scrollPadding;
+
   @override
   State<EditableDocument> createState() => EditableDocumentState();
 
@@ -213,6 +221,7 @@ class EditableDocument extends StatefulWidget {
     );
     properties.add(DiagnosticsProperty<Editor?>('editor', editor, defaultValue: null));
     properties.add(DiagnosticsProperty<GlobalKey<DocumentLayoutState>?>('layoutKey', layoutKey));
+    properties.add(DiagnosticsProperty<EdgeInsets>('scrollPadding', scrollPadding));
   }
 }
 
@@ -226,9 +235,22 @@ class EditableDocument extends StatefulWidget {
 /// - [DocumentImeInputClient] lifecycle (open/close on focus changes).
 /// - [DocumentKeyboardHandler] wiring via [Focus.onKeyEvent].
 /// - Selection-change listener forwarded to [EditableDocument.onSelectionChanged].
+/// - Auto-scrolling the caret into view on selection change via
+///   [_scheduleShowCaretOnScreen].
 class EditableDocumentState extends State<EditableDocument> {
   late final DocumentImeInputClient _imeClient;
   late final DocumentKeyboardHandler _keyboardHandler;
+
+  /// Internal [GlobalKey] for [DocumentLayout], used when [widget.layoutKey]
+  /// is not provided so that [_scheduleShowCaretOnScreen] can always locate
+  /// the render object.
+  final _internalLayoutKey = GlobalKey<DocumentLayoutState>();
+
+  /// Returns the effective layout key: the caller-supplied key if provided,
+  /// otherwise the internal fallback key.
+  GlobalKey<DocumentLayoutState> get _layoutKey => widget.layoutKey ?? _internalLayoutKey;
+
+  bool _showCaretOnScreenScheduled = false;
 
   // -------------------------------------------------------------------------
   // Lifecycle
@@ -320,6 +342,44 @@ class EditableDocumentState extends State<EditableDocument> {
     // Keep the platform IME in sync with the current selection so that
     // subsequent typing inserts at the correct position.
     _imeClient.syncToIme();
+    _scheduleShowCaretOnScreen();
+  }
+
+  // -------------------------------------------------------------------------
+  // Auto-scroll caret into view
+  // -------------------------------------------------------------------------
+
+  /// Schedules a post-frame callback that scrolls the caret rect into view,
+  /// padded by [EditableDocument.scrollPadding] on all sides.
+  ///
+  /// Only one callback is queued at a time; subsequent calls before the frame
+  /// fires are no-ops.
+  void _scheduleShowCaretOnScreen() {
+    if (_showCaretOnScreenScheduled) return;
+    _showCaretOnScreenScheduled = true;
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      _showCaretOnScreenScheduled = false;
+      if (!mounted) return;
+
+      final selection = widget.controller.selection;
+      if (selection == null) return;
+
+      final layoutState = _layoutKey.currentState;
+      if (layoutState == null) return;
+
+      final caretRect = layoutState.rectForDocumentPosition(selection.extent);
+      if (caretRect == null) return;
+
+      final renderObject = layoutState.context.findRenderObject();
+      if (renderObject == null) return;
+
+      final paddedRect = widget.scrollPadding.inflateRect(caretRect);
+      renderObject.showOnScreen(
+        rect: paddedRect,
+        duration: const Duration(milliseconds: 100),
+        curve: Curves.fastOutSlowIn,
+      );
+    });
   }
 
   // -------------------------------------------------------------------------
@@ -366,7 +426,7 @@ class EditableDocumentState extends State<EditableDocument> {
       autofocus: widget.autofocus,
       onKeyEvent: _onKeyEvent,
       child: DocumentLayout(
-        key: widget.layoutKey,
+        key: _layoutKey,
         document: widget.controller.document,
         controller: widget.controller,
         componentBuilders: builders,
