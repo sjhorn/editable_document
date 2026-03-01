@@ -245,6 +245,16 @@ class RenderTextBlock extends RenderDocumentBlock {
     return TextNodePosition(offset: tp.offset, affinity: tp.affinity);
   }
 
+  /// Returns the [TextRange] spanning the visual line that contains [position].
+  ///
+  /// Delegates to [TextPainter.getLineBoundary] which uses the laid-out text
+  /// metrics, so this render object must be laid out before calling this
+  /// method.
+  TextRange getLineBoundary(TextNodePosition position) {
+    final tp = TextPosition(offset: position.offset, affinity: position.affinity);
+    return _textPainter.getLineBoundary(tp);
+  }
+
   @override
   List<Rect> getEndpointsForSelection(NodePosition base, NodePosition extent) {
     assert(
