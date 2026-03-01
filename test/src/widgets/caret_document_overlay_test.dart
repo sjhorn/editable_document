@@ -11,6 +11,7 @@
 /// 8. Custom caretColor, caretWidth, cornerRadius passed to painter.
 /// 9. [didUpdateWidget] handles controller change.
 /// 10. Caret rect updates when selection changes position.
+/// 11. Bug regression: caret rect is not stale after text insertion.
 library;
 
 import 'package:flutter/material.dart';
@@ -860,6 +861,111 @@ void main() {
       await tester.pump(const Duration(milliseconds: 2000));
 
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Test 11: Bug regression — caret rect must not lag after text insertion
+  //
+  // Regression for the bug where _onControllerChanged called _updateCaretRect()
+  // synchronously, querying the DocumentLayout BEFORE it had rebuilt with the
+  // new text. The fix defers _updateCaretRect() to a post-frame callback so
+  // that the geometry is read from the already-rebuilt layout.
+  //
+  // The test detects the bug by replacing a node with a NEW node id (e.g.
+  // 'p1' → 'p2') and then moving the selection into the new node.
+  //
+  // - With the bug: _updateCaretRect() fires synchronously, while the layout
+  //   still renders the OLD node 'p1'. The new node 'p2' is not yet in the
+  //   render tree, so rectForDocumentPosition returns null → caretRect is null.
+  // - With the fix: _updateCaretRect() fires post-frame after DocumentLayout
+  //   has rebuilt with 'p2'. rectForDocumentPosition returns a real rect →
+  //   caretRect is non-null.
+  // -------------------------------------------------------------------------
+
+  group('CaretDocumentOverlay — post-frame caret rect update', () {
+    testWidgets('caretRect is non-null after replacing a node and moving caret into the new node',
+        (tester) async {
+      // Build a document with a single paragraph identified as 'p1'.
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('Hello')),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      addTearDown(controller.dispose);
+
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+      final overlayKey = GlobalKey<CaretDocumentOverlayState>();
+
+      await tester.pumpWidget(
+        _wrap(
+          SizedBox(
+            width: 600,
+            height: 800,
+            child: Stack(
+              children: [
+                DocumentLayout(
+                  key: layoutKey,
+                  document: doc,
+                  controller: controller,
+                  componentBuilders: defaultComponentBuilders,
+                ),
+                Positioned.fill(
+                  child: CaretDocumentOverlay(
+                    key: overlayKey,
+                    controller: controller,
+                    layoutKey: layoutKey,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // Step 1: Place the caret inside 'p1' and let the widget tree settle.
+      controller.setSelection(_collapsedAt(0));
+      await tester.pump(); // rebuild + layout
+      await tester.pump(); // flush post-frame callbacks
+
+      // The caret should be visible and have a non-null rect because 'p1' exists.
+      expect(overlayKey.currentState!.caretRect, isNotNull);
+
+      // Step 2: Replace 'p1' with a brand-new node 'p2'. The render tree
+      // still reflects 'p1' until the next pump. Then move the selection
+      // into 'p2'. This fires _onControllerChanged immediately.
+      //
+      // With the BUG: _updateCaretRect() runs synchronously. The layout still
+      // knows only about 'p1', so rectForDocumentPosition for 'p2' returns
+      // null → _caretRect is set to null.
+      //
+      // With the FIX: _updateCaretRect() is deferred to a post-frame callback.
+      // By that time, DocumentLayout has rebuilt with 'p2' in the render tree,
+      // so rectForDocumentPosition returns a valid rect → _caretRect is non-null.
+      doc.replaceNode('p1', ParagraphNode(id: 'p2', text: AttributedText('World')));
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p2',
+            nodePosition: TextNodePosition(offset: 0),
+          ),
+        ),
+      );
+
+      // Step 3: Pump so DocumentLayout rebuilds with 'p2', and the deferred
+      // post-frame callback fires to recompute _caretRect.
+      await tester.pump();
+      await tester.pump(); // second pump flushes any queued post-frame callbacks
+
+      // Step 4: Verify the caret rect is non-null. With the bug it would be
+      // null because the synchronous query happened before 'p2' entered the
+      // render tree.
+      expect(
+        overlayKey.currentState!.caretRect,
+        isNotNull,
+        reason: 'caretRect must be non-null after DocumentLayout rebuilds with the '
+            'new node. A null here means _updateCaretRect() ran synchronously '
+            'before the layout rebuild (the stale-caret bug).',
+      );
     });
   });
 }

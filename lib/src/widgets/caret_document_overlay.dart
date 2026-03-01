@@ -22,6 +22,7 @@ library;
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
 import '../model/document_editing_controller.dart';
@@ -189,6 +190,17 @@ class CaretDocumentOverlayState extends State<CaretDocumentOverlay> {
   // Public API
   // ---------------------------------------------------------------------------
 
+  /// The current caret bounding rectangle in [DocumentLayout] local coordinates.
+  ///
+  /// Returns `null` when [CaretDocumentOverlay.showCaret] is `false`, when
+  /// there is no selection, or when the selection is expanded.
+  ///
+  /// Exposed for testing via `@visibleForTesting`; production code should
+  /// not rely on this getter.
+  @visibleForTesting
+  // ignore: diagnostic_describe_all_properties
+  Rect? get caretRect => _caretRect;
+
   /// Whether the caret is currently visible.
   ///
   /// Returns `true` only when:
@@ -255,9 +267,16 @@ class CaretDocumentOverlayState extends State<CaretDocumentOverlay> {
     // Show caret immediately on any selection change, then restart blink.
     _blinkVisible = true;
     _stopBlink();
-    _updateCaretRect();
     _updateBlinkState();
     if (mounted) setState(() {});
+    // Defer the geometry query until after the DocumentLayout has rebuilt with
+    // any new text so the caret rect is never computed against stale layout.
+    // This mirrors DocumentSelectionOverlay._onControllerChanged.
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _updateCaretRect();
+      setState(() {});
+    });
   }
 
   // ---------------------------------------------------------------------------
