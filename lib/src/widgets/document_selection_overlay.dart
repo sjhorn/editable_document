@@ -36,6 +36,7 @@
 library;
 
 import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
 import '../model/document_editing_controller.dart';
@@ -242,7 +243,13 @@ class DocumentSelectionOverlayState extends State<DocumentSelectionOverlay> {
   // ---------------------------------------------------------------------------
 
   void _onControllerChanged() {
-    update(widget.controller.selection);
+    // Defer the geometry query to a post-frame callback so the
+    // DocumentLayout has rebuilt with any new text before we ask it
+    // for caret/selection rectangles.
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      update(widget.controller.selection);
+    });
   }
 
   /// Recomputes caret and selection geometry from [DocumentLayoutState].
