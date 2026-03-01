@@ -30,6 +30,7 @@ import '../services/document_ime_input_client.dart';
 import '../services/document_ime_serializer.dart';
 import '../services/document_keyboard_handler.dart';
 import '../rendering/render_document_layout.dart';
+import '../rendering/render_text_block.dart';
 import 'component_builder.dart';
 import 'document_layout.dart';
 
@@ -285,6 +286,7 @@ class EditableDocumentState extends State<EditableDocument> {
       requestHandler: _handleRequest,
       pageMoveResolver: _resolvePageMove,
       verticalMoveResolver: _resolveVerticalMove,
+      lineMoveResolver: _resolveLineMove,
     );
     widget.focusNode.addListener(_onFocusChanged);
     widget.controller.addListener(_onControllerChanged);
@@ -306,6 +308,7 @@ class EditableDocumentState extends State<EditableDocument> {
         requestHandler: _handleRequest,
         pageMoveResolver: _resolvePageMove,
         verticalMoveResolver: _resolveVerticalMove,
+        lineMoveResolver: _resolveLineMove,
       );
       // Rebuild IME client for the new controller.
       _imeClient = DocumentImeInputClient(
@@ -487,6 +490,37 @@ class EditableDocumentState extends State<EditableDocument> {
       return ap.offset == bp.offset;
     }
     return ap == bp;
+  }
+
+  // -------------------------------------------------------------------------
+  // Line-move resolver (Cmd/Ctrl+Left/Right — visual line boundary)
+  // -------------------------------------------------------------------------
+
+  /// Resolves a visual-line-boundary movement (Cmd+Left/Right on macOS,
+  /// Alt+Left/Right on other platforms).
+  ///
+  /// Returns the [DocumentPosition] at the start (backward) or end (forward)
+  /// of the visual line containing [from]. Returns `null` when the layout is
+  /// unavailable or the node is not a text block (binary nodes fall back to
+  /// node start/end in the keyboard handler).
+  DocumentPosition? _resolveLineMove({
+    required DocumentPosition from,
+    required bool forward,
+  }) {
+    final layoutState = _layoutKey.currentState;
+    if (layoutState == null) return null;
+    final component = layoutState.componentForNode(from.nodeId);
+    if (component is! RenderTextBlock) return null;
+
+    final textPos = from.nodePosition;
+    if (textPos is! TextNodePosition) return null;
+
+    final range = component.getLineBoundary(textPos);
+    final targetOffset = forward ? range.end : range.start;
+    return DocumentPosition(
+      nodeId: from.nodeId,
+      nodePosition: TextNodePosition(offset: targetOffset),
+    );
   }
 
   // -------------------------------------------------------------------------

@@ -5,6 +5,7 @@
 /// pass-through of componentBuilders and blockSpacing.
 library;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -1360,6 +1361,159 @@ void main() {
         'img1',
         reason: 'Up from paragraph after image should move into the image',
       );
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Line-move resolver (Cmd+Left/Right — visual line boundary)
+  // -------------------------------------------------------------------------
+
+  group('line-move resolver (Cmd+Left/Right)', () {
+    // Long text that wraps at 200 px. Repeated enough to guarantee at least
+    // two visual lines within a single paragraph block.
+    const wrappingText = 'The quick brown fox jumps over the lazy dog. '
+        'The quick brown fox jumps over the lazy dog. '
+        'The quick brown fox jumps over the lazy dog. ';
+
+    /// Builds an [EditableDocument] inside a 200-px-wide container on macOS.
+    Widget _buildNarrow(DocumentEditingController controller, FocusNode focusNode) {
+      return MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 200,
+            child: EditableDocument(
+              controller: controller,
+              focusNode: focusNode,
+            ),
+          ),
+        ),
+      );
+    }
+
+    // -----------------------------------------------------------------------
+    // Test 1: Cmd+Left moves to visual line start (not node start).
+    //
+    // Document: [long paragraph p1 that wraps]
+    // Caret: some offset in the middle of the second visual line.
+    // Cmd+Left should move to the START of the second visual line (not
+    // offset 0, which would be the node start).
+    // -----------------------------------------------------------------------
+    testWidgets('Cmd+Left moves to visual line start, not node start', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText(wrappingText)),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      final focusNode = FocusNode();
+
+      // Place the caret in the middle of the second visual line.
+      // wrappingText is 135 characters; at 200 px width, the first line
+      // wraps somewhere around offset 25-35. Placing at offset 50 ensures
+      // we are on the second visual line.
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 50),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(_buildNarrow(controller, focusNode));
+      await tester.pump();
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pump();
+
+      expect(controller.selection, isNotNull);
+      final offset = (controller.selection!.extent.nodePosition as TextNodePosition).offset;
+
+      // The visual line boundary resolver should move to the start of the
+      // current visual line — which is NOT offset 0 (node start) since
+      // we started on a wrapped second line.
+      expect(
+        offset,
+        greaterThan(0),
+        reason: 'Cmd+Left from the middle of the second visual line should '
+            'move to the START of that line, not to node start (offset 0)',
+      );
+
+      controller.dispose();
+      focusNode.dispose();
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    // -----------------------------------------------------------------------
+    // Test 2: Cmd+Right moves to visual line end (not node end).
+    //
+    // Document: [long paragraph p1 that wraps]
+    // Caret: at offset 0 (start of the first visual line).
+    // Cmd+Right should move to the END of the first visual line (not to
+    // wrappingText.length, which would be the node end).
+    // -----------------------------------------------------------------------
+    testWidgets('Cmd+Right moves to visual line end, not node end', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText(wrappingText)),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      final focusNode = FocusNode();
+
+      // Place the caret at the very start of the node (first visual line).
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 0),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(_buildNarrow(controller, focusNode));
+      await tester.pump();
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pump();
+
+      expect(controller.selection, isNotNull);
+      final offset = (controller.selection!.extent.nodePosition as TextNodePosition).offset;
+
+      // The visual line boundary resolver should move to the end of the
+      // first visual line — which is NOT wrappingText.length (node end)
+      // since the text wraps at 200 px.
+      expect(
+        offset,
+        lessThan(wrappingText.length),
+        reason: 'Cmd+Right from start of first visual line should move to '
+            'the END of that line, not to node end (offset ${wrappingText.length})',
+      );
+      expect(
+        offset,
+        greaterThan(0),
+        reason: 'Cmd+Right must move forward from offset 0',
+      );
+
+      controller.dispose();
+      focusNode.dispose();
+      debugDefaultTargetPlatformOverride = null;
     });
   });
 }
