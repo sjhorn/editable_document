@@ -258,8 +258,8 @@ All widgets in `lib/src/widgets/`. Tests in `test/src/widgets/` using `testWidge
 - [x] Integration test: caret visible after focus; blink animation runs; caret hidden in `readOnly`.
 
 ### 6.3 Desktop selection (mouse)
-- [ ] `DocumentMouseInteractor` — `MouseRegion` + `GestureDetector`; tap → collapse to position; drag → extend selection; double-tap → word selection; triple-tap → block selection; Shift+click → extend.
-- [ ] Tests: tap places caret at correct `DocumentPosition`; drag selects text; word/block selection boundaries correct.
+- [x] `DocumentMouseInteractor` — `MouseRegion` + `GestureDetector`; tap → collapse to position; drag → extend selection; double-tap → word selection; triple-tap → block selection; Shift+click → extend.
+- [x] Tests: tap places caret at correct `DocumentPosition`; drag selects text; word/block selection boundaries correct.
 
 ### 6.4 iOS handles & magnifier
 - [ ] `IosDocumentGestureController` — tap, double-tap, long-press, drag.
@@ -274,9 +274,9 @@ All widgets in `lib/src/widgets/`. Tests in `test/src/widgets/` using `testWidge
 - [ ] Integration tests: mirrors iOS test coverage for Android gesture set.
 
 ### 6.6 Floating toolbar
-- [ ] `DocumentTextSelectionControls implements TextSelectionControls` — delegates to `materialTextSelectionControls` / `cupertinoTextSelectionControls` per platform.
-- [ ] Actions: Cut, Copy, Paste, Select All, Bold, Italic (extensible via `toolbarItems`).
-- [ ] Tests: toolbar appears on selection; actions dispatch correct `EditRequest`s.
+- [x] `DocumentTextSelectionControls implements TextSelectionControls` — delegates to `materialTextSelectionControls` / `cupertinoTextSelectionControls` per platform.
+- [x] Actions: Cut, Copy, Paste, Select All, Bold, Italic (extensible via `toolbarItems`).
+- [x] Tests: toolbar appears on selection; actions dispatch correct `EditRequest`s.
 
 ---
 
