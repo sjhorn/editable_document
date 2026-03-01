@@ -45,4 +45,5 @@ export 'src/services/document_keyboard_handler.dart';
 export 'src/widgets/component_builder.dart';
 export 'src/widgets/document_field.dart';
 export 'src/widgets/document_layout.dart';
+export 'src/widgets/document_selection_overlay.dart';
 export 'src/widgets/editable_document.dart';
