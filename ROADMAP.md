@@ -262,16 +262,16 @@ All widgets in `lib/src/widgets/`. Tests in `test/src/widgets/` using `testWidge
 - [x] Tests: tap places caret at correct `DocumentPosition`; drag selects text; word/block selection boundaries correct.
 
 ### 6.4 iOS handles & magnifier
-- [ ] `IosDocumentGestureController` — tap, double-tap, long-press, drag.
-- [ ] `IOSCollapsedHandle`, `IOSSelectionHandle` — `GestureDetector` on `CustomPaint` handle widgets; drag updates selection via `DocumentLayout.getDocumentPositionAtOffset`.
-- [ ] `IOSDocumentMagnifier` — `TextMagnifier`-equivalent; shows on long-press and handle drag; hides on release.
-- [ ] Integration tests: handle positions correct after selection; magnifier appears on long-press; selection extends on handle drag.
+- [x] `IosDocumentGestureController` — tap, double-tap, long-press, drag.
+- [x] `IOSCollapsedHandle`, `IOSSelectionHandle` — `GestureDetector` on `CustomPaint` handle widgets; drag updates selection via `DocumentLayout.getDocumentPositionAtOffset`.
+- [x] `IOSDocumentMagnifier` — `TextMagnifier`-equivalent; shows on long-press and handle drag; hides on release.
+- [x] Integration tests: handle positions correct after selection; magnifier appears on long-press; selection extends on handle drag.
 
 ### 6.5 Android handles & magnifier
-- [ ] `AndroidDocumentGestureController` — tap, double-tap, long-press, drag with velocity.
-- [ ] `AndroidSelectionHandle`, `AndroidDocumentCaret`.
-- [ ] `AndroidDocumentMagnifier`.
-- [ ] Integration tests: mirrors iOS test coverage for Android gesture set.
+- [x] `AndroidDocumentGestureController` — tap, double-tap, long-press, drag with velocity.
+- [x] `AndroidSelectionHandle`, `AndroidDocumentCaret`.
+- [x] `AndroidDocumentMagnifier`.
+- [x] Integration tests: mirrors iOS test coverage for Android gesture set.
 
 ### 6.6 Floating toolbar
 - [x] `DocumentTextSelectionControls implements TextSelectionControls` — delegates to `materialTextSelectionControls` / `cupertinoTextSelectionControls` per platform.

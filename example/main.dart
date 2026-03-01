@@ -14,6 +14,7 @@
 /// - **Phase 5.2**: DocumentLayout — automatic document rendering widget
 /// - **Phase 5.3**: EditableDocument — drop-in for EditableText
 /// - **Phase 5.4**: DocumentField — TextField equivalent with InputDecoration
+/// - **Phase 6**: Selection overlay, caret blink, mouse interaction, handles, toolbar
 ///
 /// Run with: `flutter run -t example/main.dart`
 library;
@@ -58,6 +59,11 @@ class _DocumentDemoState extends State<DocumentDemo> {
   late final MutableDocument _document;
   late final DocumentEditingController _controller;
   late final UndoableEditor _editor;
+
+  // Phase 6: selection overlay support.
+  final _layoutKey = GlobalKey<DocumentLayoutState>();
+  final _startHandleLayerLink = LayerLink();
+  final _endHandleLayerLink = LayerLink();
 
   /// Counter for generating unique node IDs.
   int _nextNodeId = 100;
@@ -302,12 +308,21 @@ class _DocumentDemoState extends State<DocumentDemo> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Render document using DocumentLayout (Phase 5.2).
-            // This automatically maps nodes → widgets via ComponentBuilder.
-            DocumentLayout(
-              document: _document,
+            // Render document with selection overlay (Phase 6).
+            // DocumentSelectionOverlay layers caret and selection
+            // highlights over the DocumentLayout, with LayerLink pairs
+            // for platform handle positioning.
+            DocumentSelectionOverlay(
               controller: _controller,
-              componentBuilders: defaultComponentBuilders,
+              layoutKey: _layoutKey,
+              startHandleLayerLink: _startHandleLayerLink,
+              endHandleLayerLink: _endHandleLayerLink,
+              child: DocumentLayout(
+                key: _layoutKey,
+                document: _document,
+                controller: _controller,
+                componentBuilders: defaultComponentBuilders,
+              ),
             ),
 
             const Divider(height: 32),
@@ -324,6 +339,11 @@ class _DocumentDemoState extends State<DocumentDemo> {
 
             // DocumentField demo (Phase 5.4) — TextField equivalent.
             _buildDocumentFieldDemo(),
+
+            const SizedBox(height: 16),
+
+            // Phase 6 info panel.
+            _buildPhase6Info(),
           ],
         ),
       ),
@@ -351,6 +371,39 @@ class _DocumentDemoState extends State<DocumentDemo> {
             child: const Icon(Icons.delete_outline),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildPhase6Info() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Selection Overlay (Phase 6)',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'The document above is wrapped in a DocumentSelectionOverlay '
+              'that draws caret and selection highlights using '
+              'DocumentCaretPainter and DocumentSelectionPainter.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8),
+            const Text('Phase 6 widgets implemented:'),
+            const SizedBox(height: 4),
+            const Text('  - DocumentSelectionOverlay (caret + highlights)'),
+            const Text('  - CaretDocumentOverlay (blink animation)'),
+            const Text('  - DocumentMouseInteractor (desktop mouse)'),
+            const Text('  - iOS handles, magnifier, gesture controller'),
+            const Text('  - Android handles, magnifier, gesture controller'),
+            const Text('  - DocumentTextSelectionControls (floating toolbar)'),
+          ],
+        ),
       ),
     );
   }
