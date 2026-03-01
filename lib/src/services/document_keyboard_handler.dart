@@ -29,13 +29,26 @@ typedef PageMoveResolver = DocumentPosition? Function({
   required bool forward,
 });
 
+// ---------------------------------------------------------------------------
+// VerticalMoveResolver
+// ---------------------------------------------------------------------------
+
+/// Resolves a single-line vertical caret movement (Up/Down arrow).
+/// Returns the target [DocumentPosition] one visual line above or below
+/// [from], or `null` if the move cannot be resolved.
+typedef VerticalMoveResolver = DocumentPosition? Function({
+  required DocumentPosition from,
+  required bool forward,
+});
+
 /// Maps raw [KeyEvent]s to [EditRequest]s for the document editor.
 ///
 /// Handles keys NOT covered by the IME delta model — primarily desktop
 /// navigation and structural editing:
 ///
-/// * **Arrow navigation** — move caret by character (Left/Right) or block
-///   (Up/Down jumps to the previous/next node).
+/// * **Arrow navigation** — move caret by character (Left/Right) or by visual
+///   line (Up/Down when a [verticalMoveResolver] is provided, otherwise
+///   falls back to jumping to the previous/next block).
 /// * **Shift + Arrow** — extend the current selection.
 /// * **Word modifier + Left/Right** — word-level navigation (moves to the
 ///   start/end of the current word or adjacent word boundary).
@@ -113,11 +126,16 @@ class DocumentKeyboardHandler {
   /// * [pageMoveResolver] — optional callback that resolves Page Up/Down
   ///   movement to a target [DocumentPosition]. When `null`, Page Up/Down
   ///   key events return `false` (unhandled).
+  /// * [verticalMoveResolver] — optional callback that resolves single-line
+  ///   Up/Down arrow movement to a target [DocumentPosition]. When `null`,
+  ///   plain Up/Down falls back to block-level movement (previous/next node
+  ///   start).
   DocumentKeyboardHandler({
     required Document document,
     required DocumentEditingController controller,
     required void Function(EditRequest request) requestHandler,
     this.pageMoveResolver,
+    this.verticalMoveResolver,
   })  : _document = document,
         _controller = controller,
         _requestHandler = requestHandler;
@@ -135,6 +153,17 @@ class DocumentKeyboardHandler {
   ///
   /// When `null`, Page Up/Down key events return `false` (unhandled).
   final PageMoveResolver? pageMoveResolver;
+
+  /// Optional callback that resolves single-line vertical caret movement.
+  ///
+  /// When non-null, plain Up/Down arrow keys invoke this resolver to determine
+  /// the target [DocumentPosition] one visual line above or below the current
+  /// extent. The widgets layer typically provides the implementation since it
+  /// has access to layout geometry.
+  ///
+  /// When `null`, Up/Down falls back to block-level movement (previous/next
+  /// node start).
+  final VerticalMoveResolver? verticalMoveResolver;
 
   // -------------------------------------------------------------------------
   // Public entry point
@@ -348,9 +377,15 @@ class DocumentKeyboardHandler {
       // Word modifier + Up → start of current node (line break equivalent).
       newExtent = _startOfNode(node);
     } else {
-      // Plain Up → start of previous block (or start of current if first).
-      final prevNode = _document.nodeBefore(extentPos.nodeId);
-      newExtent = prevNode == null ? _startOfNode(node) : _startOfNode(prevNode);
+      // Plain Up → use visual-line resolver if available, else block-jump.
+      final resolver = verticalMoveResolver;
+      if (resolver != null) {
+        final resolved = resolver(from: extentPos, forward: false);
+        newExtent = resolved ?? extentPos;
+      } else {
+        final prevNode = _document.nodeBefore(extentPos.nodeId);
+        newExtent = prevNode == null ? _startOfNode(node) : _startOfNode(prevNode);
+      }
     }
 
     _updateSelection(newExtent, extend: shift);
@@ -388,9 +423,15 @@ class DocumentKeyboardHandler {
       // Word modifier + Down → end of current node (line break equivalent).
       newExtent = _endOfNode(node);
     } else {
-      // Plain Down → start of next block (or end of current if last).
-      final nextNode = _document.nodeAfter(extentPos.nodeId);
-      newExtent = nextNode == null ? _endOfNode(node) : _startOfNode(nextNode);
+      // Plain Down → use visual-line resolver if available, else block-jump.
+      final resolver = verticalMoveResolver;
+      if (resolver != null) {
+        final resolved = resolver(from: extentPos, forward: true);
+        newExtent = resolved ?? extentPos;
+      } else {
+        final nextNode = _document.nodeAfter(extentPos.nodeId);
+        newExtent = nextNode == null ? _endOfNode(node) : _startOfNode(nextNode);
+      }
     }
 
     _updateSelection(newExtent, extend: shift);

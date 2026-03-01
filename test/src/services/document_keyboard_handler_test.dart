@@ -2975,4 +2975,282 @@ void main() {
       expect(controller.selection, _collapsed('p1', 2));
     });
   });
+
+  // =========================================================================
+  // vertical move resolver (Up/Down)
+  // =========================================================================
+
+  group('vertical move resolver (Up/Down)', () {
+    test('plain Down invokes resolver with correct from and forward=true', () {
+      final doc = _twoParagraphs(firstText: 'Hello', secondText: 'World');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 2));
+      final requests = <EditRequest>[];
+
+      const targetPosition = DocumentPosition(
+        nodeId: 'p2',
+        nodePosition: TextNodePosition(offset: 1),
+      );
+      DocumentPosition? capturedFrom;
+      bool? capturedForward;
+
+      final handler = DocumentKeyboardHandler(
+        document: doc,
+        controller: controller,
+        requestHandler: requests.add,
+        verticalMoveResolver: ({required DocumentPosition from, required bool forward}) {
+          capturedFrom = from;
+          capturedForward = forward;
+          return targetPosition;
+        },
+      );
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.arrowDown));
+
+      expect(result, isTrue);
+      expect(capturedForward, isTrue);
+      expect(capturedFrom, equals(_collapsed('p1', 2).extent));
+      expect(controller.selection!.isCollapsed, isTrue);
+      expect(controller.selection!.extent.nodeId, equals('p2'));
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(1),
+      );
+    });
+
+    test('plain Up invokes resolver with correct from and forward=false', () {
+      final doc = _twoParagraphs(firstText: 'Hello', secondText: 'World');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p2', 3));
+      final requests = <EditRequest>[];
+
+      const targetPosition = DocumentPosition(
+        nodeId: 'p1',
+        nodePosition: TextNodePosition(offset: 2),
+      );
+      DocumentPosition? capturedFrom;
+      bool? capturedForward;
+
+      final handler = DocumentKeyboardHandler(
+        document: doc,
+        controller: controller,
+        requestHandler: requests.add,
+        verticalMoveResolver: ({required DocumentPosition from, required bool forward}) {
+          capturedFrom = from;
+          capturedForward = forward;
+          return targetPosition;
+        },
+      );
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.arrowUp));
+
+      expect(result, isTrue);
+      expect(capturedForward, isFalse);
+      expect(capturedFrom, equals(_collapsed('p2', 3).extent));
+      expect(controller.selection!.isCollapsed, isTrue);
+      expect(controller.selection!.extent.nodeId, equals('p1'));
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(2),
+      );
+    });
+
+    testWidgets('Shift+Down extends selection via resolver', (tester) async {
+      final doc = _twoParagraphs(firstText: 'Hello', secondText: 'World');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 2));
+      final requests = <EditRequest>[];
+
+      const targetPosition = DocumentPosition(
+        nodeId: 'p2',
+        nodePosition: TextNodePosition(offset: 1),
+      );
+
+      final handler = DocumentKeyboardHandler(
+        document: doc,
+        controller: controller,
+        requestHandler: requests.add,
+        verticalMoveResolver: ({required DocumentPosition from, required bool forward}) {
+          return forward ? targetPosition : null;
+        },
+      );
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);
+
+      expect(controller.selection!.isExpanded, isTrue);
+      // Base stays at the original position.
+      expect(controller.selection!.base.nodeId, equals('p1'));
+      expect(
+        (controller.selection!.base.nodePosition as TextNodePosition).offset,
+        equals(2),
+      );
+      // Extent moves to the resolver result.
+      expect(controller.selection!.extent.nodeId, equals('p2'));
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(1),
+      );
+    });
+
+    testWidgets('Shift+Up extends selection via resolver', (tester) async {
+      final doc = _twoParagraphs(firstText: 'Hello', secondText: 'World');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p2', 3));
+      final requests = <EditRequest>[];
+
+      const targetPosition = DocumentPosition(
+        nodeId: 'p1',
+        nodePosition: TextNodePosition(offset: 2),
+      );
+
+      final handler = DocumentKeyboardHandler(
+        document: doc,
+        controller: controller,
+        requestHandler: requests.add,
+        verticalMoveResolver: ({required DocumentPosition from, required bool forward}) {
+          return forward ? null : targetPosition;
+        },
+      );
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowUp);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowUp);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);
+
+      expect(controller.selection!.isExpanded, isTrue);
+      // Base stays at the original position.
+      expect(controller.selection!.base.nodeId, equals('p2'));
+      expect(
+        (controller.selection!.base.nodePosition as TextNodePosition).offset,
+        equals(3),
+      );
+      // Extent moves to the resolver result.
+      expect(controller.selection!.extent.nodeId, equals('p1'));
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(2),
+      );
+    });
+
+    test('resolver returning null keeps caret in place', () {
+      final doc = _singleParagraph('Hello');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 3));
+      final requests = <EditRequest>[];
+
+      final handler = DocumentKeyboardHandler(
+        document: doc,
+        controller: controller,
+        requestHandler: requests.add,
+        verticalMoveResolver: ({required DocumentPosition from, required bool forward}) => null,
+      );
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.arrowDown));
+
+      expect(result, isTrue);
+      // Selection must be unchanged — stays at p1, offset 3.
+      expect(controller.selection, _collapsed('p1', 3));
+    });
+
+    test('no resolver falls back to block-level jump', () {
+      final doc = _twoParagraphs(firstText: 'Hello', secondText: 'World');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 2));
+      final requests = <EditRequest>[];
+
+      // Handler created WITHOUT verticalMoveResolver.
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.arrowDown));
+
+      expect(result, isTrue);
+      // Legacy block-jump: moves to start of next node.
+      expect(controller.selection!.extent.nodeId, equals('p2'));
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(0),
+      );
+    });
+
+    testWidgets('word modifier + Down bypasses resolver', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+
+      final doc = _twoParagraphs(firstText: 'Hello', secondText: 'World');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 2));
+      final requests = <EditRequest>[];
+
+      var resolverCallCount = 0;
+
+      final handler = DocumentKeyboardHandler(
+        document: doc,
+        controller: controller,
+        requestHandler: requests.add,
+        verticalMoveResolver: ({required DocumentPosition from, required bool forward}) {
+          resolverCallCount++;
+          return null;
+        },
+      );
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      // Ctrl+Down on Linux = word modifier + Down → node end, NOT resolver.
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+
+      // Resolver must NOT have been called.
+      expect(resolverCallCount, equals(0));
+      // Word modifier + Down → end of current node (p1 = 'Hello' → offset 5).
+      expect(controller.selection!.extent.nodeId, equals('p1'));
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(5),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('line modifier + Down bypasses resolver', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _twoParagraphs(firstText: 'Hello', secondText: 'World');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 2));
+      final requests = <EditRequest>[];
+
+      var resolverCallCount = 0;
+
+      final handler = DocumentKeyboardHandler(
+        document: doc,
+        controller: controller,
+        requestHandler: requests.add,
+        verticalMoveResolver: ({required DocumentPosition from, required bool forward}) {
+          resolverCallCount++;
+          return null;
+        },
+      );
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      // Cmd+Down on macOS = line modifier + Down → document end, NOT resolver.
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+
+      // Resolver must NOT have been called.
+      expect(resolverCallCount, equals(0));
+      // Line modifier + Down → document end → p2, offset 5 ('World'.length).
+      expect(controller.selection!.extent.nodeId, equals('p2'));
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(5),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+  });
 }
