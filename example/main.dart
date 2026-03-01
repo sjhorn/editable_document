@@ -312,9 +312,9 @@ class _DocumentDemoState extends State<DocumentDemo> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Interactive document editor (Phases 5-6).
-            // Mouse clicks place the caret, drags create selections,
-            // the overlay renders caret + selection highlights, and
-            // Focus + keyboard handler enable arrow navigation.
+            // DocumentMouseInteractor handles click/drag/double-click.
+            // DocumentSelectionOverlay renders caret + selection highlights.
+            // EditableDocument wires Focus, IME, and keyboard handler.
             DocumentMouseInteractor(
               controller: _controller,
               layoutKey: _layoutKey,
@@ -324,15 +324,12 @@ class _DocumentDemoState extends State<DocumentDemo> {
                 layoutKey: _layoutKey,
                 startHandleLayerLink: _startHandleLayerLink,
                 endHandleLayerLink: _endHandleLayerLink,
-                child: Focus(
+                child: EditableDocument(
+                  controller: _controller,
                   focusNode: _focusNode,
+                  layoutKey: _layoutKey,
                   autofocus: true,
-                  child: DocumentLayout(
-                    key: _layoutKey,
-                    document: _document,
-                    controller: _controller,
-                    componentBuilders: defaultComponentBuilders,
-                  ),
+                  editor: _editor,
                 ),
               ),
             ),

@@ -69,6 +69,7 @@ class EditableDocument extends StatefulWidget {
     super.key,
     required this.controller,
     required this.focusNode,
+    this.layoutKey,
     this.style,
     this.textDirection,
     this.textAlign = TextAlign.start,
@@ -93,6 +94,14 @@ class EditableDocument extends StatefulWidget {
   /// The caller owns the [FocusNode]; [EditableDocument] registers and
   /// unregisters listeners but never disposes it.
   final FocusNode focusNode;
+
+  /// An optional [GlobalKey] for the internal [DocumentLayout].
+  ///
+  /// When provided, the key is attached to the [DocumentLayout] widget so
+  /// that external code (such as [DocumentSelectionOverlay] or
+  /// [DocumentMouseInteractor]) can query [DocumentLayoutState] geometry.
+  /// When `null`, a key is not explicitly set on the layout.
+  final GlobalKey<DocumentLayoutState>? layoutKey;
 
   /// The base [TextStyle] applied to text blocks.
   ///
@@ -203,6 +212,7 @@ class EditableDocument extends StatefulWidget {
       DiagnosticsProperty<Map<String, TextStyle>?>('stylesheet', stylesheet, defaultValue: null),
     );
     properties.add(DiagnosticsProperty<Editor?>('editor', editor, defaultValue: null));
+    properties.add(DiagnosticsProperty<GlobalKey<DocumentLayoutState>?>('layoutKey', layoutKey));
   }
 }
 
@@ -353,6 +363,7 @@ class EditableDocumentState extends State<EditableDocument> {
       autofocus: widget.autofocus,
       onKeyEvent: _onKeyEvent,
       child: DocumentLayout(
+        key: widget.layoutKey,
         document: widget.controller.document,
         controller: widget.controller,
         componentBuilders: builders,

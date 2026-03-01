@@ -301,8 +301,8 @@ class DocumentSelectionOverlayState extends State<DocumentSelectionOverlay> {
   /// For a collapsed selection (caret only) returns an empty list.
   /// For an expanded single-node selection, returns the rect spanning the
   /// selection within that node.
-  /// For multi-node selections, returns one rect per node (full-width for
-  /// intermediate nodes).
+  /// For multi-node selections, returns one rect per line: partial top,
+  /// full-width intermediates, and partial bottom.
   List<Rect> _computeSelectionRects(
     DocumentSelection selection,
     DocumentLayoutState layoutState,
@@ -319,24 +319,27 @@ class DocumentSelectionOverlayState extends State<DocumentSelectionOverlay> {
     final topRect = baseRect.top <= extentRect.top ? baseRect : extentRect;
     final bottomRect = baseRect.top <= extentRect.top ? extentRect : baseRect;
 
+    // Use the layout's rendered width as the right edge for full-width rects.
+    final layoutBox = widget.layoutKey.currentContext?.findRenderObject() as RenderBox?;
+    final layoutWidth = layoutBox?.size.width ?? 800.0;
+
     // Single-line selection: one rect from top-left to bottom-right.
     if ((topRect.top - bottomRect.top).abs() < 1.0) {
-      // Same line — build one rect spanning the full selection.
       final left = topRect.left < bottomRect.right ? topRect.left : bottomRect.left;
       final right = topRect.right > bottomRect.left ? topRect.right : bottomRect.right;
       return [Rect.fromLTRB(left, topRect.top, right, topRect.bottom)];
     }
 
-    // Multi-line selection: three rects (top partial, middle full, bottom
-    // partial), collapsed when the selection spans only two lines.
+    // Multi-line selection.
     final rects = <Rect>[];
 
-    // Top line: from the upstream endpoint to the right edge of the layout.
-    rects.add(Rect.fromLTRB(topRect.left, topRect.top, double.infinity, topRect.bottom));
+    // Top line: from the upstream endpoint to the right edge.
+    rects.add(Rect.fromLTRB(topRect.left, topRect.top, layoutWidth, topRect.bottom));
 
-    // Intermediate lines: full-width rows between top and bottom.
-    // (Geometry for intermediate nodes would be added here in Phase 6.x;
-    //  for now we emit just the top and bottom rects.)
+    // Intermediate lines: fill full-width rows between top and bottom.
+    if (bottomRect.top > topRect.bottom + 1.0) {
+      rects.add(Rect.fromLTRB(0, topRect.bottom, layoutWidth, bottomRect.top));
+    }
 
     // Bottom line: from left edge to the downstream endpoint.
     rects.add(Rect.fromLTRB(0, bottomRect.top, bottomRect.right, bottomRect.bottom));
