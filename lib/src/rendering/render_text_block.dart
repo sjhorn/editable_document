@@ -236,8 +236,7 @@ class RenderTextBlock extends RenderDocumentBlock {
     final tp = position as TextNodePosition;
     final textPosition = TextPosition(offset: tp.offset, affinity: tp.affinity);
     final caretOffset = _textPainter.getOffsetForCaret(textPosition, Rect.zero);
-    final caretHeight = _textPainter.getFullHeightForCaret(textPosition, Rect.zero);
-    return Rect.fromLTWH(caretOffset.dx, caretOffset.dy, 0, caretHeight);
+    return Rect.fromLTWH(caretOffset.dx, caretOffset.dy, 0, _textPainter.preferredLineHeight);
   }
 
   @override

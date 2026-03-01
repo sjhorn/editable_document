@@ -4,6 +4,8 @@
 
 The roadmap is in ./ROADMAP.md and background is in ./doc/BACKGROUND.md
 
+For reference to the EditableText and related dart/flutter source use ./.flutter_src
+.
 ## Project identity
 
 | Key | Value |

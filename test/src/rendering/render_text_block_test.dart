@@ -208,6 +208,45 @@ void main() {
     });
   });
 
+  group('RenderTextBlock caret height stability', () {
+    test('caret height is identical at space and non-space in header1 text', () {
+      // Regression test: getLocalRectForPosition must return a consistent
+      // caret height regardless of whether the position is at a space or a
+      // non-space character.  Previously the implementation used
+      // getFullHeightForCaret(), which can return different values at spaces
+      // or attribution boundaries and causes a visible "jump".
+      //
+      // "Hello World" — position 5 is the space between the two words.
+      final block = RenderTextBlock(
+        nodeId: 'h1',
+        text: AttributedText('Hello World'),
+        textStyle: const TextStyle(
+          fontSize: 32.0, // large size makes metric differences more apparent
+          fontWeight: FontWeight.bold,
+        ),
+      );
+      block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+
+      // Height at a normal character position.
+      final rectAtH = block.getLocalRectForPosition(const TextNodePosition(offset: 0));
+      // Height at the space character.
+      final rectAtSpace = block.getLocalRectForPosition(const TextNodePosition(offset: 5));
+      // Height at a character after the space.
+      final rectAfterSpace = block.getLocalRectForPosition(const TextNodePosition(offset: 6));
+
+      expect(
+        rectAtSpace.height,
+        rectAtH.height,
+        reason: 'caret height at a space must equal caret height at a normal character',
+      );
+      expect(
+        rectAfterSpace.height,
+        rectAtH.height,
+        reason: 'caret height after a space must equal caret height at a normal character',
+      );
+    });
+  });
+
   group('RenderTextBlock property setters', () {
     test('setting nodeId updates nodeId', () {
       final block = RenderTextBlock(
