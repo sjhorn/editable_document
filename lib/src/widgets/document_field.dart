@@ -12,9 +12,11 @@ import 'package:flutter/services.dart';
 
 import '../model/attributed_text.dart';
 import '../model/document_editing_controller.dart';
+import '../model/document_position.dart';
 import '../model/document_selection.dart';
 import '../model/editor.dart';
 import '../model/mutable_document.dart';
+import '../model/node_position.dart';
 import '../model/paragraph_node.dart';
 import '../model/text_node.dart';
 import 'component_builder.dart';
@@ -359,6 +361,21 @@ class DocumentFieldState extends State<DocumentField> {
     setState(() {
       _hasFocus = _effectiveFocusNode.hasFocus;
     });
+    if (_hasFocus && _effectiveController.selection == null) {
+      final nodes = _effectiveController.document.nodes;
+      if (nodes.isNotEmpty) {
+        _effectiveController.setSelection(
+          DocumentSelection.collapsed(
+            position: DocumentPosition(
+              nodeId: nodes.first.id,
+              nodePosition: nodes.first is TextNode
+                  ? const TextNodePosition(offset: 0)
+                  : const BinaryNodePosition.upstream(),
+            ),
+          ),
+        );
+      }
+    }
   }
 
   void _onControllerChanged() {

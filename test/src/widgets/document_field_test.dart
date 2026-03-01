@@ -257,6 +257,29 @@ void main() {
 
       expect(focusNode.hasFocus, isTrue);
     });
+
+    testWidgets('sets initial selection at start of first node when focused with no selection',
+        (tester) async {
+      final controller = _makeController(text: 'Hello');
+      addTearDown(controller.dispose);
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+
+      await tester.pumpWidget(
+        _wrap(DocumentField(controller: controller, focusNode: focusNode)),
+      );
+
+      expect(controller.selection, isNull);
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      final sel = controller.selection;
+      expect(sel, isNotNull);
+      expect(sel!.isCollapsed, isTrue);
+      expect(sel.extent.nodeId, 'p1');
+      expect((sel.extent.nodePosition as TextNodePosition).offset, 0);
+    });
   });
 
   // -------------------------------------------------------------------------
