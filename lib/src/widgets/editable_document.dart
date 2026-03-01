@@ -25,6 +25,7 @@ import '../model/document_position.dart';
 import '../model/document_selection.dart';
 import '../model/edit_request.dart';
 import '../model/editor.dart';
+import '../model/node_position.dart';
 import '../services/document_ime_input_client.dart';
 import '../services/document_ime_serializer.dart';
 import '../services/document_keyboard_handler.dart';
@@ -271,6 +272,7 @@ class EditableDocumentState extends State<EditableDocument> {
       controller: widget.controller,
       requestHandler: _handleRequest,
       pageMoveResolver: _resolvePageMove,
+      verticalMoveResolver: _resolveVerticalMove,
     );
     widget.focusNode.addListener(_onFocusChanged);
     widget.controller.addListener(_onControllerChanged);
@@ -291,6 +293,7 @@ class EditableDocumentState extends State<EditableDocument> {
         controller: widget.controller,
         requestHandler: _handleRequest,
         pageMoveResolver: _resolvePageMove,
+        verticalMoveResolver: _resolveVerticalMove,
       );
       // Rebuild IME client for the new controller.
       _imeClient = DocumentImeInputClient(
@@ -384,6 +387,52 @@ class EditableDocumentState extends State<EditableDocument> {
         curve: Curves.fastOutSlowIn,
       );
     });
+  }
+
+  // -------------------------------------------------------------------------
+  // Vertical-move resolver (Up/Down arrow — single visual line)
+  // -------------------------------------------------------------------------
+
+  /// Resolves a single-line vertical caret movement (Up/Down arrow) by
+  /// computing the [DocumentPosition] one visual line above or below [from].
+  ///
+  /// Returns `null` when the layout is unavailable or the resolved position
+  /// equals [from] (indicating the caret is already at the document boundary).
+  DocumentPosition? _resolveVerticalMove({
+    required DocumentPosition from,
+    required bool forward,
+  }) {
+    final layoutState = _layoutKey.currentState;
+    if (layoutState == null) return null;
+    final caretRect = layoutState.rectForDocumentPosition(from);
+    if (caretRect == null) return null;
+
+    // Overshoot by half a line height so the target Y reliably lands in the
+    // next (or previous) visual line even when block-spacing gaps are small.
+    // For forward: aim for the vertical centre of the line below; for
+    // backward: aim for the vertical centre of the line above.
+    final halfLine = caretRect.height / 2;
+    final targetY = forward ? caretRect.bottom + halfLine : caretRect.top - halfLine;
+
+    final target = layoutState.documentPositionNearestToOffset(
+      Offset(caretRect.left, targetY),
+    );
+    // Treat positions as equal even when they differ only in TextAffinity,
+    // so that a caret at the document boundary does not appear to have moved.
+    if (_samePosition(target, from)) return null;
+    return target;
+  }
+
+  /// Returns `true` when [a] and [b] refer to the same logical location,
+  /// ignoring [TextAffinity] on text nodes.
+  static bool _samePosition(DocumentPosition a, DocumentPosition b) {
+    if (a.nodeId != b.nodeId) return false;
+    final ap = a.nodePosition;
+    final bp = b.nodePosition;
+    if (ap is TextNodePosition && bp is TextNodePosition) {
+      return ap.offset == bp.offset;
+    }
+    return ap == bp;
   }
 
   // -------------------------------------------------------------------------

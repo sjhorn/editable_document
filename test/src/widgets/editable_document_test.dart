@@ -909,4 +909,317 @@ void main() {
       expect(widget.scrollPadding, customPadding);
     });
   });
+
+  // -------------------------------------------------------------------------
+  // Visual-line Up/Down navigation
+  // -------------------------------------------------------------------------
+
+  group('visual-line Up/Down navigation', () {
+    // Long text that wraps at 200 px. Repeated enough to guarantee at least
+    // two visual lines within a single paragraph block.
+    const wrappingText = 'The quick brown fox jumps over the lazy dog. '
+        'The quick brown fox jumps over the lazy dog. '
+        'The quick brown fox jumps over the lazy dog. ';
+
+    /// Builds an [EditableDocument] inside a 200-px-wide container.
+    Widget _buildNarrow(DocumentEditingController controller, FocusNode focusNode) {
+      return MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 200,
+            child: EditableDocument(
+              controller: controller,
+              focusNode: focusNode,
+            ),
+          ),
+        ),
+      );
+    }
+
+    // -----------------------------------------------------------------------
+    // Test 1: Down stays within the same block on a wrapped paragraph.
+    //
+    // Document: [longParagraph p1, shortParagraph p2]
+    // Caret: offset 0 of p1 (first visual line of a multi-line paragraph).
+    // Without visual-line resolver, Down jumps to p2 (block-level fallback).
+    // With visual-line resolver, Down moves within p1 to the second visual
+    // line (p1 extent, offset > 0 and nodeId == 'p1').
+    // -----------------------------------------------------------------------
+    testWidgets('Down arrow moves within wrapped lines of same block', (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText(wrappingText)),
+        ParagraphNode(id: 'p2', text: AttributedText('Second paragraph')),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      // Place caret at offset 0 (first visual line of multi-line p1).
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 0),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(_buildNarrow(controller, focusNode));
+      await tester.pump();
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+
+      // With visual-line resolver: caret stays in p1 (not p2).
+      // Without resolver (block-jump): caret would move to p2.
+      expect(controller.selection, isNotNull);
+      final sel = controller.selection!;
+      expect(
+        sel.extent.nodeId,
+        'p1',
+        reason: 'Down from first visual line of a wrapped block should stay in the same block',
+      );
+      final offset = (sel.extent.nodePosition as TextNodePosition).offset;
+      expect(offset, greaterThan(0), reason: 'Caret must have moved to the second visual line');
+    });
+
+    // -----------------------------------------------------------------------
+    // Test 2: Up stays within the same block on a wrapped paragraph.
+    //
+    // Document: [shortParagraph p1, longParagraph p2]
+    // Caret: end of p2 (last visual line of multi-line paragraph).
+    // Without resolver, Up jumps to p1 (block-level fallback).
+    // With resolver, Up moves within p2 to the second-to-last visual line.
+    // -----------------------------------------------------------------------
+    testWidgets('Up arrow moves within wrapped lines of same block', (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('First paragraph')),
+        ParagraphNode(id: 'p2', text: AttributedText(wrappingText)),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      // Place caret at end of p2 (last visual line of multi-line paragraph).
+      final endOffset = wrappingText.length;
+      controller.setSelection(
+        DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p2',
+            nodePosition: TextNodePosition(offset: endOffset),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(_buildNarrow(controller, focusNode));
+      await tester.pump();
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pump();
+
+      // With visual-line resolver: caret stays in p2 (not p1).
+      // Without resolver (block-jump): caret would move to p1.
+      expect(controller.selection, isNotNull);
+      final sel = controller.selection!;
+      expect(
+        sel.extent.nodeId,
+        'p2',
+        reason: 'Up from last visual line of a wrapped block should stay in the same block',
+      );
+      final offset = (sel.extent.nodePosition as TextNodePosition).offset;
+      expect(
+        offset,
+        lessThan(endOffset),
+        reason: 'Caret must have moved up from the last visual line',
+      );
+    });
+
+    // -----------------------------------------------------------------------
+    // Test 3: Down crosses block boundary from the last visual line.
+    //
+    // Two short paragraphs (one visual line each).
+    // Caret at start of p1. Down should move into p2.
+    // Both resolver and block-jump agree here, so this is a smoke test.
+    // -----------------------------------------------------------------------
+    testWidgets('Down arrow crosses block boundary from last visual line', (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('First')),
+        ParagraphNode(id: 'p2', text: AttributedText('Second')),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 0),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(_buildNarrow(controller, focusNode));
+      await tester.pump();
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+
+      expect(controller.selection, isNotNull);
+      expect(
+        controller.selection!.extent.nodeId,
+        'p2',
+        reason: 'Down from the only visual line of p1 should move into p2',
+      );
+    });
+
+    // -----------------------------------------------------------------------
+    // Test 4: Up crosses block boundary from the first visual line.
+    //
+    // Two short paragraphs (one visual line each).
+    // Caret at start of p2. Up should move into p1.
+    // -----------------------------------------------------------------------
+    testWidgets('Up arrow crosses block boundary from first visual line', (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('First')),
+        ParagraphNode(id: 'p2', text: AttributedText('Second')),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p2',
+            nodePosition: TextNodePosition(offset: 0),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(_buildNarrow(controller, focusNode));
+      await tester.pump();
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pump();
+
+      expect(controller.selection, isNotNull);
+      expect(
+        controller.selection!.extent.nodeId,
+        'p1',
+        reason: 'Up from the only visual line of p2 should move into p1',
+      );
+    });
+
+    // -----------------------------------------------------------------------
+    // Test 5: Down at document bottom keeps caret in place.
+    //
+    // Single paragraph, caret at end. Down should not change selection.
+    // Both resolver (returns null → stays) and block-jump (_endOfNode → same
+    // position) agree here.
+    // -----------------------------------------------------------------------
+    testWidgets('Down at document bottom keeps caret in place', (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('Only line')),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      const endOffset = 9; // 'Only line'.length
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: endOffset),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(_buildNarrow(controller, focusNode));
+      await tester.pump();
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      final selectionBefore = controller.selection;
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+
+      expect(controller.selection, equals(selectionBefore));
+    });
+
+    // -----------------------------------------------------------------------
+    // Test 6: Up at document top keeps caret in place.
+    //
+    // Single paragraph, caret at offset 0. Up should not change selection.
+    // -----------------------------------------------------------------------
+    testWidgets('Up at document top keeps caret in place', (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('Only line')),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 0),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(_buildNarrow(controller, focusNode));
+      await tester.pump();
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      final selectionBefore = controller.selection;
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pump();
+
+      expect(controller.selection, equals(selectionBefore));
+    });
+  });
 }
