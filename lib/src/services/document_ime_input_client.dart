@@ -74,6 +74,11 @@ class DocumentImeInputClient implements DeltaTextInputClient {
   /// - [onInsertContent] receives rich content insertions from Android IMEs
   ///   (images, GIFs, stickers).
   /// - [onFloatingCursor] receives iOS floating-cursor position updates.
+  /// - [autofillScopeGetter] is an optional callback that returns the current
+  ///   [AutofillScope].  When non-null and the scope it returns is non-null,
+  ///   [openConnection] uses [AutofillScope.attach] instead of
+  ///   [TextInput.attach] so the connection participates in the platform
+  ///   autofill group.
   DocumentImeInputClient({
     required this.serializer,
     required this.controller,
@@ -81,6 +86,7 @@ class DocumentImeInputClient implements DeltaTextInputClient {
     this.onAction,
     this.onInsertContent,
     this.onFloatingCursor,
+    this.autofillScopeGetter,
   });
 
   /// The serializer used to convert document state ↔ [TextEditingValue] and
@@ -112,6 +118,13 @@ class DocumentImeInputClient implements DeltaTextInputClient {
   /// [FloatingCursorDragState.End].
   final void Function(RawFloatingCursorPoint point)? onFloatingCursor;
 
+  /// Optional getter that returns the current [AutofillScope], or `null`.
+  ///
+  /// When non-null and the returned scope is non-null, [openConnection] uses
+  /// [AutofillScope.attach] instead of [TextInput.attach] so that the
+  /// connection participates in the platform autofill group.
+  final AutofillScope? Function()? autofillScopeGetter;
+
   // -------------------------------------------------------------------------
   // Private state
   // -------------------------------------------------------------------------
@@ -129,9 +142,12 @@ class DocumentImeInputClient implements DeltaTextInputClient {
 
   /// Opens an IME connection using [config].
   ///
-  /// If a connection is already open it is closed first. Then
-  /// [TextInput.attach] is called, the keyboard is shown, and [syncToIme] is
-  /// called to push the initial document state.
+  /// If a connection is already open it is closed first. When
+  /// [autofillScopeGetter] returns a non-null [AutofillScope],
+  /// [AutofillScope.attach] is used to establish the connection so it
+  /// participates in the platform autofill group. Otherwise
+  /// [TextInput.attach] is called directly. In both cases the keyboard is
+  /// shown and [syncToIme] is called to push the initial document state.
   ///
   /// [config] must specify `enableDeltaModel: true` — the document model
   /// requires granular delta updates.  An assertion error is thrown in debug
@@ -146,7 +162,13 @@ class DocumentImeInputClient implements DeltaTextInputClient {
     // The delta model is non-negotiable for this client. Callers must pass
     // a [TextInputConfiguration] with `enableDeltaModel: true`.
     assert(config.enableDeltaModel, 'DocumentImeInputClient requires enableDeltaModel: true');
-    _connection = TextInput.attach(this, config);
+
+    final scope = currentAutofillScope;
+    if (scope != null) {
+      _connection = scope.attach(this, config);
+    } else {
+      _connection = TextInput.attach(this, config);
+    }
 
     _connection!.show();
     syncToIme();
@@ -276,10 +298,12 @@ class DocumentImeInputClient implements DeltaTextInputClient {
 
   /// The autofill scope for this client.
   ///
-  /// Returns `null` — autofill support is implemented in Phase 4.4 via
-  /// [DocumentAutofillClient].
+  /// Delegates to [autofillScopeGetter] if set; otherwise returns `null`.
+  /// When non-null, [openConnection] routes the connection through the scope
+  /// via [AutofillScope.attach] so the editor participates in the platform
+  /// autofill group managed by [DocumentAutofillClient].
   @override
-  AutofillScope? get currentAutofillScope => null;
+  AutofillScope? get currentAutofillScope => autofillScopeGetter?.call();
 
   // -------------------------------------------------------------------------
   // Deprecated TextInputClient stubs

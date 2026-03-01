@@ -30,6 +30,25 @@ DocumentEditingController _makeController({String nodeId = 'p1', String text = '
   );
 }
 
+/// A minimal [AutofillScope] test double for testing [autofillScopeGetter].
+class _FakeAutofillScope with AutofillScopeMixin implements AutofillScope {
+  _FakeAutofillScope();
+
+  TextInputConnection? _lastConnection;
+
+  @override
+  Iterable<AutofillClient> get autofillClients => const [];
+
+  @override
+  AutofillClient? getAutofillClient(String autofillId) => null;
+
+  @override
+  TextInputConnection attach(TextInputClient trigger, TextInputConfiguration configuration) {
+    _lastConnection = TextInput.attach(trigger, configuration);
+    return _lastConnection!;
+  }
+}
+
 /// Builds a [DocumentImeInputClient] wired to [controller] and appends every
 /// [EditRequest] it receives into [requestLog].
 DocumentImeInputClient _makeClient(
@@ -38,6 +57,7 @@ DocumentImeInputClient _makeClient(
   List<TextInputAction>? actionLog,
   List<KeyboardInsertedContent>? insertContentLog,
   List<RawFloatingCursorPoint>? floatingCursorLog,
+  AutofillScope? Function()? autofillScopeGetter,
 }) {
   return DocumentImeInputClient(
     serializer: const DocumentImeSerializer(),
@@ -46,6 +66,7 @@ DocumentImeInputClient _makeClient(
     onAction: actionLog == null ? null : (a) => actionLog.add(a),
     onInsertContent: insertContentLog == null ? null : (c) => insertContentLog.add(c),
     onFloatingCursor: floatingCursorLog == null ? null : (p) => floatingCursorLog.add(p),
+    autofillScopeGetter: autofillScopeGetter,
   );
 }
 
@@ -320,7 +341,7 @@ void main() {
     // -----------------------------------------------------------------------
 
     group('currentAutofillScope', () {
-      testWidgets('returns null (Phase 4.4 — not yet implemented)', (tester) async {
+      testWidgets('returns null when no autofillScopeGetter is provided', (tester) async {
         final log = <MethodCall>[];
         _installMock(tester, log);
 
@@ -328,6 +349,55 @@ void main() {
         final client = _makeClient(controller);
 
         expect(client.currentAutofillScope, isNull);
+      });
+
+      testWidgets('returns null when autofillScopeGetter returns null', (tester) async {
+        final log = <MethodCall>[];
+        _installMock(tester, log);
+
+        final controller = _makeController();
+        final client = _makeClient(controller, autofillScopeGetter: () => null);
+
+        expect(client.currentAutofillScope, isNull);
+      });
+
+      testWidgets('returns scope when autofillScopeGetter returns a scope', (tester) async {
+        final log = <MethodCall>[];
+        _installMock(tester, log);
+
+        final controller = _makeController();
+        final scope = _FakeAutofillScope();
+        final client = _makeClient(controller, autofillScopeGetter: () => scope);
+
+        expect(client.currentAutofillScope, same(scope));
+      });
+
+      testWidgets('openConnection uses scope.attach when scope is non-null', (tester) async {
+        final log = <MethodCall>[];
+        _installMock(tester, log);
+
+        final controller = _makeController();
+        final scope = _FakeAutofillScope();
+        final client = _makeClient(controller, autofillScopeGetter: () => scope);
+
+        client.openConnection(_config);
+
+        // The connection was established via scope.attach — verify IME was
+        // still called (setClient + show + setEditingState).
+        expect(log.map((c) => c.method), containsAll(['TextInput.setClient', 'TextInput.show']));
+        expect(scope._lastConnection, isNotNull);
+      });
+
+      testWidgets('openConnection uses TextInput.attach when scope is null', (tester) async {
+        final log = <MethodCall>[];
+        _installMock(tester, log);
+
+        final controller = _makeController();
+        final client = _makeClient(controller, autofillScopeGetter: () => null);
+
+        client.openConnection(_config);
+
+        expect(log.map((c) => c.method), containsAll(['TextInput.setClient', 'TextInput.show']));
       });
     });
 
@@ -656,6 +726,72 @@ void main() {
           () => client.performPrivateCommand('someAction', <String, dynamic>{}),
           returnsNormally,
         );
+      });
+
+      testWidgets('didChangeInputControl is a no-op and does not throw', (tester) async {
+        final log = <MethodCall>[];
+        _installMock(tester, log);
+
+        final controller = _makeController();
+        final client = _makeClient(controller);
+
+        expect(
+          () => client.didChangeInputControl(null, null),
+          returnsNormally,
+        );
+      });
+
+      testWidgets('insertTextPlaceholder is a no-op and does not throw', (tester) async {
+        final log = <MethodCall>[];
+        _installMock(tester, log);
+
+        final controller = _makeController();
+        final client = _makeClient(controller);
+
+        expect(
+          () => client.insertTextPlaceholder(const Size(40, 20)),
+          returnsNormally,
+        );
+      });
+
+      testWidgets('removeTextPlaceholder is a no-op and does not throw', (tester) async {
+        final log = <MethodCall>[];
+        _installMock(tester, log);
+
+        final controller = _makeController();
+        final client = _makeClient(controller);
+
+        expect(() => client.removeTextPlaceholder(), returnsNormally);
+      });
+
+      testWidgets('performSelector is a no-op and does not throw', (tester) async {
+        final log = <MethodCall>[];
+        _installMock(tester, log);
+
+        final controller = _makeController();
+        final client = _makeClient(controller);
+
+        expect(() => client.performSelector('selectAll:'), returnsNormally);
+      });
+
+      testWidgets('showAutocorrectionPromptRect is a no-op and does not throw', (tester) async {
+        final log = <MethodCall>[];
+        _installMock(tester, log);
+
+        final controller = _makeController();
+        final client = _makeClient(controller);
+
+        expect(() => client.showAutocorrectionPromptRect(0, 3), returnsNormally);
+      });
+
+      testWidgets('showToolbar is a no-op and does not throw', (tester) async {
+        final log = <MethodCall>[];
+        _installMock(tester, log);
+
+        final controller = _makeController();
+        final client = _makeClient(controller);
+
+        expect(() => client.showToolbar(), returnsNormally);
       });
     });
 
