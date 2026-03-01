@@ -15,6 +15,7 @@
 #   /tmp/ed_fix_summary.txt — summary
 
 set -uo pipefail
+exec 2>&1
 
 VERBOSE=false
 ARGS=()

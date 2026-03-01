@@ -14,6 +14,7 @@
 #   /tmp/ed_analyze_summary.txt — counts + exit code
 
 set -uo pipefail
+exec 2>&1
 
 VERBOSE=false
 ARGS=()

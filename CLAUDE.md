@@ -104,7 +104,7 @@ Each agent owns its directory exclusively. **No agent may write files outside it
 3. **Every public symbol has `///` dartdoc.** `dart doc` must produce zero warnings.
 4. **Zero external dependencies.** Flutter SDK only.
 5. **100 % branch coverage on `lib/src/services/`.** ≥ 90 % overall.
-6. **Golden tests** for all pixel-drawing code. Update only via the `qa` agent on Linux (`bash scripts/ci/flutter_test.sh --update-goldens`).
+6. **Golden tests** for all pixel-drawing code. Update only via the `qa` agent on Linux (`scripts/ci/flutter_test.sh --update-goldens`).
 7. **Commit messages:** `type(scope): description` — one ROADMAP checkbox per commit maximum.
 8. **Git commit technique:** Write the message to `/tmp/ed_commit_msg.txt` first, then `git commit -F /tmp/ed_commit_msg.txt`. Never use `$(cat <<EOF … EOF)` or other subshell expansions in commit commands.
 
@@ -138,7 +138,7 @@ cat ROADMAP.md                          # find next unchecked checkbox
 
 # 3. After implementation, always run the gate via qa agent
 #    e.g. "use the qa agent to run the full gate"
-scripts/ci/ci_gate.sh
+scripts/ci/ci_gate.sh --fix
 scripts/ci/log_tail.sh summary
 
 # 4. Inspect any failures

@@ -7,6 +7,7 @@
 #
 # Usage:
 #   ./scripts/ci/ci_gate.sh                  # full gate, summary only
+#   ./scripts/ci/ci_gate.sh --fix            # auto-fix format + lint before checking
 #   ./scripts/ci/ci_gate.sh --verbose        # full gate, verbose output
 #   ./scripts/ci/ci_gate.sh test/src/model/  # gate scoped to one layer
 #
@@ -15,12 +16,16 @@
 #   (plus each sub-script's own /tmp/ed_*.txt files)
 
 set -uo pipefail
+exec 2>&1
 
 VERBOSE=false
+FIX=false
 ARGS=()
 for arg in "$@"; do
   if [ "$arg" = "--verbose" ]; then
     VERBOSE=true
+  elif [ "$arg" = "--fix" ]; then
+    FIX=true
   else
     ARGS+=("$arg")
   fi
@@ -37,13 +42,23 @@ if [ "$VERBOSE" = true ]; then
   VERBOSE_FLAG="--verbose"
 fi
 
+# Step 0 (optional): auto-fix format + lint
+if [ "$FIX" = true ]; then
+  echo ">>> dart fix apply"
+  "$SCRIPT_DIR/dart_fix.sh" apply $VERBOSE_FLAG ${SCOPE:+"$SCOPE"} || true
+  echo ""
+  echo ">>> dart format fix"
+  "$SCRIPT_DIR/dart_format.sh" fix $VERBOSE_FLAG ${SCOPE:+"$SCOPE"} || true
+  echo ""
+fi
+
 RESULT_ANALYZE="SKIP"
 RESULT_FORMAT="SKIP"
 RESULT_TEST="SKIP"
 
 # Step 1: analyze
 echo ">>> flutter analyze"
-if bash "$SCRIPT_DIR/flutter_analyze.sh" $VERBOSE_FLAG ${SCOPE:+"$SCOPE"}; then
+if "$SCRIPT_DIR/flutter_analyze.sh" $VERBOSE_FLAG ${SCOPE:+"$SCOPE"}; then
   RESULT_ANALYZE="PASS"
 else
   RESULT_ANALYZE="FAIL"
@@ -52,7 +67,7 @@ echo ""
 
 # Step 2: format check
 echo ">>> dart format check"
-if bash "$SCRIPT_DIR/dart_format.sh" check $VERBOSE_FLAG ${SCOPE:+"$SCOPE"}; then
+if "$SCRIPT_DIR/dart_format.sh" check $VERBOSE_FLAG ${SCOPE:+"$SCOPE"}; then
   RESULT_FORMAT="PASS"
 else
   RESULT_FORMAT="FAIL"
@@ -61,7 +76,7 @@ echo ""
 
 # Step 3: tests
 echo ">>> flutter test"
-if bash "$SCRIPT_DIR/flutter_test.sh" $VERBOSE_FLAG ${SCOPE:+"$SCOPE"}; then
+if "$SCRIPT_DIR/flutter_test.sh" $VERBOSE_FLAG ${SCOPE:+"$SCOPE"}; then
   RESULT_TEST="PASS"
 else
   RESULT_TEST="FAIL"
@@ -78,6 +93,7 @@ fi
   echo "=== CI gate summary ==="
   echo "Timestamp : $TIMESTAMP"
   echo "Scope     : ${SCOPE:-all}"
+  echo "Fix       : $FIX"
   echo ""
   echo "  flutter analyze   : $RESULT_ANALYZE"
   echo "  dart format check : $RESULT_FORMAT"

@@ -16,6 +16,7 @@
 #   /tmp/ed_test_summary.txt — pass/fail/skip counts + duration
 
 set -uo pipefail
+exec 2>&1
 
 VERBOSE=false
 FLUTTER_ARGS=()

@@ -135,22 +135,22 @@ Always via the `qa` agent using `flutter_test.sh`, which handles all output pipi
 
 ```bash
 # Desktop (fast, no device needed)
-bash scripts/ci/flutter_test.sh integration_test/caret_placement_test.dart
+scripts/ci/flutter_test.sh integration_test/caret_placement_test.dart
 
 # iOS simulator
-bash scripts/ci/flutter_test.sh integration_test/ --device-id <ios-simulator-id>
+scripts/ci/flutter_test.sh integration_test/ --device-id <ios-simulator-id>
 
 # Android emulator
-bash scripts/ci/flutter_test.sh integration_test/ --device-id <android-emulator-id>
+scripts/ci/flutter_test.sh integration_test/ --device-id <android-emulator-id>
 
 # With performance profiling (profile mode via flutter drive — qa agent runs this directly)
-bash scripts/ci/flutter_test.sh integration_test/scroll_test.dart --profile
+scripts/ci/flutter_test.sh integration_test/scroll_test.dart --profile
 ```
 
 Then read results:
 ```bash
-bash scripts/ci/log_tail.sh summary
-bash scripts/ci/log_tail.sh failures
+scripts/ci/log_tail.sh summary
+scripts/ci/log_tail.sh failures
 ```
 
 ## Commit prefix

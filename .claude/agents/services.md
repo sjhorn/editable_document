@@ -44,8 +44,8 @@ test/src/services/
 
 1. Write failing test first. Run. Confirm RED.
 2. Implement minimum. Run. Confirm GREEN.
-3. Ask the `qa` agent: `bash scripts/ci/ci_gate.sh test/src/services/` — zero issues.
-4. Ask the `qa` agent for coverage: `bash scripts/ci/coverage.sh test/src/services/ 100` — **must be 100% branch coverage.**
+3. Ask the `qa` agent: `scripts/ci/ci_gate.sh test/src/services/` — zero issues.
+4. Ask the `qa` agent for coverage: `scripts/ci/coverage.sh test/src/services/ 100` — **must be 100% branch coverage.**
 5. Commit: `feat(services):`, `fix(services):`, or `test(services):`.
 
 ## Quality checks — ALWAYS use scripts/ci/

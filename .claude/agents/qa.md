@@ -27,30 +27,30 @@ All scripts live in `scripts/ci/`. Always invoke them from the project root.
 
 ### Step 1 — run the appropriate script
 ```bash
-bash scripts/ci/ci_gate.sh                    # full gate before any commit
-bash scripts/ci/flutter_test.sh               # all tests
-bash scripts/ci/flutter_test.sh test/src/model/  # scoped tests
-bash scripts/ci/flutter_test.sh --coverage    # with coverage
-bash scripts/ci/flutter_test.sh --update-goldens test/src/rendering/  # update goldens
-bash scripts/ci/flutter_analyze.sh            # full analysis
-bash scripts/ci/flutter_analyze.sh lib/src/services/  # scoped analysis
-bash scripts/ci/dart_format.sh check          # check formatting
-bash scripts/ci/dart_format.sh fix            # apply formatting
-bash scripts/ci/dart_fix.sh preview           # preview dart fix
-bash scripts/ci/dart_fix.sh apply             # apply dart fix
-bash scripts/ci/coverage.sh                   # all tests + coverage ≥90%
-bash scripts/ci/coverage.sh test/src/services/ # services must be 100%
+scripts/ci/ci_gate.sh                    # full gate before any commit
+scripts/ci/flutter_test.sh               # all tests
+scripts/ci/flutter_test.sh test/src/model/  # scoped tests
+scripts/ci/flutter_test.sh --coverage    # with coverage
+scripts/ci/flutter_test.sh --update-goldens test/src/rendering/  # update goldens
+scripts/ci/flutter_analyze.sh            # full analysis
+scripts/ci/flutter_analyze.sh lib/src/services/  # scoped analysis
+scripts/ci/dart_format.sh check          # check formatting
+scripts/ci/dart_format.sh fix            # apply formatting
+scripts/ci/dart_fix.sh preview           # preview dart fix
+scripts/ci/dart_fix.sh apply             # apply dart fix
+scripts/ci/coverage.sh                   # all tests + coverage ≥90%
+scripts/ci/coverage.sh test/src/services/ # services must be 100%
 ```
 
 ### Step 2 — read the summary
 After running any script, always read the summary file:
 ```bash
-bash scripts/ci/log_tail.sh summary           # all summaries at once
-bash scripts/ci/log_tail.sh tail test         # last 40 lines of test log
-bash scripts/ci/log_tail.sh failures          # only failures + errors
-bash scripts/ci/log_tail.sh grep "FAILED"     # search across all logs
-bash scripts/ci/log_tail.sh grep "error" analyze  # search specific log
-bash scripts/ci/log_tail.sh list              # list all log files + line counts
+scripts/ci/log_tail.sh summary           # all summaries at once
+scripts/ci/log_tail.sh tail test         # last 40 lines of test log
+scripts/ci/log_tail.sh failures          # only failures + errors
+scripts/ci/log_tail.sh grep "FAILED"     # search across all logs
+scripts/ci/log_tail.sh grep "error" analyze  # search specific log
+scripts/ci/log_tail.sh list              # list all log files + line counts
 ```
 
 ### Step 3 — report to user
@@ -64,45 +64,46 @@ After reading summaries, report clearly:
 
 ### "Run the full commit gate"
 ```bash
-bash scripts/ci/ci_gate.sh
-bash scripts/ci/log_tail.sh summary
+scripts/ci/ci_gate.sh --fix
+scripts/ci/log_tail.sh summary
 ```
+The `--fix` flag auto-applies `dart fix` and `dart format` before running checks.
 
 ### "Run tests for just the model layer"
 ```bash
-bash scripts/ci/flutter_test.sh test/src/model/
-bash scripts/ci/log_tail.sh tail test_summary
+scripts/ci/flutter_test.sh test/src/model/
+scripts/ci/log_tail.sh tail test_summary
 ```
 
 ### "Check if services has 100% coverage"
 ```bash
-bash scripts/ci/coverage.sh test/src/services/ 100
-bash scripts/ci/log_tail.sh tail coverage
+scripts/ci/coverage.sh test/src/services/ 100
+scripts/ci/log_tail.sh tail coverage
 ```
 
 ### "Analyze and fix all lint issues"
 ```bash
-bash scripts/ci/flutter_analyze.sh
-bash scripts/ci/log_tail.sh tail analyze_summary
-bash scripts/ci/dart_fix.sh preview
+scripts/ci/flutter_analyze.sh
+scripts/ci/log_tail.sh tail analyze_summary
+scripts/ci/dart_fix.sh preview
 # Review proposed changes, then:
-bash scripts/ci/dart_fix.sh apply
-bash scripts/ci/dart_format.sh fix
-bash scripts/ci/flutter_analyze.sh
-bash scripts/ci/log_tail.sh failures
+scripts/ci/dart_fix.sh apply
+scripts/ci/dart_format.sh fix
+scripts/ci/flutter_analyze.sh
+scripts/ci/log_tail.sh failures
 ```
 
 ### "Check formatting only"
 ```bash
-bash scripts/ci/dart_format.sh check
-bash scripts/ci/log_tail.sh tail format_summary
+scripts/ci/dart_format.sh check
+scripts/ci/log_tail.sh tail format_summary
 ```
 
 ### "A test is failing — show me details"
 ```bash
-bash scripts/ci/log_tail.sh failures
-bash scripts/ci/log_tail.sh grep "FAILED" test
-bash scripts/ci/log_tail.sh tail test 80
+scripts/ci/log_tail.sh failures
+scripts/ci/log_tail.sh grep "FAILED" test
+scripts/ci/log_tail.sh tail test 80
 ```
 
 ## Coverage thresholds
@@ -115,7 +116,7 @@ bash scripts/ci/log_tail.sh tail test 80
 
 If coverage fails, identify which lines are uncovered:
 ```bash
-bash scripts/ci/log_tail.sh grep "DA:.*,0" coverage   # uncovered lines in lcov format
+scripts/ci/log_tail.sh grep "DA:.*,0" coverage   # uncovered lines in lcov format
 ```
 Then tell the `services` or appropriate agent exactly which branches need tests.
 

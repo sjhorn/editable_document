@@ -18,6 +18,7 @@
 #   coverage/html/               — HTML report (in project root)
 
 set -uo pipefail
+exec 2>&1
 
 VERBOSE=false
 ARGS=()
