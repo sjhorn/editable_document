@@ -106,7 +106,7 @@ Each agent owns its directory exclusively. **No agent may write files outside it
 5. **100 % branch coverage on `lib/src/services/`.** ≥ 90 % overall.
 6. **Golden tests** for all pixel-drawing code. Update only via the `qa` agent on Linux (`scripts/ci/flutter_test.sh --update-goldens`).
 7. **Commit messages:** `type(scope): description` — one ROADMAP checkbox per commit maximum.
-8. **Git commit technique:** Write the message to `/tmp/ed_commit_msg.txt` first, then `git commit -F /tmp/ed_commit_msg.txt`. Never use `$(cat <<EOF … EOF)` or other subshell expansions in commit commands.
+8. **No `$()` in Bash tool calls.** Claude Code blocks command substitution `$()` in Bash tool arguments. Never use `$()` in any Bash tool call — write intermediate values to temp files instead. For git commits: write the message to `/tmp/ed_commit_msg.txt` first, then `git commit -F /tmp/ed_commit_msg.txt`. (`$()` inside `.sh` script files is fine — the restriction only applies to Bash tool call arguments.)
 
 ---
 
