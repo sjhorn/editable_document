@@ -616,6 +616,33 @@ void main() {
       expect(result, true);
       expect(controller.selection, _collapsed('p1', 0));
     });
+
+    test('collapses expanded selection to upstream end', () {
+      final doc = _singleParagraph('Hello world');
+      final expandedSel = const DocumentSelection(
+        base: DocumentPosition(
+          nodeId: 'p1',
+          nodePosition: TextNodePosition(offset: 0),
+        ),
+        extent: DocumentPosition(
+          nodeId: 'p1',
+          nodePosition: TextNodePosition(offset: 5),
+        ),
+      );
+      final controller = DocumentEditingController(document: doc, selection: expandedSel);
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.arrowUp));
+
+      expect(result, true);
+      expect(controller.selection!.isCollapsed, isTrue);
+      expect(controller.selection!.extent.nodeId, equals('p1'));
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(0),
+      );
+    });
   });
 
   // =========================================================================
@@ -649,6 +676,33 @@ void main() {
 
       expect(result, true);
       expect(controller.selection, _collapsed('p1', 5));
+    });
+
+    test('collapses expanded selection to downstream end', () {
+      final doc = _singleParagraph('Hello world');
+      final expandedSel = const DocumentSelection(
+        base: DocumentPosition(
+          nodeId: 'p1',
+          nodePosition: TextNodePosition(offset: 0),
+        ),
+        extent: DocumentPosition(
+          nodeId: 'p1',
+          nodePosition: TextNodePosition(offset: 5),
+        ),
+      );
+      final controller = DocumentEditingController(document: doc, selection: expandedSel);
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.arrowDown));
+
+      expect(result, true);
+      expect(controller.selection!.isCollapsed, isTrue);
+      expect(controller.selection!.extent.nodeId, equals('p1'));
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(5),
+      );
     });
   });
 

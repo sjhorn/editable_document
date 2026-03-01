@@ -297,6 +297,12 @@ class DocumentKeyboardHandler {
     final selection = _controller.selection;
     if (selection == null) return false;
 
+    if (!shift && selection.isExpanded) {
+      final normalised = selection.normalize(_document);
+      _controller.setSelection(DocumentSelection.collapsed(position: normalised.base));
+      return true;
+    }
+
     final extentPos = selection.extent;
     final node = _document.nodeById(extentPos.nodeId);
     if (node == null) return false;
@@ -330,6 +336,12 @@ class DocumentKeyboardHandler {
   }) {
     final selection = _controller.selection;
     if (selection == null) return false;
+
+    if (!shift && selection.isExpanded) {
+      final normalised = selection.normalize(_document);
+      _controller.setSelection(DocumentSelection.collapsed(position: normalised.extent));
+      return true;
+    }
 
     final extentPos = selection.extent;
     final node = _document.nodeById(extentPos.nodeId);
