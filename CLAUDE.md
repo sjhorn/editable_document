@@ -36,10 +36,13 @@ Every implementation task follows this exact chain, no exceptions:
 5. That agent says: use the qa agent to run the gate for <layer>
 6. qa agent reports PASS or FAIL with diagnosis
 7. If FAIL → owning agent fixes, loops back to step 5
-8. If PASS → owning agent commits, ticks the ROADMAP checkbox
-9. If the change adds or modifies a public API → use the docs agent to update dartdoc
-10. use the docs agent to update example/main.dart to demonstrate the new feature
+8. If PASS → owning agent commits
+9. Orchestrator ticks the completed ROADMAP.md checkbox(es) — `- [ ]` → `- [x]`
+10. If the change adds or modifies a public API → use the docs agent to update dartdoc
+11. use the docs agent to update example/main.dart to demonstrate the new feature
 ```
+
+**IMPORTANT:** Step 9 is the orchestrator's job (not the agent's) because ROADMAP.md is outside agent write scope. The orchestrator must tick checkboxes after every successful commit — never skip this step.
 
 ### When to invoke each agent
 

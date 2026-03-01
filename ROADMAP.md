@@ -60,39 +60,39 @@
 All Phase 1 code lives in `lib/src/model/`. Every class is tested in `test/src/model/` — write failing test first.
 
 ### 1.1 Core node types
-- [ ] `DocumentNode` — abstract base with `String id` (UUID v4), `Map<String, dynamic> metadata`, copyWith, equality, `debugDescribeChildren`.
-- [ ] `TextNode extends DocumentNode` — `AttributedText text`, typed-span attributions (bold, italic, underline, strikethrough, link, code, color, custom).
-- [ ] `ParagraphNode extends TextNode` — metadata keys for `blockType` (paragraph, h1–h6, blockquote, code block).
-- [ ] `ListItemNode extends TextNode` — `ListItemType` (ordered/unordered), `int indent`.
-- [ ] `ImageNode extends DocumentNode` — `String imageUrl`, `String? altText`, `double? width`, `double? height`, `BinaryNodePosition` (upstream/downstream).
-- [ ] `CodeBlockNode extends TextNode` — `String? language`, monospace attribution.
-- [ ] `HorizontalRuleNode extends DocumentNode` — no content, `BinaryNodePosition`.
-- [ ] `AttributedText` — `String text` + `SpanMarker` list for O(log n) attribution queries; `copyText(start, end)`, `insert`, `delete`, `applyAttribution`, `removeAttribution`.
-- [ ] Tests: node creation, equality, copyWith, metadata round-trip, attribution overlap/merge/split for all node types.
+- [x] `DocumentNode` — abstract base with `String id` (UUID v4), `Map<String, dynamic> metadata`, copyWith, equality, `debugDescribeChildren`.
+- [x] `TextNode extends DocumentNode` — `AttributedText text`, typed-span attributions (bold, italic, underline, strikethrough, link, code, color, custom).
+- [x] `ParagraphNode extends TextNode` — metadata keys for `blockType` (paragraph, h1–h6, blockquote, code block).
+- [x] `ListItemNode extends TextNode` — `ListItemType` (ordered/unordered), `int indent`.
+- [x] `ImageNode extends DocumentNode` — `String imageUrl`, `String? altText`, `double? width`, `double? height`, `BinaryNodePosition` (upstream/downstream).
+- [x] `CodeBlockNode extends TextNode` — `String? language`, monospace attribution.
+- [x] `HorizontalRuleNode extends DocumentNode` — no content, `BinaryNodePosition`.
+- [x] `AttributedText` — `String text` + `SpanMarker` list for O(log n) attribution queries; `copyText(start, end)`, `insert`, `delete`, `applyAttribution`, `removeAttribution`.
+- [x] Tests: node creation, equality, copyWith, metadata round-trip, attribution overlap/merge/split for all node types.
 
 ### 1.2 Document container
-- [ ] `Document` — immutable view: `List<DocumentNode> nodes`, `nodeById(String)`, `nodeAt(int)`, `nodeAfter`, `nodeBefore`, `getNodeIndexById`.
-- [ ] `MutableDocument extends Document` — mutation: `insertNode`, `deleteNode`, `replaceNode`, `moveNode`, `updateNode`.
-- [ ] `DocumentChangeEvent` — sealed class hierarchy: `NodeInserted`, `NodeDeleted`, `NodeReplaced`, `NodeMoved`, `TextChanged`.
-- [ ] `ValueNotifier<List<DocumentChangeEvent>>` on `MutableDocument`.
-- [ ] Tests: CRUD operations, ordering invariants, change event emission, empty document edge cases.
+- [x] `Document` — immutable view: `List<DocumentNode> nodes`, `nodeById(String)`, `nodeAt(int)`, `nodeAfter`, `nodeBefore`, `getNodeIndexById`.
+- [x] `MutableDocument extends Document` — mutation: `insertNode`, `deleteNode`, `replaceNode`, `moveNode`, `updateNode`.
+- [x] `DocumentChangeEvent` — sealed class hierarchy: `NodeInserted`, `NodeDeleted`, `NodeReplaced`, `NodeMoved`, `TextChanged`.
+- [x] `ValueNotifier<List<DocumentChangeEvent>>` on `MutableDocument`.
+- [x] Tests: CRUD operations, ordering invariants, change event emission, empty document edge cases.
 
 ### 1.3 Position and selection model
-- [ ] `NodePosition` — abstract marker interface.
-- [ ] `TextNodePosition implements NodePosition` — `int offset`, `TextAffinity affinity`.
-- [ ] `BinaryNodePosition implements NodePosition` — `BinaryNodePositionType` (upstream/downstream).
-- [ ] `DocumentPosition` — `{String nodeId, NodePosition nodePosition}`, equality, `copyWith`.
-- [ ] `DocumentSelection` — `{DocumentPosition base, DocumentPosition extent}`, `isCollapsed`, `isExpanded`, `affinity`, `normalize(Document)`, equality.
-- [ ] Tests: collapsed/expanded detection, normalization across heterogeneous node types, equality semantics.
+- [x] `NodePosition` — abstract marker interface.
+- [x] `TextNodePosition implements NodePosition` — `int offset`, `TextAffinity affinity`.
+- [x] `BinaryNodePosition implements NodePosition` — `BinaryNodePositionType` (upstream/downstream).
+- [x] `DocumentPosition` — `{String nodeId, NodePosition nodePosition}`, equality, `copyWith`.
+- [x] `DocumentSelection` — `{DocumentPosition base, DocumentPosition extent}`, `isCollapsed`, `isExpanded`, `affinity`, `normalize(Document)`, equality.
+- [x] Tests: collapsed/expanded detection, normalization across heterogeneous node types, equality semantics.
 
 ### 1.4 Document controller
-- [ ] `DocumentEditingController extends ChangeNotifier` — analogous to `TextEditingController`:
+- [x] `DocumentEditingController extends ChangeNotifier` — analogous to `TextEditingController`:
   - `MutableDocument document`
   - `DocumentSelection? selection`
   - `ComposerPreferences preferences` (active attributions)
   - `setSelection`, `clearSelection`, `collapseSelection`
   - `buildNodeSpan(DocumentNode)` — analogous to `buildTextSpan`
-- [ ] Tests: controller listeners fire on selection change, on document change, composer preferences round-trip.
+- [x] Tests: controller listeners fire on selection change, on document change, composer preferences round-trip.
 
 ---
 
@@ -101,19 +101,19 @@ All Phase 1 code lives in `lib/src/model/`. Every class is tested in `test/src/m
 > **Commit message:** `feat(editor): event-sourced command pipeline with undo/redo`
 
 ### 2.1 Command architecture
-- [ ] `EditRequest` — abstract marker (e.g., `InsertTextRequest`, `DeleteContentRequest`, `ReplaceNodeRequest`, `SplitParagraphRequest`, `MergeNodeRequest`, `MoveNodeRequest`, `ChangeBlockTypeRequest`, `ApplyAttributionRequest`, `RemoveAttributionRequest`).
-- [ ] `EditCommand` — abstract with `execute(EditContext)` returning `List<DocumentChangeEvent>`.
-- [ ] `EditContext` — `{MutableDocument document, MutableDocumentComposer composer}`.
-- [ ] `Editor` — `submit(EditRequest)` maps request → command → executes → emits events → notifies reactions/listeners.
-- [ ] `EditReaction` — fires additional requests in response to events (e.g., `SplitParagraphReaction` converting paragraphs on Enter).
-- [ ] `EditListener` — `onEdit(List<DocumentChangeEvent>)` for UI rebuild.
-- [ ] Tests: each request type produces correct events; reaction chaining; listener notification order; command failure leaves document unchanged.
+- [x] `EditRequest` — abstract marker (e.g., `InsertTextRequest`, `DeleteContentRequest`, `ReplaceNodeRequest`, `SplitParagraphRequest`, `MergeNodeRequest`, `MoveNodeRequest`, `ChangeBlockTypeRequest`, `ApplyAttributionRequest`, `RemoveAttributionRequest`).
+- [x] `EditCommand` — abstract with `execute(EditContext)` returning `List<DocumentChangeEvent>`.
+- [x] `EditContext` — `{MutableDocument document, MutableDocumentComposer composer}`.
+- [x] `Editor` — `submit(EditRequest)` maps request → command → executes → emits events → notifies reactions/listeners.
+- [x] `EditReaction` — fires additional requests in response to events (e.g., `SplitParagraphReaction` converting paragraphs on Enter).
+- [x] `EditListener` — `onEdit(List<DocumentChangeEvent>)` for UI rebuild.
+- [x] Tests: each request type produces correct events; reaction chaining; listener notification order; command failure leaves document unchanged.
 
 ### 2.2 Undo/redo
-- [ ] `UndoableEditor extends Editor` — wraps commands with inverse command generation.
-- [ ] `undo()`, `redo()`, `canUndo`, `canRedo`.
-- [ ] Integration with `UndoHistory<DocumentEditingValue>` widget (matching `EditableText`'s pattern).
-- [ ] Tests: undo/redo for each command type; undo stack cleared on non-undoable commands; boundary conditions (empty stack, max stack depth).
+- [x] `UndoableEditor extends Editor` — wraps commands with inverse command generation.
+- [x] `undo()`, `redo()`, `canUndo`, `canRedo`.
+- [x] Integration with `UndoHistory<DocumentEditingValue>` widget (matching `EditableText`'s pattern).
+- [x] Tests: undo/redo for each command type; undo stack cleared on non-undoable commands; boundary conditions (empty stack, max stack depth).
 
 ---
 
@@ -124,25 +124,25 @@ All Phase 1 code lives in `lib/src/model/`. Every class is tested in `test/src/m
 All render objects in `lib/src/rendering/`. Tests in `test/src/rendering/` using `TestRenderingFlutterBinding`.
 
 ### 3.1 Per-block render objects
-- [ ] `RenderDocumentBlock` — abstract `RenderBox` base for all block types; defines `DocumentNodeId nodeId`, `DocumentSelection? nodeSelection`, `getLocalRectForPosition(NodePosition)`, `getPositionAtOffset(Offset)`, `getEndpointsForSelection(NodePosition base, NodePosition extent)`.
-- [ ] `RenderTextBlock extends RenderDocumentBlock` — wraps `TextPainter`; renders `AttributedText` with selection highlight rectangles and cursor; handles `TextDirection`, `TextAlign`, `TextScaler`.
-- [ ] `RenderParagraphBlock extends RenderTextBlock` — plus heading-level styles.
-- [ ] `RenderListItemBlock extends RenderTextBlock` — plus bullet/number rendering at correct indent.
-- [ ] `RenderImageBlock extends RenderDocumentBlock` — image sizing with `BinaryNodePosition` hit testing.
-- [ ] `RenderCodeBlock extends RenderTextBlock` — monospace, background fill, line numbers (optional).
-- [ ] `RenderHorizontalRuleBlock extends RenderDocumentBlock` — horizontal line with `BinaryNodePosition`.
-- [ ] Tests: layout at various constraints, paint output via `TestCanvas`, hit testing accuracy, position-to-rect and rect-to-position round-trips.
+- [x] `RenderDocumentBlock` — abstract `RenderBox` base for all block types; defines `DocumentNodeId nodeId`, `DocumentSelection? nodeSelection`, `getLocalRectForPosition(NodePosition)`, `getPositionAtOffset(Offset)`, `getEndpointsForSelection(NodePosition base, NodePosition extent)`.
+- [x] `RenderTextBlock extends RenderDocumentBlock` — wraps `TextPainter`; renders `AttributedText` with selection highlight rectangles and cursor; handles `TextDirection`, `TextAlign`, `TextScaler`.
+- [x] `RenderParagraphBlock extends RenderTextBlock` — plus heading-level styles.
+- [x] `RenderListItemBlock extends RenderTextBlock` — plus bullet/number rendering at correct indent.
+- [x] `RenderImageBlock extends RenderDocumentBlock` — image sizing with `BinaryNodePosition` hit testing.
+- [x] `RenderCodeBlock extends RenderTextBlock` — monospace, background fill, line numbers (optional).
+- [x] `RenderHorizontalRuleBlock extends RenderDocumentBlock` — horizontal line with `BinaryNodePosition`.
+- [x] Tests: layout at various constraints, paint output via `TestCanvas`, hit testing accuracy, position-to-rect and rect-to-position round-trips.
 
 ### 3.2 Document layout render object
-- [ ] `RenderDocumentLayout extends RenderBox with ContainerRenderObjectMixin` — vertical stack of `RenderDocumentBlock` children.
-- [ ] `DocumentLayoutGeometry` — `getDocumentPositionAtOffset(Offset)`, `getRectForDocumentPosition(DocumentPosition)`, `getComponentByNodeId(String)`, `getDocumentPositionNearestToOffset(Offset)`.
-- [ ] Scrollable viewport integration: accepts `ViewportOffset`, computes `maxScrollExtent`.
-- [ ] Tests: intrinsic sizes, layout with mixed block types, hit testing delegated to correct child, scroll extent computation.
+- [x] `RenderDocumentLayout extends RenderBox with ContainerRenderObjectMixin` — vertical stack of `RenderDocumentBlock` children.
+- [x] `DocumentLayoutGeometry` — `getDocumentPositionAtOffset(Offset)`, `getRectForDocumentPosition(DocumentPosition)`, `getComponentByNodeId(String)`, `getDocumentPositionNearestToOffset(Offset)`.
+- [x] Scrollable viewport integration: accepts `ViewportOffset`, computes `maxScrollExtent`.
+- [x] Tests: intrinsic sizes, layout with mixed block types, hit testing delegated to correct child, scroll extent computation.
 
 ### 3.3 Caret and selection painting
-- [ ] `DocumentSelectionPainter extends CustomPainter` — iterates nodes between base and extent; delegates selection rect computation to each `RenderDocumentBlock`; paints cross-block selection across multiple `RenderTextBlock` instances.
-- [ ] `DocumentCaretPainter extends CustomPainter` — draws cursor rect from `RenderDocumentBlock.getLocalRectForPosition`; blink animation via `AnimationController`.
-- [ ] Golden tests: cursor at line start/end/middle, selection spanning same paragraph, selection spanning multiple paragraphs, selection spanning text+image, RTL text cursor.
+- [x] `DocumentSelectionPainter extends CustomPainter` — iterates nodes between base and extent; delegates selection rect computation to each `RenderDocumentBlock`; paints cross-block selection across multiple `RenderTextBlock` instances.
+- [x] `DocumentCaretPainter extends CustomPainter` — draws cursor rect from `RenderDocumentBlock.getLocalRectForPosition`; blink animation via `AnimationController`.
+- [x] Golden tests: cursor at line start/end/middle, selection spanning same paragraph, selection spanning multiple paragraphs, selection spanning text+image, RTL text cursor.
 
 ---
 
@@ -153,16 +153,16 @@ All render objects in `lib/src/rendering/`. Tests in `test/src/rendering/` using
 All IME code in `lib/src/services/`. This is the highest-risk phase; 100 % test coverage required on all paths.
 
 ### 4.1 DocumentImeSerializer
-- [ ] `DocumentImeSerializer` — bidirectional serialization:
+- [x] `DocumentImeSerializer` — bidirectional serialization:
   - `Document + DocumentSelection → TextEditingValue` (single text node: full text; multi-node/non-text: synthetic minimal value).
   - `TextEditingValue + Document → DocumentSelection`.
   - `List<TextEditingDelta> + Document → List<EditRequest>` (delta → document mutations).
-- [ ] Handle composing region within a `TextNodePosition`.
-- [ ] Handle `\n` split (Android Enter via delta) → `SplitParagraphRequest`.
-- [ ] Tests: serialization round-trips for each node type; delta→request mapping for insertion, deletion, replacement, non-text-update; composing region preserved through round-trip; empty document edge case.
+- [x] Handle composing region within a `TextNodePosition`.
+- [x] Handle `\n` split (Android Enter via delta) → `SplitParagraphRequest`.
+- [x] Tests: serialization round-trips for each node type; delta→request mapping for insertion, deletion, replacement, non-text-update; composing region preserved through round-trip; empty document edge case.
 
 ### 4.2 DocumentImeInputClient
-- [ ] `DocumentImeInputClient implements DeltaTextInputClient` — connection lifecycle:
+- [x] `DocumentImeInputClient implements DeltaTextInputClient` — connection lifecycle:
   - `openConnection(TextInputConfiguration)` → `TextInput.attach(this, config)` with `enableDeltaModel: true`.
   - `closeConnection()` → `_inputConnection?.close()`.
   - `updateEditingValueWithDeltas(List<TextEditingDelta>)` → serialize → dispatch `EditRequest`s.
@@ -171,14 +171,14 @@ All IME code in `lib/src/services/`. This is the highest-risk phase; 100 % test 
   - `insertContent(KeyboardInsertedContent)` → `InsertInlineContentRequest` (Android image/GIF).
   - `connectionClosed()` → notify composer.
   - `showKeyboard()` / `hideKeyboard()`.
-- [ ] `syncToIme()` — push current `TextEditingValue` back to platform after document mutations.
-- [ ] Tests: mock `SystemChannels.textInput`; verify outgoing calls (`setClient`, `setEditingState`, `show`, `hide`, `clearClient`); verify incoming calls route correctly; delta model enabled; floating cursor state machine.
+- [x] `syncToIme()` — push current `TextEditingValue` back to platform after document mutations.
+- [x] Tests: mock `SystemChannels.textInput`; verify outgoing calls (`setClient`, `setEditingState`, `show`, `hide`, `clearClient`); verify incoming calls route correctly; delta model enabled; floating cursor state machine.
 
 ### 4.3 Keyboard & shortcuts
-- [ ] `DocumentKeyboardHandler` — `KeyEventResult onKeyEvent(FocusNode, KeyEvent)` — handles keys not covered by IME deltas (desktop arrow navigation, Home/End, Shift+arrow selection, Ctrl+arrow word navigation, Delete forward, Escape).
-- [ ] `DefaultDocumentShortcuts` — extends `DefaultTextEditingShortcuts` with document-specific intents: `SplitBlockIntent`, `MergeBlockBackwardIntent`, `MergeBlockForwardIntent`, `IndentListItemIntent`, `UnindentListItemIntent`, `ToggleAttributionIntent`.
-- [ ] Platform-specific mappings: macOS (Cmd), Windows/Linux (Ctrl), iOS/Android (no hardware shortcuts needed but handled gracefully).
-- [ ] Tests: all intents dispatch correct `EditRequest`s; platform shortcut mapping verified for all six platforms; unknown keys pass through.
+- [x] `DocumentKeyboardHandler` — `KeyEventResult onKeyEvent(FocusNode, KeyEvent)` — handles keys not covered by IME deltas (desktop arrow navigation, Home/End, Shift+arrow selection, Ctrl+arrow word navigation, Delete forward, Escape).
+- [x] `DefaultDocumentShortcuts` — extends `DefaultTextEditingShortcuts` with document-specific intents: `SplitBlockIntent`, `MergeBlockBackwardIntent`, `MergeBlockForwardIntent`, `IndentListItemIntent`, `UnindentListItemIntent`, `ToggleAttributionIntent`.
+- [x] Platform-specific mappings: macOS (Cmd), Windows/Linux (Ctrl), iOS/Android (no hardware shortcuts needed but handled gracefully).
+- [x] Tests: all intents dispatch correct `EditRequest`s; platform shortcut mapping verified for all six platforms; unknown keys pass through.
 
 ### 4.4 Autofill
 - [ ] `DocumentAutofillClient implements AutofillClient` — single-text-node documents participate in autofill groups.
@@ -194,20 +194,20 @@ All IME code in `lib/src/services/`. This is the highest-risk phase; 100 % test 
 All widgets in `lib/src/widgets/`. Tests in `test/src/widgets/` using `testWidgets`.
 
 ### 5.1 Component builder system
-- [ ] `ComponentBuilder` — abstract with `createViewModel(Document, DocumentNode)` and `createComponent(ComponentViewModel, ComponentContext)`.
-- [ ] `ComponentViewModel` — abstract data class with `nodeId`, `selection`, `isSelected`.
-- [ ] `ComponentContext` — `{Document, DocumentSelection?, ComponentBuilder, StyleSheet}`.
-- [ ] Default builders: `ParagraphComponentBuilder`, `ListItemComponentBuilder`, `ImageComponentBuilder`, `CodeBlockComponentBuilder`, `HorizontalRuleComponentBuilder`.
-- [ ] Tests: each builder returns non-null for its node type; returns null for other types; custom builder prepended to list takes precedence.
+- [x] `ComponentBuilder` — abstract with `createViewModel(Document, DocumentNode)` and `createComponent(ComponentViewModel, ComponentContext)`.
+- [x] `ComponentViewModel` — abstract data class with `nodeId`, `selection`, `isSelected`.
+- [x] `ComponentContext` — `{Document, DocumentSelection?, ComponentBuilder, StyleSheet}`.
+- [x] Default builders: `ParagraphComponentBuilder`, `ListItemComponentBuilder`, `ImageComponentBuilder`, `CodeBlockComponentBuilder`, `HorizontalRuleComponentBuilder`.
+- [x] Tests: each builder returns non-null for its node type; returns null for other types; custom builder prepended to list takes precedence.
 
 ### 5.2 DocumentLayout widget
-- [ ] `DocumentLayout extends StatefulWidget` — renders `RenderDocumentLayout` via `DocumentLayoutElement extends RenderObjectElement`.
-- [ ] Responds to `Document` changes via `EditListener`.
-- [ ] `GlobalKey<DocumentLayoutState>` exposes `documentPositionAtOffset`, `rectForDocumentPosition`, `componentForNode`.
-- [ ] Tests: layout updates when document changes; correct component rendered for each node type; position queries delegated to render layer.
+- [x] `DocumentLayout extends StatefulWidget` — renders `RenderDocumentLayout` via `DocumentLayoutElement extends RenderObjectElement`.
+- [x] Responds to `Document` changes via `EditListener`.
+- [x] `GlobalKey<DocumentLayoutState>` exposes `documentPositionAtOffset`, `rectForDocumentPosition`, `componentForNode`.
+- [x] Tests: layout updates when document changes; correct component rendered for each node type; position queries delegated to render layer.
 
 ### 5.3 EditableDocument widget (the main deliverable)
-- [ ] `EditableDocument extends StatefulWidget` — parameter surface mirrors `EditableText`:
+- [x] `EditableDocument extends StatefulWidget` — parameter surface mirrors `EditableText`:
   - `DocumentEditingController controller`
   - `FocusNode focusNode`
   - `TextStyle? style`
@@ -231,14 +231,14 @@ All widgets in `lib/src/widgets/`. Tests in `test/src/widgets/` using `testWidge
   - `StyleSheet? stylesheet`
   - `List<EditReaction> reactions`
   - `bool enableDeltaModel` (default true)
-- [ ] `EditableDocumentState` — five mixins analogous to `EditableTextState`: `AutomaticKeepAliveClientMixin`, `WidgetsBindingObserver`, `TickerProviderStateMixin`, `TextSelectionDelegate`, `DeltaTextInputClient`.
-- [ ] Build tree (analogous to `EditableText`): `Actions` → `Focus` → `Scrollable` → `DocumentLayout` → `DocumentSelectionOverlay`.
-- [ ] Tests: widget builds without error for each node type; focus/blur cycles open/close IME; readOnly blocks IME; autofocus works; scroll to caret on focus.
+- [x] `EditableDocumentState` — five mixins analogous to `EditableTextState`: `AutomaticKeepAliveClientMixin`, `WidgetsBindingObserver`, `TickerProviderStateMixin`, `TextSelectionDelegate`, `DeltaTextInputClient`.
+- [x] Build tree (analogous to `EditableText`): `Actions` → `Focus` → `Scrollable` → `DocumentLayout` → `DocumentSelectionOverlay`.
+- [x] Tests: widget builds without error for each node type; focus/blur cycles open/close IME; readOnly blocks IME; autofocus works; scroll to caret on focus.
 
 ### 5.4 DocumentField widget (TextField equivalent)
-- [ ] `DocumentField extends StatefulWidget` — wraps `EditableDocument` with decoration (`InputDecoration`), label, hint, prefix/suffix, error text.
-- [ ] `_DocumentFieldState` delegates to `EditableDocumentState`.
-- [ ] Tests: decoration renders; label animates on focus; error state shows; counter tracks document length.
+- [x] `DocumentField extends StatefulWidget` — wraps `EditableDocument` with decoration (`InputDecoration`), label, hint, prefix/suffix, error text.
+- [x] `_DocumentFieldState` delegates to `EditableDocumentState`.
+- [x] Tests: decoration renders; label animates on focus; error state shows; counter tracks document length.
 
 ---
 
@@ -247,15 +247,15 @@ All widgets in `lib/src/widgets/`. Tests in `test/src/widgets/` using `testWidge
 > **Commit message:** `feat(widgets): cross-block selection overlay, platform handles, magnifier`
 
 ### 6.1 DocumentSelectionOverlay
-- [ ] `DocumentSelectionOverlay` — manages `OverlayEntry`s for caret, handles, toolbar.
-- [ ] Uses `LayerLink` pairs (start handle ↔ `CompositedTransformTarget` at selection start; end handle ↔ end) mirroring `TextSelectionOverlay`.
-- [ ] `DocumentSelectionOverlayState.update(DocumentSelection?)` — recomputes positions from `DocumentLayout` geometry.
-- [ ] Tests: overlay entries created on selection; removed on collapse; positions match render layer geometry (golden tests).
+- [x] `DocumentSelectionOverlay` — manages `OverlayEntry`s for caret, handles, toolbar.
+- [x] Uses `LayerLink` pairs (start handle ↔ `CompositedTransformTarget` at selection start; end handle ↔ end) mirroring `TextSelectionOverlay`.
+- [x] `DocumentSelectionOverlayState.update(DocumentSelection?)` — recomputes positions from `DocumentLayout` geometry.
+- [x] Tests: overlay entries created on selection; removed on collapse; positions match render layer geometry (golden tests).
 
 ### 6.2 Caret overlay
-- [ ] `CaretDocumentOverlay extends StatefulWidget` — `CustomPaint` with `DocumentCaretPainter`; blink via `AnimationController` with `_kCursorBlinkInterval = Duration(milliseconds: 500)` matching `EditableText`.
-- [ ] Pause blink on key events; restart on idle.
-- [ ] Integration test: caret visible after focus; blink animation runs; caret hidden in `readOnly`.
+- [x] `CaretDocumentOverlay extends StatefulWidget` — `CustomPaint` with `DocumentCaretPainter`; blink via `AnimationController` with `_kCursorBlinkInterval = Duration(milliseconds: 500)` matching `EditableText`.
+- [x] Pause blink on key events; restart on idle.
+- [x] Integration test: caret visible after focus; blink animation runs; caret hidden in `readOnly`.
 
 ### 6.3 Desktop selection (mouse)
 - [ ] `DocumentMouseInteractor` — `MouseRegion` + `GestureDetector`; tap → collapse to position; drag → extend selection; double-tap → word selection; triple-tap → block selection; Shift+click → extend.
