@@ -101,6 +101,7 @@ Each agent owns its directory exclusively. **No agent may write files outside it
 5. **100 % branch coverage on `lib/src/services/`.** ≥ 90 % overall.
 6. **Golden tests** for all pixel-drawing code. Update only via the `qa` agent on Linux (`bash scripts/ci/flutter_test.sh --update-goldens`).
 7. **Commit messages:** `type(scope): description` — one ROADMAP checkbox per commit maximum.
+8. **Git commit technique:** Write the message to `/tmp/ed_commit_msg.txt` first, then `git commit -F /tmp/ed_commit_msg.txt`. Never use `$(cat <<EOF … EOF)` or other subshell expansions in commit commands.
 
 ---
 
