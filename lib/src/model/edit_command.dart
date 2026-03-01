@@ -359,11 +359,26 @@ class MergeNodeCommand extends EditCommand {
       throw StateError('MergeNodeCommand: node "$secondNodeId" is not a TextNode.');
     }
 
+    // Capture the join point before the merge so the caret can be placed
+    // precisely at the boundary between the original first-node text and the
+    // appended second-node text.
+    final joinOffset = first.text.length;
+
     final merged = first.text.insert(first.text.length, second.text);
     doc.updateNode(firstNodeId, (n) => (n as TextNode).copyWith(text: merged));
 
     final secondIndex = doc.getNodeIndexById(secondNodeId);
     doc.deleteNode(secondNodeId);
+
+    // Move the caret to the join point.
+    context.controller.setSelection(
+      DocumentSelection.collapsed(
+        position: DocumentPosition(
+          nodeId: firstNodeId,
+          nodePosition: TextNodePosition(offset: joinOffset),
+        ),
+      ),
+    );
 
     return [
       TextChanged(nodeId: firstNodeId),

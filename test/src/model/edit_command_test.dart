@@ -365,6 +365,21 @@ void main() {
         throwsStateError,
       );
     });
+
+    test('4. selection is moved to join point after merge', () {
+      final doc = _twoParaDoc();
+      final ctx = _ctx(doc);
+      final cmd = const MergeNodeCommand(firstNodeId: 'p1', secondNodeId: 'p2');
+
+      cmd.execute(ctx);
+
+      final sel = ctx.controller.selection;
+      expect(sel, isNotNull);
+      expect(sel!.isCollapsed, isTrue);
+      expect(sel.extent.nodeId, 'p1');
+      // Join point = end of original first node text ("Hello world" = 11 chars)
+      expect((sel.extent.nodePosition as TextNodePosition).offset, 11);
+    });
   });
 
   // =========================================================================
