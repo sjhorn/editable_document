@@ -273,6 +273,12 @@ All widgets in `lib/src/widgets/`. Tests in `test/src/widgets/` using `testWidge
 - [x] `AndroidDocumentMagnifier`.
 - [x] Integration tests: mirrors iOS test coverage for Android gesture set.
 
+### 6.7 Paint-time caret and selection geometry
+- [x] `RenderDocumentCaret` — `LeafRenderObjectWidget` + `RenderBox` that queries `RenderDocumentLayout` at paint time; eliminates the post-frame-callback one-frame delay for caret positioning.
+- [x] `RenderDocumentSelectionHighlight` — same pattern for selection highlight rectangles.
+- [x] `CaretDocumentOverlay` and `DocumentSelectionOverlay` updated to use the new render objects.
+- Note: handle anchor positioning (`CompositedTransformTarget`) still uses post-frame callbacks. A future improvement could replace these with a custom `RenderObject` that positions `LayerLink` targets during paint, eliminating all post-frame callbacks.
+
 ### 6.6 Floating toolbar
 - [x] `DocumentTextSelectionControls implements TextSelectionControls` — delegates to `materialTextSelectionControls` / `cupertinoTextSelectionControls` per platform.
 - [x] Actions: Cut, Copy, Paste, Select All, Bold, Italic (extensible via `toolbarItems`).

@@ -1,10 +1,10 @@
 /// Blinking caret overlay widget for the editable_document package.
 ///
 /// [CaretDocumentOverlay] is a [StatefulWidget] that wraps a
-/// [DocumentCaretPainter] in a [CustomPaint] and drives blink animation via
-/// a periodic [Timer]. It is the widget-layer complement to
-/// [DocumentSelectionOverlay] — while [DocumentSelectionOverlay] owns
-/// selection highlights and static caret drawing, [CaretDocumentOverlay]
+/// [RenderDocumentCaret] in a [LeafRenderObjectWidget] (_CaretRenderWidget)
+/// and drives blink animation via a periodic [Timer]. It is the widget-layer
+/// complement to [DocumentSelectionOverlay] — while [DocumentSelectionOverlay]
+/// owns selection highlights and static caret drawing, [CaretDocumentOverlay]
 /// specifically handles the blink rhythm that [EditableText] delivers through
 /// an [AnimationController].
 ///
@@ -17,16 +17,22 @@
 ///   prevent the caret from blinking away mid-keystroke).
 /// - When [showCaret] is `false`, the caret is always hidden and no timer runs.
 /// - When the selection is `null` or expanded the caret is hidden.
+///
+/// ## Geometry computation
+///
+/// Geometry (the caret rect) is computed at paint time by [RenderDocumentCaret]
+/// by querying [RenderDocumentLayout] directly. No post-frame callbacks are
+/// needed.
 library;
 
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
 import '../model/document_editing_controller.dart';
-import '../rendering/document_caret_painter.dart';
+import '../model/document_selection.dart';
+import '../rendering/render_document_caret.dart';
 import 'document_layout.dart';
 
 // ---------------------------------------------------------------------------
@@ -39,8 +45,8 @@ const Duration _kCursorBlinkInterval = Duration(milliseconds: 500);
 /// A widget that draws a blinking text cursor over a [DocumentLayout].
 ///
 /// [CaretDocumentOverlay] is placed inside a [Stack] alongside (or on top of)
-/// a [DocumentLayout].  It queries [layoutKey] for the caret rectangle
-/// whenever the selection changes, and toggles visibility every [blinkInterval]
+/// a [DocumentLayout].  It passes [layoutKey] to a [RenderDocumentCaret] which
+/// queries geometry at paint time, and toggles visibility every [blinkInterval]
 /// to produce the familiar blinking cursor.
 ///
 /// ### Typical usage inside a Stack
@@ -80,8 +86,8 @@ class CaretDocumentOverlay extends StatefulWidget {
   /// Creates a [CaretDocumentOverlay].
   ///
   /// [controller] is the source of truth for the document selection.
-  /// [layoutKey] is used to obtain the caret rectangle via
-  /// [DocumentLayoutState.rectForDocumentPosition].
+  /// [layoutKey] is used to obtain the [RenderDocumentLayout] that
+  /// [RenderDocumentCaret] queries at paint time.
   ///
   /// [caretColor] defaults to opaque black.
   /// [caretWidth] defaults to `2.0` logical pixels.
@@ -103,8 +109,8 @@ class CaretDocumentOverlay extends StatefulWidget {
   /// The document editing controller that provides selection state.
   final DocumentEditingController controller;
 
-  /// A [GlobalKey] into the [DocumentLayoutState] used to compute the
-  /// caret rectangle from the current selection.
+  /// A [GlobalKey] into the [DocumentLayoutState] used to obtain the
+  /// [RenderDocumentLayout] for paint-time geometry queries.
   final GlobalKey<DocumentLayoutState> layoutKey;
 
   /// The fill colour of the caret rectangle.
@@ -175,9 +181,6 @@ class CaretDocumentOverlayState extends State<CaretDocumentOverlay> {
   // State fields
   // ---------------------------------------------------------------------------
 
-  /// The current caret rectangle, in [DocumentLayout] local coordinates.
-  Rect? _caretRect;
-
   /// Whether the caret is in the visible phase of the blink cycle.
   ///
   /// This flag is toggled by [_blinkTimer] every [CaretDocumentOverlay.blinkInterval].
@@ -195,11 +198,21 @@ class CaretDocumentOverlayState extends State<CaretDocumentOverlay> {
   /// Returns `null` when [CaretDocumentOverlay.showCaret] is `false`, when
   /// there is no selection, or when the selection is expanded.
   ///
+  /// Geometry is queried on demand from [DocumentLayoutState] rather than
+  /// cached, so the returned rect is always up-to-date with the current layout.
+  ///
   /// Exposed for testing via `@visibleForTesting`; production code should
   /// not rely on this getter.
   @visibleForTesting
   // ignore: diagnostic_describe_all_properties
-  Rect? get caretRect => _caretRect;
+  Rect? get caretRect {
+    if (!widget.showCaret) return null;
+    final sel = widget.controller.selection;
+    if (sel == null || !sel.isCollapsed) return null;
+    final layoutState = widget.layoutKey.currentState;
+    if (layoutState == null) return null;
+    return layoutState.rectForDocumentPosition(sel.extent);
+  }
 
   /// Whether the caret is currently visible.
   ///
@@ -235,7 +248,6 @@ class CaretDocumentOverlayState extends State<CaretDocumentOverlay> {
   void initState() {
     super.initState();
     widget.controller.addListener(_onControllerChanged);
-    _updateCaretRect();
     _updateBlinkState();
   }
 
@@ -248,7 +260,6 @@ class CaretDocumentOverlayState extends State<CaretDocumentOverlay> {
       widget.controller.addListener(_onControllerChanged);
     }
 
-    _updateCaretRect();
     _updateBlinkState();
   }
 
@@ -269,46 +280,11 @@ class CaretDocumentOverlayState extends State<CaretDocumentOverlay> {
     _stopBlink();
     _updateBlinkState();
     if (mounted) setState(() {});
-    // Defer the geometry query until after the DocumentLayout has rebuilt with
-    // any new text so the caret rect is never computed against stale layout.
-    // This mirrors DocumentSelectionOverlay._onControllerChanged.
-    SchedulerBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _updateCaretRect();
-      setState(() {});
-    });
   }
 
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
-
-  /// Queries [DocumentLayoutState] for the current caret rect.
-  ///
-  /// Sets [_caretRect] to `null` when:
-  /// - [widget.showCaret] is `false`,
-  /// - the selection is `null`, or
-  /// - the selection is expanded.
-  void _updateCaretRect() {
-    if (!widget.showCaret) {
-      _caretRect = null;
-      return;
-    }
-
-    final sel = widget.controller.selection;
-    if (sel == null || !sel.isCollapsed) {
-      _caretRect = null;
-      return;
-    }
-
-    final layoutState = widget.layoutKey.currentState;
-    if (layoutState == null) {
-      _caretRect = null;
-      return;
-    }
-
-    _caretRect = layoutState.rectForDocumentPosition(sel.extent);
-  }
 
   /// Starts or stops the blink timer based on the current selection state.
   ///
@@ -350,23 +326,85 @@ class CaretDocumentOverlayState extends State<CaretDocumentOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: DocumentCaretPainter(
-        caretRect: _caretRect,
-        color: widget.caretColor,
-        width: widget.caretWidth,
-        cornerRadius: widget.cornerRadius,
-        visible: _blinkVisible && widget.showCaret,
-      ),
+    return _CaretRenderWidget(
+      layoutKey: widget.layoutKey,
+      selection: widget.controller.selection,
+      color: widget.caretColor,
+      width: widget.caretWidth,
+      cornerRadius: widget.cornerRadius,
+      visible: _blinkVisible && widget.showCaret,
     );
   }
 
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
-    properties.add(DiagnosticsProperty<Rect?>('caretRect', _caretRect, defaultValue: null));
+    properties.add(DiagnosticsProperty<Rect?>('caretRect', caretRect, defaultValue: null));
     properties.add(FlagProperty('blinkVisible', value: _blinkVisible, ifTrue: 'blinkVisible'));
     properties
         .add(FlagProperty('isCursorVisible', value: isCursorVisible, ifTrue: 'cursorVisible'));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// _CaretRenderWidget
+// ---------------------------------------------------------------------------
+
+/// A [LeafRenderObjectWidget] that creates and updates a [RenderDocumentCaret].
+///
+/// This is an implementation detail of [CaretDocumentOverlay] and is not part
+/// of the public API. The render object queries [RenderDocumentLayout] at paint
+/// time so no pre-computed geometry is needed in the widget layer.
+class _CaretRenderWidget extends LeafRenderObjectWidget {
+  const _CaretRenderWidget({
+    required this.layoutKey,
+    required this.selection,
+    required this.color,
+    required this.width,
+    required this.cornerRadius,
+    required this.visible,
+  });
+
+  final GlobalKey<DocumentLayoutState> layoutKey;
+  final DocumentSelection? selection;
+  final Color color;
+  final double width;
+  final double cornerRadius;
+  final bool visible;
+
+  @override
+  RenderDocumentCaret createRenderObject(BuildContext context) {
+    return RenderDocumentCaret(
+      documentLayout: layoutKey.currentState?.renderObject,
+      selection: selection,
+      color: color,
+      width: width,
+      cornerRadius: cornerRadius,
+      visible: visible,
+    );
+  }
+
+  @override
+  void updateRenderObject(BuildContext context, RenderDocumentCaret renderObject) {
+    renderObject
+      ..documentLayout = layoutKey.currentState?.renderObject
+      ..selection = selection
+      ..color = color
+      ..width = width
+      ..cornerRadius = cornerRadius
+      ..visible = visible;
+  }
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties.add(
+      DiagnosticsProperty<GlobalKey<DocumentLayoutState>>('layoutKey', layoutKey),
+    );
+    properties.add(DiagnosticsProperty<DocumentSelection?>('selection', selection));
+    properties.add(ColorProperty('color', color));
+    properties.add(DoubleProperty('width', width));
+    properties.add(DoubleProperty('cornerRadius', cornerRadius));
+    properties.add(FlagProperty('visible', value: visible, ifTrue: 'visible'));
   }
 }

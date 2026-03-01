@@ -180,6 +180,19 @@ class DocumentLayoutState extends State<DocumentLayout> {
   }
 
   // ---------------------------------------------------------------------------
+  // Public render-object accessor
+  // ---------------------------------------------------------------------------
+
+  /// The underlying [RenderDocumentLayout], or `null` if the render tree has
+  /// not been built yet.
+  ///
+  /// Overlay widgets (e.g. caret and selection-highlight render objects) use
+  /// this to obtain a direct reference to the layout render object so they can
+  /// query geometry at paint time rather than at build time.
+  // ignore: diagnostic_describe_all_properties
+  RenderDocumentLayout? get renderObject => _renderObject;
+
+  // ---------------------------------------------------------------------------
   // Geometry queries — delegate to RenderDocumentLayout
   // ---------------------------------------------------------------------------
 

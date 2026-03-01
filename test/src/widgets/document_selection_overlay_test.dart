@@ -168,15 +168,39 @@ void main() {
       expect(find.byType(CompositedTransformTarget), findsNWidgets(2));
     });
 
-    testWidgets('at least two CustomPaint widgets present for caret and selection', (tester) async {
+    testWidgets('caret and selection use LeafRenderObjectWidget render objects, not CustomPaint',
+        (tester) async {
       final controller = _makeController();
       addTearDown(controller.dispose);
 
       await tester.pumpWidget(_buildOverlay(controller: controller));
 
-      // At least one for selection highlight and one for caret
-      // (the document layout may also use CustomPaint internally).
-      expect(find.byType(CustomPaint), findsAtLeastNWidgets(2));
+      // The overlay Stack now uses _CaretRenderWidget and
+      // _SelectionHighlightRenderWidget (both LeafRenderObjectWidgets backed by
+      // RenderDocumentCaret and RenderDocumentSelectionHighlight) in place of
+      // CustomPaint + painters.
+      //
+      // We verify this by finding the RenderBox leaf objects in the render tree
+      // that are RenderDocumentCaret and RenderDocumentSelectionHighlight.
+      final renderObjects = <RenderObject>[];
+      tester.renderObjectList(find.byType(DocumentSelectionOverlay)).forEach((_) {});
+
+      // Walk the render tree starting from the DocumentSelectionOverlay
+      // to find RenderDocumentCaret and RenderDocumentSelectionHighlight.
+      void collectRenderObjects(RenderObject ro) {
+        renderObjects.add(ro);
+        ro.visitChildren(collectRenderObjects);
+      }
+
+      final overlayElement = tester.element(find.byType(DocumentSelectionOverlay));
+      overlayElement.renderObject?.visitChildren(collectRenderObjects);
+
+      final caretRenders = renderObjects.whereType<RenderDocumentCaret>().toList();
+      final highlightRenders = renderObjects.whereType<RenderDocumentSelectionHighlight>().toList();
+
+      expect(caretRenders, hasLength(1), reason: 'Expected exactly one RenderDocumentCaret');
+      expect(highlightRenders, hasLength(1),
+          reason: 'Expected exactly one RenderDocumentSelectionHighlight');
     });
   });
 

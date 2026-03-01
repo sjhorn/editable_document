@@ -3,31 +3,40 @@
 /// [DocumentSelectionOverlay] is the widget-layer coordinator for all
 /// visual selection feedback in a document editor:
 ///
-/// - A selection-highlight layer ([DocumentSelectionPainter]) that draws
-///   cross-block selection rectangles behind the document content.
-/// - A caret layer ([DocumentCaretPainter]) that draws the blinking cursor.
+/// - A selection-highlight layer ([RenderDocumentSelectionHighlight]) that draws
+///   cross-block selection rectangles behind the document content.  Geometry is
+///   computed at paint time by querying [RenderDocumentLayout] directly —
+///   no post-frame callback is needed for the highlight itself.
+/// - A caret layer ([RenderDocumentCaret]) that draws the cursor.  Like the
+///   highlight, geometry is resolved at paint time.
 /// - Two [CompositedTransformTarget] anchors for the start and end selection
-///   handles, mirroring [TextSelectionOverlay]'s [LayerLink] approach.
+///   handles, mirroring [TextSelectionOverlay]'s [LayerLink] approach.  Their
+///   positions are still computed via a post-frame callback because they depend
+///   on the widget-tree position of the anchors, not on paint-time geometry.
 ///
-/// Geometry is recomputed by calling
-/// [DocumentSelectionOverlayState.update] (or automatically when the
-/// [controller] notifies listeners) via
-/// [DocumentLayoutState.rectForDocumentPosition].
+/// ## LeafRenderObjectWidget approach
+///
+/// Both the caret and selection highlight are now backed by
+/// [LeafRenderObjectWidget]s ([_CaretRenderWidget] and
+/// [_SelectionHighlightRenderWidget]) that create [RenderDocumentCaret] and
+/// [RenderDocumentSelectionHighlight] render objects respectively.  This
+/// eliminates the need for a post-frame callback to update caret/selection
+/// geometry — geometry is queried from [RenderDocumentLayout] at paint time.
 ///
 /// ## Blink animation
 ///
 /// This widget does **not** implement blink animation — that is the
 /// responsibility of [CaretDocumentOverlay] (Phase 6.2).  The [visible]
-/// flag on the [DocumentCaretPainter] is always `true` here.
+/// flag on the [RenderDocumentCaret] is always `true` here.
 ///
 /// ## Build tree
 ///
 /// ```dart
 /// Stack(
 ///   children: [
-///     child,                         // DocumentLayout (document content)
-///     CustomPaint(selectionPainter), // selection highlight behind text
-///     CustomPaint(caretPainter),     // blinking caret
+///     child,                                   // DocumentLayout (document content)
+///     _SelectionHighlightRenderWidget(...),     // selection highlight behind text
+///     _CaretRenderWidget(...),                  // blinking caret
 ///     CompositedTransformTarget(startHandleLayerLink),
 ///     CompositedTransformTarget(endHandleLayerLink),
 ///   ],
@@ -41,8 +50,8 @@ import 'package:flutter/widgets.dart';
 
 import '../model/document_editing_controller.dart';
 import '../model/document_selection.dart';
-import '../rendering/document_caret_painter.dart';
-import '../rendering/document_selection_painter.dart';
+import '../rendering/render_document_caret.dart';
+import '../rendering/render_document_selection_highlight.dart';
 import 'document_layout.dart';
 
 // ---------------------------------------------------------------------------
@@ -53,8 +62,13 @@ import 'document_layout.dart';
 /// [DocumentLayout].
 ///
 /// [DocumentSelectionOverlay] listens to [controller] and repaints
-/// whenever the selection changes.  Geometry is obtained by querying
-/// [layoutKey] after each selection update.
+/// whenever the selection changes.  Caret and selection geometry is computed
+/// at paint time by querying [RenderDocumentLayout] directly via
+/// [_CaretRenderWidget] and [_SelectionHighlightRenderWidget].
+///
+/// Handle anchor positions (for [startHandleLayerLink] and
+/// [endHandleLayerLink]) are still computed via a post-frame callback so that
+/// [DocumentLayout] has completed its build before the geometry is queried.
 ///
 /// ### LayerLink positioning
 ///
@@ -87,7 +101,8 @@ class DocumentSelectionOverlay extends StatefulWidget {
   /// Creates a [DocumentSelectionOverlay].
   ///
   /// [controller] is the source of truth for the document selection.
-  /// [layoutKey] is used to query [DocumentLayoutState] for geometry.
+  /// [layoutKey] is used to query [DocumentLayoutState] for handle anchor
+  /// geometry and to obtain [RenderDocumentLayout] for paint-time queries.
   /// [startHandleLayerLink] and [endHandleLayerLink] are the [LayerLink]s
   /// used to position selection handles / toolbar via
   /// [CompositedTransformFollower].
@@ -191,21 +206,20 @@ class DocumentSelectionOverlay extends StatefulWidget {
 /// State object for [DocumentSelectionOverlay].
 ///
 /// Listens to [DocumentSelectionOverlay.controller] for selection changes
-/// and recomputes painter data by querying [DocumentLayoutState] geometry.
+/// and triggers a rebuild so the [_CaretRenderWidget] and
+/// [_SelectionHighlightRenderWidget] receive updated selection data.
+///
+/// Handle anchor offsets ([_startOffset], [_endOffset]) are still computed
+/// via a post-frame callback because they depend on [DocumentLayoutState]
+/// geometry queries that require the widget tree to have rebuilt first.
 ///
 /// Call [update] to manually push a new [DocumentSelection] (useful when
 /// platform gesture controllers compute a new selection independently of the
 /// controller notifier).
 class DocumentSelectionOverlayState extends State<DocumentSelectionOverlay> {
   // ---------------------------------------------------------------------------
-  // Painter state
+  // Handle anchor offsets
   // ---------------------------------------------------------------------------
-
-  /// The bounding rectangle for the caret in [DocumentLayout] local coords.
-  Rect? _caretRect;
-
-  /// The selection-highlight rectangles in [DocumentLayout] local coords.
-  List<Rect> _selectionRects = const [];
 
   /// The local offset of the selection-start point (for the [LayerLink]).
   Offset _startOffset = Offset.zero;
@@ -239,33 +253,45 @@ class DocumentSelectionOverlayState extends State<DocumentSelectionOverlay> {
   }
 
   // ---------------------------------------------------------------------------
-  // Geometry update
+  // Controller listener
   // ---------------------------------------------------------------------------
 
   void _onControllerChanged() {
-    // Defer the geometry query to a post-frame callback so the
-    // DocumentLayout has rebuilt with any new text before we ask it
-    // for caret/selection rectangles.
+    // Trigger a rebuild so the render objects see the new selection.
+    setState(() {});
+    // Defer handle-anchor positioning to a post-frame callback so the
+    // DocumentLayout has rebuilt with any new text before we query geometry.
     SchedulerBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      update(widget.controller.selection);
+      _updateHandleOffsets(widget.controller.selection);
     });
   }
 
-  /// Recomputes caret and selection geometry from [DocumentLayoutState].
+  // ---------------------------------------------------------------------------
+  // Public API
+  // ---------------------------------------------------------------------------
+
+  /// Updates handle anchor positions for the given [selection].
   ///
-  /// When [selection] is `null`, all painters are reset to their empty states.
-  /// When [selection] is collapsed, only the caret rect is computed.
-  /// When [selection] is expanded, both the caret and selection rects are
-  /// computed.
+  /// Caret and selection-highlight geometry is now computed at paint time by
+  /// the underlying render objects, so [update] only needs to reposition the
+  /// [CompositedTransformTarget] anchors.
   ///
-  /// This method calls [setState] to trigger a repaint.  It is safe to call
+  /// This method calls [setState] to trigger a rebuild.  It is safe to call
   /// from outside the widget (e.g. from a gesture controller).
   void update(DocumentSelection? selection) {
+    _updateHandleOffsets(selection);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Private helpers
+  // ---------------------------------------------------------------------------
+
+  /// Computes handle anchor offsets from [DocumentLayoutState] geometry and
+  /// calls [setState] to rebuild the [CompositedTransformTarget] positions.
+  void _updateHandleOffsets(DocumentSelection? selection) {
     if (selection == null) {
       setState(() {
-        _caretRect = null;
-        _selectionRects = const [];
         _startOffset = Offset.zero;
         _endOffset = Offset.zero;
       });
@@ -274,84 +300,21 @@ class DocumentSelectionOverlayState extends State<DocumentSelectionOverlay> {
 
     final layoutState = widget.layoutKey.currentState;
     if (layoutState == null) {
-      // Layout has not been built yet — reset and wait for the next update.
       setState(() {
-        _caretRect = null;
-        _selectionRects = const [];
         _startOffset = Offset.zero;
         _endOffset = Offset.zero;
       });
       return;
     }
 
-    // Caret position: always at the extent of the selection.
     final extentRect = layoutState.rectForDocumentPosition(selection.extent);
-
-    // Selection highlight rects: only meaningful when expanded.
-    final selRects = _computeSelectionRects(selection, layoutState);
-
-    // Handle anchor positions.
     final baseRect = layoutState.rectForDocumentPosition(selection.base);
     final startRect = selection.isCollapsed ? extentRect : baseRect;
 
     setState(() {
-      _caretRect = extentRect;
-      _selectionRects = selRects;
       _startOffset = startRect != null ? Offset(startRect.left, startRect.top) : Offset.zero;
       _endOffset = extentRect != null ? Offset(extentRect.left, extentRect.bottom) : Offset.zero;
     });
-  }
-
-  /// Computes selection-highlight rectangles by querying each node between
-  /// [selection.base] and [selection.extent].
-  ///
-  /// For a collapsed selection (caret only) returns an empty list.
-  /// For an expanded single-node selection, returns the rect spanning the
-  /// selection within that node.
-  /// For multi-node selections, returns one rect per line: partial top,
-  /// full-width intermediates, and partial bottom.
-  List<Rect> _computeSelectionRects(
-    DocumentSelection selection,
-    DocumentLayoutState layoutState,
-  ) {
-    if (selection.isCollapsed) return const [];
-
-    // Obtain the bounding rects at both endpoints.
-    final baseRect = layoutState.rectForDocumentPosition(selection.base);
-    final extentRect = layoutState.rectForDocumentPosition(selection.extent);
-
-    if (baseRect == null || extentRect == null) return const [];
-
-    // Determine which is the upstream (top) and which is downstream (bottom).
-    final topRect = baseRect.top <= extentRect.top ? baseRect : extentRect;
-    final bottomRect = baseRect.top <= extentRect.top ? extentRect : baseRect;
-
-    // Use the layout's rendered width as the right edge for full-width rects.
-    final layoutBox = widget.layoutKey.currentContext?.findRenderObject() as RenderBox?;
-    final layoutWidth = layoutBox?.size.width ?? 800.0;
-
-    // Single-line selection: one rect from top-left to bottom-right.
-    if ((topRect.top - bottomRect.top).abs() < 1.0) {
-      final left = topRect.left < bottomRect.right ? topRect.left : bottomRect.left;
-      final right = topRect.right > bottomRect.left ? topRect.right : bottomRect.right;
-      return [Rect.fromLTRB(left, topRect.top, right, topRect.bottom)];
-    }
-
-    // Multi-line selection.
-    final rects = <Rect>[];
-
-    // Top line: from the upstream endpoint to the right edge.
-    rects.add(Rect.fromLTRB(topRect.left, topRect.top, layoutWidth, topRect.bottom));
-
-    // Intermediate lines: fill full-width rows between top and bottom.
-    if (bottomRect.top > topRect.bottom + 1.0) {
-      rects.add(Rect.fromLTRB(0, topRect.bottom, layoutWidth, bottomRect.top));
-    }
-
-    // Bottom line: from left edge to the downstream endpoint.
-    rects.add(Rect.fromLTRB(0, bottomRect.top, bottomRect.right, bottomRect.bottom));
-
-    return rects;
   }
 
   // ---------------------------------------------------------------------------
@@ -360,17 +323,7 @@ class DocumentSelectionOverlayState extends State<DocumentSelectionOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    // Build the selection painter.
-    final selectionPainter = DocumentSelectionPainter(
-      selectionRects: widget.showSelection ? _selectionRects : const [],
-      selectionColor: widget.selectionColor,
-    );
-
-    // Build the caret painter.
-    final caretPainter = DocumentCaretPainter(
-      caretRect: widget.showCaret ? _caretRect : null,
-      color: widget.caretColor,
-    );
+    final selection = widget.controller.selection;
 
     return Stack(
       children: [
@@ -378,14 +331,24 @@ class DocumentSelectionOverlayState extends State<DocumentSelectionOverlay> {
         widget.child,
 
         // 2. Selection highlight — behind the text.
-        Positioned.fill(
-          child: CustomPaint(painter: selectionPainter),
-        ),
+        if (widget.showSelection)
+          Positioned.fill(
+            child: _SelectionHighlightRenderWidget(
+              layoutKey: widget.layoutKey,
+              selection: selection,
+              selectionColor: widget.selectionColor,
+            ),
+          ),
 
         // 3. Caret — drawn on top of the selection highlight.
-        Positioned.fill(
-          child: CustomPaint(painter: caretPainter),
-        ),
+        if (widget.showCaret)
+          Positioned.fill(
+            child: _CaretRenderWidget(
+              layoutKey: widget.layoutKey,
+              selection: selection,
+              color: widget.caretColor,
+            ),
+          ),
 
         // 4. CompositedTransformTarget for the selection-start handle.
         Positioned(
@@ -413,9 +376,102 @@ class DocumentSelectionOverlayState extends State<DocumentSelectionOverlay> {
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
-    properties.add(DiagnosticsProperty<Rect?>('caretRect', _caretRect, defaultValue: null));
-    properties.add(IntProperty('selectionRectCount', _selectionRects.length, defaultValue: 0));
     properties.add(DiagnosticsProperty<Offset>('startOffset', _startOffset));
     properties.add(DiagnosticsProperty<Offset>('endOffset', _endOffset));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// _SelectionHighlightRenderWidget
+// ---------------------------------------------------------------------------
+
+/// A [LeafRenderObjectWidget] that creates and updates a
+/// [RenderDocumentSelectionHighlight].
+///
+/// Geometry is computed at paint time by [RenderDocumentSelectionHighlight]
+/// querying the [RenderDocumentLayout] obtained from [layoutKey].
+class _SelectionHighlightRenderWidget extends LeafRenderObjectWidget {
+  const _SelectionHighlightRenderWidget({
+    required this.layoutKey,
+    required this.selection,
+    required this.selectionColor,
+  });
+
+  final GlobalKey<DocumentLayoutState> layoutKey;
+  final DocumentSelection? selection;
+  final Color selectionColor;
+
+  @override
+  RenderDocumentSelectionHighlight createRenderObject(BuildContext context) {
+    return RenderDocumentSelectionHighlight(
+      documentLayout: layoutKey.currentState?.renderObject,
+      selection: selection,
+      selectionColor: selectionColor,
+    );
+  }
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    RenderDocumentSelectionHighlight renderObject,
+  ) {
+    renderObject
+      ..documentLayout = layoutKey.currentState?.renderObject
+      ..selection = selection
+      ..selectionColor = selectionColor;
+  }
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties.add(DiagnosticsProperty<GlobalKey<DocumentLayoutState>>('layoutKey', layoutKey));
+    properties.add(DiagnosticsProperty<DocumentSelection?>('selection', selection));
+    properties.add(ColorProperty('selectionColor', selectionColor));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// _CaretRenderWidget
+// ---------------------------------------------------------------------------
+
+/// A [LeafRenderObjectWidget] that creates and updates a
+/// [RenderDocumentCaret].
+///
+/// Geometry is computed at paint time by [RenderDocumentCaret] querying the
+/// [RenderDocumentLayout] obtained from [layoutKey].
+class _CaretRenderWidget extends LeafRenderObjectWidget {
+  const _CaretRenderWidget({
+    required this.layoutKey,
+    required this.selection,
+    required this.color,
+  });
+
+  final GlobalKey<DocumentLayoutState> layoutKey;
+  final DocumentSelection? selection;
+  final Color color;
+
+  @override
+  RenderDocumentCaret createRenderObject(BuildContext context) {
+    return RenderDocumentCaret(
+      documentLayout: layoutKey.currentState?.renderObject,
+      selection: selection,
+      color: color,
+    );
+  }
+
+  @override
+  void updateRenderObject(BuildContext context, RenderDocumentCaret renderObject) {
+    renderObject
+      ..documentLayout = layoutKey.currentState?.renderObject
+      ..selection = selection
+      ..color = color;
+  }
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties.add(DiagnosticsProperty<GlobalKey<DocumentLayoutState>>('layoutKey', layoutKey));
+    properties.add(DiagnosticsProperty<DocumentSelection?>('selection', selection));
+    properties.add(ColorProperty('color', color));
   }
 }
