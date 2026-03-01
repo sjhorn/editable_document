@@ -12,6 +12,8 @@
 /// - **Phase 4**: Services — IME serialization preview, keyboard handler info
 /// - **Phase 5.1**: ComponentBuilder — automatic node → widget mapping
 /// - **Phase 5.2**: DocumentLayout — automatic document rendering widget
+/// - **Phase 5.3**: EditableDocument — drop-in for EditableText
+/// - **Phase 5.4**: DocumentField — TextField equivalent with InputDecoration
 ///
 /// Run with: `flutter run -t example/main.dart`
 library;
@@ -317,6 +319,11 @@ class _DocumentDemoState extends State<DocumentDemo> {
 
             // IME serialization preview.
             _buildImePreview(),
+
+            const SizedBox(height: 16),
+
+            // DocumentField demo (Phase 5.4) — TextField equivalent.
+            _buildDocumentFieldDemo(),
           ],
         ),
       ),
@@ -344,6 +351,49 @@ class _DocumentDemoState extends State<DocumentDemo> {
             child: const Icon(Icons.delete_outline),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDocumentFieldDemo() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'DocumentField (Phase 5.4)',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'DocumentField wraps EditableDocument with InputDecoration, '
+              'just like TextField wraps EditableText.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
+            // A DocumentField with label, hint, and character counter.
+            const DocumentField(
+              decoration: InputDecoration(
+                labelText: 'Notes',
+                hintText: 'Start typing...',
+                border: OutlineInputBorder(),
+              ),
+              maxLength: 500,
+            ),
+            const SizedBox(height: 12),
+            // A disabled DocumentField.
+            const DocumentField(
+              decoration: InputDecoration(
+                labelText: 'Read-only field',
+                helperText: 'This field is disabled',
+                border: OutlineInputBorder(),
+              ),
+              enabled: false,
+            ),
+          ],
+        ),
       ),
     );
   }

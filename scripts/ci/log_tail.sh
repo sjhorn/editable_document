@@ -12,6 +12,9 @@
 
 set -euo pipefail
 
+# Send all output (including errors) to stdout so callers never need 2>&1.
+exec 2>&1
+
 # Map log name to file path (bash 3 compatible — no associative arrays).
 log_file() {
   case "$1" in
