@@ -744,6 +744,14 @@ class DocumentKeyboardHandler {
 
   /// Moves one character to the left within [node], or wraps to the end of the
   /// previous node.
+  ///
+  /// For [TextNode]s, moves one codepoint left within the node's text. At
+  /// offset zero, wraps to the downstream end of the previous node.
+  ///
+  /// For binary nodes ([ImageNode], [HorizontalRuleNode], etc.), a downstream
+  /// [BinaryNodePosition] steps back to upstream (same node), and an upstream
+  /// position wraps to the end of the previous node. When there is no previous
+  /// node the position is unchanged.
   DocumentPosition _moveCharacterLeft(DocumentPosition pos, DocumentNode node) {
     if (node is TextNode) {
       final offset = (pos.nodePosition as TextNodePosition).offset;
@@ -755,12 +763,30 @@ class DocumentKeyboardHandler {
       }
       final prev = _document.nodeBefore(node.id);
       if (prev != null) return _endOfNode(prev);
+    } else if (pos.nodePosition is BinaryNodePosition) {
+      final binaryPos = pos.nodePosition as BinaryNodePosition;
+      if (binaryPos.type == BinaryNodePositionType.downstream) {
+        return DocumentPosition(
+          nodeId: node.id,
+          nodePosition: const BinaryNodePosition.upstream(),
+        );
+      }
+      final prev = _document.nodeBefore(node.id);
+      if (prev != null) return _endOfNode(prev);
     }
     return pos;
   }
 
   /// Moves one character to the right within [node], or wraps to the start of
   /// the next node.
+  ///
+  /// For [TextNode]s, moves one codepoint right within the node's text. At the
+  /// end of the text, wraps to the upstream start of the next node.
+  ///
+  /// For binary nodes ([ImageNode], [HorizontalRuleNode], etc.), an upstream
+  /// [BinaryNodePosition] steps forward to downstream (same node), and a
+  /// downstream position wraps to the start of the next node. When there is no
+  /// next node the position is unchanged.
   DocumentPosition _moveCharacterRight(DocumentPosition pos, DocumentNode node) {
     if (node is TextNode) {
       final offset = (pos.nodePosition as TextNodePosition).offset;
@@ -768,6 +794,16 @@ class DocumentKeyboardHandler {
         return DocumentPosition(
           nodeId: node.id,
           nodePosition: TextNodePosition(offset: offset + 1),
+        );
+      }
+      final next = _document.nodeAfter(node.id);
+      if (next != null) return _startOfNode(next);
+    } else if (pos.nodePosition is BinaryNodePosition) {
+      final binaryPos = pos.nodePosition as BinaryNodePosition;
+      if (binaryPos.type == BinaryNodePositionType.upstream) {
+        return DocumentPosition(
+          nodeId: node.id,
+          nodePosition: const BinaryNodePosition.downstream(),
         );
       }
       final next = _document.nodeAfter(node.id);

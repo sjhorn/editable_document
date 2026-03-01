@@ -520,6 +520,170 @@ void main() {
     });
   });
 
+  // =========================================================================
+  // Arrow Left / Right — binary node navigation
+  // =========================================================================
+
+  group('ArrowLeft (binary node)', () {
+    test('left arrow on downstream binary position moves to upstream', () {
+      final image = ImageNode(id: 'img1', imageUrl: 'https://example.com/a.jpg');
+      final doc = MutableDocument([image]);
+      final controller = DocumentEditingController(
+        document: doc,
+        selection: const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'img1',
+            nodePosition: BinaryNodePosition.downstream(),
+          ),
+        ),
+      );
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.arrowLeft));
+
+      expect(result, isTrue);
+      expect(controller.selection!.isCollapsed, isTrue);
+      expect(controller.selection!.extent.nodeId, equals('img1'));
+      expect(
+        (controller.selection!.extent.nodePosition as BinaryNodePosition).type,
+        equals(BinaryNodePositionType.upstream),
+      );
+    });
+
+    test('left arrow on upstream binary position moves to end of previous node', () {
+      final image = ImageNode(id: 'img1', imageUrl: 'https://example.com/a.jpg');
+      final para = ParagraphNode(id: 'p1', text: AttributedText('Hello'));
+      final doc = MutableDocument([para, image]);
+      final controller = DocumentEditingController(
+        document: doc,
+        selection: const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'img1',
+            nodePosition: BinaryNodePosition.upstream(),
+          ),
+        ),
+      );
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.arrowLeft));
+
+      expect(result, isTrue);
+      expect(controller.selection!.extent.nodeId, equals('p1'));
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(5), // end of 'Hello'
+      );
+    });
+
+    test('left arrow on upstream binary position stays when no previous node', () {
+      final image = ImageNode(id: 'img1', imageUrl: 'https://example.com/a.jpg');
+      final doc = MutableDocument([image]);
+      final controller = DocumentEditingController(
+        document: doc,
+        selection: const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'img1',
+            nodePosition: BinaryNodePosition.upstream(),
+          ),
+        ),
+      );
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.arrowLeft));
+
+      expect(result, isTrue);
+      // Position is unchanged — still at upstream of img1.
+      expect(controller.selection!.extent.nodeId, equals('img1'));
+      expect(
+        (controller.selection!.extent.nodePosition as BinaryNodePosition).type,
+        equals(BinaryNodePositionType.upstream),
+      );
+    });
+  });
+
+  group('ArrowRight (binary node)', () {
+    test('right arrow on upstream binary position moves to downstream', () {
+      final hr = HorizontalRuleNode(id: 'hr1');
+      final doc = MutableDocument([hr]);
+      final controller = DocumentEditingController(
+        document: doc,
+        selection: const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'hr1',
+            nodePosition: BinaryNodePosition.upstream(),
+          ),
+        ),
+      );
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.arrowRight));
+
+      expect(result, isTrue);
+      expect(controller.selection!.isCollapsed, isTrue);
+      expect(controller.selection!.extent.nodeId, equals('hr1'));
+      expect(
+        (controller.selection!.extent.nodePosition as BinaryNodePosition).type,
+        equals(BinaryNodePositionType.downstream),
+      );
+    });
+
+    test('right arrow on downstream binary position moves to start of next node', () {
+      final hr = HorizontalRuleNode(id: 'hr1');
+      final para = ParagraphNode(id: 'p1', text: AttributedText('World'));
+      final doc = MutableDocument([hr, para]);
+      final controller = DocumentEditingController(
+        document: doc,
+        selection: const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'hr1',
+            nodePosition: BinaryNodePosition.downstream(),
+          ),
+        ),
+      );
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.arrowRight));
+
+      expect(result, isTrue);
+      expect(controller.selection!.extent.nodeId, equals('p1'));
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(0), // start of 'World'
+      );
+    });
+
+    test('right arrow on downstream binary position stays when no next node', () {
+      final hr = HorizontalRuleNode(id: 'hr1');
+      final doc = MutableDocument([hr]);
+      final controller = DocumentEditingController(
+        document: doc,
+        selection: const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'hr1',
+            nodePosition: BinaryNodePosition.downstream(),
+          ),
+        ),
+      );
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.arrowRight));
+
+      expect(result, isTrue);
+      // Position is unchanged — still at downstream of hr1.
+      expect(controller.selection!.extent.nodeId, equals('hr1'));
+      expect(
+        (controller.selection!.extent.nodePosition as BinaryNodePosition).type,
+        equals(BinaryNodePositionType.downstream),
+      );
+    });
+  });
+
   group('ArrowLeft (node not found)', () {
     test('returns ignored for ArrowLeft when extent node not found', () {
       final doc = _singleParagraph('Hello');
