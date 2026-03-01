@@ -30,12 +30,17 @@ import '../model/text_node.dart';
 /// * **Arrow navigation** — move caret by character (Left/Right) or block
 ///   (Up/Down jumps to the previous/next node).
 /// * **Shift + Arrow** — extend the current selection.
-/// * **Ctrl/Cmd + Left/Right** — word-level navigation (moves to the
+/// * **Word modifier + Left/Right** — word-level navigation (moves to the
 ///   start/end of the current word or adjacent word boundary).
-/// * **Ctrl/Cmd + Up/Down** — paragraph navigation (jumps to the first
-///   position of the previous/next block).
+/// * **Word modifier + Up/Down** — node start/end navigation (jumps to the
+///   first/last position of the current block).
+/// * **Line modifier + Left/Right** — line start/end navigation (moves to
+///   the start/end of the current text node, equivalent to line start/end).
+/// * **Line modifier + Up/Down** — document start/end navigation (jumps to
+///   the very first/last position in the document).
 /// * **Home / End** — move to the start/end of the current text node.
-/// * **Ctrl/Cmd + Home / End** — move to the very start/end of the document.
+/// * **Primary modifier + Home / End** — move to the very start/end of the
+///   document.
 /// * **Delete** — forward-delete one character (or delete current selection).
 /// * **Backspace** (fallback) — backward-delete one character.
 /// * **Tab** — [IndentListItemRequest] when cursor is in a [ListItemNode];
@@ -44,11 +49,30 @@ import '../model/text_node.dart';
 /// * **Escape** — collapse an expanded selection to its extent.
 /// * **Unknown keys** — returns `false`.
 ///
-/// Platform-specific primary modifier:
-/// * macOS — `LogicalKeyboardKey.meta` (Cmd).
-/// * Windows / Linux / other — `LogicalKeyboardKey.control` (Ctrl).
+/// ### Platform modifier mapping
 ///
-/// The modifier is detected via [defaultTargetPlatform] at runtime so tests
+/// | Action | macOS / iOS | Windows / Linux / Android |
+/// |--------|-------------|--------------------------|
+/// | Word boundary (Left/Right) | **Option** (Alt) | **Ctrl** |
+/// | Line start/end (Left/Right) | **Cmd** (Meta) | **Alt** |
+/// | Document start/end (Up/Down) | **Cmd** (Meta) | **Alt** |
+/// | Node start/end (Up/Down) | **Option** (Alt) | **Ctrl** |
+/// | Document start/end (Home/End) | **Cmd** (Meta) | **Ctrl** |
+///
+/// ### macOS Emacs bindings (when Ctrl is pressed but NOT Cmd or Alt)
+///
+/// | Key | Action |
+/// |-----|--------|
+/// | Ctrl+A | Node start |
+/// | Ctrl+E | Node end |
+/// | Ctrl+F | Character forward (right) |
+/// | Ctrl+B | Character backward (left) |
+/// | Ctrl+N | Next block (down) |
+/// | Ctrl+P | Previous block (up) |
+///
+/// All Emacs bindings support Shift for selection extension.
+///
+/// The modifiers are detected via [defaultTargetPlatform] at runtime so tests
 /// can override the platform using [debugDefaultTargetPlatformOverride].
 ///
 /// Example:
@@ -114,22 +138,40 @@ class DocumentKeyboardHandler {
 
     final logicalKey = event.logicalKey;
     final bool primaryModifier = _isPrimaryModifierPressed();
+    final bool wordModifier = _isWordModifierPressed();
+    final bool lineModifier = _isLineModifierPressed();
     final bool shiftPressed = HardwareKeyboard.instance.isShiftPressed;
 
     if (logicalKey == LogicalKeyboardKey.escape) {
       return _handleEscape();
     }
     if (logicalKey == LogicalKeyboardKey.arrowLeft) {
-      return _handleArrowLeft(primaryModifier: primaryModifier, shift: shiftPressed);
+      return _handleArrowLeft(
+        wordModifier: wordModifier,
+        lineModifier: lineModifier,
+        shift: shiftPressed,
+      );
     }
     if (logicalKey == LogicalKeyboardKey.arrowRight) {
-      return _handleArrowRight(primaryModifier: primaryModifier, shift: shiftPressed);
+      return _handleArrowRight(
+        wordModifier: wordModifier,
+        lineModifier: lineModifier,
+        shift: shiftPressed,
+      );
     }
     if (logicalKey == LogicalKeyboardKey.arrowUp) {
-      return _handleArrowUp(shift: shiftPressed);
+      return _handleArrowUp(
+        wordModifier: wordModifier,
+        lineModifier: lineModifier,
+        shift: shiftPressed,
+      );
     }
     if (logicalKey == LogicalKeyboardKey.arrowDown) {
-      return _handleArrowDown(shift: shiftPressed);
+      return _handleArrowDown(
+        wordModifier: wordModifier,
+        lineModifier: lineModifier,
+        shift: shiftPressed,
+      );
     }
     if (logicalKey == LogicalKeyboardKey.home) {
       return _handleHome(primaryModifier: primaryModifier, shift: shiftPressed);
@@ -145,6 +187,15 @@ class DocumentKeyboardHandler {
     }
     if (logicalKey == LogicalKeyboardKey.tab) {
       return shiftPressed ? _handleShiftTab() : _handleTab();
+    }
+
+    // macOS/iOS Emacs bindings: only when Ctrl is held but NOT Cmd (Meta) or
+    // Alt (Option), to avoid conflicting with line/word modifier combos.
+    if (_isMacOrIos() &&
+        HardwareKeyboard.instance.isControlPressed &&
+        !HardwareKeyboard.instance.isMetaPressed &&
+        !HardwareKeyboard.instance.isAltPressed) {
+      return _handleMacEmacsBinding(logicalKey, shift: shiftPressed);
     }
 
     return false;
@@ -168,7 +219,11 @@ class DocumentKeyboardHandler {
   // Arrow Left
   // -------------------------------------------------------------------------
 
-  bool _handleArrowLeft({required bool primaryModifier, required bool shift}) {
+  bool _handleArrowLeft({
+    required bool wordModifier,
+    required bool lineModifier,
+    required bool shift,
+  }) {
     final selection = _controller.selection;
     if (selection == null) return false;
 
@@ -182,8 +237,14 @@ class DocumentKeyboardHandler {
     final node = _document.nodeById(extentPos.nodeId);
     if (node == null) return false;
 
-    final newExtent =
-        primaryModifier ? _moveToWordStart(extentPos, node) : _moveCharacterLeft(extentPos, node);
+    final DocumentPosition newExtent;
+    if (lineModifier) {
+      newExtent = _startOfNode(node);
+    } else if (wordModifier) {
+      newExtent = _moveToWordStart(extentPos, node);
+    } else {
+      newExtent = _moveCharacterLeft(extentPos, node);
+    }
 
     _updateSelection(newExtent, extend: shift);
     return true;
@@ -193,7 +254,11 @@ class DocumentKeyboardHandler {
   // Arrow Right
   // -------------------------------------------------------------------------
 
-  bool _handleArrowRight({required bool primaryModifier, required bool shift}) {
+  bool _handleArrowRight({
+    required bool wordModifier,
+    required bool lineModifier,
+    required bool shift,
+  }) {
     final selection = _controller.selection;
     if (selection == null) return false;
 
@@ -207,8 +272,14 @@ class DocumentKeyboardHandler {
     final node = _document.nodeById(extentPos.nodeId);
     if (node == null) return false;
 
-    final newExtent =
-        primaryModifier ? _moveToWordEnd(extentPos, node) : _moveCharacterRight(extentPos, node);
+    final DocumentPosition newExtent;
+    if (lineModifier) {
+      newExtent = _endOfNode(node);
+    } else if (wordModifier) {
+      newExtent = _moveToWordEnd(extentPos, node);
+    } else {
+      newExtent = _moveCharacterRight(extentPos, node);
+    }
 
     _updateSelection(newExtent, extend: shift);
     return true;
@@ -218,7 +289,11 @@ class DocumentKeyboardHandler {
   // Arrow Up
   // -------------------------------------------------------------------------
 
-  bool _handleArrowUp({required bool shift}) {
+  bool _handleArrowUp({
+    required bool wordModifier,
+    required bool lineModifier,
+    required bool shift,
+  }) {
     final selection = _controller.selection;
     if (selection == null) return false;
 
@@ -226,11 +301,19 @@ class DocumentKeyboardHandler {
     final node = _document.nodeById(extentPos.nodeId);
     if (node == null) return false;
 
-    // Both plain Up and Ctrl/Cmd+Up move to the start of the previous block.
-    // (Line-within-block navigation requires a render layer; that is out of
-    // scope for the services layer.)
-    final prevNode = _document.nodeBefore(extentPos.nodeId);
-    final newExtent = prevNode == null ? _startOfNode(node) : _startOfNode(prevNode);
+    final DocumentPosition newExtent;
+    if (lineModifier) {
+      // Line modifier + Up → document start (first node, first position).
+      if (_document.nodes.isEmpty) return false;
+      newExtent = _startOfNode(_document.nodes.first);
+    } else if (wordModifier) {
+      // Word modifier + Up → start of current node (line break equivalent).
+      newExtent = _startOfNode(node);
+    } else {
+      // Plain Up → start of previous block (or start of current if first).
+      final prevNode = _document.nodeBefore(extentPos.nodeId);
+      newExtent = prevNode == null ? _startOfNode(node) : _startOfNode(prevNode);
+    }
 
     _updateSelection(newExtent, extend: shift);
     return true;
@@ -240,7 +323,11 @@ class DocumentKeyboardHandler {
   // Arrow Down
   // -------------------------------------------------------------------------
 
-  bool _handleArrowDown({required bool shift}) {
+  bool _handleArrowDown({
+    required bool wordModifier,
+    required bool lineModifier,
+    required bool shift,
+  }) {
     final selection = _controller.selection;
     if (selection == null) return false;
 
@@ -248,9 +335,19 @@ class DocumentKeyboardHandler {
     final node = _document.nodeById(extentPos.nodeId);
     if (node == null) return false;
 
-    // Both plain Down and Ctrl/Cmd+Down move to the start of the next block.
-    final nextNode = _document.nodeAfter(extentPos.nodeId);
-    final newExtent = nextNode == null ? _endOfNode(node) : _startOfNode(nextNode);
+    final DocumentPosition newExtent;
+    if (lineModifier) {
+      // Line modifier + Down → document end (last node, last position).
+      if (_document.nodes.isEmpty) return false;
+      newExtent = _endOfNode(_document.nodes.last);
+    } else if (wordModifier) {
+      // Word modifier + Down → end of current node (line break equivalent).
+      newExtent = _endOfNode(node);
+    } else {
+      // Plain Down → start of next block (or end of current if last).
+      final nextNode = _document.nodeAfter(extentPos.nodeId);
+      newExtent = nextNode == null ? _endOfNode(node) : _startOfNode(nextNode);
+    }
 
     _updateSelection(newExtent, extend: shift);
     return true;
@@ -451,6 +548,70 @@ class DocumentKeyboardHandler {
   }
 
   // -------------------------------------------------------------------------
+  // macOS Emacs bindings
+  // -------------------------------------------------------------------------
+
+  /// Handles macOS/iOS Emacs-style Ctrl+letter navigation bindings.
+  ///
+  /// Only called when Ctrl is held but neither Cmd (Meta) nor Option (Alt)
+  /// are simultaneously pressed. Returns `false` for unrecognised keys.
+  ///
+  /// Supported bindings:
+  /// * Ctrl+A — start of current node (line start).
+  /// * Ctrl+E — end of current node (line end).
+  /// * Ctrl+F — one character forward (right).
+  /// * Ctrl+B — one character backward (left).
+  /// * Ctrl+N — start of next block (down).
+  /// * Ctrl+P — start of previous block (up).
+  ///
+  /// All bindings respect [shift] for selection extension.
+  bool _handleMacEmacsBinding(LogicalKeyboardKey key, {required bool shift}) {
+    final selection = _controller.selection;
+    if (selection == null) return false;
+
+    final extentPos = selection.extent;
+    final node = _document.nodeById(extentPos.nodeId);
+    if (node == null) return false;
+
+    if (key == LogicalKeyboardKey.keyA) {
+      // Ctrl+A → node start (line start).
+      _updateSelection(_startOfNode(node), extend: shift);
+      return true;
+    }
+    if (key == LogicalKeyboardKey.keyE) {
+      // Ctrl+E → node end (line end).
+      _updateSelection(_endOfNode(node), extend: shift);
+      return true;
+    }
+    if (key == LogicalKeyboardKey.keyF) {
+      // Ctrl+F → character forward.
+      _updateSelection(_moveCharacterRight(extentPos, node), extend: shift);
+      return true;
+    }
+    if (key == LogicalKeyboardKey.keyB) {
+      // Ctrl+B → character backward.
+      _updateSelection(_moveCharacterLeft(extentPos, node), extend: shift);
+      return true;
+    }
+    if (key == LogicalKeyboardKey.keyN) {
+      // Ctrl+N → next block (down).
+      final nextNode = _document.nodeAfter(extentPos.nodeId);
+      final newExtent = nextNode == null ? _endOfNode(node) : _startOfNode(nextNode);
+      _updateSelection(newExtent, extend: shift);
+      return true;
+    }
+    if (key == LogicalKeyboardKey.keyP) {
+      // Ctrl+P → previous block (up).
+      final prevNode = _document.nodeBefore(extentPos.nodeId);
+      final newExtent = prevNode == null ? _startOfNode(node) : _startOfNode(prevNode);
+      _updateSelection(newExtent, extend: shift);
+      return true;
+    }
+
+    return false;
+  }
+
+  // -------------------------------------------------------------------------
   // Private helpers — position movement
   // -------------------------------------------------------------------------
 
@@ -572,14 +733,47 @@ class DocumentKeyboardHandler {
   // Private helpers — platform modifier
   // -------------------------------------------------------------------------
 
+  /// Returns `true` when the current platform is macOS or iOS.
+  bool _isMacOrIos() {
+    return defaultTargetPlatform == TargetPlatform.macOS ||
+        defaultTargetPlatform == TargetPlatform.iOS;
+  }
+
   /// Returns `true` when the platform's primary modifier key is currently held.
   ///
-  /// macOS uses Cmd ([LogicalKeyboardKey.meta]); all other platforms use Ctrl
-  /// ([LogicalKeyboardKey.control]).
+  /// Used for Home/End document navigation:
+  /// * macOS/iOS — Cmd ([LogicalKeyboardKey.meta]).
+  /// * All other platforms — Ctrl ([LogicalKeyboardKey.control]).
   bool _isPrimaryModifierPressed() {
-    if (defaultTargetPlatform == TargetPlatform.macOS) {
+    if (_isMacOrIos()) {
       return HardwareKeyboard.instance.isMetaPressed;
     }
     return HardwareKeyboard.instance.isControlPressed;
+  }
+
+  /// Returns `true` when the word-level modifier key is currently held.
+  ///
+  /// Word-level navigation moves the caret by word boundaries (Left/Right)
+  /// or to node start/end (Up/Down):
+  /// * macOS/iOS — Option ([LogicalKeyboardKey.alt]).
+  /// * All other platforms — Ctrl ([LogicalKeyboardKey.control]).
+  bool _isWordModifierPressed() {
+    if (_isMacOrIos()) {
+      return HardwareKeyboard.instance.isAltPressed;
+    }
+    return HardwareKeyboard.instance.isControlPressed;
+  }
+
+  /// Returns `true` when the line/document-level modifier key is currently held.
+  ///
+  /// Line-level navigation moves the caret to line start/end (Left/Right)
+  /// or document start/end (Up/Down):
+  /// * macOS/iOS — Cmd ([LogicalKeyboardKey.meta]).
+  /// * All other platforms — Alt ([LogicalKeyboardKey.alt]).
+  bool _isLineModifierPressed() {
+    if (_isMacOrIos()) {
+      return HardwareKeyboard.instance.isMetaPressed;
+    }
+    return HardwareKeyboard.instance.isAltPressed;
   }
 }

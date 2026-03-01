@@ -1234,10 +1234,10 @@ void main() {
   });
 
   // =========================================================================
-  // Ctrl/Cmd + Arrow — word navigation
+  // Ctrl/Cmd + Arrow — word navigation (word modifier)
   // =========================================================================
 
-  group('Ctrl/Cmd + Arrow word navigation', () {
+  group('Word modifier + Arrow (Ctrl on Linux/Windows, Option/Alt on macOS)', () {
     testWidgets('Ctrl+ArrowRight moves to word end on Linux', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.linux;
 
@@ -1286,7 +1286,7 @@ void main() {
       debugDefaultTargetPlatformOverride = null;
     });
 
-    testWidgets('Cmd+ArrowRight moves to word end on macOS', (tester) async {
+    testWidgets('Option+ArrowRight moves to word end on macOS', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
 
       final doc = _singleParagraph('Hello world');
@@ -1297,11 +1297,12 @@ void main() {
       await tester.pumpWidget(_testScaffold(handler));
       await tester.pump();
 
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
       await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowRight);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowRight);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
 
+      // From offset 0: skip 'Hello' → offset 5.
       expect(
         (controller.selection!.extent.nodePosition as TextNodePosition).offset,
         equals(5),
@@ -1309,7 +1310,7 @@ void main() {
       debugDefaultTargetPlatformOverride = null;
     });
 
-    testWidgets('Cmd+ArrowLeft moves to word start on macOS', (tester) async {
+    testWidgets('Option+ArrowLeft moves to word start on macOS', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
 
       final doc = _singleParagraph('Hello world');
@@ -1320,11 +1321,12 @@ void main() {
       await tester.pumpWidget(_testScaffold(handler));
       await tester.pump();
 
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
       await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowLeft);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowLeft);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
 
+      // From offset 11: skip 'world' → offset 6.
       expect(
         (controller.selection!.extent.nodePosition as TextNodePosition).offset,
         equals(6),
@@ -1332,7 +1334,63 @@ void main() {
       debugDefaultTargetPlatformOverride = null;
     });
 
-    testWidgets('Ctrl+ArrowUp jumps to start of previous block on Linux', (tester) async {
+    testWidgets('Shift+Option+ArrowRight extends selection to word end on macOS', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _singleParagraph('Hello world');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 0));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);
+
+      expect(controller.selection!.isExpanded, isTrue);
+      expect(
+        (controller.selection!.base.nodePosition as TextNodePosition).offset,
+        equals(0),
+      );
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(5),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Shift+Option+ArrowLeft extends selection to word start on macOS', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _singleParagraph('Hello world');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 11));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);
+
+      expect(controller.selection!.isExpanded, isTrue);
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(6),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Ctrl+ArrowUp moves to node start on Linux (word modifier)', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.linux;
 
       final doc = _twoParagraphs(firstText: 'Hello', secondText: 'World');
@@ -1348,7 +1406,8 @@ void main() {
       await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowUp);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
 
-      expect(controller.selection!.extent.nodeId, equals('p1'));
+      // Word modifier + Up → start of current node (p2).
+      expect(controller.selection!.extent.nodeId, equals('p2'));
       expect(
         (controller.selection!.extent.nodePosition as TextNodePosition).offset,
         equals(0),
@@ -1356,11 +1415,11 @@ void main() {
       debugDefaultTargetPlatformOverride = null;
     });
 
-    testWidgets('Ctrl+ArrowDown jumps to start of next block on Linux', (tester) async {
+    testWidgets('Ctrl+ArrowDown moves to node end on Linux (word modifier)', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.linux;
 
       final doc = _twoParagraphs(firstText: 'Hello', secondText: 'World');
-      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 3));
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 2));
       final requests = <EditRequest>[];
       final handler = _makeHandler(doc, controller, requests);
 
@@ -1372,15 +1431,17 @@ void main() {
       await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowDown);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
 
-      expect(controller.selection!.extent.nodeId, equals('p2'));
+      // Word modifier + Down → end of current node (p1 = 'Hello' → offset 5).
+      expect(controller.selection!.extent.nodeId, equals('p1'));
       expect(
         (controller.selection!.extent.nodePosition as TextNodePosition).offset,
-        equals(0),
+        equals(5),
       );
       debugDefaultTargetPlatformOverride = null;
     });
 
-    testWidgets('Ctrl+ArrowUp stays at start when already first node on Linux', (tester) async {
+    testWidgets('Ctrl+ArrowUp stays at node start when already at node start on Linux',
+        (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.linux;
 
       final doc = _singleParagraph('Hello');
@@ -1396,7 +1457,7 @@ void main() {
       await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowUp);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
 
-      // Stays at start of same node.
+      // Word modifier + Up on p1,3 → node start of p1 → offset 0.
       expect(controller.selection!.extent.nodeId, equals('p1'));
       expect(
         (controller.selection!.extent.nodePosition as TextNodePosition).offset,
@@ -1405,7 +1466,7 @@ void main() {
       debugDefaultTargetPlatformOverride = null;
     });
 
-    testWidgets('Ctrl+ArrowDown stays at end when already last node on Linux', (tester) async {
+    testWidgets('Ctrl+ArrowDown stays at node end when already last node on Linux', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.linux;
 
       final doc = _singleParagraph('Hello');
@@ -1421,12 +1482,787 @@ void main() {
       await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowDown);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
 
-      // Moves to end of same node.
+      // Word modifier + Down → end of current node → offset 5.
       expect(controller.selection!.extent.nodeId, equals('p1'));
       expect(
         (controller.selection!.extent.nodePosition as TextNodePosition).offset,
         equals(5),
       );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Option+ArrowUp moves to node start on macOS (word modifier)', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _twoParagraphs(firstText: 'Hello', secondText: 'World');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p2', 3));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowUp);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowUp);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+
+      // Option+Up → start of current node (p2).
+      expect(controller.selection!.extent.nodeId, equals('p2'));
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(0),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Option+ArrowDown moves to node end on macOS (word modifier)', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _twoParagraphs(firstText: 'Hello', secondText: 'World');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 2));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+
+      // Option+Down → end of current node (p1 = 'Hello' → offset 5).
+      expect(controller.selection!.extent.nodeId, equals('p1'));
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(5),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+  });
+
+  // =========================================================================
+  // Line modifier + Arrow — line/document navigation
+  // (Cmd/Meta on macOS/iOS, Alt on Linux/Windows)
+  // =========================================================================
+
+  group('Line modifier + Arrow (Cmd on macOS, Alt on Linux/Windows)', () {
+    testWidgets('Cmd+ArrowRight moves to node end on macOS (line modifier)', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _singleParagraph('Hello world');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 0));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+
+      // Cmd+Right → node end (line end) → offset 11 ('Hello world'.length).
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(11),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Cmd+ArrowLeft moves to node start on macOS (line modifier)', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _singleParagraph('Hello world');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 11));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+
+      // Cmd+Left → node start (line start) → offset 0.
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(0),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Shift+Cmd+ArrowRight extends selection to node end on macOS', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _singleParagraph('Hello world');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 0));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);
+
+      expect(controller.selection!.isExpanded, isTrue);
+      expect(
+        (controller.selection!.base.nodePosition as TextNodePosition).offset,
+        equals(0),
+      );
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(11),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Shift+Cmd+ArrowLeft extends selection to node start on macOS', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _singleParagraph('Hello world');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 11));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);
+
+      expect(controller.selection!.isExpanded, isTrue);
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(0),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Cmd+ArrowUp moves to document start on macOS (line modifier)', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _twoParagraphs(firstText: 'Hello', secondText: 'World');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p2', 3));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowUp);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowUp);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+
+      // Cmd+Up → document start → p1, offset 0.
+      expect(controller.selection!.extent.nodeId, equals('p1'));
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(0),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Cmd+ArrowDown moves to document end on macOS (line modifier)', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _twoParagraphs(firstText: 'Hello', secondText: 'World');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 2));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+
+      // Cmd+Down → document end → p2, offset 5 ('World'.length).
+      expect(controller.selection!.extent.nodeId, equals('p2'));
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(5),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Shift+Cmd+ArrowUp extends selection to document start on macOS', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _twoParagraphs(firstText: 'Hello', secondText: 'World');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p2', 3));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowUp);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowUp);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);
+
+      expect(controller.selection!.isExpanded, isTrue);
+      expect(controller.selection!.base.nodeId, equals('p2'));
+      expect(controller.selection!.extent.nodeId, equals('p1'));
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Shift+Cmd+ArrowDown extends selection to document end on macOS', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _twoParagraphs(firstText: 'Hello', secondText: 'World');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 2));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);
+
+      expect(controller.selection!.isExpanded, isTrue);
+      expect(controller.selection!.base.nodeId, equals('p1'));
+      expect(controller.selection!.extent.nodeId, equals('p2'));
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Alt+ArrowRight moves to node end on Linux (line modifier)', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+
+      final doc = _singleParagraph('Hello world');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 0));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+
+      // Alt+Right on Linux → node end (line end) → offset 11.
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(11),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Alt+ArrowLeft moves to node start on Linux (line modifier)', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+
+      final doc = _singleParagraph('Hello world');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 11));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+
+      // Alt+Left on Linux → node start (line start) → offset 0.
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(0),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Alt+ArrowUp moves to document start on Linux (line modifier)', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+
+      final doc = _twoParagraphs(firstText: 'Hello', secondText: 'World');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p2', 3));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowUp);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowUp);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+
+      // Alt+Up on Linux → document start → p1, offset 0.
+      expect(controller.selection!.extent.nodeId, equals('p1'));
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(0),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Alt+ArrowDown moves to document end on Linux (line modifier)', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+
+      final doc = _twoParagraphs(firstText: 'Hello', secondText: 'World');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 2));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+
+      // Alt+Down on Linux → document end → p2, offset 5 ('World'.length).
+      expect(controller.selection!.extent.nodeId, equals('p2'));
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(5),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Alt+ArrowRight on Windows moves to node end (line modifier)', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+
+      final doc = _singleParagraph('Hello world');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 0));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+
+      // Alt+Right on Windows → node end → offset 11.
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(11),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+  });
+
+  // =========================================================================
+  // macOS Emacs bindings (Ctrl+A/E/F/B/N/P)
+  // =========================================================================
+
+  group('macOS Emacs bindings (Ctrl+A/E/F/B/N/P)', () {
+    testWidgets('Ctrl+A moves to node start on macOS', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _singleParagraph('Hello world');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 6));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyA);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyA);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(0),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Ctrl+E moves to node end on macOS', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _singleParagraph('Hello world');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 3));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyE);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyE);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(11),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Ctrl+F moves one character right on macOS', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _singleParagraph('Hello');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 2));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyF);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyF);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(3),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Ctrl+B moves one character left on macOS', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _singleParagraph('Hello');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 3));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyB);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyB);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(2),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Ctrl+N moves to next block on macOS', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _twoParagraphs(firstText: 'Hello', secondText: 'World');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 2));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyN);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyN);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+
+      expect(controller.selection!.extent.nodeId, equals('p2'));
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(0),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Ctrl+P moves to previous block on macOS', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _twoParagraphs(firstText: 'Hello', secondText: 'World');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p2', 3));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyP);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyP);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+
+      expect(controller.selection!.extent.nodeId, equals('p1'));
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(0),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Shift+Ctrl+A extends selection to node start on macOS', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _singleParagraph('Hello world');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 6));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyA);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyA);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);
+
+      expect(controller.selection!.isExpanded, isTrue);
+      expect(
+        (controller.selection!.base.nodePosition as TextNodePosition).offset,
+        equals(6),
+      );
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(0),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Shift+Ctrl+E extends selection to node end on macOS', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _singleParagraph('Hello world');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 3));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyE);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyE);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);
+
+      expect(controller.selection!.isExpanded, isTrue);
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(11),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Shift+Ctrl+F extends selection one character right on macOS', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _singleParagraph('Hello');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 2));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyF);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyF);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);
+
+      expect(controller.selection!.isExpanded, isTrue);
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(3),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Shift+Ctrl+B extends selection one character left on macOS', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _singleParagraph('Hello');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 3));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyB);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyB);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);
+
+      expect(controller.selection!.isExpanded, isTrue);
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(2),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Shift+Ctrl+N extends selection to next block on macOS', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _twoParagraphs(firstText: 'Hello', secondText: 'World');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 2));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyN);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyN);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);
+
+      expect(controller.selection!.isExpanded, isTrue);
+      expect(controller.selection!.base.nodeId, equals('p1'));
+      expect(controller.selection!.extent.nodeId, equals('p2'));
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Shift+Ctrl+P extends selection to previous block on macOS', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _twoParagraphs(firstText: 'Hello', secondText: 'World');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p2', 3));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyP);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyP);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);
+
+      expect(controller.selection!.isExpanded, isTrue);
+      expect(controller.selection!.base.nodeId, equals('p2'));
+      expect(controller.selection!.extent.nodeId, equals('p1'));
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Emacs bindings do NOT fire on Linux (Ctrl+A on Linux is not Emacs)',
+        (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+
+      final doc = _singleParagraph('Hello world');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 6));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyA);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyA);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+
+      // On Linux, Ctrl+A is not an Emacs binding → no navigation → selection unchanged.
+      expect(controller.selection, _collapsed('p1', 6));
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Ctrl+N at last block on macOS stays at document end (Emacs)', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _singleParagraph('Hello');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 2));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyN);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyN);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+
+      // Ctrl+N on last block → end of last node.
+      expect(controller.selection!.extent.nodeId, equals('p1'));
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(5),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Ctrl+P at first block on macOS stays at document start (Emacs)', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _singleParagraph('Hello');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 3));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyP);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyP);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+
+      // Ctrl+P on first block → start of first node.
+      expect(controller.selection!.extent.nodeId, equals('p1'));
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(0),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Ctrl+A with null selection returns ignored on macOS', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _singleParagraph('Hello');
+      final controller = DocumentEditingController(document: doc);
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyA);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyA);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+
+      expect(controller.selection, isNull);
       debugDefaultTargetPlatformOverride = null;
     });
   });
@@ -1547,7 +2383,8 @@ void main() {
   // =========================================================================
 
   group('Platform modifier detection', () {
-    testWidgets('macOS uses meta (Cmd) — Ctrl+Right does NOT trigger word nav', (tester) async {
+    testWidgets('macOS: Ctrl+Right triggers Emacs char-forward (not word nav, not line nav)',
+        (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
 
       final doc = _singleParagraph('Hello world');
@@ -1563,7 +2400,8 @@ void main() {
       await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowRight);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
 
-      // Ctrl is NOT the primary modifier on macOS → char move only → offset 1.
+      // Ctrl+ArrowRight on macOS: Ctrl is neither word nor line modifier.
+      // Falls through to plain char-right → offset 1.
       expect(
         (controller.selection!.extent.nodePosition as TextNodePosition).offset,
         equals(1),
@@ -1571,7 +2409,103 @@ void main() {
       debugDefaultTargetPlatformOverride = null;
     });
 
-    testWidgets('Linux uses ctrl — Meta+Right does NOT trigger word nav', (tester) async {
+    testWidgets('macOS: Option is word modifier — Alt+Right moves to word end', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _singleParagraph('Hello world');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 0));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+
+      // Alt (Option) is the word modifier on macOS → word end → offset 5.
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(5),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('macOS: Cmd is line modifier — Meta+Right moves to line end', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _singleParagraph('Hello world');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 0));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+
+      // Meta (Cmd) is the line modifier on macOS → node/line end → offset 11.
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(11),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Linux: Ctrl is word modifier — Ctrl+Right moves to word end', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+
+      final doc = _singleParagraph('Hello world');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 0));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+
+      // Ctrl is the word modifier on Linux → word end → offset 5.
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(5),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Linux: Alt is line modifier — Alt+Right moves to line end', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+
+      final doc = _singleParagraph('Hello world');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 0));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+
+      // Alt is the line modifier on Linux → node/line end → offset 11.
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        equals(11),
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Linux: Meta+Right does NOT trigger word or line nav', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.linux;
 
       final doc = _singleParagraph('Hello world');
@@ -1587,7 +2521,7 @@ void main() {
       await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowRight);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
 
-      // Meta is NOT the primary modifier on Linux → char move only → offset 1.
+      // Meta is neither word nor line modifier on Linux → char move only → offset 1.
       expect(
         (controller.selection!.extent.nodePosition as TextNodePosition).offset,
         equals(1),
@@ -1595,7 +2529,7 @@ void main() {
       debugDefaultTargetPlatformOverride = null;
     });
 
-    testWidgets('Windows uses ctrl as primary modifier', (tester) async {
+    testWidgets('Windows: Ctrl is word modifier — Ctrl+Right moves to word end', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.windows;
 
       final doc = _singleParagraph('Hello world');
@@ -1611,7 +2545,7 @@ void main() {
       await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowRight);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
 
-      // Ctrl+Right on Windows → word end → offset 5 ('Hello').
+      // Ctrl is the word modifier on Windows → word end → offset 5 ('Hello').
       expect(
         (controller.selection!.extent.nodePosition as TextNodePosition).offset,
         equals(5),
@@ -1619,7 +2553,7 @@ void main() {
       debugDefaultTargetPlatformOverride = null;
     });
 
-    testWidgets('Android uses ctrl as primary modifier', (tester) async {
+    testWidgets('Android: Ctrl is word modifier — Ctrl+Right moves to word end', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
 
       final doc = _singleParagraph('Hello world');
@@ -1635,7 +2569,7 @@ void main() {
       await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowRight);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
 
-      // Ctrl+Right on Android → word end → offset 5.
+      // Ctrl is the word modifier on Android → word end → offset 5.
       expect(
         (controller.selection!.extent.nodePosition as TextNodePosition).offset,
         equals(5),
