@@ -29,8 +29,20 @@ import '../model/node_position.dart';
 import '../services/document_ime_input_client.dart';
 import '../services/document_ime_serializer.dart';
 import '../services/document_keyboard_handler.dart';
+import '../rendering/render_document_layout.dart';
 import 'component_builder.dart';
 import 'document_layout.dart';
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+/// Maximum line height used for vertical-move overshoot calculation.
+///
+/// Text blocks return `preferredLineHeight` (~14-20px), well under this cap.
+/// Binary nodes (images, HRs) return their full node height — clamping
+/// prevents enormous jumps that skip intermediate blocks.
+const double _kMaxLineHeight = 24.0;
 
 // ---------------------------------------------------------------------------
 // EditableDocument
@@ -407,18 +419,60 @@ class EditableDocumentState extends State<EditableDocument> {
     final caretRect = layoutState.rectForDocumentPosition(from);
     if (caretRect == null) return null;
 
-    // Overshoot by half a line height so the target Y reliably lands in the
-    // next (or previous) visual line even when block-spacing gaps are small.
-    // For forward: aim for the vertical centre of the line below; for
-    // backward: aim for the vertical centre of the line above.
-    final halfLine = caretRect.height / 2;
+    // Clamp: text lines are typically 14-20px; binary nodes (images, HRs)
+    // can return their full node height. Cap to prevent enormous jumps.
+    final effectiveHeight = caretRect.height.clamp(0.0, _kMaxLineHeight);
+    final halfLine = effectiveHeight / 2;
     final targetY = forward ? caretRect.bottom + halfLine : caretRect.top - halfLine;
 
     final target = layoutState.documentPositionNearestToOffset(
       Offset(caretRect.left, targetY),
     );
-    // Treat positions as equal even when they differ only in TextAffinity,
-    // so that a caret at the document boundary does not appear to have moved.
+
+    if (!_samePosition(target, from)) return target;
+
+    // The clamped overshoot resolved back to the same position — typically
+    // because the probe landed in the current node's padding. Fall back to
+    // probing 1px past the node's rendered boundary.
+    return _probeNextNode(
+      layoutState: layoutState,
+      from: from,
+      forward: forward,
+      probeX: caretRect.left,
+    );
+  }
+
+  /// Probes past the current node's boundary to find the adjacent node.
+  ///
+  /// Probes just past the midpoint of the gap between the current node and
+  /// its neighbour (using `blockSpacing / 2 + 1` as the offset) so that the
+  /// nearest-position resolver picks the neighbour rather than the current
+  /// node.
+  ///
+  /// Returns `null` when the caret is already at the document boundary.
+  DocumentPosition? _probeNextNode({
+    required DocumentLayoutState layoutState,
+    required DocumentPosition from,
+    required bool forward,
+    required double probeX,
+  }) {
+    final component = layoutState.componentForNode(from.nodeId);
+    if (component == null) return null;
+    final parentData = component.parentData;
+    if (parentData is! DocumentBlockParentData) return null;
+
+    final nodeTop = parentData.offset.dy;
+    final nodeBottom = nodeTop + component.size.height;
+
+    // Probe just past the midpoint of the inter-block gap so the
+    // nearest-position resolver favours the neighbouring node.
+    final blockSpacing = layoutState.renderObject?.blockSpacing ?? 12.0;
+    final gap = blockSpacing / 2 + 1;
+    final probeY = forward ? nodeBottom + gap : nodeTop - gap;
+
+    final target = layoutState.documentPositionNearestToOffset(
+      Offset(probeX, probeY),
+    );
     if (_samePosition(target, from)) return null;
     return target;
   }

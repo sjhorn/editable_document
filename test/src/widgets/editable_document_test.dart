@@ -1221,5 +1221,145 @@ void main() {
 
       expect(controller.selection, equals(selectionBefore));
     });
+
+    // -----------------------------------------------------------------------
+    // Test 7: Down from code block end crosses into next node.
+    //
+    // Document: [CodeBlockNode 'c1' with short text, ParagraphNode 'p1']
+    // Caret: end of c1 text. The half-line overshoot can land inside the code
+    // block's bottom padding, resolving back to c1. The fallback probe past
+    // the node boundary must push the caret into p1.
+    // -----------------------------------------------------------------------
+    testWidgets('Down from code block end crosses into next node', (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final doc = MutableDocument([
+        CodeBlockNode(id: 'c1', text: AttributedText('print("hello");')),
+        ParagraphNode(id: 'p1', text: AttributedText('After code')),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      const endOffset = 15; // 'print("hello");'.length
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'c1',
+            nodePosition: TextNodePosition(offset: endOffset),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(_buildNarrow(controller, focusNode));
+      await tester.pump();
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+
+      expect(controller.selection, isNotNull);
+      expect(
+        controller.selection!.extent.nodeId,
+        'p1',
+        reason: 'Down from code block end should cross into the next node',
+      );
+    });
+
+    // -----------------------------------------------------------------------
+    // Test 8: Down from image does not skip blocks.
+    //
+    // Document: [ImageNode 'img1' (200px tall), ParagraphNode 'p1']
+    // Caret: upstream on img1. Without the clamp, halfLine would be ~100px,
+    // causing the probe to overshoot far past p1. With the clamp (24px),
+    // the caret moves directly into p1.
+    // -----------------------------------------------------------------------
+    testWidgets('Down from image does not skip blocks', (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final doc = MutableDocument([
+        ImageNode(id: 'img1', imageUrl: 'test.png', height: 200),
+        ParagraphNode(id: 'p1', text: AttributedText('After image')),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'img1',
+            nodePosition: BinaryNodePosition.upstream(),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(_buildNarrow(controller, focusNode));
+      await tester.pump();
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+
+      expect(controller.selection, isNotNull);
+      expect(
+        controller.selection!.extent.nodeId,
+        'p1',
+        reason: 'Down from image should land in the immediately next block, not skip',
+      );
+    });
+
+    // -----------------------------------------------------------------------
+    // Test 9: Up from paragraph after image moves into image.
+    //
+    // Document: [ImageNode 'img1' (200px tall), ParagraphNode 'p1']
+    // Caret: start of p1. Up should move into img1.
+    // -----------------------------------------------------------------------
+    testWidgets('Up from paragraph after image moves into image', (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final doc = MutableDocument([
+        ImageNode(id: 'img1', imageUrl: 'test.png', height: 200),
+        ParagraphNode(id: 'p1', text: AttributedText('After image')),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 0),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(_buildNarrow(controller, focusNode));
+      await tester.pump();
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pump();
+
+      expect(controller.selection, isNotNull);
+      expect(
+        controller.selection!.extent.nodeId,
+        'img1',
+        reason: 'Up from paragraph after image should move into the image',
+      );
+    });
   });
 }
