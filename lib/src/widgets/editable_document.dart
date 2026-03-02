@@ -34,6 +34,7 @@ import '../rendering/render_document_layout.dart';
 import '../rendering/render_text_block.dart';
 import 'component_builder.dart';
 import 'document_layout.dart';
+import 'document_scrollable.dart';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -437,12 +438,21 @@ class EditableDocumentState extends State<EditableDocument> {
   ///
   /// Only one callback is queued at a time; subsequent calls before the frame
   /// fires are no-ops.
+  ///
+  /// When a [DocumentScrollable] ancestor is present, this method is a no-op
+  /// because [DocumentScrollable] handles auto-scrolling via
+  /// [DocumentScrollableState.bringDocumentPositionIntoView]. Running both
+  /// mechanisms simultaneously produces conflicting scroll animations.
   void _scheduleShowCaretOnScreen() {
     if (_showCaretOnScreenScheduled) return;
     _showCaretOnScreenScheduled = true;
     SchedulerBinding.instance.addPostFrameCallback((_) {
       _showCaretOnScreenScheduled = false;
       if (!mounted) return;
+
+      // When a DocumentScrollable ancestor manages scrolling, skip the
+      // showOnScreen call to avoid conflicting scroll animations.
+      if (DocumentScrollable.handlesAutoScroll(context)) return;
 
       final selection = widget.controller.selection;
       if (selection == null) return;

@@ -102,6 +102,15 @@ class DocumentScrollable extends StatefulWidget {
   /// When `null`, platform-default physics are used.
   final ScrollPhysics? physics;
 
+  /// Returns `true` when a [DocumentScrollable] ancestor is present in the
+  /// widget tree above [context].
+  ///
+  /// Used by [EditableDocumentState] to skip its own `showOnScreen()` call
+  /// when a [DocumentScrollable] ancestor is already managing auto-scroll.
+  static bool handlesAutoScroll(BuildContext context) {
+    return _DocumentScrollableScope.isActive(context);
+  }
+
   @override
   State<DocumentScrollable> createState() => DocumentScrollableState();
 
@@ -300,11 +309,13 @@ class DocumentScrollableState extends State<DocumentScrollable> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      controller: effectiveScrollController,
-      scrollDirection: widget.scrollDirection,
-      physics: widget.physics,
-      child: widget.child,
+    return _DocumentScrollableScope(
+      child: SingleChildScrollView(
+        controller: effectiveScrollController,
+        scrollDirection: widget.scrollDirection,
+        physics: widget.physics,
+        child: widget.child,
+      ),
     );
   }
 
@@ -314,4 +325,25 @@ class DocumentScrollableState extends State<DocumentScrollable> {
     properties.add(DiagnosticsProperty<ScrollController>(
         'effectiveScrollController', effectiveScrollController));
   }
+}
+
+// ---------------------------------------------------------------------------
+// _DocumentScrollableScope
+// ---------------------------------------------------------------------------
+
+/// An [InheritedWidget] that signals to descendant [EditableDocument] widgets
+/// that auto-scrolling is managed by an ancestor [DocumentScrollable].
+///
+/// When this scope is present, [EditableDocumentState] skips its own
+/// `showOnScreen()` call to avoid conflicting scroll animations.
+class _DocumentScrollableScope extends InheritedWidget {
+  const _DocumentScrollableScope({required super.child});
+
+  /// Returns `true` when a [DocumentScrollable] ancestor is present.
+  static bool isActive(BuildContext context) {
+    return context.dependOnInheritedWidgetOfExactType<_DocumentScrollableScope>() != null;
+  }
+
+  @override
+  bool updateShouldNotify(_DocumentScrollableScope oldWidget) => false;
 }
