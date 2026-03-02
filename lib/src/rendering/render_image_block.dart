@@ -168,14 +168,13 @@ class RenderImageBlock extends RenderDocumentBlock {
   @override
   Rect getLocalRectForPosition(NodePosition position) {
     assert(position is BinaryNodePosition, 'RenderImageBlock expects BinaryNodePosition');
-    final bp = position as BinaryNodePosition;
-    if (bp.type == BinaryNodePositionType.upstream) {
-      // Leading edge — zero-width rect at the left.
-      return Rect.fromLTWH(0, 0, 0, size.height);
-    } else {
-      // Trailing edge — zero-width rect at the right.
-      return Rect.fromLTWH(size.width, 0, 0, size.height);
-    }
+    // Both upstream and downstream map to the full block rect.
+    //
+    // Placing the caret at the left edge (x = 0) keeps it visible within the
+    // viewport when the image fills the available width. Placing it at the
+    // right edge (x = size.width) would overflow and get clipped. This
+    // matches the behaviour of [RenderHorizontalRuleBlock].
+    return Offset.zero & size;
   }
 
   @override
