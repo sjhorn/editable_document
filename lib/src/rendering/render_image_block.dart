@@ -14,11 +14,12 @@ import 'render_document_block.dart';
 /// Default aspect ratio used when no [imageWidth]/[imageHeight] is known.
 const double _kDefaultAspectRatio = 16.0 / 9.0;
 
-/// Default caret height used for binary-position nodes.
+/// Inset from the right edge for the downstream caret position.
 ///
-/// Matches a typical text line height so the caret looks consistent when
-/// navigating between text blocks and image blocks.
-const double _kCaretHeight = 20.0;
+/// The caret painter draws a 2 px-wide rect starting at [Rect.left].
+/// Without this inset, a downstream rect at `x = size.width` would overflow
+/// the block bounds and get clipped by the viewport.
+const double _kCaretInset = 2.0;
 
 /// A [RenderDocumentBlock] for image nodes.
 ///
@@ -175,13 +176,14 @@ class RenderImageBlock extends RenderDocumentBlock {
   Rect getLocalRectForPosition(NodePosition position) {
     assert(position is BinaryNodePosition, 'RenderImageBlock expects BinaryNodePosition');
     final bp = position as BinaryNodePosition;
-    final caretHeight = size.height.clamp(0.0, _kCaretHeight);
     if (bp.type == BinaryNodePositionType.upstream) {
-      // Before the image — caret at the top-left edge.
-      return Rect.fromLTWH(0, 0, 0, caretHeight);
+      // Before the image — full-height caret at the left edge.
+      return Rect.fromLTWH(0, 0, 0, size.height);
     } else {
-      // After the image — caret at the bottom-left edge.
-      return Rect.fromLTWH(0, size.height - caretHeight, 0, caretHeight);
+      // After the image — full-height caret at the right edge, inset by
+      // [_kCaretInset] so the painted caret stays within the block bounds.
+      final x = (size.width - _kCaretInset).clamp(0.0, size.width);
+      return Rect.fromLTWH(x, 0, 0, size.height);
     }
   }
 

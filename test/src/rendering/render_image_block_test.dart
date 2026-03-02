@@ -81,20 +81,19 @@ void main() {
       block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
     });
 
-    test('getLocalRectForPosition upstream returns top-left rect', () {
+    test('getLocalRectForPosition upstream returns left-edge full-height rect', () {
       final rect = block.getLocalRectForPosition(const BinaryNodePosition.upstream());
       expect(rect.left, 0.0);
       expect(rect.top, 0.0);
-      expect(rect.height, greaterThan(0));
-      expect(rect.height, lessThanOrEqualTo(20.0));
+      expect(rect.height, block.size.height);
     });
 
-    test('getLocalRectForPosition downstream returns bottom-left rect', () {
+    test('getLocalRectForPosition downstream returns right-edge full-height rect', () {
       final rect = block.getLocalRectForPosition(const BinaryNodePosition.downstream());
-      expect(rect.left, 0.0);
-      expect(rect.bottom, block.size.height);
-      expect(rect.height, greaterThan(0));
-      expect(rect.height, lessThanOrEqualTo(20.0));
+      // Inset by 2px from the right edge so the caret stays in bounds.
+      expect(rect.left, block.size.width - 2.0);
+      expect(rect.top, 0.0);
+      expect(rect.height, block.size.height);
     });
 
     test('getEndpointsForSelection returns full block rect', () {
