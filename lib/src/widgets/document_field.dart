@@ -14,11 +14,13 @@ import '../model/attributed_text.dart';
 import '../model/document_editing_controller.dart';
 import '../model/document_position.dart';
 import '../model/document_selection.dart';
+import '../model/edit_context.dart';
 import '../model/editor.dart';
 import '../model/mutable_document.dart';
 import '../model/node_position.dart';
 import '../model/paragraph_node.dart';
 import '../model/text_node.dart';
+import '../model/undoable_editor.dart';
 import 'component_builder.dart';
 import 'editable_document.dart';
 
@@ -277,8 +279,15 @@ class DocumentFieldState extends State<DocumentField> {
   /// The effective focus node (either caller-supplied or internal).
   FocusNode get _effectiveFocusNode => widget.focusNode ?? _internalFocusNode!;
 
+  /// The effective editor (either caller-supplied or internal).
+  ///
+  /// Never null — an internal [UndoableEditor] is created when [widget.editor]
+  /// is `null` so that IME-originated requests are never silently dropped.
+  Editor get _effectiveEditor => widget.editor ?? _internalEditor!;
+
   DocumentEditingController? _internalController;
   FocusNode? _internalFocusNode;
+  UndoableEditor? _internalEditor;
 
   bool _hasFocus = false;
 
@@ -295,6 +304,15 @@ class DocumentFieldState extends State<DocumentField> {
         document: MutableDocument([
           ParagraphNode(id: 'p1', text: AttributedText()),
         ]),
+      );
+    }
+
+    if (widget.editor == null) {
+      _internalEditor = UndoableEditor(
+        editContext: EditContext(
+          document: _effectiveController.document,
+          controller: _effectiveController,
+        ),
       );
     }
 
@@ -334,6 +352,31 @@ class DocumentFieldState extends State<DocumentField> {
       newController.addListener(_onControllerChanged);
     }
 
+    // Handle editor swap.
+    if (widget.editor != null && oldWidget.editor == null) {
+      // Caller has started providing an editor — drop the internal one.
+      _internalEditor = null;
+    } else if (widget.editor == null && oldWidget.editor != null) {
+      // Caller has stopped providing an editor — create an internal one.
+      _internalEditor = UndoableEditor(
+        editContext: EditContext(
+          document: _effectiveController.document,
+          controller: _effectiveController,
+        ),
+      );
+    } else if (widget.editor == null &&
+        oldWidget.controller != widget.controller &&
+        _internalEditor != null) {
+      // The controller changed while we own the editor: rebuild it so it
+      // references the new effective controller's document.
+      _internalEditor = UndoableEditor(
+        editContext: EditContext(
+          document: _effectiveController.document,
+          controller: _effectiveController,
+        ),
+      );
+    }
+
     // Handle focus node swap.
     final oldFocus = oldWidget.focusNode ?? _internalFocusNode!;
     final newFocus = widget.focusNode ?? _internalFocusNode!;
@@ -361,6 +404,7 @@ class DocumentFieldState extends State<DocumentField> {
     _effectiveController.removeListener(_onControllerChanged);
     _internalController?.dispose();
     _internalFocusNode?.dispose();
+    _internalEditor = null; // UndoableEditor has no dispose method.
     super.dispose();
   }
 
@@ -479,7 +523,7 @@ class DocumentFieldState extends State<DocumentField> {
           componentBuilders: widget.componentBuilders,
           blockSpacing: widget.blockSpacing,
           stylesheet: widget.stylesheet,
-          editor: widget.editor,
+          editor: _effectiveEditor,
           scrollPadding: widget.scrollPadding,
         ),
       ),

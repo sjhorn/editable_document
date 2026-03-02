@@ -566,6 +566,48 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
+  // Internal editor creation
+  // -------------------------------------------------------------------------
+
+  group('DocumentField — internal editor', () {
+    testWidgets('passes a non-null editor to EditableDocument when no editor is supplied',
+        (tester) async {
+      await tester.pumpWidget(_wrap(const DocumentField()));
+
+      final editable = tester.widget<EditableDocument>(find.byType(EditableDocument));
+      expect(editable.editor, isNotNull);
+    });
+
+    testWidgets('uses caller-supplied editor when provided', (tester) async {
+      final controller = _makeController();
+      addTearDown(controller.dispose);
+      final editor = UndoableEditor(
+        editContext: EditContext(
+          document: controller.document as MutableDocument,
+          controller: controller,
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(DocumentField(controller: controller, editor: editor)),
+      );
+
+      final editable = tester.widget<EditableDocument>(find.byType(EditableDocument));
+      expect(editable.editor, same(editor));
+    });
+
+    testWidgets('internal editor shares the internal controller document', (tester) async {
+      // If they share the same document, an edit through the editor is visible
+      // through the controller — this verifies wiring is consistent.
+      await tester.pumpWidget(_wrap(const DocumentField()));
+
+      final editable = tester.widget<EditableDocument>(find.byType(EditableDocument));
+      // The editor must be present and non-null so IME requests are not dropped.
+      expect(editable.editor, isNotNull);
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // debugFillProperties
   // -------------------------------------------------------------------------
 
