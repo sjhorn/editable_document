@@ -102,7 +102,6 @@ class EditableDocument extends StatefulWidget {
     this.stylesheet,
     this.editor,
     this.scrollPadding = const EdgeInsets.all(20.0),
-    this.autofillHints,
   });
 
   /// The document editing controller holding the [MutableDocument] and current
@@ -201,16 +200,6 @@ class EditableDocument extends StatefulWidget {
   /// Defaults to `EdgeInsets.all(20.0)`, matching [EditableText.scrollPadding].
   final EdgeInsets scrollPadding;
 
-  /// The autofill hints for this document field, or `null` to disable autofill.
-  ///
-  /// Only effective when the document contains a single [TextNode].
-  /// Common values are defined in [AutofillHints] (e.g. `AutofillHints.email`,
-  /// `AutofillHints.password`).
-  ///
-  /// When non-null and the widget is inside an [AutofillGroup], the field
-  /// registers with the group so the platform can offer autofill suggestions.
-  final List<String>? autofillHints;
-
   @override
   State<EditableDocument> createState() => EditableDocumentState();
 
@@ -250,9 +239,6 @@ class EditableDocument extends StatefulWidget {
     properties.add(DiagnosticsProperty<Editor?>('editor', editor, defaultValue: null));
     properties.add(DiagnosticsProperty<GlobalKey<DocumentLayoutState>?>('layoutKey', layoutKey));
     properties.add(DiagnosticsProperty<EdgeInsets>('scrollPadding', scrollPadding));
-    properties.add(
-      IterableProperty<String>('autofillHints', autofillHints, defaultValue: null),
-    );
   }
 }
 
@@ -292,9 +278,6 @@ class EditableDocumentState extends State<EditableDocument> {
   @override
   void initState() {
     super.initState();
-    // Sync autofill hints from widget parameter to controller.
-    widget.controller.autofillHints = widget.autofillHints;
-
     _autofillClient = DocumentAutofillClient(
       controller: widget.controller,
       serializer: const DocumentImeSerializer(),
@@ -333,8 +316,6 @@ class EditableDocumentState extends State<EditableDocument> {
     }
     if (!identical(oldWidget.controller, widget.controller)) {
       oldWidget.controller.removeListener(_onControllerChanged);
-      // Sync autofill hints to the new controller.
-      widget.controller.autofillHints = widget.autofillHints;
       // Rebuild keyboard handler for the new controller/document.
       _keyboardHandler = DocumentKeyboardHandler(
         document: widget.controller.document,
@@ -361,13 +342,6 @@ class EditableDocumentState extends State<EditableDocument> {
         _currentAutofillScope!.register(_autofillClient);
       }
       widget.controller.addListener(_onControllerChanged);
-    }
-    if (oldWidget.autofillHints != widget.autofillHints) {
-      widget.controller.autofillHints = widget.autofillHints;
-      // Re-register with the scope so updated hints take effect.
-      if (_currentAutofillScope != null) {
-        _currentAutofillScope!.register(_autofillClient);
-      }
     }
   }
 

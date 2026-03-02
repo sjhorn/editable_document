@@ -1530,87 +1530,14 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('EditableDocument — autofill', () {
-    testWidgets('autofillHints flows to controller on initState', (tester) async {
+    testWidgets('IME connection includes autofill config when hints set on controller',
+        (tester) async {
       final imeLog = <MethodCall>[];
       _installTextInputMock(tester, imeLog);
 
       final controller = _makeController();
-      final focusNode = FocusNode();
-      addTearDown(focusNode.dispose);
-      addTearDown(controller.dispose);
-
-      await tester.pumpWidget(
-        _wrap(
-          EditableDocument(
-            controller: controller,
-            focusNode: focusNode,
-            autofillHints: const ['email'],
-          ),
-        ),
-      );
-
-      expect(controller.autofillHints, equals(['email']));
-    });
-
-    testWidgets('autofillHints updates controller on didUpdateWidget', (tester) async {
-      final imeLog = <MethodCall>[];
-      _installTextInputMock(tester, imeLog);
-
-      final controller = _makeController();
-      final focusNode = FocusNode();
-      addTearDown(focusNode.dispose);
-      addTearDown(controller.dispose);
-
-      await tester.pumpWidget(
-        _wrap(
-          EditableDocument(
-            controller: controller,
-            focusNode: focusNode,
-            autofillHints: const ['email'],
-          ),
-        ),
-      );
-
-      await tester.pumpWidget(
-        _wrap(
-          EditableDocument(
-            controller: controller,
-            focusNode: focusNode,
-            autofillHints: const ['password'],
-          ),
-        ),
-      );
-
-      expect(controller.autofillHints, equals(['password']));
-    });
-
-    testWidgets('autofillHints is null by default (no hints set)', (tester) async {
-      final imeLog = <MethodCall>[];
-      _installTextInputMock(tester, imeLog);
-
-      final controller = _makeController();
-      final focusNode = FocusNode();
-      addTearDown(focusNode.dispose);
-      addTearDown(controller.dispose);
-
-      await tester.pumpWidget(
-        _wrap(
-          EditableDocument(
-            controller: controller,
-            focusNode: focusNode,
-          ),
-        ),
-      );
-
-      // Default: no autofillHints — controller should have null hints.
-      expect(controller.autofillHints, isNull);
-    });
-
-    testWidgets('IME connection includes autofill config when hints set', (tester) async {
-      final imeLog = <MethodCall>[];
-      _installTextInputMock(tester, imeLog);
-
-      final controller = _makeController();
+      // Set hints directly on the controller — no widget parameter.
+      controller.autofillHints = ['email'];
       final focusNode = FocusNode();
       addTearDown(focusNode.dispose);
       addTearDown(controller.dispose);
@@ -1621,7 +1548,6 @@ void main() {
             child: EditableDocument(
               controller: controller,
               focusNode: focusNode,
-              autofillHints: const ['email'],
             ),
           ),
         ),
@@ -1636,8 +1562,8 @@ void main() {
         orElse: () => throw StateError('TextInput.setClient not called'),
       );
       final configMap = (setClient.arguments as List<dynamic>)[1] as Map<dynamic, dynamic>;
-      // When autofill hints are set and widget is inside AutofillGroup,
-      // the config should contain autofill info.
+      // When autofill hints are set on the controller and the widget is inside
+      // an AutofillGroup, the IME config should contain autofill info.
       expect(configMap.containsKey('autofill'), isTrue);
     });
 
@@ -1646,6 +1572,7 @@ void main() {
       _installTextInputMock(tester, imeLog);
 
       final controller = _makeController();
+      // No hints set — controller.autofillHints defaults to null.
       final focusNode = FocusNode();
       addTearDown(focusNode.dispose);
       addTearDown(controller.dispose);
@@ -1655,7 +1582,6 @@ void main() {
           EditableDocument(
             controller: controller,
             focusNode: focusNode,
-            // No autofillHints.
           ),
         ),
       );
@@ -1671,36 +1597,6 @@ void main() {
       // No autofill configuration when hints are null — the key should be
       // absent or null.
       expect(configMap['autofill'], isNull);
-    });
-
-    testWidgets('debugFillProperties includes autofillHints', (tester) async {
-      final imeLog = <MethodCall>[];
-      _installTextInputMock(tester, imeLog);
-
-      final controller = _makeController();
-      final focusNode = FocusNode();
-      addTearDown(focusNode.dispose);
-      addTearDown(controller.dispose);
-
-      await tester.pumpWidget(
-        _wrap(
-          EditableDocument(
-            controller: controller,
-            focusNode: focusNode,
-            autofillHints: const ['username'],
-          ),
-        ),
-      );
-
-      final widget = tester.widget<EditableDocument>(find.byType(EditableDocument));
-      final builder = DiagnosticPropertiesBuilder();
-      widget.debugFillProperties(builder);
-
-      final prop = builder.properties.firstWhere(
-        (p) => p.name == 'autofillHints',
-        orElse: () => throw StateError('autofillHints property not found'),
-      );
-      expect(prop, isNotNull);
     });
   });
 }

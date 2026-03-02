@@ -93,12 +93,12 @@ class _DocumentDemoState extends State<DocumentDemo> {
       document: MutableDocument([
         ParagraphNode(id: 'email-p1', text: AttributedText()),
       ]),
-    );
+    )..autofillHints = [AutofillHints.email];
     _passwordController = DocumentEditingController(
       document: MutableDocument([
         ParagraphNode(id: 'password-p1', text: AttributedText()),
       ]),
-    );
+    )..autofillHints = [AutofillHints.password];
     _emailEditor = UndoableEditor(
       editContext: EditContext(
         document: _emailController.document,
@@ -559,7 +559,6 @@ class _DocumentDemoState extends State<DocumentDemo> {
                         controller: _emailController,
                         focusNode: _emailFocusNode,
                         editor: _emailEditor,
-                        autofillHints: const [AutofillHints.email],
                         keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.next,
                       ),
@@ -584,7 +583,6 @@ class _DocumentDemoState extends State<DocumentDemo> {
                         controller: _passwordController,
                         focusNode: _passwordFocusNode,
                         editor: _passwordEditor,
-                        autofillHints: const [AutofillHints.password],
                         keyboardType: TextInputType.visiblePassword,
                         textInputAction: TextInputAction.done,
                       ),
