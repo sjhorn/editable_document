@@ -46,18 +46,22 @@ class DocumentEditingController extends ChangeNotifier {
   /// Creates a controller with the given [document].
   ///
   /// [selection] defaults to `null` (no selection). [preferences] defaults to
-  /// an empty [ComposerPreferences].
+  /// an empty [ComposerPreferences]. [autofillHints] defaults to `null`
+  /// (autofill disabled).
   DocumentEditingController({
     required MutableDocument document,
     DocumentSelection? selection,
     ComposerPreferences? preferences,
+    List<String>? autofillHints,
   })  : _document = document,
         _selection = selection,
-        _preferences = preferences ?? ComposerPreferences();
+        _preferences = preferences ?? ComposerPreferences(),
+        _autofillHints = autofillHints;
 
   final MutableDocument _document;
   DocumentSelection? _selection;
   final ComposerPreferences _preferences;
+  List<String>? _autofillHints;
 
   // -------------------------------------------------------------------------
   // Getters
@@ -71,6 +75,23 @@ class DocumentEditingController extends ChangeNotifier {
 
   /// The active composer preferences (e.g. active attributions for new text).
   ComposerPreferences get preferences => _preferences;
+
+  /// The autofill hints for this document field, or `null` to disable autofill.
+  ///
+  /// Only effective when the document contains a single [TextNode].
+  /// Common values are defined in `AutofillHints` (e.g. `AutofillHints.email`,
+  /// `AutofillHints.password`).
+  List<String>? get autofillHints => _autofillHints;
+
+  /// Sets the autofill hints and notifies listeners.
+  ///
+  /// If [value] is list-equal to the current hints (by [listEquals]), this is a
+  /// no-op and listeners are not notified.
+  set autofillHints(List<String>? value) {
+    if (listEquals(_autofillHints, value)) return;
+    _autofillHints = value;
+    notifyListeners();
+  }
 
   // -------------------------------------------------------------------------
   // Selection management

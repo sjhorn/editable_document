@@ -327,5 +327,66 @@ void main() {
       final controller = DocumentEditingController(document: doc);
       expect(() => controller.dispose(), returnsNormally);
     });
+
+    test('19. autofillHints defaults to null', () {
+      final doc = createTestDocument();
+      final controller = DocumentEditingController(document: doc);
+      expect(controller.autofillHints, isNull);
+      controller.dispose();
+    });
+
+    test('20. autofillHints constructor parameter round-trips', () {
+      final doc = createTestDocument();
+      final controller = DocumentEditingController(
+        document: doc,
+        autofillHints: ['email'],
+      );
+      expect(controller.autofillHints, equals(['email']));
+      controller.dispose();
+    });
+
+    test('21. autofillHints setter fires listeners', () {
+      final doc = createTestDocument();
+      final controller = DocumentEditingController(document: doc);
+      var notifyCount = 0;
+      controller.addListener(() => notifyCount++);
+
+      controller.autofillHints = ['password'];
+
+      expect(controller.autofillHints, equals(['password']));
+      expect(notifyCount, 1);
+      controller.dispose();
+    });
+
+    test('22. autofillHints setter with same value does not notify', () {
+      final doc = createTestDocument();
+      final controller = DocumentEditingController(
+        document: doc,
+        autofillHints: ['email'],
+      );
+      var notifyCount = 0;
+      controller.addListener(() => notifyCount++);
+
+      controller.autofillHints = ['email'];
+
+      expect(notifyCount, 0);
+      controller.dispose();
+    });
+
+    test('23. autofillHints setter with null fires listeners when was non-null', () {
+      final doc = createTestDocument();
+      final controller = DocumentEditingController(
+        document: doc,
+        autofillHints: ['email'],
+      );
+      var notifyCount = 0;
+      controller.addListener(() => notifyCount++);
+
+      controller.autofillHints = null;
+
+      expect(controller.autofillHints, isNull);
+      expect(notifyCount, 1);
+      controller.dispose();
+    });
   });
 }
