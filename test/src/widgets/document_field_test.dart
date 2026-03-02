@@ -583,7 +583,7 @@ void main() {
       addTearDown(controller.dispose);
       final editor = UndoableEditor(
         editContext: EditContext(
-          document: controller.document as MutableDocument,
+          document: controller.document,
           controller: controller,
         ),
       );
