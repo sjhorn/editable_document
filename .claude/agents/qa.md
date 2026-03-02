@@ -147,6 +147,7 @@ All log files live under `/tmp/ed_*`. They are overwritten on each run.
 - Never use raw shell redirects: `>`, `>>`, `|`, `tee` — the scripts handle this.
 - Never run `flutter test` directly — always via `scripts/ci/flutter_test.sh`.
 - Never run `flutter analyze` directly — always via `scripts/ci/flutter_analyze.sh`.
+- Never run `dart fix` directly — always via `scripts/ci/dart_fix.sh`.
 - Never modify source files — you are read-only on `lib/` and `test/`.
 - Never update golden files unless explicitly asked and confirm it's running on Linux.
 - Never commit — only other agents commit after QA has passed.

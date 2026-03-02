@@ -290,11 +290,11 @@ All widgets in `lib/src/widgets/`. Tests in `test/src/widgets/` using `testWidge
 
 > **Commit message:** `feat(widgets): document-aware scrolling with auto-scroll to caret`
 
-- [ ] `DocumentScrollable extends StatefulWidget` — wraps `SingleChildScrollView` or `CustomScrollView`; exposes `ScrollController`.
-- [ ] `DragHandleAutoScroller` — auto-scrolls when caret or drag handle approaches viewport edge; velocity-based acceleration.
-- [ ] `bringDocumentPositionIntoView(DocumentPosition)` — computes caret rect via `DocumentLayout`, calls `ensureVisible` or `animateTo`.
-- [ ] `SliverEditableDocument` — `SliverToBoxAdapter` variant for embedding in `CustomScrollView`.
-- [ ] Tests: caret at bottom of viewport triggers scroll; caret at top triggers scroll up; large document renders without jank; `SliverEditableDocument` participates in `CustomScrollView` correctly.
+- [x] `DocumentScrollable extends StatefulWidget` — wraps `SingleChildScrollView` or `CustomScrollView`; exposes `ScrollController`.
+- [x] `DragHandleAutoScroller` — auto-scrolls when caret or drag handle approaches viewport edge; velocity-based acceleration.
+- [x] `bringDocumentPositionIntoView(DocumentPosition)` — computes caret rect via `DocumentLayout`, calls `ensureVisible` or `animateTo`.
+- [x] `SliverEditableDocument` — `SliverToBoxAdapter` variant for embedding in `CustomScrollView`.
+- [x] Tests: caret at bottom of viewport triggers scroll; caret at top triggers scroll up; large document renders without jank; `SliverEditableDocument` participates in `CustomScrollView` correctly.
 
 ---
 
