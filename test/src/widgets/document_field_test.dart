@@ -608,6 +608,52 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
+  // CaretDocumentOverlay integration
+  // -------------------------------------------------------------------------
+
+  group('DocumentField — caret overlay', () {
+    testWidgets('CaretDocumentOverlay is present in the widget tree', (tester) async {
+      await tester.pumpWidget(_wrap(const DocumentField()));
+
+      expect(find.byType(CaretDocumentOverlay), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('CaretDocumentOverlay uses the same controller as EditableDocument',
+        (tester) async {
+      final controller = _makeController();
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(_wrap(DocumentField(controller: controller)));
+
+      final overlay = tester.widget<CaretDocumentOverlay>(find.byType(CaretDocumentOverlay));
+      expect(overlay.controller, same(controller));
+    });
+
+    testWidgets('CaretDocumentOverlay showCaret is false when field is readOnly', (tester) async {
+      await tester.pumpWidget(_wrap(const DocumentField(readOnly: true)));
+
+      final overlay = tester.widget<CaretDocumentOverlay>(find.byType(CaretDocumentOverlay));
+      expect(overlay.showCaret, isFalse);
+    });
+
+    testWidgets('CaretDocumentOverlay showCaret is false when field is disabled', (tester) async {
+      await tester.pumpWidget(_wrap(const DocumentField(enabled: false)));
+
+      final overlay = tester.widget<CaretDocumentOverlay>(find.byType(CaretDocumentOverlay));
+      expect(overlay.showCaret, isFalse);
+    });
+
+    testWidgets('CaretDocumentOverlay showCaret is true when field is enabled and editable',
+        (tester) async {
+      await tester.pumpWidget(_wrap(const DocumentField()));
+
+      final overlay = tester.widget<CaretDocumentOverlay>(find.byType(CaretDocumentOverlay));
+      expect(overlay.showCaret, isTrue);
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // debugFillProperties
   // -------------------------------------------------------------------------
 

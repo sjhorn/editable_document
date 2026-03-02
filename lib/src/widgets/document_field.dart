@@ -21,7 +21,9 @@ import '../model/node_position.dart';
 import '../model/paragraph_node.dart';
 import '../model/text_node.dart';
 import '../model/undoable_editor.dart';
+import 'caret_document_overlay.dart';
 import 'component_builder.dart';
+import 'document_layout.dart';
 import 'editable_document.dart';
 
 // ---------------------------------------------------------------------------
@@ -273,6 +275,13 @@ class DocumentFieldState extends State<DocumentField> {
   // Internals
   // -------------------------------------------------------------------------
 
+  /// A [GlobalKey] for the [DocumentLayout] created inside [EditableDocument].
+  ///
+  /// Passed as [EditableDocument.layoutKey] so that [CaretDocumentOverlay]
+  /// can resolve the [RenderDocumentLayout] at paint time for geometry
+  /// queries without a post-frame callback.
+  final _layoutKey = GlobalKey<DocumentLayoutState>();
+
   /// The effective controller (either caller-supplied or internal).
   DocumentEditingController get _effectiveController => widget.controller ?? _internalController!;
 
@@ -509,22 +518,34 @@ class DocumentFieldState extends State<DocumentField> {
         decoration: effectiveDecoration,
         isFocused: _hasFocus,
         isEmpty: isEmpty,
-        child: EditableDocument(
-          controller: _effectiveController,
-          focusNode: _effectiveFocusNode,
-          style: widget.style,
-          textDirection: widget.textDirection,
-          textAlign: widget.textAlign,
-          readOnly: isReadOnly,
-          autofocus: widget.autofocus,
-          textInputAction: widget.textInputAction,
-          keyboardType: widget.keyboardType,
-          onSelectionChanged: widget.onSelectionChanged,
-          componentBuilders: widget.componentBuilders,
-          blockSpacing: widget.blockSpacing,
-          stylesheet: widget.stylesheet,
-          editor: _effectiveEditor,
-          scrollPadding: widget.scrollPadding,
+        child: Stack(
+          children: [
+            EditableDocument(
+              controller: _effectiveController,
+              focusNode: _effectiveFocusNode,
+              layoutKey: _layoutKey,
+              style: widget.style,
+              textDirection: widget.textDirection,
+              textAlign: widget.textAlign,
+              readOnly: isReadOnly,
+              autofocus: widget.autofocus,
+              textInputAction: widget.textInputAction,
+              keyboardType: widget.keyboardType,
+              onSelectionChanged: widget.onSelectionChanged,
+              componentBuilders: widget.componentBuilders,
+              blockSpacing: widget.blockSpacing,
+              stylesheet: widget.stylesheet,
+              editor: _effectiveEditor,
+              scrollPadding: widget.scrollPadding,
+            ),
+            Positioned.fill(
+              child: CaretDocumentOverlay(
+                controller: _effectiveController,
+                layoutKey: _layoutKey,
+                showCaret: !isReadOnly,
+              ),
+            ),
+          ],
         ),
       ),
     );
