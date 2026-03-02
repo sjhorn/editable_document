@@ -26,6 +26,7 @@ import '../model/document_selection.dart';
 import '../model/edit_request.dart';
 import '../model/editor.dart';
 import '../model/node_position.dart';
+import '../services/document_autofill_client.dart';
 import '../services/document_ime_input_client.dart';
 import '../services/document_ime_serializer.dart';
 import '../services/document_keyboard_handler.dart';
@@ -101,6 +102,7 @@ class EditableDocument extends StatefulWidget {
     this.stylesheet,
     this.editor,
     this.scrollPadding = const EdgeInsets.all(20.0),
+    this.autofillHints,
   });
 
   /// The document editing controller holding the [MutableDocument] and current
@@ -199,6 +201,16 @@ class EditableDocument extends StatefulWidget {
   /// Defaults to `EdgeInsets.all(20.0)`, matching [EditableText.scrollPadding].
   final EdgeInsets scrollPadding;
 
+  /// The autofill hints for this document field, or `null` to disable autofill.
+  ///
+  /// Only effective when the document contains a single [TextNode].
+  /// Common values are defined in [AutofillHints] (e.g. `AutofillHints.email`,
+  /// `AutofillHints.password`).
+  ///
+  /// When non-null and the widget is inside an [AutofillGroup], the field
+  /// registers with the group so the platform can offer autofill suggestions.
+  final List<String>? autofillHints;
+
   @override
   State<EditableDocument> createState() => EditableDocumentState();
 
@@ -238,6 +250,9 @@ class EditableDocument extends StatefulWidget {
     properties.add(DiagnosticsProperty<Editor?>('editor', editor, defaultValue: null));
     properties.add(DiagnosticsProperty<GlobalKey<DocumentLayoutState>?>('layoutKey', layoutKey));
     properties.add(DiagnosticsProperty<EdgeInsets>('scrollPadding', scrollPadding));
+    properties.add(
+      IterableProperty<String>('autofillHints', autofillHints, defaultValue: null),
+    );
   }
 }
 
@@ -254,8 +269,10 @@ class EditableDocument extends StatefulWidget {
 /// - Auto-scrolling the caret into view on selection change via
 ///   [_scheduleShowCaretOnScreen].
 class EditableDocumentState extends State<EditableDocument> {
-  late final DocumentImeInputClient _imeClient;
-  late final DocumentKeyboardHandler _keyboardHandler;
+  late DocumentImeInputClient _imeClient;
+  late DocumentKeyboardHandler _keyboardHandler;
+  late DocumentAutofillClient _autofillClient;
+  AutofillGroupState? _currentAutofillScope;
 
   /// Internal [GlobalKey] for [DocumentLayout], used when [widget.layoutKey]
   /// is not provided so that [_scheduleShowCaretOnScreen] can always locate
@@ -275,10 +292,19 @@ class EditableDocumentState extends State<EditableDocument> {
   @override
   void initState() {
     super.initState();
+    // Sync autofill hints from widget parameter to controller.
+    widget.controller.autofillHints = widget.autofillHints;
+
+    _autofillClient = DocumentAutofillClient(
+      controller: widget.controller,
+      serializer: const DocumentImeSerializer(),
+      requestHandler: _handleRequest,
+    );
     _imeClient = DocumentImeInputClient(
       serializer: const DocumentImeSerializer(),
       controller: widget.controller,
       requestHandler: _handleRequest,
+      autofillScopeGetter: () => _currentAutofillScope,
     );
     _keyboardHandler = DocumentKeyboardHandler(
       document: widget.controller.document,
@@ -293,6 +319,12 @@ class EditableDocumentState extends State<EditableDocument> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _updateAutofillScope();
+  }
+
+  @override
   void didUpdateWidget(EditableDocument oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.focusNode, widget.focusNode)) {
@@ -301,6 +333,8 @@ class EditableDocumentState extends State<EditableDocument> {
     }
     if (!identical(oldWidget.controller, widget.controller)) {
       oldWidget.controller.removeListener(_onControllerChanged);
+      // Sync autofill hints to the new controller.
+      widget.controller.autofillHints = widget.autofillHints;
       // Rebuild keyboard handler for the new controller/document.
       _keyboardHandler = DocumentKeyboardHandler(
         document: widget.controller.document,
@@ -310,22 +344,72 @@ class EditableDocumentState extends State<EditableDocument> {
         verticalMoveResolver: _resolveVerticalMove,
         lineMoveResolver: _resolveLineMove,
       );
-      // Rebuild IME client for the new controller.
+      // Rebuild autofill client and IME client for the new controller.
+      _autofillClient = DocumentAutofillClient(
+        controller: widget.controller,
+        serializer: const DocumentImeSerializer(),
+        requestHandler: _handleRequest,
+      );
       _imeClient = DocumentImeInputClient(
         serializer: const DocumentImeSerializer(),
         controller: widget.controller,
         requestHandler: _handleRequest,
+        autofillScopeGetter: () => _currentAutofillScope,
       );
+      // Re-register with autofill scope if present.
+      if (_currentAutofillScope != null) {
+        _currentAutofillScope!.register(_autofillClient);
+      }
       widget.controller.addListener(_onControllerChanged);
+    }
+    if (oldWidget.autofillHints != widget.autofillHints) {
+      widget.controller.autofillHints = widget.autofillHints;
+      // Re-register with the scope so updated hints take effect.
+      if (_currentAutofillScope != null) {
+        _currentAutofillScope!.register(_autofillClient);
+      }
     }
   }
 
   @override
   void dispose() {
+    _currentAutofillScope?.unregister(_autofillClient.autofillId);
     widget.focusNode.removeListener(_onFocusChanged);
     widget.controller.removeListener(_onControllerChanged);
     _imeClient.closeConnection();
     super.dispose();
+  }
+
+  // -------------------------------------------------------------------------
+  // Autofill scope
+  // -------------------------------------------------------------------------
+
+  /// Updates [_currentAutofillScope] by looking up the ambient [AutofillGroup].
+  ///
+  /// Called from [didChangeDependencies] whenever the widget's dependencies
+  /// may have changed. Unregisters from the old scope and registers with the
+  /// new one when the scope changes.
+  void _updateAutofillScope() {
+    final newScope = AutofillGroup.maybeOf(context);
+    if (newScope == _currentAutofillScope) return;
+
+    // Unregister from old scope.
+    _currentAutofillScope?.unregister(_autofillClient.autofillId);
+    _currentAutofillScope = newScope;
+
+    // Register with new scope.
+    _currentAutofillScope?.register(_autofillClient);
+  }
+
+  /// The autofill identifier used for scope registration.
+  ///
+  /// Delegates to [_autofillClient.autofillId].
+  String get autofillId => _autofillClient.autofillId;
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties.add(StringProperty('autofillId', autofillId));
   }
 
   // -------------------------------------------------------------------------
@@ -347,6 +431,9 @@ class EditableDocumentState extends State<EditableDocument> {
         enableDeltaModel: true,
         inputAction: widget.textInputAction,
         inputType: widget.keyboardType,
+        autofillConfiguration: _autofillClient.enabled
+            ? _autofillClient.textInputConfiguration.autofillConfiguration
+            : AutofillConfiguration.disabled,
       ),
     );
   }
