@@ -181,9 +181,9 @@ All IME code in `lib/src/services/`. This is the highest-risk phase; 100 % test 
 - [x] Tests: all intents dispatch correct `EditRequest`s; platform shortcut mapping verified for all six platforms; unknown keys pass through.
 
 ### 4.4 Autofill
-- [ ] `DocumentAutofillClient implements AutofillClient` — single-text-node documents participate in autofill groups.
-- [ ] `autofillHints` passed through `DocumentEditingController`.
-- [ ] Tests: autofill connection established when `autofillHints` is set; `updateEditingStateWithTag` routes to correct node.
+- [x] `DocumentAutofillClient implements AutofillClient` — single-text-node documents participate in autofill groups.
+- [x] `autofillHints` passed through `DocumentEditingController`.
+- [x] Tests: autofill connection established when `autofillHints` is set; `updateEditingStateWithTag` routes to correct node.
 
 ---
 

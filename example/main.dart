@@ -10,6 +10,7 @@
 /// - **Phase 2**: Command pipeline — edit requests, undo/redo
 /// - **Phase 3**: Rendering — per-block render objects via ComponentBuilder
 /// - **Phase 4**: Services — IME serialization preview, keyboard handler info
+/// - **Phase 4.4**: Autofill — AutofillGroup integration for email/password fields
 /// - **Phase 5.1**: ComponentBuilder — automatic node → widget mapping
 /// - **Phase 5.2**: DocumentLayout — automatic document rendering widget
 /// - **Phase 5.3**: EditableDocument — drop-in for EditableText
@@ -66,6 +67,12 @@ class _DocumentDemoState extends State<DocumentDemo> {
   final _startHandleLayerLink = LayerLink();
   final _endHandleLayerLink = LayerLink();
 
+  // Phase 4.4: autofill demo — dedicated controllers and focus nodes.
+  late final DocumentEditingController _emailController;
+  late final DocumentEditingController _passwordController;
+  late final FocusNode _emailFocusNode;
+  late final FocusNode _passwordFocusNode;
+
   /// Counter for generating unique node IDs.
   int _nextNodeId = 100;
 
@@ -78,6 +85,24 @@ class _DocumentDemoState extends State<DocumentDemo> {
       editContext: EditContext(document: _document, controller: _controller),
     );
     _focusNode = FocusNode(debugLabel: 'DocumentDemo');
+
+    // Phase 4.4: autofill demo controllers and focus nodes.
+    _emailController = DocumentEditingController(
+      document: MutableDocument([
+        ParagraphNode(id: 'email-p1', text: AttributedText()),
+      ]),
+    );
+    _passwordController = DocumentEditingController(
+      document: MutableDocument([
+        ParagraphNode(id: 'password-p1', text: AttributedText()),
+      ]),
+    );
+    _emailFocusNode = FocusNode(debugLabel: 'AutofillEmail')..addListener(_onAutofillFocusChanged);
+    _passwordFocusNode = FocusNode(debugLabel: 'AutofillPassword')
+      ..addListener(_onAutofillFocusChanged);
+    _emailController.addListener(_onAutofillFocusChanged);
+    _passwordController.addListener(_onAutofillFocusChanged);
+
     // Listen for document changes to rebuild the UI.
     _document.changes.addListener(_onDocumentChanged);
   }
@@ -87,10 +112,24 @@ class _DocumentDemoState extends State<DocumentDemo> {
     _document.changes.removeListener(_onDocumentChanged);
     _focusNode.dispose();
     _controller.dispose();
+    _emailController.removeListener(_onAutofillFocusChanged);
+    _emailController.dispose();
+    _passwordController.removeListener(_onAutofillFocusChanged);
+    _passwordController.dispose();
+    _emailFocusNode.removeListener(_onAutofillFocusChanged);
+    _emailFocusNode.dispose();
+    _passwordFocusNode.removeListener(_onAutofillFocusChanged);
+    _passwordFocusNode.dispose();
     super.dispose();
   }
 
   void _onDocumentChanged() {
+    setState(() {});
+  }
+
+  /// Rebuilds when autofill field focus or content changes so that the
+  /// [InputDecorator] isFocused / isEmpty properties stay accurate.
+  void _onAutofillFocusChanged() {
     setState(() {});
   }
 
@@ -393,6 +432,11 @@ class _DocumentDemoState extends State<DocumentDemo> {
 
             const SizedBox(height: 16),
 
+            // Autofill demo (Phase 4.4).
+            _buildAutofillDemo(),
+
+            const SizedBox(height: 16),
+
             // Phase 6 info panel.
             _buildPhase6Info(),
           ],
@@ -453,6 +497,78 @@ class _DocumentDemoState extends State<DocumentDemo> {
             const Text('  - iOS handles, magnifier, gesture controller'),
             const Text('  - Android handles, magnifier, gesture controller'),
             const Text('  - DocumentTextSelectionControls (floating toolbar)'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAutofillDemo() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Autofill Support (Phase 4.4)',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'When EditableDocument is placed inside an AutofillGroup with '
+              'autofillHints, the platform can offer autofill suggestions '
+              '(e.g. email, password). Only single-TextNode documents '
+              'participate in autofill.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
+            AutofillGroup(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Email',
+                      hintText: 'user@example.com',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.email_outlined),
+                    ),
+                    isFocused: _emailFocusNode.hasFocus,
+                    isEmpty: _emailController.document.nodes
+                        .whereType<TextNode>()
+                        .every((n) => n.text.text.isEmpty),
+                    child: EditableDocument(
+                      controller: _emailController,
+                      focusNode: _emailFocusNode,
+                      autofillHints: const [AutofillHints.email],
+                      keyboardType: TextInputType.emailAddress,
+                      textInputAction: TextInputAction.next,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Password',
+                      hintText: 'Enter password',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.lock_outlined),
+                    ),
+                    isFocused: _passwordFocusNode.hasFocus,
+                    isEmpty: _passwordController.document.nodes
+                        .whereType<TextNode>()
+                        .every((n) => n.text.text.isEmpty),
+                    child: EditableDocument(
+                      controller: _passwordController,
+                      focusNode: _passwordFocusNode,
+                      autofillHints: const [AutofillHints.password],
+                      keyboardType: TextInputType.visiblePassword,
+                      textInputAction: TextInputAction.done,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
