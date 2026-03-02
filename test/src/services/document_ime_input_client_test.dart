@@ -695,18 +695,158 @@ void main() {
     });
 
     // -----------------------------------------------------------------------
-    // Legacy TextInputClient stubs
+    // updateEditingValue (non-delta fallback)
     // -----------------------------------------------------------------------
 
-    group('legacy TextInputClient stubs', () {
-      testWidgets('updateEditingValue is a no-op and does not throw', (tester) async {
+    group('updateEditingValue', () {
+      /// Helper: builds a controller + editor pair so that edit requests actually
+      /// mutate the document, then returns both the controller and the
+      /// requestHandler to pass into [_makeClient].
+      (DocumentEditingController, void Function(EditRequest)) _makeControllerWithEditor({
+        String nodeId = 'p1',
+        String text = '',
+      }) {
+        final doc = MutableDocument([
+          ParagraphNode(id: nodeId, text: AttributedText(text)),
+        ]);
+        final controller = DocumentEditingController(
+          document: doc,
+          selection: DocumentSelection.collapsed(
+            position: DocumentPosition(
+              nodeId: nodeId,
+              nodePosition: TextNodePosition(offset: text.length),
+            ),
+          ),
+        );
+        final editor = UndoableEditor(
+          editContext: EditContext(document: doc, controller: controller),
+        );
+        return (controller, editor.submit);
+      }
+
+      testWidgets('insertion via updateEditingValue mutates document', (tester) async {
+        final log = <MethodCall>[];
+        _installMock(tester, log);
+
+        final (controller, handler) = _makeControllerWithEditor(nodeId: 'p1', text: 'Hello');
+        final client = DocumentImeInputClient(
+          serializer: const DocumentImeSerializer(),
+          controller: controller,
+          requestHandler: handler,
+        );
+
+        client.openConnection(_config);
+
+        // Simulate the platform sending updateEditingValue (non-delta path).
+        client.updateEditingValue(
+          const TextEditingValue(
+            text: 'Hello world',
+            selection: TextSelection.collapsed(offset: 11),
+          ),
+        );
+
+        final node = controller.document.nodes.first as ParagraphNode;
+        expect(node.text.text, equals('Hello world'));
+      });
+
+      testWidgets('deletion via updateEditingValue mutates document', (tester) async {
+        final log = <MethodCall>[];
+        _installMock(tester, log);
+
+        final (controller, handler) = _makeControllerWithEditor(nodeId: 'p1', text: 'Hello world');
+        final client = DocumentImeInputClient(
+          serializer: const DocumentImeSerializer(),
+          controller: controller,
+          requestHandler: handler,
+        );
+
+        client.openConnection(_config);
+
+        client.updateEditingValue(
+          const TextEditingValue(
+            text: 'Hello',
+            selection: TextSelection.collapsed(offset: 5),
+          ),
+        );
+
+        final node = controller.document.nodes.first as ParagraphNode;
+        expect(node.text.text, equals('Hello'));
+      });
+
+      testWidgets('replacement via updateEditingValue mutates document', (tester) async {
+        final log = <MethodCall>[];
+        _installMock(tester, log);
+
+        final (controller, handler) = _makeControllerWithEditor(nodeId: 'p1', text: 'Hello');
+        final client = DocumentImeInputClient(
+          serializer: const DocumentImeSerializer(),
+          controller: controller,
+          requestHandler: handler,
+        );
+
+        client.openConnection(_config);
+
+        client.updateEditingValue(
+          const TextEditingValue(
+            text: 'Heylo',
+            selection: TextSelection.collapsed(offset: 5),
+          ),
+        );
+
+        final node = controller.document.nodes.first as ParagraphNode;
+        expect(node.text.text, equals('Heylo'));
+      });
+
+      testWidgets('updateEditingValue is a no-op when value is identical', (tester) async {
+        final log = <MethodCall>[];
+        _installMock(tester, log);
+
+        final requests = <EditRequest>[];
+        final controller = _makeController(text: 'Hello');
+        final client = _makeClient(controller, requestLog: requests);
+
+        client.openConnection(_config);
+        log.clear();
+        requests.clear();
+
+        // Call with the exact same value that was synced.
+        final sameValue = client.currentTextEditingValue!;
+        client.updateEditingValue(sameValue);
+
+        // No requests should have been generated.
+        expect(requests, isEmpty);
+      });
+
+      testWidgets('updateEditingValue is a no-op for selection-only change', (tester) async {
+        final log = <MethodCall>[];
+        _installMock(tester, log);
+
+        final requests = <EditRequest>[];
+        final controller = _makeController(text: 'Hello');
+        final client = _makeClient(controller, requestLog: requests);
+
+        client.openConnection(_config);
+        requests.clear();
+
+        // Same text, different selection — should be ignored.
+        client.updateEditingValue(
+          const TextEditingValue(
+            text: 'Hello',
+            selection: TextSelection.collapsed(offset: 2),
+          ),
+        );
+
+        expect(requests, isEmpty);
+      });
+
+      testWidgets('updateEditingValue does not throw when no connection open', (tester) async {
         final log = <MethodCall>[];
         _installMock(tester, log);
 
         final controller = _makeController();
         final client = _makeClient(controller);
 
-        // updateEditingValue is superseded by updateEditingValueWithDeltas.
+        // updateEditingValue before openConnection — no connection so syncToIme is a no-op.
         expect(
           () => client.updateEditingValue(
             const TextEditingValue(text: 'x', selection: TextSelection.collapsed(offset: 1)),
@@ -714,7 +854,13 @@ void main() {
           returnsNormally,
         );
       });
+    });
 
+    // -----------------------------------------------------------------------
+    // Legacy TextInputClient stubs
+    // -----------------------------------------------------------------------
+
+    group('legacy TextInputClient stubs', () {
       testWidgets('performPrivateCommand is a no-op and does not throw', (tester) async {
         final log = <MethodCall>[];
         _installMock(tester, log);

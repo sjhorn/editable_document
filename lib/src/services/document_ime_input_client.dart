@@ -312,10 +312,81 @@ class DocumentImeInputClient implements DeltaTextInputClient {
   // from [TextInputClient].  We provide empty implementations so the class
   // compiles cleanly under strict analysis.
 
-  /// Not used — the delta model supersedes this method.
+  /// Fallback for the non-delta text input path.
+  ///
+  /// Normally, all updates arrive via [updateEditingValueWithDeltas] when
+  /// `enableDeltaModel` is `true`. However, Flutter's `AutofillScopeMixin`
+  /// does not forward this flag, so connections opened through an
+  /// [AutofillScope] receive non-delta updates. This method computes a
+  /// minimal diff between the previous and new values, synthesises the
+  /// appropriate [TextEditingDelta], and delegates to
+  /// [updateEditingValueWithDeltas].
   @override
   void updateEditingValue(TextEditingValue value) {
-    // Intentionally empty: all updates arrive via [updateEditingValueWithDeltas].
+    // Fallback for when enableDeltaModel is not honoured (e.g. the
+    // AutofillScopeMixin wrapper drops the flag — Flutter framework bug).
+    // Compute a minimal synthetic delta and delegate to the delta path.
+    final oldValue = _lastSyncedValue ?? const TextEditingValue();
+    if (value == oldValue) return;
+
+    // Selection-only or composing-only change — no document mutation needed.
+    if (value.text == oldValue.text) return;
+
+    // Compute minimal diff via common prefix / suffix.
+    final oldText = oldValue.text;
+    final newText = value.text;
+    final minLen = oldText.length < newText.length ? oldText.length : newText.length;
+
+    int commonPrefix = 0;
+    while (commonPrefix < minLen && oldText[commonPrefix] == newText[commonPrefix]) {
+      commonPrefix++;
+    }
+
+    int commonSuffix = 0;
+    while (commonSuffix < minLen - commonPrefix &&
+        oldText[oldText.length - 1 - commonSuffix] == newText[newText.length - 1 - commonSuffix]) {
+      commonSuffix++;
+    }
+
+    final deletedRange = TextRange(
+      start: commonPrefix,
+      end: oldText.length - commonSuffix,
+    );
+    final inserted = newText.substring(commonPrefix, newText.length - commonSuffix);
+
+    final deltas = <TextEditingDelta>[];
+
+    if (deletedRange.start != deletedRange.end && inserted.isNotEmpty) {
+      // Replacement.
+      deltas.add(TextEditingDeltaReplacement(
+        oldText: oldText,
+        replacementText: inserted,
+        replacedRange: deletedRange,
+        selection: value.selection,
+        composing: value.composing,
+      ));
+    } else if (deletedRange.start != deletedRange.end) {
+      // Pure deletion.
+      deltas.add(TextEditingDeltaDeletion(
+        oldText: oldText,
+        deletedRange: deletedRange,
+        selection: value.selection,
+        composing: value.composing,
+      ));
+    } else if (inserted.isNotEmpty) {
+      // Pure insertion.
+      deltas.add(TextEditingDeltaInsertion(
+        oldText: oldText,
+        textInserted: inserted,
+        insertionOffset: commonPrefix,
+        selection: value.selection,
+        composing: value.composing,
+      ));
+    }
+
+    if (deltas.isNotEmpty) {
+      updateEditingValueWithDeltas(deltas);
+    }
   }
 
   /// Not used — private command handling is not required for this client.
