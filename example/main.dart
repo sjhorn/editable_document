@@ -535,7 +535,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
                     editor: _emailEditor,
                     autofillHints: const [AutofillHints.email],
                     decoration: const InputDecoration(
-                      labelText: 'Email',
+                      labelText: 'Email (DocumentField)',
                       hintText: 'user@example.com',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.email_outlined),
@@ -550,7 +550,45 @@ class _DocumentDemoState extends State<DocumentDemo> {
                     editor: _passwordEditor,
                     autofillHints: const [AutofillHints.password],
                     decoration: const InputDecoration(
-                      labelText: 'Password',
+                      labelText: 'Password (DocumentField)',
+                      hintText: 'Enter password',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.lock_outlined),
+                    ),
+                    keyboardType: TextInputType.visiblePassword,
+                    textInputAction: TextInputAction.done,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Comparison: standard Flutter TextField with same autofill hints '
+              '(if neither shows system suggestions, it is a Flutter platform '
+              'limitation on macOS desktop — autofill works on iOS/Android).',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8),
+            const AutofillGroup(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextField(
+                    autofillHints: [AutofillHints.email],
+                    decoration: InputDecoration(
+                      labelText: 'Email (TextField)',
+                      hintText: 'user@example.com',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.email_outlined),
+                    ),
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next,
+                  ),
+                  SizedBox(height: 12),
+                  TextField(
+                    autofillHints: [AutofillHints.password],
+                    decoration: InputDecoration(
+                      labelText: 'Password (TextField)',
                       hintText: 'Enter password',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.lock_outlined),
