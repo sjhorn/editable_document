@@ -143,8 +143,33 @@ class _DocumentDemoState extends State<DocumentDemo> {
 
   /// Rebuilds when autofill field focus or content changes so that the
   /// [InputDecorator] isFocused / isEmpty properties stay accurate.
+  /// Also sets the selection on focus gain so the IME can resolve a target
+  /// node for incoming deltas.
   void _onAutofillFocusChanged() {
+    _ensureSelectionOnFocus(_emailFocusNode, _emailController);
+    _ensureSelectionOnFocus(_passwordFocusNode, _passwordController);
     setState(() {});
+  }
+
+  /// Sets a collapsed selection at offset 0 when [focusNode] has focus and
+  /// [controller] has no selection, so the IME can route deltas to a node.
+  void _ensureSelectionOnFocus(
+    FocusNode focusNode,
+    DocumentEditingController controller,
+  ) {
+    if (!focusNode.hasFocus || controller.selection != null) return;
+    final nodes = controller.document.nodes;
+    if (nodes.isEmpty) return;
+    controller.setSelection(
+      DocumentSelection.collapsed(
+        position: DocumentPosition(
+          nodeId: nodes.first.id,
+          nodePosition: nodes.first is TextNode
+              ? const TextNodePosition(offset: 0)
+              : const BinaryNodePosition.downstream(),
+        ),
+      ),
+    );
   }
 
   MutableDocument _buildSampleDocument() {
