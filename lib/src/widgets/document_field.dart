@@ -24,7 +24,9 @@ import '../model/undoable_editor.dart';
 import 'caret_document_overlay.dart';
 import 'component_builder.dart';
 import 'document_layout.dart';
+import 'document_selection_overlay.dart';
 import 'editable_document.dart';
+import 'gestures/document_mouse_interactor.dart';
 
 // ---------------------------------------------------------------------------
 // DocumentField
@@ -292,6 +294,10 @@ class DocumentFieldState extends State<DocumentField> {
   /// queries without a post-frame callback.
   final _layoutKey = GlobalKey<DocumentLayoutState>();
 
+  /// Layer links for selection handle positioning.
+  final _startHandleLayerLink = LayerLink();
+  final _endHandleLayerLink = LayerLink();
+
   /// The effective controller (either caller-supplied or internal).
   DocumentEditingController get _effectiveController => widget.controller ?? _internalController!;
 
@@ -470,16 +476,6 @@ class DocumentFieldState extends State<DocumentField> {
   }
 
   // -------------------------------------------------------------------------
-  // Tap handling
-  // -------------------------------------------------------------------------
-
-  /// Requests focus when the field is tapped, unless disabled.
-  void _handleTap() {
-    if (!widget.enabled) return;
-    _effectiveFocusNode.requestFocus();
-  }
-
-  // -------------------------------------------------------------------------
   // Character count helpers
   // -------------------------------------------------------------------------
 
@@ -532,32 +528,42 @@ class DocumentFieldState extends State<DocumentField> {
           counter: counter,
         );
 
-    final child = GestureDetector(
-      onTap: _handleTap,
-      behavior: HitTestBehavior.opaque,
+    return DocumentMouseInteractor(
+      controller: _effectiveController,
+      layoutKey: _layoutKey,
+      document: _effectiveController.document,
+      focusNode: _effectiveFocusNode,
+      enabled: widget.enabled,
       child: InputDecorator(
         decoration: effectiveDecoration,
         isFocused: _hasFocus,
         isEmpty: isEmpty,
         child: Stack(
           children: [
-            EditableDocument(
+            DocumentSelectionOverlay(
               controller: _effectiveController,
-              focusNode: _effectiveFocusNode,
               layoutKey: _layoutKey,
-              style: widget.style,
-              textDirection: widget.textDirection,
-              textAlign: widget.textAlign,
-              readOnly: isReadOnly,
-              autofocus: widget.autofocus,
-              textInputAction: widget.textInputAction,
-              keyboardType: widget.keyboardType,
-              onSelectionChanged: widget.onSelectionChanged,
-              componentBuilders: widget.componentBuilders,
-              blockSpacing: widget.blockSpacing,
-              stylesheet: widget.stylesheet,
-              editor: _effectiveEditor,
-              scrollPadding: widget.scrollPadding,
+              startHandleLayerLink: _startHandleLayerLink,
+              endHandleLayerLink: _endHandleLayerLink,
+              showCaret: false,
+              child: EditableDocument(
+                controller: _effectiveController,
+                focusNode: _effectiveFocusNode,
+                layoutKey: _layoutKey,
+                style: widget.style,
+                textDirection: widget.textDirection,
+                textAlign: widget.textAlign,
+                readOnly: isReadOnly,
+                autofocus: widget.autofocus,
+                textInputAction: widget.textInputAction,
+                keyboardType: widget.keyboardType,
+                onSelectionChanged: widget.onSelectionChanged,
+                componentBuilders: widget.componentBuilders,
+                blockSpacing: widget.blockSpacing,
+                stylesheet: widget.stylesheet,
+                editor: _effectiveEditor,
+                scrollPadding: widget.scrollPadding,
+              ),
             ),
             Positioned.fill(
               child: CaretDocumentOverlay(
@@ -570,7 +576,5 @@ class DocumentFieldState extends State<DocumentField> {
         ),
       ),
     );
-
-    return child;
   }
 }

@@ -202,7 +202,7 @@ void main() {
       expect(focusNode.hasFocus, isFalse);
 
       await tester.tap(find.byType(DocumentField));
-      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
 
       expect(focusNode.hasFocus, isTrue);
     });
