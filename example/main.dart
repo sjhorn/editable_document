@@ -374,74 +374,78 @@ class _DocumentDemoState extends State<DocumentDemo> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Interactive document editor (Phases 5-6).
-            // DocumentMouseInteractor handles click/drag/double-click.
-            // DocumentSelectionOverlay renders caret + selection highlights.
-            // EditableDocument wires Focus, IME, and keyboard handler.
-            DocumentMouseInteractor(
-              controller: _controller,
-              layoutKey: _layoutKey,
-              document: _document,
-              focusNode: _focusNode,
-              child: Stack(
-                children: [
-                  // Selection highlights (no static caret — the blinking
-                  // overlay below handles that).
-                  DocumentSelectionOverlay(
-                    controller: _controller,
-                    layoutKey: _layoutKey,
-                    startHandleLayerLink: _startHandleLayerLink,
-                    endHandleLayerLink: _endHandleLayerLink,
-                    showCaret: false,
-                    child: EditableDocument(
-                      controller: _controller,
-                      focusNode: _focusNode,
-                      layoutKey: _layoutKey,
-                      autofocus: true,
-                      editor: _editor,
-                    ),
-                  ),
-                  // Blinking caret overlay.
-                  Positioned.fill(
-                    child: CaretDocumentOverlay(
+      body: GestureDetector(
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        behavior: HitTestBehavior.translucent,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Interactive document editor (Phases 5-6).
+              // DocumentMouseInteractor handles click/drag/double-click.
+              // DocumentSelectionOverlay renders caret + selection highlights.
+              // EditableDocument wires Focus, IME, and keyboard handler.
+              DocumentMouseInteractor(
+                controller: _controller,
+                layoutKey: _layoutKey,
+                document: _document,
+                focusNode: _focusNode,
+                child: Stack(
+                  children: [
+                    // Selection highlights (no static caret — the blinking
+                    // overlay below handles that).
+                    DocumentSelectionOverlay(
                       controller: _controller,
                       layoutKey: _layoutKey,
+                      startHandleLayerLink: _startHandleLayerLink,
+                      endHandleLayerLink: _endHandleLayerLink,
+                      showCaret: false,
+                      child: EditableDocument(
+                        controller: _controller,
+                        focusNode: _focusNode,
+                        layoutKey: _layoutKey,
+                        autofocus: true,
+                        editor: _editor,
+                      ),
                     ),
-                  ),
-                ],
+                    // Blinking caret overlay.
+                    Positioned.fill(
+                      child: CaretDocumentOverlay(
+                        controller: _controller,
+                        layoutKey: _layoutKey,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
 
-            const Divider(height: 32),
+              const Divider(height: 32),
 
-            // Info panel showing document stats.
-            _buildInfoPanel(),
+              // Info panel showing document stats.
+              _buildInfoPanel(),
 
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            // IME serialization preview.
-            _buildImePreview(),
+              // IME serialization preview.
+              _buildImePreview(),
 
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            // DocumentField demo (Phase 5.4) — TextField equivalent.
-            _buildDocumentFieldDemo(),
+              // DocumentField demo (Phase 5.4) — TextField equivalent.
+              _buildDocumentFieldDemo(),
 
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            // Autofill demo (Phase 4.4).
-            _buildAutofillDemo(),
+              // Autofill demo (Phase 4.4).
+              _buildAutofillDemo(),
 
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            // Phase 6 info panel.
-            _buildPhase6Info(),
-          ],
+              // Phase 6 info panel.
+              _buildPhase6Info(),
+            ],
+          ),
         ),
       ),
       floatingActionButton: Column(
