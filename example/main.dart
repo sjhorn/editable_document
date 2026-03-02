@@ -16,6 +16,7 @@
 /// - **Phase 5.3**: EditableDocument — drop-in for EditableText
 /// - **Phase 5.4**: DocumentField — TextField equivalent with InputDecoration
 /// - **Phase 6**: Selection overlay, caret blink, mouse interaction, handles, toolbar
+/// - **Phase 7**: DocumentScrollable — document-aware scrolling with auto-scroll to caret
 ///
 /// Run with: `flutter run -t example/main.dart`
 library;
@@ -382,41 +383,52 @@ class _DocumentDemoState extends State<DocumentDemo> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Interactive document editor (Phases 5-6).
+              // Interactive document editor (Phases 5-7).
+              // DocumentScrollable provides auto-scroll to caret (Phase 7).
               // DocumentMouseInteractor handles click/drag/double-click.
               // DocumentSelectionOverlay renders caret + selection highlights.
               // EditableDocument wires Focus, IME, and keyboard handler.
-              DocumentMouseInteractor(
-                controller: _controller,
-                layoutKey: _layoutKey,
-                document: _document,
-                focusNode: _focusNode,
-                child: Stack(
-                  children: [
-                    // Selection highlights (no static caret — the blinking
-                    // overlay below handles that).
-                    DocumentSelectionOverlay(
+              SizedBox(
+                height: 400,
+                child: DocumentScrollable(
+                  controller: _controller,
+                  layoutKey: _layoutKey,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: DocumentMouseInteractor(
                       controller: _controller,
                       layoutKey: _layoutKey,
-                      startHandleLayerLink: _startHandleLayerLink,
-                      endHandleLayerLink: _endHandleLayerLink,
-                      showCaret: false,
-                      child: EditableDocument(
-                        controller: _controller,
-                        focusNode: _focusNode,
-                        layoutKey: _layoutKey,
-                        autofocus: true,
-                        editor: _editor,
+                      document: _document,
+                      focusNode: _focusNode,
+                      child: Stack(
+                        children: [
+                          // Selection highlights (no static caret — the
+                          // blinking overlay below handles that).
+                          DocumentSelectionOverlay(
+                            controller: _controller,
+                            layoutKey: _layoutKey,
+                            startHandleLayerLink: _startHandleLayerLink,
+                            endHandleLayerLink: _endHandleLayerLink,
+                            showCaret: false,
+                            child: EditableDocument(
+                              controller: _controller,
+                              focusNode: _focusNode,
+                              layoutKey: _layoutKey,
+                              autofocus: true,
+                              editor: _editor,
+                            ),
+                          ),
+                          // Blinking caret overlay.
+                          Positioned.fill(
+                            child: CaretDocumentOverlay(
+                              controller: _controller,
+                              layoutKey: _layoutKey,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    // Blinking caret overlay.
-                    Positioned.fill(
-                      child: CaretDocumentOverlay(
-                        controller: _controller,
-                        layoutKey: _layoutKey,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
 
@@ -484,18 +496,18 @@ class _DocumentDemoState extends State<DocumentDemo> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Selection Overlay (Phase 6)',
+              'Selection & Scrolling (Phases 6-7)',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
             Text(
-              'The document above is wrapped in a DocumentSelectionOverlay '
-              'that draws caret and selection highlights using '
-              'DocumentCaretPainter and DocumentSelectionPainter.',
+              'The document above is wrapped in DocumentScrollable (Phase 7) '
+              'for auto-scroll to caret, and DocumentSelectionOverlay '
+              '(Phase 6) for caret and selection highlights.',
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 8),
-            const Text('Phase 6 widgets implemented:'),
+            const Text('Phase 6 widgets:'),
             const SizedBox(height: 4),
             const Text('  - DocumentSelectionOverlay (caret + highlights)'),
             const Text('  - CaretDocumentOverlay (blink animation)'),
@@ -503,6 +515,12 @@ class _DocumentDemoState extends State<DocumentDemo> {
             const Text('  - iOS handles, magnifier, gesture controller'),
             const Text('  - Android handles, magnifier, gesture controller'),
             const Text('  - DocumentTextSelectionControls (floating toolbar)'),
+            const SizedBox(height: 8),
+            const Text('Phase 7 widgets:'),
+            const SizedBox(height: 4),
+            const Text('  - DocumentScrollable (auto-scroll to caret)'),
+            const Text('  - DragHandleAutoScroller (drag-based auto-scroll)'),
+            const Text('  - SliverEditableDocument (CustomScrollView support)'),
           ],
         ),
       ),
