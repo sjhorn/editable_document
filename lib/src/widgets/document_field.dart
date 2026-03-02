@@ -519,6 +519,13 @@ class DocumentFieldState extends State<DocumentField> {
       );
     }
 
+    // Resolve the effective text style, mirroring TextField's approach:
+    // Material 3 uses bodyLarge, Material 2 uses titleMedium.
+    final ThemeData theme = Theme.of(context);
+    final TextStyle themeStyle =
+        theme.useMaterial3 ? theme.textTheme.bodyLarge! : theme.textTheme.titleMedium!;
+    final TextStyle effectiveStyle = themeStyle.merge(widget.style);
+
     // Resolve the effective decoration, applying enabled/disabled state and
     // the counter widget.
     final InputDecoration effectiveDecoration = (widget.decoration ?? const InputDecoration())
@@ -536,43 +543,47 @@ class DocumentFieldState extends State<DocumentField> {
       enabled: widget.enabled,
       child: InputDecorator(
         decoration: effectiveDecoration,
+        baseStyle: effectiveStyle,
         isFocused: _hasFocus,
         isEmpty: isEmpty,
-        child: Stack(
-          children: [
-            DocumentSelectionOverlay(
-              controller: _effectiveController,
-              layoutKey: _layoutKey,
-              startHandleLayerLink: _startHandleLayerLink,
-              endHandleLayerLink: _endHandleLayerLink,
-              showCaret: false,
-              child: EditableDocument(
-                controller: _effectiveController,
-                focusNode: _effectiveFocusNode,
-                layoutKey: _layoutKey,
-                style: widget.style,
-                textDirection: widget.textDirection,
-                textAlign: widget.textAlign,
-                readOnly: isReadOnly,
-                autofocus: widget.autofocus,
-                textInputAction: widget.textInputAction,
-                keyboardType: widget.keyboardType,
-                onSelectionChanged: widget.onSelectionChanged,
-                componentBuilders: widget.componentBuilders,
-                blockSpacing: widget.blockSpacing,
-                stylesheet: widget.stylesheet,
-                editor: _effectiveEditor,
-                scrollPadding: widget.scrollPadding,
-              ),
-            ),
-            Positioned.fill(
-              child: CaretDocumentOverlay(
+        child: DefaultTextStyle(
+          style: effectiveStyle,
+          child: Stack(
+            children: [
+              DocumentSelectionOverlay(
                 controller: _effectiveController,
                 layoutKey: _layoutKey,
-                showCaret: !isReadOnly,
+                startHandleLayerLink: _startHandleLayerLink,
+                endHandleLayerLink: _endHandleLayerLink,
+                showCaret: false,
+                child: EditableDocument(
+                  controller: _effectiveController,
+                  focusNode: _effectiveFocusNode,
+                  layoutKey: _layoutKey,
+                  style: effectiveStyle,
+                  textDirection: widget.textDirection,
+                  textAlign: widget.textAlign,
+                  readOnly: isReadOnly,
+                  autofocus: widget.autofocus,
+                  textInputAction: widget.textInputAction,
+                  keyboardType: widget.keyboardType,
+                  onSelectionChanged: widget.onSelectionChanged,
+                  componentBuilders: widget.componentBuilders,
+                  blockSpacing: widget.blockSpacing,
+                  stylesheet: widget.stylesheet,
+                  editor: _effectiveEditor,
+                  scrollPadding: widget.scrollPadding,
+                ),
               ),
-            ),
-          ],
+              Positioned.fill(
+                child: CaretDocumentOverlay(
+                  controller: _effectiveController,
+                  layoutKey: _layoutKey,
+                  showCaret: !isReadOnly,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
