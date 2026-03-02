@@ -81,16 +81,20 @@ void main() {
       block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
     });
 
-    test('getLocalRectForPosition upstream returns left-edge rect', () {
+    test('getLocalRectForPosition upstream returns top-left rect', () {
       final rect = block.getLocalRectForPosition(const BinaryNodePosition.upstream());
       expect(rect.left, 0.0);
+      expect(rect.top, 0.0);
       expect(rect.height, greaterThan(0));
+      expect(rect.height, lessThanOrEqualTo(20.0));
     });
 
-    test('getLocalRectForPosition downstream returns right-edge rect', () {
+    test('getLocalRectForPosition downstream returns bottom-left rect', () {
       final rect = block.getLocalRectForPosition(const BinaryNodePosition.downstream());
-      expect(rect.right, block.size.width);
+      expect(rect.left, 0.0);
+      expect(rect.bottom, block.size.height);
       expect(rect.height, greaterThan(0));
+      expect(rect.height, lessThanOrEqualTo(20.0));
     });
 
     test('getEndpointsForSelection returns full block rect', () {

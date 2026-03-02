@@ -14,6 +14,12 @@ import 'render_document_block.dart';
 /// Default aspect ratio used when no [imageWidth]/[imageHeight] is known.
 const double _kDefaultAspectRatio = 16.0 / 9.0;
 
+/// Default caret height used for binary-position nodes.
+///
+/// Matches a typical text line height so the caret looks consistent when
+/// navigating between text blocks and image blocks.
+const double _kCaretHeight = 20.0;
+
 /// A [RenderDocumentBlock] for image nodes.
 ///
 /// Renders a filled placeholder rectangle sized according to the optional
@@ -168,13 +174,15 @@ class RenderImageBlock extends RenderDocumentBlock {
   @override
   Rect getLocalRectForPosition(NodePosition position) {
     assert(position is BinaryNodePosition, 'RenderImageBlock expects BinaryNodePosition');
-    // Both upstream and downstream map to the full block rect.
-    //
-    // Placing the caret at the left edge (x = 0) keeps it visible within the
-    // viewport when the image fills the available width. Placing it at the
-    // right edge (x = size.width) would overflow and get clipped. This
-    // matches the behaviour of [RenderHorizontalRuleBlock].
-    return Offset.zero & size;
+    final bp = position as BinaryNodePosition;
+    final caretHeight = size.height.clamp(0.0, _kCaretHeight);
+    if (bp.type == BinaryNodePositionType.upstream) {
+      // Before the image — caret at the top-left edge.
+      return Rect.fromLTWH(0, 0, 0, caretHeight);
+    } else {
+      // After the image — caret at the bottom-left edge.
+      return Rect.fromLTWH(0, size.height - caretHeight, 0, caretHeight);
+    }
   }
 
   @override
