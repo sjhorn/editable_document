@@ -681,4 +681,100 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   });
+
+  // -------------------------------------------------------------------------
+  // Blur clears selection
+  // -------------------------------------------------------------------------
+
+  group('DocumentField — blur', () {
+    testWidgets('selection is cleared when focus is lost', (tester) async {
+      final controller = _makeController(text: 'Hello');
+      addTearDown(controller.dispose);
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          Column(
+            children: [
+              DocumentField(controller: controller, focusNode: focusNode),
+              const TextField(), // second focusable to steal focus
+            ],
+          ),
+        ),
+      );
+
+      // Focus the DocumentField.
+      focusNode.requestFocus();
+      await tester.pump();
+      expect(controller.selection, isNotNull);
+
+      // Move focus away.
+      await tester.tap(find.byType(TextField));
+      await tester.pump();
+
+      expect(focusNode.hasFocus, isFalse);
+      expect(controller.selection, isNull);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // autofillHints forwarding
+  // -------------------------------------------------------------------------
+
+  group('DocumentField — autofillHints', () {
+    testWidgets('autofillHints are forwarded to controller in initState', (tester) async {
+      final controller = _makeController();
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          DocumentField(
+            controller: controller,
+            autofillHints: const [AutofillHints.email],
+          ),
+        ),
+      );
+
+      expect(controller.autofillHints, [AutofillHints.email]);
+    });
+
+    testWidgets('autofillHints are updated on widget rebuild', (tester) async {
+      final controller = _makeController();
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          DocumentField(
+            controller: controller,
+            autofillHints: const [AutofillHints.email],
+          ),
+        ),
+      );
+
+      expect(controller.autofillHints, [AutofillHints.email]);
+
+      await tester.pumpWidget(
+        _wrap(
+          DocumentField(
+            controller: controller,
+            autofillHints: const [AutofillHints.password],
+          ),
+        ),
+      );
+
+      expect(controller.autofillHints, [AutofillHints.password]);
+    });
+
+    testWidgets('null autofillHints does not modify controller', (tester) async {
+      final controller = _makeController();
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(DocumentField(controller: controller)),
+      );
+
+      expect(controller.autofillHints, isNull);
+    });
+  });
 }

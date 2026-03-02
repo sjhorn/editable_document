@@ -96,6 +96,7 @@ class DocumentField extends StatefulWidget {
     this.maxLength,
     this.enabled = true,
     this.scrollPadding = const EdgeInsets.all(20.0),
+    this.autofillHints,
   });
 
   /// The controller for the document being edited.
@@ -212,6 +213,12 @@ class DocumentField extends StatefulWidget {
   /// [EditableDocument].
   final EdgeInsets scrollPadding;
 
+  /// Autofill hints passed to the controller when non-null.
+  ///
+  /// When set, [DocumentEditingController.autofillHints] is updated in
+  /// [initState] and whenever the widget is rebuilt with new hints.
+  final List<String>? autofillHints;
+
   @override
   State<DocumentField> createState() => DocumentFieldState();
 
@@ -255,6 +262,9 @@ class DocumentField extends StatefulWidget {
     properties.add(IntProperty('maxLength', maxLength, defaultValue: null));
     properties.add(FlagProperty('enabled', value: enabled, ifFalse: 'disabled'));
     properties.add(DiagnosticsProperty<EdgeInsets>('scrollPadding', scrollPadding));
+    properties.add(
+      IterableProperty<String>('autofillHints', autofillHints, defaultValue: null),
+    );
   }
 }
 
@@ -331,6 +341,10 @@ class DocumentFieldState extends State<DocumentField> {
 
     _effectiveFocusNode.addListener(_onFocusChanged);
     _effectiveController.addListener(_onControllerChanged);
+
+    if (widget.autofillHints != null) {
+      _effectiveController.autofillHints = widget.autofillHints;
+    }
   }
 
   @override
@@ -405,6 +419,11 @@ class DocumentFieldState extends State<DocumentField> {
       oldFocus.removeListener(_onFocusChanged);
       newFocus.addListener(_onFocusChanged);
     }
+
+    // Forward autofillHints changes.
+    if (!listEquals(widget.autofillHints, oldWidget.autofillHints)) {
+      _effectiveController.autofillHints = widget.autofillHints;
+    }
   }
 
   @override
@@ -439,6 +458,8 @@ class DocumentFieldState extends State<DocumentField> {
           ),
         );
       }
+    } else if (!_hasFocus) {
+      _effectiveController.setSelection(null);
     }
   }
 

@@ -93,12 +93,12 @@ class _DocumentDemoState extends State<DocumentDemo> {
       document: MutableDocument([
         ParagraphNode(id: 'email-p1', text: AttributedText()),
       ]),
-    )..autofillHints = [AutofillHints.email];
+    );
     _passwordController = DocumentEditingController(
       document: MutableDocument([
         ParagraphNode(id: 'password-p1', text: AttributedText()),
       ]),
-    )..autofillHints = [AutofillHints.password];
+    );
     _emailEditor = UndoableEditor(
       editContext: EditContext(
         document: _emailController.document,
@@ -111,11 +111,8 @@ class _DocumentDemoState extends State<DocumentDemo> {
         controller: _passwordController,
       ),
     );
-    _emailFocusNode = FocusNode(debugLabel: 'AutofillEmail')..addListener(_onAutofillFocusChanged);
-    _passwordFocusNode = FocusNode(debugLabel: 'AutofillPassword')
-      ..addListener(_onAutofillFocusChanged);
-    _emailController.addListener(_onAutofillFocusChanged);
-    _passwordController.addListener(_onAutofillFocusChanged);
+    _emailFocusNode = FocusNode(debugLabel: 'AutofillEmail');
+    _passwordFocusNode = FocusNode(debugLabel: 'AutofillPassword');
 
     // Listen for document changes to rebuild the UI.
     _document.changes.addListener(_onDocumentChanged);
@@ -126,50 +123,15 @@ class _DocumentDemoState extends State<DocumentDemo> {
     _document.changes.removeListener(_onDocumentChanged);
     _focusNode.dispose();
     _controller.dispose();
-    _emailController.removeListener(_onAutofillFocusChanged);
     _emailController.dispose();
-    _passwordController.removeListener(_onAutofillFocusChanged);
     _passwordController.dispose();
-    _emailFocusNode.removeListener(_onAutofillFocusChanged);
     _emailFocusNode.dispose();
-    _passwordFocusNode.removeListener(_onAutofillFocusChanged);
     _passwordFocusNode.dispose();
     super.dispose();
   }
 
   void _onDocumentChanged() {
     setState(() {});
-  }
-
-  /// Rebuilds when autofill field focus or content changes so that the
-  /// [InputDecorator] isFocused / isEmpty properties stay accurate.
-  /// Also sets the selection on focus gain so the IME can resolve a target
-  /// node for incoming deltas.
-  void _onAutofillFocusChanged() {
-    _ensureSelectionOnFocus(_emailFocusNode, _emailController);
-    _ensureSelectionOnFocus(_passwordFocusNode, _passwordController);
-    setState(() {});
-  }
-
-  /// Sets a collapsed selection at offset 0 when [focusNode] has focus and
-  /// [controller] has no selection, so the IME can route deltas to a node.
-  void _ensureSelectionOnFocus(
-    FocusNode focusNode,
-    DocumentEditingController controller,
-  ) {
-    if (!focusNode.hasFocus || controller.selection != null) return;
-    final nodes = controller.document.nodes;
-    if (nodes.isEmpty) return;
-    controller.setSelection(
-      DocumentSelection.collapsed(
-        position: DocumentPosition(
-          nodeId: nodes.first.id,
-          nodePosition: nodes.first is TextNode
-              ? const TextNodePosition(offset: 0)
-              : const BinaryNodePosition.downstream(),
-        ),
-      ),
-    );
   }
 
   MutableDocument _buildSampleDocument() {
@@ -566,52 +528,34 @@ class _DocumentDemoState extends State<DocumentDemo> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  GestureDetector(
-                    onTap: () => _emailFocusNode.requestFocus(),
-                    behavior: HitTestBehavior.opaque,
-                    child: InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'Email',
-                        hintText: 'user@example.com',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.email_outlined),
-                      ),
-                      isFocused: _emailFocusNode.hasFocus,
-                      isEmpty: _emailController.document.nodes
-                          .whereType<TextNode>()
-                          .every((n) => n.text.text.isEmpty),
-                      child: EditableDocument(
-                        controller: _emailController,
-                        focusNode: _emailFocusNode,
-                        editor: _emailEditor,
-                        keyboardType: TextInputType.emailAddress,
-                        textInputAction: TextInputAction.next,
-                      ),
+                  DocumentField(
+                    controller: _emailController,
+                    focusNode: _emailFocusNode,
+                    editor: _emailEditor,
+                    autofillHints: const [AutofillHints.email],
+                    decoration: const InputDecoration(
+                      labelText: 'Email',
+                      hintText: 'user@example.com',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.email_outlined),
                     ),
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next,
                   ),
                   const SizedBox(height: 12),
-                  GestureDetector(
-                    onTap: () => _passwordFocusNode.requestFocus(),
-                    behavior: HitTestBehavior.opaque,
-                    child: InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'Password',
-                        hintText: 'Enter password',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.lock_outlined),
-                      ),
-                      isFocused: _passwordFocusNode.hasFocus,
-                      isEmpty: _passwordController.document.nodes
-                          .whereType<TextNode>()
-                          .every((n) => n.text.text.isEmpty),
-                      child: EditableDocument(
-                        controller: _passwordController,
-                        focusNode: _passwordFocusNode,
-                        editor: _passwordEditor,
-                        keyboardType: TextInputType.visiblePassword,
-                        textInputAction: TextInputAction.done,
-                      ),
+                  DocumentField(
+                    controller: _passwordController,
+                    focusNode: _passwordFocusNode,
+                    editor: _passwordEditor,
+                    autofillHints: const [AutofillHints.password],
+                    decoration: const InputDecoration(
+                      labelText: 'Password',
+                      hintText: 'Enter password',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.lock_outlined),
                     ),
+                    keyboardType: TextInputType.visiblePassword,
+                    textInputAction: TextInputAction.done,
                   ),
                 ],
               ),
