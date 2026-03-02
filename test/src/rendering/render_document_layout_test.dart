@@ -351,6 +351,58 @@ void main() {
     });
   });
 
+  group('RenderDocumentLayout — baseline computation', () {
+    // getDryBaseline is callable without an active PipelineOwner, making
+    // these tests straightforward unit tests.
+
+    test('returns null baseline when layout has no children', () {
+      final layout = RenderDocumentLayout();
+      // With no children there is no text to derive a baseline from.
+      final double? baseline = layout.getDryBaseline(
+        const BoxConstraints(maxWidth: 400),
+        TextBaseline.alphabetic,
+      );
+      expect(baseline, isNull);
+    });
+
+    test('returns non-null baseline from first child when layout has a text block', () {
+      final layout = RenderDocumentLayout();
+      layout.add(_textBlock('p1', 'Hello'));
+
+      final double? baseline = layout.getDryBaseline(
+        const BoxConstraints(maxWidth: 400),
+        TextBaseline.alphabetic,
+      );
+      expect(baseline, isNotNull);
+      expect(baseline, greaterThan(0));
+    });
+
+    test('baseline of layout equals first child dry baseline (child offset is zero)', () {
+      // Two children with spacing — the layout baseline must equal the first
+      // child's baseline because the first child sits at offset (0,0).
+      final layout = RenderDocumentLayout(blockSpacing: 20.0);
+      final c1 = _textBlock('p1', 'First');
+      final c2 = _textBlock('p2', 'Second');
+      layout.add(c1);
+      layout.add(c2);
+
+      const constraints = BoxConstraints(maxWidth: 400);
+      final double? layoutBaseline = layout.getDryBaseline(
+        constraints,
+        TextBaseline.alphabetic,
+      );
+      final double? childBaseline = c1.getDryBaseline(
+        constraints,
+        TextBaseline.alphabetic,
+      );
+
+      expect(layoutBaseline, isNotNull);
+      expect(childBaseline, isNotNull);
+      // First child is at y=0, so layout baseline == first child baseline.
+      expect(layoutBaseline, equals(childBaseline));
+    });
+  });
+
   group('RenderDocumentLayout — diagnostics', () {
     test('debugFillProperties includes blockSpacing', () {
       final layout = RenderDocumentLayout(blockSpacing: 8.0);

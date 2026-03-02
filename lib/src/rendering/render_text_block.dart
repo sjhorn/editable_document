@@ -171,6 +171,36 @@ class RenderTextBlock extends RenderDocumentBlock {
     size = Size(constraints.maxWidth, _textPainter.height);
   }
 
+  /// Returns the distance from the top of this block to the text baseline.
+  ///
+  /// Mirrors [RenderEditable.computeDistanceToActualBaseline]: it lays out the
+  /// [TextPainter] if needed (safe to call before [performLayout] completes)
+  /// and then delegates to [TextPainter.computeDistanceToActualBaseline].
+  ///
+  /// This allows [InputDecorator] and other baseline-aware ancestors to align
+  /// hint text with the first line of the document content.
+  @override
+  double computeDistanceToActualBaseline(TextBaseline baseline) {
+    _layoutText(constraints.maxWidth);
+    return _textPainter.computeDistanceToActualBaseline(baseline);
+  }
+
+  /// Returns the speculative baseline distance for the given [constraints].
+  ///
+  /// Lays out the [TextPainter] at [constraints.maxWidth] without mutating
+  /// this render object's current [size], satisfying the "dry" contract.
+  @override
+  double? computeDryBaseline(covariant BoxConstraints constraints, TextBaseline baseline) {
+    // Create a temporary painter with the same span and configuration to
+    // compute the baseline without touching this render object's live state.
+    final painter = TextPainter(
+      text: _buildTextSpan(),
+      textDirection: _textDirection,
+      textAlign: _textAlign,
+    )..layout(maxWidth: constraints.maxWidth);
+    return painter.computeDistanceToActualBaseline(baseline);
+  }
+
   // ---------------------------------------------------------------------------
   // Protected helpers for subclasses
   // ---------------------------------------------------------------------------

@@ -163,6 +163,40 @@ class RenderDocumentLayout extends RenderBox
   }
 
   // ---------------------------------------------------------------------------
+  // Baseline
+  // ---------------------------------------------------------------------------
+
+  /// Returns the distance from this layout's top edge to the baseline of the
+  /// first child that reports a non-null baseline.
+  ///
+  /// Delegates to [RenderBoxContainerDefaultsMixin.defaultComputeDistanceToFirstActualBaseline],
+  /// which walks children in order, asks each for its baseline, and adds the
+  /// child's paint offset so the result is in this layout's coordinate space.
+  ///
+  /// Returns `null` when there are no children (empty document).
+  @override
+  double? computeDistanceToActualBaseline(TextBaseline baseline) {
+    return defaultComputeDistanceToFirstActualBaseline(baseline);
+  }
+
+  /// Returns the speculative baseline distance for the given [constraints].
+  ///
+  /// Asks the first child for its dry baseline at the same [constraints] and
+  /// returns that value (first child's paint offset is always `Offset.zero`
+  /// so no adjustment is needed).
+  ///
+  /// Returns `null` when there are no children.
+  @override
+  double? computeDryBaseline(covariant BoxConstraints constraints, TextBaseline baseline) {
+    final first = firstChild;
+    if (first == null) return null;
+    return first.getDryBaseline(
+      BoxConstraints(maxWidth: constraints.maxWidth),
+      baseline,
+    );
+  }
+
+  // ---------------------------------------------------------------------------
   // Paint
   // ---------------------------------------------------------------------------
 

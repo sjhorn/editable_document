@@ -315,6 +315,55 @@ void main() {
     });
   });
 
+  group('RenderTextBlock baseline computation', () {
+    // getDryBaseline is callable without an active PipelineOwner, making
+    // these tests straightforward unit tests.
+
+    test('reports a non-null alphabetic baseline', () {
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      final double? baseline = block.getDryBaseline(
+        const BoxConstraints(maxWidth: 400),
+        TextBaseline.alphabetic,
+      );
+      expect(baseline, isNotNull);
+      expect(baseline, greaterThan(0));
+    });
+
+    test('alphabetic baseline is less than block height', () {
+      // The baseline sits above the descender line, so it must be strictly
+      // less than the full line height.
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+
+      final double baseline = block.getDryBaseline(
+        const BoxConstraints(maxWidth: 400),
+        TextBaseline.alphabetic,
+      )!;
+      expect(baseline, lessThan(block.size.height));
+    });
+
+    test('ideographic baseline is reported as non-null', () {
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      final double? baseline = block.getDryBaseline(
+        const BoxConstraints(maxWidth: 400),
+        TextBaseline.ideographic,
+      );
+      expect(baseline, isNotNull);
+    });
+  });
+
   group('RenderTextBlock property setters', () {
     test('setting nodeId updates nodeId', () {
       final block = RenderTextBlock(
