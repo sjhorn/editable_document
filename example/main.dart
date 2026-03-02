@@ -387,6 +387,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
               controller: _controller,
               layoutKey: _layoutKey,
               document: _document,
+              focusNode: _focusNode,
               child: Stack(
                 children: [
                   // Selection highlights (no static caret — the blinking

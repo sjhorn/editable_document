@@ -86,6 +86,7 @@ class DocumentMouseInteractor extends StatefulWidget {
     required this.layoutKey,
     required this.document,
     required this.child,
+    this.focusNode,
     this.enabled = true,
     this.cursor = SystemMouseCursors.text,
   });
@@ -103,6 +104,13 @@ class DocumentMouseInteractor extends StatefulWidget {
 
   /// The document content widget to wrap.
   final Widget child;
+
+  /// An optional [FocusNode] to request focus on when the user taps.
+  ///
+  /// When non-null, [FocusNode.requestFocus] is called on every primary
+  /// pointer-down event so that clicking inside the document steals focus
+  /// from other focusable widgets (e.g. [DocumentField]).
+  final FocusNode? focusNode;
 
   /// Whether mouse gestures are active.
   ///
@@ -125,6 +133,7 @@ class DocumentMouseInteractor extends StatefulWidget {
     properties.add(DiagnosticsProperty<DocumentEditingController>('controller', controller));
     properties.add(DiagnosticsProperty<GlobalKey<DocumentLayoutState>>('layoutKey', layoutKey));
     properties.add(DiagnosticsProperty<Document>('document', document));
+    properties.add(DiagnosticsProperty<FocusNode?>('focusNode', focusNode, defaultValue: null));
     properties.add(FlagProperty('enabled', value: enabled, ifTrue: 'enabled', ifFalse: 'disabled'));
     properties.add(DiagnosticsProperty<MouseCursor>('cursor', cursor));
   }
@@ -280,6 +289,8 @@ class DocumentMouseInteractorState extends State<DocumentMouseInteractor> {
       // Non-primary-button mouse press — ignore.
       return;
     }
+    // Request focus so clicking the document steals focus from other widgets.
+    widget.focusNode?.requestFocus();
     _dragBasePosition = _positionForOffset(event.localPosition);
     _isDragging = true;
   }
