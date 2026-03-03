@@ -302,9 +302,9 @@ All widgets in `lib/src/widgets/`. Tests in `test/src/widgets/` using `testWidge
 
 > **Commit message:** `feat(semantics): document-level semantics tree, screen reader support`
 
-- [ ] `DocumentSemanticsBuilder` — generates `SemanticsNode` tree from `Document`; one node per `DocumentBlock`; `SemanticsProperties.header` for heading nodes; `SemanticsProperties.liveRegion` for document root.
-- [ ] Per-block semantics: `isTextField`, `isMultiline`, `isReadOnly`, `onSetText`, `onSetSelection`, `onMoveCursorForward/BackwardByCharacter`, `onMoveCursorForward/BackwardByWord`.
-- [ ] Tests: `matchesSemantics()` for each node type; screen reader focus order follows document order; heading nodes expose correct heading level; `debugSemantics` output matches expected tree.
+- [x] `DocumentSemanticsBuilder` — generates `SemanticsNode` tree from `Document`; one node per `DocumentBlock`; `SemanticsProperties.header` for heading nodes; `SemanticsProperties.liveRegion` for document root.
+- [x] Per-block semantics: `isTextField`, `isMultiline`, `isReadOnly`, `onSetText`, `onSetSelection`, `onMoveCursorForward/BackwardByCharacter`, `onMoveCursorForward/BackwardByWord`.
+- [x] Tests: `matchesSemantics()` for each node type; screen reader focus order follows document order; heading nodes expose correct heading level; `debugSemantics` output matches expected tree.
 
 ---
 
