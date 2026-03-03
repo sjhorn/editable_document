@@ -23,33 +23,32 @@
 > **Commit message:** `chore: bootstrap editable_document package skeleton`
 
 ### 0.1 Package skeleton
-- [ ] `flutter create --template=package editable_document` with `sdk: ">=3.3.0 <4.0.0"`.
-- [ ] `pubspec.yaml` — name, description, homepage, repository, issue_tracker, topics set.
-- [ ] `LICENSE` — BSD-3-Clause (matches Flutter).
-- [ ] `CHANGELOG.md` — `## 0.1.0-dev.1` stub.
-- [ ] `README.md` — package purpose, badges (pub version, CI, coverage), quickstart stub.
+- [x] `flutter create --template=package editable_document` with `sdk: ">=3.3.0 <4.0.0"`.
+- [x] `pubspec.yaml` — name, description, homepage, repository, issue_tracker, topics set.
+- [x] `LICENSE` — BSD-3-Clause (matches Flutter).
+- [x] `CHANGELOG.md` — `## 0.1.0-dev.1` stub.
+- [x] `README.md` — package purpose, badges (pub version, CI, coverage), quickstart stub.
 
 ### 0.2 Analysis & linting
-- [ ] `analysis_options.yaml` matching Flutter's framework options:
+- [x] `analysis_options.yaml` matching Flutter's framework options:
   - `strict-casts: true`, `strict-inference: true`, `strict-raw-types: true`
   - `page_width: 100`
   - Enabled rules: `always_declare_return_types`, `avoid_dynamic_calls`, `avoid_print`, `flutter_style_todos`, `prefer_const_constructors`, `prefer_relative_imports`, `prefer_single_quotes`, `sort_child_properties_last`, `use_key_in_widget_constructors`, `use_super_parameters`, `missing_code_block_language_in_doc_comment`, `public_member_api_docs`, `diagnostic_describe_all_properties`.
-- [ ] `dart format` passes with `--line-length 100`.
-- [ ] `flutter analyze` produces zero issues.
+- [x] `dart format` passes with `--line-length 100`.
+- [x] `flutter analyze` produces zero issues.
 
 ### 0.3 CI pipeline (GitHub Actions)
-- [ ] `.github/workflows/ci.yml` — triggered on push + pull_request to `main`.
+- [x] `.github/workflows/ci.yml` — triggered on push + pull_request to `main`.
   - Jobs: `analyze`, `test` (unit + widget), `integration_test` (matrix: ubuntu, macos, windows), `golden_test`, `coverage`, `docs`.
-- [ ] Coverage threshold gate: fail if overall < 90 %.
-- [ ] Golden files committed to `test/goldens/` with platform-tagged suffixes.
-- [ ] `dart doc` build step — fail on any undocumented public API.
+- [x] Coverage threshold gate: fail if overall < 90 %.
+- [x] Golden files committed to `test/goldens/` with platform-tagged suffixes.
+- [x] `dart doc` build step — fail on any undocumented public API.
 
 ### 0.4 Developer tooling
-- [ ] `.claude/settings.local.json` — AI agent configuration (see CLAUDE.md Phase 0).
-- [ ] `CLAUDE.md` committed at repo root.
-- [ ] `Makefile` with targets: `analyze`, `test`, `golden-update`, `coverage`, `docs`, `benchmark`.
-- [ ] `.github/PULL_REQUEST_TEMPLATE.md` mirroring Flutter's checklist.
-- [ ] `.github/ISSUE_TEMPLATE/bug_report.md` and `feature_request.md`.
+- [x] `.claude/settings.local.json` — AI agent configuration (see CLAUDE.md Phase 0).
+- [x] `CLAUDE.md` committed at repo root.
+- [x] `.github/PULL_REQUEST_TEMPLATE.md` mirroring Flutter's checklist.
+- [x] `.github/ISSUE_TEMPLATE/bug_report.md` and `feature_request.md`.
 
 ---
 
@@ -316,7 +315,7 @@ All widgets in `lib/src/widgets/`. Tests in `test/src/widgets/` using `testWidge
   - Document model: `insertNode`, `deleteNode`, `AttributedText.applyAttribution` at various sizes.
   - IME serialization: `DocumentImeSerializer` round-trip for 100/1 000/10 000 node documents.
   - Selection queries: `DocumentLayout.getDocumentPositionAtOffset` for large documents.
-- [ ] Integration test perf profiles (`--profile` mode):
+- [ ] _(Deferred — requires real device/emulator with `--profile` mode)_ Integration test perf profiles:
   - Typing latency: 100 consecutive characters in a 1 000-paragraph document; frame build < 16 ms.
   - Scroll performance: fast fling through 10 000-paragraph document; < 2 jank frames.
   - Selection drag: drag handle across 500 paragraphs; no dropped frames.
