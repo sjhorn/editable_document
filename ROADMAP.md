@@ -312,7 +312,7 @@ All widgets in `lib/src/widgets/`. Tests in `test/src/widgets/` using `testWidge
 
 > **Commit message:** `perf: add benchmark suite and set performance baselines`
 
-- [ ] `benchmark/` — `package:benchmark_harness` micro-benchmarks:
+- [x] `benchmark/` — `package:benchmark_harness` micro-benchmarks:
   - Document model: `insertNode`, `deleteNode`, `AttributedText.applyAttribution` at various sizes.
   - IME serialization: `DocumentImeSerializer` round-trip for 100/1 000/10 000 node documents.
   - Selection queries: `DocumentLayout.getDocumentPositionAtOffset` for large documents.
@@ -320,8 +320,8 @@ All widgets in `lib/src/widgets/`. Tests in `test/src/widgets/` using `testWidge
   - Typing latency: 100 consecutive characters in a 1 000-paragraph document; frame build < 16 ms.
   - Scroll performance: fast fling through 10 000-paragraph document; < 2 jank frames.
   - Selection drag: drag handle across 500 paragraphs; no dropped frames.
-- [ ] `Makefile benchmark` target writes results to `benchmark/results/`.
-- [ ] Baseline comparison: compare `EditableDocument` vs `EditableText` for single-paragraph case; target parity or better.
+- [x] `scripts/ci/benchmark.sh` target writes results to `benchmark/results/`.
+- [x] Baseline comparison: compare `EditableDocument` vs `EditableText` for single-paragraph case; target parity or better.
 
 ---
 
