@@ -113,6 +113,45 @@ class RenderParagraphBlock extends RenderTextBlock {
   }
 
   // ---------------------------------------------------------------------------
+  // Semantics
+  // ---------------------------------------------------------------------------
+
+  /// Maps a [ParagraphBlockType] heading variant to its ARIA heading level.
+  ///
+  /// Returns `0` for non-heading block types (which signals no heading
+  /// semantics to the accessibility system).
+  static int _headingLevelForBlockType(ParagraphBlockType type) {
+    switch (type) {
+      case ParagraphBlockType.header1:
+        return 1;
+      case ParagraphBlockType.header2:
+        return 2;
+      case ParagraphBlockType.header3:
+        return 3;
+      case ParagraphBlockType.header4:
+        return 4;
+      case ParagraphBlockType.header5:
+        return 5;
+      case ParagraphBlockType.header6:
+        return 6;
+      case ParagraphBlockType.paragraph:
+      case ParagraphBlockType.blockquote:
+      case ParagraphBlockType.codeBlock:
+        return 0;
+    }
+  }
+
+  @override
+  void describeSemanticsConfiguration(SemanticsConfiguration config) {
+    super.describeSemanticsConfiguration(config);
+
+    final level = _headingLevelForBlockType(_blockType);
+    if (level > 0) {
+      config.headingLevel = level;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Paint — blockquote border
   // ---------------------------------------------------------------------------
 

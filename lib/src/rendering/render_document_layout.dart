@@ -372,6 +372,38 @@ class RenderDocumentLayout extends RenderBox
   }
 
   // ---------------------------------------------------------------------------
+  // Semantics
+  // ---------------------------------------------------------------------------
+
+  /// Configures the semantics of this document layout node.
+  ///
+  /// Sets three flags that together ensure the accessibility tree correctly
+  /// represents an editable document:
+  ///
+  /// * [SemanticsConfiguration.isSemanticBoundary] — marks this render object
+  ///   as a semantics boundary, isolating the document's subtree from its
+  ///   ancestor in the accessibility tree.
+  ///
+  /// * [SemanticsConfiguration.explicitChildNodes] — instructs the semantics
+  ///   system to create individual semantics nodes for each child block rather
+  ///   than merging them into this node.  This allows screen readers to
+  ///   navigate between document blocks (paragraphs, images, rules, etc.)
+  ///   individually.
+  ///
+  /// * [SemanticsConfiguration.liveRegion] — marks the document as a live
+  ///   region so that assistive technologies announce content changes (e.g.
+  ///   newly inserted text or pasted blocks) without requiring the user to
+  ///   move focus.
+  @override
+  void describeSemanticsConfiguration(SemanticsConfiguration config) {
+    super.describeSemanticsConfiguration(config);
+    config
+      ..isSemanticBoundary = true
+      ..explicitChildNodes = true
+      ..liveRegion = true;
+  }
+
+  // ---------------------------------------------------------------------------
   // Diagnostics
   // ---------------------------------------------------------------------------
 

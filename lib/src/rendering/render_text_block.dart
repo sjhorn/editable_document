@@ -162,6 +162,148 @@ class RenderTextBlock extends RenderDocumentBlock {
   }
 
   // ---------------------------------------------------------------------------
+  // Semantics state
+  // ---------------------------------------------------------------------------
+
+  bool _isFocused = false;
+  bool _isReadOnly = false;
+  MoveCursorHandler? _onSemanticsMoveCursorForwardByCharacter;
+  MoveCursorHandler? _onSemanticsMoveCursorBackwardByCharacter;
+  MoveCursorHandler? _onSemanticsMoveCursorForwardByWord;
+  MoveCursorHandler? _onSemanticsMoveCursorBackwardByWord;
+  SetTextHandler? _onSemanticsSetText;
+  SetSelectionHandler? _onSemanticsSetSelection;
+
+  /// Whether this block currently holds the input focus.
+  ///
+  /// When `true` and [isReadOnly] is `false`, the semantics node is
+  /// annotated as a focused, editable text field.  When `true` and
+  /// [isReadOnly] is also `true`, only [SemanticsConfiguration.isFocused] is
+  /// set.  Changing this value calls [markNeedsSemanticsUpdate].
+  // ignore: diagnostic_describe_all_properties
+  bool get isFocused => _isFocused;
+
+  /// Sets [isFocused] and schedules a semantics update.
+  set isFocused(bool value) {
+    if (_isFocused == value) return;
+    _isFocused = value;
+    markNeedsSemanticsUpdate();
+  }
+
+  /// Whether this block should be treated as read-only by the accessibility
+  /// system.
+  ///
+  /// When `true`, [SemanticsConfiguration.isReadOnly] is set and the block is
+  /// not announced as an editable text field.  Changing this value calls
+  /// [markNeedsSemanticsUpdate].
+  // ignore: diagnostic_describe_all_properties
+  bool get isReadOnly => _isReadOnly;
+
+  /// Sets [isReadOnly] and schedules a semantics update.
+  set isReadOnly(bool value) {
+    if (_isReadOnly == value) return;
+    _isReadOnly = value;
+    markNeedsSemanticsUpdate();
+  }
+
+  /// Handler invoked by the accessibility system to move the cursor forward by
+  /// one character.
+  ///
+  /// When non-null, [SemanticsConfiguration.onMoveCursorForwardByCharacter] is
+  /// set to this handler.  Changing this value calls
+  /// [markNeedsSemanticsUpdate].
+  // ignore: diagnostic_describe_all_properties
+  MoveCursorHandler? get onSemanticsMoveCursorForwardByCharacter =>
+      _onSemanticsMoveCursorForwardByCharacter;
+
+  /// Sets [onSemanticsMoveCursorForwardByCharacter] and schedules a semantics
+  /// update.
+  set onSemanticsMoveCursorForwardByCharacter(MoveCursorHandler? value) {
+    if (_onSemanticsMoveCursorForwardByCharacter == value) return;
+    _onSemanticsMoveCursorForwardByCharacter = value;
+    markNeedsSemanticsUpdate();
+  }
+
+  /// Handler invoked by the accessibility system to move the cursor backward by
+  /// one character.
+  ///
+  /// When non-null, [SemanticsConfiguration.onMoveCursorBackwardByCharacter]
+  /// is set to this handler.  Changing this value calls
+  /// [markNeedsSemanticsUpdate].
+  // ignore: diagnostic_describe_all_properties
+  MoveCursorHandler? get onSemanticsMoveCursorBackwardByCharacter =>
+      _onSemanticsMoveCursorBackwardByCharacter;
+
+  /// Sets [onSemanticsMoveCursorBackwardByCharacter] and schedules a semantics
+  /// update.
+  set onSemanticsMoveCursorBackwardByCharacter(MoveCursorHandler? value) {
+    if (_onSemanticsMoveCursorBackwardByCharacter == value) return;
+    _onSemanticsMoveCursorBackwardByCharacter = value;
+    markNeedsSemanticsUpdate();
+  }
+
+  /// Handler invoked by the accessibility system to move the cursor forward by
+  /// one word.
+  ///
+  /// When non-null, [SemanticsConfiguration.onMoveCursorForwardByWord] is set
+  /// to this handler.  Changing this value calls [markNeedsSemanticsUpdate].
+  // ignore: diagnostic_describe_all_properties
+  MoveCursorHandler? get onSemanticsMoveCursorForwardByWord => _onSemanticsMoveCursorForwardByWord;
+
+  /// Sets [onSemanticsMoveCursorForwardByWord] and schedules a semantics
+  /// update.
+  set onSemanticsMoveCursorForwardByWord(MoveCursorHandler? value) {
+    if (_onSemanticsMoveCursorForwardByWord == value) return;
+    _onSemanticsMoveCursorForwardByWord = value;
+    markNeedsSemanticsUpdate();
+  }
+
+  /// Handler invoked by the accessibility system to move the cursor backward by
+  /// one word.
+  ///
+  /// When non-null, [SemanticsConfiguration.onMoveCursorBackwardByWord] is set
+  /// to this handler.  Changing this value calls [markNeedsSemanticsUpdate].
+  // ignore: diagnostic_describe_all_properties
+  MoveCursorHandler? get onSemanticsMoveCursorBackwardByWord =>
+      _onSemanticsMoveCursorBackwardByWord;
+
+  /// Sets [onSemanticsMoveCursorBackwardByWord] and schedules a semantics
+  /// update.
+  set onSemanticsMoveCursorBackwardByWord(MoveCursorHandler? value) {
+    if (_onSemanticsMoveCursorBackwardByWord == value) return;
+    _onSemanticsMoveCursorBackwardByWord = value;
+    markNeedsSemanticsUpdate();
+  }
+
+  /// Handler invoked by the accessibility system to replace the text content.
+  ///
+  /// When non-null, [SemanticsConfiguration.onSetText] is set to this handler.
+  /// Changing this value calls [markNeedsSemanticsUpdate].
+  // ignore: diagnostic_describe_all_properties
+  SetTextHandler? get onSemanticsSetText => _onSemanticsSetText;
+
+  /// Sets [onSemanticsSetText] and schedules a semantics update.
+  set onSemanticsSetText(SetTextHandler? value) {
+    if (_onSemanticsSetText == value) return;
+    _onSemanticsSetText = value;
+    markNeedsSemanticsUpdate();
+  }
+
+  /// Handler invoked by the accessibility system to replace the text selection.
+  ///
+  /// When non-null, [SemanticsConfiguration.onSetSelection] is set to this
+  /// handler.  Changing this value calls [markNeedsSemanticsUpdate].
+  // ignore: diagnostic_describe_all_properties
+  SetSelectionHandler? get onSemanticsSetSelection => _onSemanticsSetSelection;
+
+  /// Sets [onSemanticsSetSelection] and schedules a semantics update.
+  set onSemanticsSetSelection(SetSelectionHandler? value) {
+    if (_onSemanticsSetSelection == value) return;
+    _onSemanticsSetSelection = value;
+    markNeedsSemanticsUpdate();
+  }
+
+  // ---------------------------------------------------------------------------
   // Layout
   // ---------------------------------------------------------------------------
 
@@ -376,6 +518,53 @@ class RenderTextBlock extends RenderDocumentBlock {
     }
 
     return style;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Semantics
+  // ---------------------------------------------------------------------------
+
+  @override
+  void describeSemanticsConfiguration(SemanticsConfiguration config) {
+    super.describeSemanticsConfiguration(config);
+
+    config.isSemanticBoundary = true;
+    config.attributedValue = AttributedString(_text.text);
+    config.textDirection = _textDirection;
+    config.isMultiline = true;
+
+    if (_isFocused) {
+      config.isFocused = true;
+    }
+
+    if (_isReadOnly) {
+      config.isReadOnly = true;
+    }
+
+    if (_isFocused && !_isReadOnly) {
+      config.isTextField = true;
+      // Marking isFocused as non-null (true) signals focusability to the
+      // semantics system (the deprecated isFocusable setter is not used).
+    }
+
+    if (_onSemanticsSetText != null) {
+      config.onSetText = _onSemanticsSetText;
+    }
+    if (_onSemanticsSetSelection != null) {
+      config.onSetSelection = _onSemanticsSetSelection;
+    }
+    if (_onSemanticsMoveCursorForwardByCharacter != null) {
+      config.onMoveCursorForwardByCharacter = _onSemanticsMoveCursorForwardByCharacter;
+    }
+    if (_onSemanticsMoveCursorBackwardByCharacter != null) {
+      config.onMoveCursorBackwardByCharacter = _onSemanticsMoveCursorBackwardByCharacter;
+    }
+    if (_onSemanticsMoveCursorForwardByWord != null) {
+      config.onMoveCursorForwardByWord = _onSemanticsMoveCursorForwardByWord;
+    }
+    if (_onSemanticsMoveCursorBackwardByWord != null) {
+      config.onMoveCursorBackwardByWord = _onSemanticsMoveCursorBackwardByWord;
+    }
   }
 
   // ---------------------------------------------------------------------------

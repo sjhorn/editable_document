@@ -181,6 +181,23 @@ class RenderHorizontalRuleBlock extends RenderDocumentBlock {
   }
 
   // ---------------------------------------------------------------------------
+  // Semantics
+  // ---------------------------------------------------------------------------
+
+  /// Configures this block as a semantics boundary labelled `'Horizontal rule'`.
+  ///
+  /// Setting [SemanticsConfiguration.isSemanticBoundary] to `true` ensures
+  /// that assistive technologies treat the rule as a self-contained element
+  /// rather than merging it with surrounding content.
+  @override
+  void describeSemanticsConfiguration(SemanticsConfiguration config) {
+    super.describeSemanticsConfiguration(config);
+    config.isSemanticBoundary = true;
+    config.label = 'Horizontal rule';
+    config.textDirection = TextDirection.ltr;
+  }
+
+  // ---------------------------------------------------------------------------
   // Diagnostics
   // ---------------------------------------------------------------------------
 

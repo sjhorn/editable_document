@@ -36,21 +36,33 @@ const double _kCaretInset = 2.0;
 /// Hit testing uses [BinaryNodePosition]: taps in the left half of the block
 /// return [BinaryNodePosition.upstream] and taps in the right half return
 /// [BinaryNodePosition.downstream].
+///
+/// ## Accessibility
+///
+/// This block is a semantics boundary ([SemanticsConfiguration.isSemanticBoundary]
+/// is `true`). Screen readers will announce the [altText] when provided, or the
+/// default label `'Image'` when [altText] is `null`. The node is also marked
+/// [SemanticsConfiguration.isImage] so assistive technologies recognise it as
+/// an image element.
 class RenderImageBlock extends RenderDocumentBlock {
   /// Creates a [RenderImageBlock].
   ///
   /// [imageWidth] and [imageHeight] are the intrinsic dimensions of the image
   /// in logical pixels.  When omitted, a 16:9 aspect ratio is used.
   /// [placeholderColor] is the fill color of the placeholder rectangle.
+  /// [altText] is the accessible description announced by screen readers; when
+  /// `null` the block is labelled `'Image'`.
   RenderImageBlock({
     required String nodeId,
     double? imageWidth,
     double? imageHeight,
     Color placeholderColor = const Color(0xFFE0E0E0),
+    String? altText,
   })  : _nodeId = nodeId,
         _imageWidth = imageWidth,
         _imageHeight = imageHeight,
-        _placeholderColor = placeholderColor;
+        _placeholderColor = placeholderColor,
+        _altText = altText;
 
   // ---------------------------------------------------------------------------
   // Private state
@@ -60,6 +72,7 @@ class RenderImageBlock extends RenderDocumentBlock {
   double? _imageWidth;
   double? _imageHeight;
   Color _placeholderColor;
+  String? _altText;
   DocumentSelection? _nodeSelection;
 
   // ---------------------------------------------------------------------------
@@ -125,6 +138,22 @@ class RenderImageBlock extends RenderDocumentBlock {
     if (_placeholderColor == value) return;
     _placeholderColor = value;
     markNeedsPaint();
+  }
+
+  /// The accessible text description of this image, or `null`.
+  ///
+  /// When non-null this string is used as the semantics label for the block.
+  /// When `null` the block is labelled `'Image'` by default.
+  ///
+  /// Corresponds to [ImageNode.altText] in the model layer.
+  // ignore: diagnostic_describe_all_properties
+  String? get altText => _altText;
+
+  /// Sets the alt text and schedules a semantics update.
+  set altText(String? value) {
+    if (_altText == value) return;
+    _altText = value;
+    markNeedsSemanticsUpdate();
   }
 
   // ---------------------------------------------------------------------------
@@ -203,6 +232,19 @@ class RenderImageBlock extends RenderDocumentBlock {
   }
 
   // ---------------------------------------------------------------------------
+  // Semantics
+  // ---------------------------------------------------------------------------
+
+  @override
+  void describeSemanticsConfiguration(SemanticsConfiguration config) {
+    super.describeSemanticsConfiguration(config);
+    config.isSemanticBoundary = true;
+    config.isImage = true;
+    config.label = _altText ?? 'Image';
+    config.textDirection = TextDirection.ltr;
+  }
+
+  // ---------------------------------------------------------------------------
   // Diagnostics
   // ---------------------------------------------------------------------------
 
@@ -212,5 +254,6 @@ class RenderImageBlock extends RenderDocumentBlock {
     properties.add(DoubleProperty('imageWidth', _imageWidth, defaultValue: null));
     properties.add(DoubleProperty('imageHeight', _imageHeight, defaultValue: null));
     properties.add(ColorProperty('placeholderColor', _placeholderColor));
+    properties.add(StringProperty('altText', _altText, defaultValue: null));
   }
 }
