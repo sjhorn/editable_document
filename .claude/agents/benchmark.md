@@ -15,12 +15,12 @@ Write and run benchmarks in `benchmark/`. You read `lib/` source but **never mod
 
 ```
 benchmark/
-  document_model_benchmark.dart   # insertNode, deleteNode, AttributedText ops
-  ime_serializer_benchmark.dart   # DocumentImeSerializer round-trip at scale
-  layout_benchmark.dart           # RenderDocumentLayout position queries
-  results/                        # JSON results written by benchmark runner
-    baseline.json                 # EditableText comparison baseline
-    latest.json                   # Most recent editable_document results
+  document_model_benchmark.dart       # insertNode, deleteNode, AttributedText ops
+  ime_serializer_benchmark.dart       # DocumentImeSerializer round-trip at scale
+  layout_benchmark.dart               # Document position/node lookup queries
+  baseline_comparison_benchmark.dart  # EditableDocument vs plain string ops
+  results/                            # JSON results written by benchmark runner
+    latest.json                       # Most recent benchmark results
 ```
 
 ## Micro-benchmark pattern
@@ -29,6 +29,7 @@ Use `package:benchmark_harness`:
 
 ```dart
 import 'package:benchmark_harness/benchmark_harness.dart';
+import 'package:editable_document/editable_document.dart';
 
 class InsertNodeBenchmark extends BenchmarkBase {
   InsertNodeBenchmark() : super('MutableDocument.insertNode (1000 nodes)');
@@ -37,12 +38,13 @@ class InsertNodeBenchmark extends BenchmarkBase {
 
   @override
   void setup() {
-    _document = MutableDocument(nodes: []);
+    _document = MutableDocument([]);
   }
 
   @override
   void run() {
     _document.insertNode(
+      0,
       ParagraphNode(id: 'bench', text: AttributedText('Hello World')),
     );
     _document.deleteNode('bench'); // reset for next iteration
@@ -65,19 +67,25 @@ void main() {
 | Typing frame build time p95 (1 000 paragraphs) | < 16 ms |
 | Scroll fling jank frames (10 000 paragraphs) | < 2 |
 
-## Run benchmarks
+## Run benchmarks — ALWAYS use scripts/ci/benchmark.sh
+
+**NEVER run `flutter test` or `dart run` directly for benchmarks.**
+Always use the `scripts/ci/benchmark.sh` wrapper. It handles pipe redirections, output capture, and result writing internally — no `2>&1`, `|`, or `>` needed.
 
 ```bash
-# Micro-benchmarks (no device needed)
-dart run benchmark/document_model_benchmark.dart
-dart run benchmark/ime_serializer_benchmark.dart
+# All benchmarks
+scripts/ci/benchmark.sh
 
-# Macro-benchmarks (profile mode, real device)
-flutter drive \
-  --driver=test_driver/integration_test.dart \
-  --target=integration_test/scroll_test.dart \
-  --profile
+# Specific benchmark (omit path and _benchmark.dart suffix)
+scripts/ci/benchmark.sh document_model
+scripts/ci/benchmark.sh ime_serializer
+scripts/ci/benchmark.sh layout
+scripts/ci/benchmark.sh baseline_comparison
 ```
+
+Output files:
+- `/tmp/ed_benchmark_full.txt` — complete benchmark output
+- `benchmark/results/latest.json` — results metadata
 
 ## Commit prefix
 

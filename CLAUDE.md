@@ -150,6 +150,8 @@ scripts/ci/log_tail.sh failures
 
 **Never type `flutter test`, `flutter analyze`, or `dart format` directly. Always go through the `qa` agent.**
 
+**Run benchmarks via `scripts/ci/benchmark.sh`.** The script handles pipe redirections and output capture internally — agents should never use raw `flutter test` for benchmarks.
+
 ---
 
 ## Key source references

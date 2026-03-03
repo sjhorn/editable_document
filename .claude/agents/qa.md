@@ -23,6 +23,7 @@ All scripts live in `scripts/ci/`. Always invoke them from the project root.
 | `scripts/ci/coverage.sh` | Run coverage + threshold check | `/tmp/ed_coverage_summary.txt` |
 | `scripts/ci/log_tail.sh` | Read/grep/tail any log file | (reads existing logs) |
 | `scripts/ci/sed.sh` | `sed` wrapper (runs without permission prompt) | (pass-through) |
+| `scripts/ci/benchmark.sh` | Run micro-benchmarks | `/tmp/ed_benchmark_full.txt`, `benchmark/results/latest.json` |
 
 ## Workflow for every QA task
 
