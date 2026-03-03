@@ -10,6 +10,7 @@ library;
 
 import 'attribution.dart';
 import 'attributed_text.dart';
+import 'code_block_node.dart';
 import 'document_change_event.dart';
 import 'document_node.dart';
 import 'document_position.dart';
@@ -634,5 +635,114 @@ class ConvertListItemToParagraphCommand extends EditCommand {
     );
 
     return [NodeReplaced(oldNodeId: nodeId, newNodeId: nodeId)];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ExitCodeBlockCommand
+// ---------------------------------------------------------------------------
+
+/// Exits a [CodeBlockNode] by converting it to — or splitting it into — a
+/// plain [ParagraphNode].
+///
+/// ### Algorithm
+///
+/// 1. If [removeTrailingNewline] and the character at `splitOffset - 1` is
+///    `'\n'`, decrement the effective offset by one.
+/// 2. Compute `codeText = text[0, effectiveOffset)` and
+///    `remainingText = text[splitOffset, end)`.
+/// 3. If `codeText` is empty: **convert in place** — replace the
+///    [CodeBlockNode] with a [ParagraphNode] carrying `remainingText`.
+/// 4. Otherwise: **split** — truncate the code block to `codeText` and
+///    insert a new [ParagraphNode] with `remainingText` after it.
+/// 5. Collapse the selection to offset 0 of the (new or converted)
+///    paragraph.
+///
+/// Throws [StateError] when [nodeId] does not exist or is not a
+/// [CodeBlockNode].
+class ExitCodeBlockCommand extends EditCommand {
+  /// Creates an [ExitCodeBlockCommand].
+  const ExitCodeBlockCommand({
+    required this.nodeId,
+    required this.splitOffset,
+    this.removeTrailingNewline = false,
+  });
+
+  /// The id of the code block node to exit.
+  final String nodeId;
+
+  /// The character offset at which to split.
+  final int splitOffset;
+
+  /// Whether to consume a trailing newline before the split offset.
+  final bool removeTrailingNewline;
+
+  @override
+  List<DocumentChangeEvent> execute(EditContext context) {
+    final node = context.document.nodeById(nodeId);
+    if (node == null) {
+      throw StateError('ExitCodeBlockCommand: no node with id "$nodeId".');
+    }
+    if (node is! CodeBlockNode) {
+      throw StateError('ExitCodeBlockCommand: node "$nodeId" is not a CodeBlockNode.');
+    }
+
+    // 1. Compute effective split offset.
+    var effectiveOffset = splitOffset;
+    if (removeTrailingNewline &&
+        effectiveOffset > 0 &&
+        node.text.text[effectiveOffset - 1] == '\n') {
+      effectiveOffset -= 1;
+    }
+
+    // 2. Split the text.
+    final codeText = node.text.copyText(0, effectiveOffset);
+    final remainingText = node.text.copyText(splitOffset);
+
+    if (codeText.text.isEmpty) {
+      // 3. Convert in place — replace CodeBlockNode with ParagraphNode.
+      final paragraph = ParagraphNode(
+        id: node.id,
+        text: remainingText,
+        metadata: node.metadata,
+      );
+      context.document.replaceNode(nodeId, paragraph);
+
+      context.controller.setSelection(
+        DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: nodeId,
+            nodePosition: const TextNodePosition(offset: 0),
+          ),
+        ),
+      );
+
+      return [NodeReplaced(oldNodeId: nodeId, newNodeId: nodeId)];
+    }
+
+    // 4. Split — truncate code block, insert paragraph after.
+    context.document.updateNode(
+      nodeId,
+      (n) => (n as CodeBlockNode).copyWith(text: codeText),
+    );
+
+    final newId = generateNodeId();
+    final paragraph = ParagraphNode(id: newId, text: remainingText);
+    final insertIndex = context.document.getNodeIndexById(nodeId) + 1;
+    context.document.insertNode(insertIndex, paragraph);
+
+    context.controller.setSelection(
+      DocumentSelection.collapsed(
+        position: DocumentPosition(
+          nodeId: newId,
+          nodePosition: const TextNodePosition(offset: 0),
+        ),
+      ),
+    );
+
+    return [
+      TextChanged(nodeId: nodeId),
+      NodeInserted(nodeId: newId, index: insertIndex),
+    ];
   }
 }

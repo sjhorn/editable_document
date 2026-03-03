@@ -421,3 +421,54 @@ class ConvertListItemToParagraphRequest extends EditRequest {
   @override
   String toString() => 'ConvertListItemToParagraphRequest(nodeId: $nodeId)';
 }
+
+// ---------------------------------------------------------------------------
+// ExitCodeBlockRequest
+// ---------------------------------------------------------------------------
+
+/// Request to exit a [CodeBlockNode] by converting it to — or splitting it
+/// into — a plain [ParagraphNode].
+///
+/// Used when the user presses Enter on an empty code block, double-Enter on
+/// a trailing empty line, or Shift+Enter at any offset.
+///
+/// * [splitOffset] — character offset at which to split. Text before this
+///   offset stays in the code block; text from this offset onward moves to
+///   a new [ParagraphNode].
+/// * [removeTrailingNewline] — when `true` **and** the character at
+///   `splitOffset - 1` is `'\n'`, the effective split offset is decremented
+///   by one so the trailing newline is consumed rather than left in the code
+///   block. This handles the double-Enter exit gesture.
+class ExitCodeBlockRequest extends EditRequest {
+  /// Creates an [ExitCodeBlockRequest].
+  const ExitCodeBlockRequest({
+    required this.nodeId,
+    required this.splitOffset,
+    this.removeTrailingNewline = false,
+  });
+
+  /// The id of the [CodeBlockNode] to exit.
+  final String nodeId;
+
+  /// The character offset at which to split the code block text.
+  final int splitOffset;
+
+  /// Whether to consume a trailing `'\n'` immediately before [splitOffset].
+  final bool removeTrailingNewline;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is ExitCodeBlockRequest &&
+        other.nodeId == nodeId &&
+        other.splitOffset == splitOffset &&
+        other.removeTrailingNewline == removeTrailingNewline;
+  }
+
+  @override
+  int get hashCode => Object.hash(nodeId, splitOffset, removeTrailingNewline);
+
+  @override
+  String toString() => 'ExitCodeBlockRequest(nodeId: $nodeId, splitOffset: $splitOffset, '
+      'removeTrailingNewline: $removeTrailingNewline)';
+}

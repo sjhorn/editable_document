@@ -156,6 +156,12 @@ class Editor {
       );
     } else if (request is ConvertListItemToParagraphRequest) {
       return ConvertListItemToParagraphCommand(nodeId: request.nodeId);
+    } else if (request is ExitCodeBlockRequest) {
+      return ExitCodeBlockCommand(
+        nodeId: request.nodeId,
+        splitOffset: request.splitOffset,
+        removeTrailingNewline: request.removeTrailingNewline,
+      );
     }
     throw ArgumentError('No command registered for request type ${request.runtimeType}.');
   }

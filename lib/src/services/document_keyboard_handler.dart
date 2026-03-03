@@ -8,6 +8,8 @@ library;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import '../model/attributed_text.dart';
+import '../model/code_block_node.dart';
 import '../model/document.dart';
 import '../model/document_editing_controller.dart';
 import '../model/document_node.dart';
@@ -280,7 +282,11 @@ class DocumentKeyboardHandler {
       return shiftPressed ? _handleShiftTab() : _handleTab();
     }
     if (logicalKey == LogicalKeyboardKey.enter) {
-      if (_handleEnter()) return true;
+      if (shiftPressed) {
+        if (_handleShiftEnter()) return true;
+      } else {
+        if (_handleEnter()) return true;
+      }
     }
 
     // macOS/iOS Emacs bindings: only when Ctrl is held but NOT Cmd (Meta) or
@@ -685,23 +691,87 @@ class DocumentKeyboardHandler {
   }
 
   // -------------------------------------------------------------------------
-  // Enter (list-item exit)
+  // Enter (list-item exit / code block)
   // -------------------------------------------------------------------------
 
-  /// Converts an empty [ListItemNode] to a [ParagraphNode] when Enter is
-  /// pressed while the caret is inside an empty list item.
+  /// Handles Enter inside list items and code blocks.
   ///
-  /// Returns `false` for all other cases so the IME can handle the normal
-  /// Enter/newline behavior.
+  /// **List items:** converts an empty [ListItemNode] to a [ParagraphNode].
+  ///
+  /// **Code blocks:**
+  /// * Empty text → [ExitCodeBlockRequest] (convert in place).
+  /// * Cursor at end + text ends with `'\n'` → [ExitCodeBlockRequest] with
+  ///   [ExitCodeBlockRequest.removeTrailingNewline] (double-Enter exit).
+  /// * Otherwise → [InsertTextRequest] with a newline (stay in block).
+  ///
+  /// Returns `false` for all other node types so the IME can handle the
+  /// normal Enter/newline behavior.
   bool _handleEnter() {
     final selection = _controller.selection;
     if (selection == null || selection.isExpanded) return false;
     final node = _document.nodeById(selection.extent.nodeId);
+
+    // Empty list item → convert to paragraph.
     if (node is ListItemNode && node.text.text.isEmpty) {
       _requestHandler(ConvertListItemToParagraphRequest(nodeId: node.id));
       return true;
     }
+
+    // Code block handling.
+    if (node is CodeBlockNode) {
+      final offset = (selection.extent.nodePosition as TextNodePosition).offset;
+      final text = node.text.text;
+
+      if (text.isEmpty) {
+        // Empty code block → exit.
+        _requestHandler(ExitCodeBlockRequest(nodeId: node.id, splitOffset: 0));
+        return true;
+      }
+
+      if (offset == text.length && text.endsWith('\n')) {
+        // Double-Enter: cursor at end and text ends with newline → exit.
+        _requestHandler(
+          ExitCodeBlockRequest(
+            nodeId: node.id,
+            splitOffset: offset,
+            removeTrailingNewline: true,
+          ),
+        );
+        return true;
+      }
+
+      // Normal Enter inside code block → insert newline, stay in block.
+      _requestHandler(
+        InsertTextRequest(
+          nodeId: node.id,
+          offset: offset,
+          text: AttributedText('\n'),
+        ),
+      );
+      return true;
+    }
+
     return false;
+  }
+
+  // -------------------------------------------------------------------------
+  // Shift+Enter (code block exit)
+  // -------------------------------------------------------------------------
+
+  /// Handles Shift+Enter to exit a [CodeBlockNode] at the current cursor
+  /// position.
+  ///
+  /// Returns `false` for all non-code-block nodes so the event continues to
+  /// other handlers.
+  bool _handleShiftEnter() {
+    final selection = _controller.selection;
+    if (selection == null || selection.isExpanded) return false;
+    final node = _document.nodeById(selection.extent.nodeId);
+    if (node is! CodeBlockNode) return false;
+
+    final offset = (selection.extent.nodePosition as TextNodePosition).offset;
+    _requestHandler(ExitCodeBlockRequest(nodeId: node.id, splitOffset: offset));
+    return true;
   }
 
   // -------------------------------------------------------------------------

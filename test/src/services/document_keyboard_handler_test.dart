@@ -3680,6 +3680,197 @@ void main() {
   });
 
   // =========================================================================
+  // Enter — code block behavior
+  // =========================================================================
+
+  group('Enter (code block)', () {
+    test('inserts newline in non-empty code block (normal Enter)', () {
+      final doc = MutableDocument([
+        CodeBlockNode(id: 'cb1', text: AttributedText('line1')),
+      ]);
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('cb1', 5));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.enter));
+
+      expect(result, true);
+      expect(requests, hasLength(1));
+      final req = requests.first as InsertTextRequest;
+      expect(req.nodeId, 'cb1');
+      expect(req.offset, 5);
+      expect(req.text.text, '\n');
+    });
+
+    test('exits empty code block', () {
+      final doc = MutableDocument([
+        CodeBlockNode(id: 'cb1', text: AttributedText('')),
+      ]);
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('cb1', 0));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.enter));
+
+      expect(result, true);
+      expect(requests, hasLength(1));
+      final req = requests.first as ExitCodeBlockRequest;
+      expect(req.nodeId, 'cb1');
+      expect(req.splitOffset, 0);
+      expect(req.removeTrailingNewline, false);
+    });
+
+    test('double-Enter exits when cursor at end after trailing newline', () {
+      final doc = MutableDocument([
+        CodeBlockNode(id: 'cb1', text: AttributedText('line1\n')),
+      ]);
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('cb1', 6));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.enter));
+
+      expect(result, true);
+      expect(requests, hasLength(1));
+      final req = requests.first as ExitCodeBlockRequest;
+      expect(req.nodeId, 'cb1');
+      expect(req.splitOffset, 6);
+      expect(req.removeTrailingNewline, true);
+    });
+
+    test('Enter at end without trailing newline inserts newline (first Enter)', () {
+      final doc = MutableDocument([
+        CodeBlockNode(id: 'cb1', text: AttributedText('line1')),
+      ]);
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('cb1', 5));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.enter));
+
+      expect(result, true);
+      expect(requests, hasLength(1));
+      expect(requests.first, isA<InsertTextRequest>());
+    });
+
+    test('Enter on ParagraphNode returns false (IME handles)', () {
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('Hello')),
+      ]);
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 3));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.enter));
+
+      expect(result, false);
+      expect(requests, isEmpty);
+    });
+
+    test('Enter in code block mid-text inserts newline', () {
+      final doc = MutableDocument([
+        CodeBlockNode(id: 'cb1', text: AttributedText('abcdef')),
+      ]);
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('cb1', 3));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.enter));
+
+      expect(result, true);
+      expect(requests, hasLength(1));
+      final req = requests.first as InsertTextRequest;
+      expect(req.nodeId, 'cb1');
+      expect(req.offset, 3);
+      expect(req.text.text, '\n');
+    });
+  });
+
+  // =========================================================================
+  // Shift+Enter — code block exit
+  // =========================================================================
+
+  group('Shift+Enter (code block exit)', () {
+    testWidgets('Shift+Enter in code block dispatches ExitCodeBlockRequest', (tester) async {
+      final doc = MutableDocument([
+        CodeBlockNode(id: 'cb1', text: AttributedText('line1\nline2')),
+      ]);
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('cb1', 6));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+
+      expect(requests, hasLength(1));
+      final req = requests.first as ExitCodeBlockRequest;
+      expect(req.nodeId, 'cb1');
+      expect(req.splitOffset, 6);
+      expect(req.removeTrailingNewline, false);
+    });
+
+    testWidgets('Shift+Enter on ParagraphNode returns false', (tester) async {
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('Hello')),
+      ]);
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 3));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+
+      expect(requests, isEmpty);
+    });
+
+    testWidgets('Shift+Enter with null selection returns false', (tester) async {
+      final doc = MutableDocument([
+        CodeBlockNode(id: 'cb1', text: AttributedText('code')),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+
+      expect(requests, isEmpty);
+    });
+
+    testWidgets('Shift+Enter with expanded selection returns false', (tester) async {
+      final doc = MutableDocument([
+        CodeBlockNode(id: 'cb1', text: AttributedText('some code')),
+      ]);
+      final controller = DocumentEditingController(
+        document: doc,
+        selection: const DocumentSelection(
+          base: DocumentPosition(nodeId: 'cb1', nodePosition: TextNodePosition(offset: 0)),
+          extent: DocumentPosition(nodeId: 'cb1', nodePosition: TextNodePosition(offset: 5)),
+        ),
+      );
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+
+      expect(requests, isEmpty);
+    });
+  });
+
+  // =========================================================================
   // Backspace — empty list item → paragraph
   // =========================================================================
 

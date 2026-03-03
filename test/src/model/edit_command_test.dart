@@ -614,4 +614,204 @@ void main() {
       );
     });
   });
+
+  // =========================================================================
+  // ExitCodeBlockCommand
+  // =========================================================================
+
+  group('ExitCodeBlockCommand', () {
+    test('1. empty code block converts to ParagraphNode in place', () {
+      final doc = MutableDocument([
+        CodeBlockNode(id: 'cb1', text: AttributedText(''), language: 'dart'),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = const ExitCodeBlockCommand(nodeId: 'cb1', splitOffset: 0);
+
+      final events = cmd.execute(ctx);
+
+      final node = doc.nodeById('cb1');
+      expect(node, isA<ParagraphNode>());
+      expect(node, isNot(isA<CodeBlockNode>()));
+      expect((node as ParagraphNode).text.text, '');
+      expect(events, [const NodeReplaced(oldNodeId: 'cb1', newNodeId: 'cb1')]);
+    });
+
+    test('2. double-enter exit strips trailing newline, creates empty paragraph', () {
+      final doc = MutableDocument([
+        CodeBlockNode(id: 'cb1', text: AttributedText('line1\n'), language: 'dart'),
+      ]);
+      final ctx = _ctx(doc);
+      // Cursor at offset 6 (after '\n'), with removeTrailingNewline=true.
+      final cmd = const ExitCodeBlockCommand(
+        nodeId: 'cb1',
+        splitOffset: 6,
+        removeTrailingNewline: true,
+      );
+
+      final events = cmd.execute(ctx);
+
+      final codeNode = doc.nodeById('cb1') as CodeBlockNode;
+      expect(codeNode.text.text, 'line1');
+      expect(codeNode.language, 'dart');
+      expect(doc.nodeCount, 2);
+      final paragraph = doc.nodeAt(1) as ParagraphNode;
+      expect(paragraph.text.text, '');
+      expect(events.any((e) => e is TextChanged), isTrue);
+      expect(events.any((e) => e is NodeInserted), isTrue);
+    });
+
+    test('3. shift+enter mid-split: code keeps before-text, paragraph gets after-text', () {
+      final doc = MutableDocument([
+        CodeBlockNode(id: 'cb1', text: AttributedText('abc\ndef')),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = const ExitCodeBlockCommand(nodeId: 'cb1', splitOffset: 4);
+
+      final events = cmd.execute(ctx);
+
+      final codeNode = doc.nodeById('cb1') as CodeBlockNode;
+      expect(codeNode.text.text, 'abc\n');
+      expect(doc.nodeCount, 2);
+      final paragraph = doc.nodeAt(1) as ParagraphNode;
+      expect(paragraph.text.text, 'def');
+      expect(events.any((e) => e is TextChanged), isTrue);
+      expect(events.any((e) => e is NodeInserted), isTrue);
+    });
+
+    test('4. shift+enter at end: code unchanged, empty paragraph inserted', () {
+      final doc = MutableDocument([
+        CodeBlockNode(id: 'cb1', text: AttributedText('code')),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = const ExitCodeBlockCommand(nodeId: 'cb1', splitOffset: 4);
+
+      final events = cmd.execute(ctx);
+
+      final codeNode = doc.nodeById('cb1') as CodeBlockNode;
+      expect(codeNode.text.text, 'code');
+      expect(doc.nodeCount, 2);
+      final paragraph = doc.nodeAt(1) as ParagraphNode;
+      expect(paragraph.text.text, '');
+      expect(events.any((e) => e is NodeInserted), isTrue);
+    });
+
+    test('5. shift+enter at offset 0: code empty converts to paragraph with full text', () {
+      final doc = MutableDocument([
+        CodeBlockNode(id: 'cb1', text: AttributedText('all text')),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = const ExitCodeBlockCommand(nodeId: 'cb1', splitOffset: 0);
+
+      final events = cmd.execute(ctx);
+
+      final node = doc.nodeById('cb1');
+      expect(node, isA<ParagraphNode>());
+      expect(node, isNot(isA<CodeBlockNode>()));
+      expect((node as ParagraphNode).text.text, 'all text');
+      expect(events, [const NodeReplaced(oldNodeId: 'cb1', newNodeId: 'cb1')]);
+    });
+
+    test('6. removeTrailingNewline=true when last char is not newline: normal split', () {
+      final doc = MutableDocument([
+        CodeBlockNode(id: 'cb1', text: AttributedText('abcd')),
+      ]);
+      final ctx = _ctx(doc);
+      // splitOffset=4, last char is 'd' not '\n' — no adjustment.
+      final cmd = const ExitCodeBlockCommand(
+        nodeId: 'cb1',
+        splitOffset: 4,
+        removeTrailingNewline: true,
+      );
+
+      final events = cmd.execute(ctx);
+
+      final codeNode = doc.nodeById('cb1') as CodeBlockNode;
+      expect(codeNode.text.text, 'abcd');
+      expect(doc.nodeCount, 2);
+      final paragraph = doc.nodeAt(1) as ParagraphNode;
+      expect(paragraph.text.text, '');
+      expect(events.any((e) => e is NodeInserted), isTrue);
+    });
+
+    test('7. preserves code block language after split', () {
+      final doc = MutableDocument([
+        CodeBlockNode(id: 'cb1', text: AttributedText('line1\nline2'), language: 'python'),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = const ExitCodeBlockCommand(nodeId: 'cb1', splitOffset: 6);
+
+      cmd.execute(ctx);
+
+      final codeNode = doc.nodeById('cb1') as CodeBlockNode;
+      expect(codeNode.language, 'python');
+    });
+
+    test('8. throws StateError for non-CodeBlockNode', () {
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('Hello')),
+      ]);
+      final ctx = _ctx(doc);
+      expect(
+        () => const ExitCodeBlockCommand(nodeId: 'p1', splitOffset: 0).execute(ctx),
+        throwsStateError,
+      );
+    });
+
+    test('9. throws StateError for missing node', () {
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('Hello')),
+      ]);
+      final ctx = _ctx(doc);
+      expect(
+        () => const ExitCodeBlockCommand(nodeId: 'nope', splitOffset: 0).execute(ctx),
+        throwsStateError,
+      );
+    });
+
+    test('10. selection moves to offset 0 of new paragraph after split', () {
+      final doc = MutableDocument([
+        CodeBlockNode(id: 'cb1', text: AttributedText('abc\ndef')),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = const ExitCodeBlockCommand(nodeId: 'cb1', splitOffset: 4);
+
+      cmd.execute(ctx);
+
+      final newNodeId = doc.nodeAt(1).id;
+      final sel = ctx.controller.selection;
+      expect(sel, isNotNull);
+      expect(sel!.isCollapsed, isTrue);
+      expect(sel.extent.nodeId, newNodeId);
+      expect((sel.extent.nodePosition as TextNodePosition).offset, 0);
+    });
+
+    test('11. selection moves to offset 0 of converted paragraph', () {
+      final doc = MutableDocument([
+        CodeBlockNode(id: 'cb1', text: AttributedText('')),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = const ExitCodeBlockCommand(nodeId: 'cb1', splitOffset: 0);
+
+      cmd.execute(ctx);
+
+      final sel = ctx.controller.selection;
+      expect(sel, isNotNull);
+      expect(sel!.isCollapsed, isTrue);
+      expect(sel.extent.nodeId, 'cb1');
+      expect((sel.extent.nodePosition as TextNodePosition).offset, 0);
+    });
+
+    test('12. preserves metadata when converting empty code block in place', () {
+      final doc = MutableDocument([
+        CodeBlockNode(id: 'cb1', text: AttributedText(''), metadata: {'key': 'value'}),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = const ExitCodeBlockCommand(nodeId: 'cb1', splitOffset: 0);
+
+      cmd.execute(ctx);
+
+      final node = doc.nodeById('cb1') as ParagraphNode;
+      expect(node.metadata, {'key': 'value'});
+    });
+  });
 }
