@@ -17,6 +17,8 @@
 /// - **Phase 5.4**: DocumentField — TextField equivalent with InputDecoration
 /// - **Phase 6**: Selection overlay, caret blink, mouse interaction, handles, toolbar
 /// - **Phase 7**: DocumentScrollable — document-aware scrolling with auto-scroll to caret
+/// - **Phase 8**: Accessibility — semantics for screen readers, heading levels,
+///   image alt text, live regions (no extra code required from the user)
 ///
 /// Run with: `flutter run -t example/main.dart`
 library;
@@ -256,10 +258,13 @@ class _DocumentDemoState extends State<DocumentDemo> {
           ');',
         ),
       ),
+      // Phase 8: altText is surfaced to the accessibility tree automatically.
+      // Screen readers (TalkBack, VoiceOver) announce this label when the user
+      // navigates to the image block — no extra widget code is required.
       ImageNode(
         id: 'image',
         imageUrl: 'https://example.com/placeholder.png',
-        altText: 'Placeholder image',
+        altText: 'Screenshot of an editable_document editor with rich text',
       ),
       ParagraphNode(
         id: 'quote',
@@ -454,8 +459,13 @@ class _DocumentDemoState extends State<DocumentDemo> {
 
               const SizedBox(height: 16),
 
-              // Phase 6 info panel.
+              // Phase 6-7 info panel.
               _buildPhase6Info(),
+
+              const SizedBox(height: 16),
+
+              // Phase 8 accessibility info panel.
+              _buildPhase8Info(),
             ],
           ),
         ),
@@ -521,6 +531,49 @@ class _DocumentDemoState extends State<DocumentDemo> {
             const Text('  - DocumentScrollable (auto-scroll to caret)'),
             const Text('  - DragHandleAutoScroller (drag-based auto-scroll)'),
             const Text('  - SliverEditableDocument (CustomScrollView support)'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPhase8Info() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Accessibility (Phase 8)',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            // Phase 8: EditableDocument builds a full semantics tree
+            // automatically.  No extra code is required from the user —
+            // just populate your document nodes normally and screen readers
+            // (TalkBack on Android, VoiceOver on iOS/macOS) receive correct
+            // roles, labels, and live-region notifications.
+            Text(
+              'EditableDocument populates the Flutter semantics tree '
+              'automatically.  Screen readers receive:',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8),
+            const Text('  - Heading levels (H1–H6) from ParagraphBlockType'),
+            const Text('  - Image alt text from ImageNode.altText'),
+            const Text('  - "Horizontal rule" label for HorizontalRuleNode'),
+            const Text('  - isTextField / isMultiline / isReadOnly on text blocks'),
+            const Text('  - Live-region announcements for document mutations'),
+            const Text('  - Focus state reflected from EditableDocument.focusNode'),
+            const SizedBox(height: 8),
+            Text(
+              'The ImageNode in the document above carries '
+              'altText: "Screenshot of an editable_document editor with rich '
+              'text", which is announced by screen readers when the user '
+              'navigates to that block.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
           ],
         ),
       ),
