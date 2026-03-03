@@ -36,8 +36,8 @@ abstract class EditCommand {
 
   /// Executes this command against [context].
   ///
-  /// Mutates [context.document] and optionally updates
-  /// [context.controller.selection]. Returns the [DocumentChangeEvent]s
+  /// Mutates `context.document` and optionally updates
+  /// `context.controller.selection`. Returns the [DocumentChangeEvent]s
   /// that describe all mutations performed.
   List<DocumentChangeEvent> execute(EditContext context);
 }

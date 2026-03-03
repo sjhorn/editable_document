@@ -330,7 +330,7 @@ class AttributedText {
 
   /// Returns a new [AttributedText] with [other] inserted at [offset].
   ///
-  /// Attributions in [this] that start at or after [offset] are shifted right
+  /// Attributions in `this` that start at or after [offset] are shifted right
   /// by `other.length`. Attributions in [other] are shifted right by [offset]
   /// and merged into the result.
   AttributedText insert(int offset, AttributedText other) {

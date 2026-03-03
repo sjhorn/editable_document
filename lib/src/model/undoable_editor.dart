@@ -56,7 +56,7 @@ class _UndoEntry {
 /// node and the current selection is captured. On [undo], the document is
 /// reset to that snapshot via [MutableDocument.reset] and the selection is
 /// restored. On [redo], the original request is re-submitted through
-/// [super.submit], producing a new undo entry automatically.
+/// `super.submit`, producing a new undo entry automatically.
 ///
 /// Example:
 /// ```dart
@@ -164,7 +164,7 @@ class UndoableEditor extends Editor {
   /// Re-applies the most recently undone operation.
   ///
   /// The redo entry is consumed and an undo snapshot is pushed for the
-  /// restored state (so [undo] can reverse the redo). Then [super.submit] is
+  /// restored state (so [undo] can reverse the redo). Then `super.submit` is
   /// called directly — bypassing the [submit] override — to execute the
   /// original request without clearing the remaining redo stack entries.
   ///

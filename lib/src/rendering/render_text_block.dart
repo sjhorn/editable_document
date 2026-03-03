@@ -329,7 +329,7 @@ class RenderTextBlock extends RenderDocumentBlock {
 
   /// Returns the speculative baseline distance for the given [constraints].
   ///
-  /// Lays out the [TextPainter] at [constraints.maxWidth] without mutating
+  /// Lays out the [TextPainter] at `constraints.maxWidth` without mutating
   /// this render object's current [size], satisfying the "dry" contract.
   @override
   double? computeDryBaseline(covariant BoxConstraints constraints, TextBaseline baseline) {

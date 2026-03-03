@@ -26,7 +26,7 @@ import 'render_document_layout.dart';
 ///
 /// Blink is controlled entirely via the [visible] property.  Set [visible]
 /// to `false` on an animation tick to hide the cursor; set it back to `true`
-/// to show it.  Each change calls [markNeedsPaint] — never [markNeedsLayout].
+/// to show it.  Each change calls `markNeedsPaint` — never `markNeedsLayout`.
 ///
 /// ## When nothing is drawn
 ///

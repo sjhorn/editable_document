@@ -64,14 +64,14 @@ class DocumentScrollable extends StatefulWidget {
   ///
   /// [DocumentScrollable] adds a listener to this controller and removes it
   /// when the widget is disposed or when the controller is replaced via
-  /// [didUpdateWidget].
+  /// `didUpdateWidget`.
   final DocumentEditingController controller;
 
   /// The key for the [DocumentLayout] child, used to query caret geometry via
   /// [DocumentLayoutState.rectForDocumentPosition].
   ///
-  /// When [layoutKey.currentState] is `null` (e.g. the layout has not been
-  /// mounted), [bringDocumentPositionIntoView] is a no-op.
+  /// When `layoutKey.currentState` is `null` (e.g. the layout has not been
+  /// mounted), `bringDocumentPositionIntoView` is a no-op.
   final GlobalKey<DocumentLayoutState> layoutKey;
 
   /// The document content to display inside the [SingleChildScrollView].
@@ -215,7 +215,7 @@ class DocumentScrollableState extends State<DocumentScrollable> {
   /// [ScrollController.jumpTo] is used for an immediate snap.
   ///
   /// This method is a no-op when:
-  /// - [layoutKey.currentState] is `null` (layout not yet mounted).
+  /// - `layoutKey.currentState` is `null` (layout not yet mounted).
   /// - The caret rect cannot be determined for [position].
   /// - The caret is already fully visible within the current viewport.
   void bringDocumentPositionIntoView(

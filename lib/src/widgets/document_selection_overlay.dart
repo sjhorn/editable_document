@@ -17,8 +17,8 @@
 /// ## LeafRenderObjectWidget approach
 ///
 /// Both the caret and selection highlight are now backed by
-/// [LeafRenderObjectWidget]s ([_CaretRenderWidget] and
-/// [_SelectionHighlightRenderWidget]) that create [RenderDocumentCaret] and
+/// [LeafRenderObjectWidget]s (`_CaretRenderWidget` and
+/// `_SelectionHighlightRenderWidget`) that create [RenderDocumentCaret] and
 /// [RenderDocumentSelectionHighlight] render objects respectively.  This
 /// eliminates the need for a post-frame callback to update caret/selection
 /// geometry — geometry is queried from [RenderDocumentLayout] at paint time.
@@ -64,7 +64,7 @@ import 'document_layout.dart';
 /// [DocumentSelectionOverlay] listens to [controller] and repaints
 /// whenever the selection changes.  Caret and selection geometry is computed
 /// at paint time by querying [RenderDocumentLayout] directly via
-/// [_CaretRenderWidget] and [_SelectionHighlightRenderWidget].
+/// `_CaretRenderWidget` and `_SelectionHighlightRenderWidget`.
 ///
 /// Handle anchor positions (for [startHandleLayerLink] and
 /// [endHandleLayerLink]) are still computed via a post-frame callback so that
@@ -206,10 +206,10 @@ class DocumentSelectionOverlay extends StatefulWidget {
 /// State object for [DocumentSelectionOverlay].
 ///
 /// Listens to [DocumentSelectionOverlay.controller] for selection changes
-/// and triggers a rebuild so the [_CaretRenderWidget] and
-/// [_SelectionHighlightRenderWidget] receive updated selection data.
+/// and triggers a rebuild so the `_CaretRenderWidget` and
+/// `_SelectionHighlightRenderWidget` receive updated selection data.
 ///
-/// Handle anchor offsets ([_startOffset], [_endOffset]) are still computed
+/// Handle anchor offsets (`_startOffset`, `_endOffset`) are still computed
 /// via a post-frame callback because they depend on [DocumentLayoutState]
 /// geometry queries that require the widget tree to have rebuilt first.
 ///

@@ -358,7 +358,7 @@ class RenderDocumentLayout extends RenderBox
   /// given [DocumentPosition].
   ///
   /// Finds the child whose [RenderDocumentBlock.nodeId] matches
-  /// [pos.nodeId], delegates to [RenderDocumentBlock.getLocalRectForPosition],
+  /// `pos.nodeId`, delegates to [RenderDocumentBlock.getLocalRectForPosition],
   /// and offsets the result by the child's paint offset.
   ///
   /// Returns `null` when no child has a matching node id.

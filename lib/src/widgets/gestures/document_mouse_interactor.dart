@@ -152,7 +152,7 @@ class DocumentMouseInteractorState extends State<DocumentMouseInteractor> {
   // -------------------------------------------------------------------------
 
   /// A key on the [Listener] widget so its [RenderBox] can be used for
-  /// coordinate-space conversion in [_positionForOffset].
+  /// coordinate-space conversion in `_positionForOffset`.
   final _listenerKey = GlobalKey();
 
   // -------------------------------------------------------------------------
@@ -172,7 +172,7 @@ class DocumentMouseInteractorState extends State<DocumentMouseInteractor> {
 
   /// Whether a double-tap was recently recorded and a triple-tap is pending.
   ///
-  /// Set to `true` inside [_onDoubleTapDown] and automatically cleared after
+  /// Set to `true` inside `_onDoubleTapDown` and automatically cleared after
   /// 300 ms by a [Timer].  Because [flutter_test] fakes [Timer], this flag
   /// works correctly in both production and test environments.
   bool _pendingTripleTap = false;
@@ -181,7 +181,7 @@ class DocumentMouseInteractorState extends State<DocumentMouseInteractor> {
   /// distance check.
   Offset? _lastDoubleTapPosition;
 
-  /// Timer that clears [_pendingTripleTap] after the triple-tap window.
+  /// Timer that clears `_pendingTripleTap` after the triple-tap window.
   Timer? _tripleTapTimer;
 
   // -------------------------------------------------------------------------
@@ -267,7 +267,7 @@ class DocumentMouseInteractorState extends State<DocumentMouseInteractor> {
   // -------------------------------------------------------------------------
 
   /// Returns `true` if [position] is close enough to the recorded double-tap
-  /// position and [_pendingTripleTap] is still set (i.e. the triple-tap
+  /// position and `_pendingTripleTap` is still set (i.e. the triple-tap
   /// window has not expired).
   bool _isTripleTap(Offset position) {
     if (!_pendingTripleTap) return false;

@@ -9,19 +9,18 @@
 /// - **Phase 1**: Document model — nodes, attributed text, positions, selections
 /// - **Phase 2**: Command pipeline — edit requests, undo/redo
 /// - **Phase 3**: Rendering — per-block render objects via ComponentBuilder
-/// - **Phase 4**: Services — IME serialization preview, keyboard handler info
-/// - **Phase 4.4**: Autofill — AutofillGroup integration for email/password fields
-/// - **Phase 5.1**: ComponentBuilder — automatic node → widget mapping
-/// - **Phase 5.2**: DocumentLayout — automatic document rendering widget
-/// - **Phase 5.3**: EditableDocument — drop-in for EditableText
-/// - **Phase 5.4**: DocumentField — TextField equivalent with InputDecoration
-/// - **Phase 6**: Selection overlay, caret blink, mouse interaction, handles, toolbar
-/// - **Phase 7**: DocumentScrollable — document-aware scrolling with auto-scroll to caret
-/// - **Phase 8**: Accessibility — semantics for screen readers, heading levels,
-///   image alt text, live regions (no extra code required from the user)
+/// - **Phase 4**: Services — IME serialization, keyboard handler, autofill
+/// - **Phase 5**: Widgets — EditableDocument, DocumentField, ComponentBuilder
+/// - **Phase 6**: Selection overlay, caret blink, mouse interaction, handles
+/// - **Phase 7**: DocumentScrollable — document-aware scrolling
+/// - **Phase 8**: Accessibility — semantics for screen readers
+/// - **Phase 9**: Performance benchmarks (run via `scripts/ci/benchmark.sh`)
+/// - **Phase 10**: Formatting toolbar, JSON save/load, word count
 ///
 /// Run with: `flutter run -t example/main.dart`
 library;
+
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -119,10 +118,12 @@ class _DocumentDemoState extends State<DocumentDemo> {
 
     // Listen for document changes to rebuild the UI.
     _document.changes.addListener(_onDocumentChanged);
+    _controller.addListener(_onDocumentChanged);
   }
 
   @override
   void dispose() {
+    _controller.removeListener(_onDocumentChanged);
     _document.changes.removeListener(_onDocumentChanged);
     _focusNode.dispose();
     _controller.dispose();
@@ -359,6 +360,252 @@ class _DocumentDemoState extends State<DocumentDemo> {
   }
 
   // ---------------------------------------------------------------------------
+  // Phase 10: Formatting toolbar actions
+  // ---------------------------------------------------------------------------
+
+  void _toggleAttribution(Attribution attribution) {
+    final sel = _controller.selection;
+    if (sel == null || sel.isCollapsed) return;
+
+    // Check if the attribution is already applied at the selection start.
+    final startNode = _document.nodeById(sel.base.nodeId);
+    final isApplied = startNode is TextNode &&
+        sel.base.nodePosition is TextNodePosition &&
+        startNode.text.hasAttributionAt(
+          (sel.base.nodePosition as TextNodePosition).offset,
+          attribution,
+        );
+
+    if (isApplied) {
+      _editor.submit(RemoveAttributionRequest(
+        selection: sel,
+        attribution: attribution,
+      ));
+    } else {
+      _editor.submit(ApplyAttributionRequest(
+        selection: sel,
+        attribution: attribution,
+      ));
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Phase 10: JSON save/load
+  // ---------------------------------------------------------------------------
+
+  Map<String, Object?> _documentToJson() {
+    final nodes = <Map<String, Object?>>[];
+    for (final node in _document.nodes) {
+      final map = <String, Object?>{'id': node.id};
+      if (node is ParagraphNode) {
+        map['type'] = 'paragraph';
+        map['text'] = node.text.text;
+        if (node.blockType != ParagraphBlockType.paragraph) {
+          map['blockType'] = node.blockType.name;
+        }
+        _addAttributionSpans(map, node.text);
+      } else if (node is ListItemNode) {
+        map['type'] = 'listItem';
+        map['text'] = node.text.text;
+        map['listType'] = node.type.name;
+        if (node.indent > 0) map['indent'] = node.indent;
+        _addAttributionSpans(map, node.text);
+      } else if (node is CodeBlockNode) {
+        map['type'] = 'codeBlock';
+        map['text'] = node.text.text;
+        if (node.language != null) map['language'] = node.language;
+      } else if (node is ImageNode) {
+        map['type'] = 'image';
+        map['imageUrl'] = node.imageUrl;
+        if (node.altText != null) map['altText'] = node.altText;
+      } else if (node is HorizontalRuleNode) {
+        map['type'] = 'horizontalRule';
+      }
+      nodes.add(map);
+    }
+    return {'nodes': nodes};
+  }
+
+  void _addAttributionSpans(Map<String, Object?> map, AttributedText text) {
+    final spans = text.getAttributionSpansInRange(0, text.text.length);
+    if (spans.isEmpty) return;
+    map['attributions'] = spans.map((s) {
+      return {'attribution': s.attribution.id, 'start': s.start, 'end': s.end};
+    }).toList();
+  }
+
+  void _showSaveDialog() {
+    final json = const JsonEncoder.withIndent('  ').convert(_documentToJson());
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Document JSON'),
+        content: SizedBox(
+          width: 500,
+          height: 400,
+          child: SingleChildScrollView(
+            child: SelectableText(
+              json,
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showLoadDialog() {
+    final textController = TextEditingController();
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Load Document JSON'),
+        content: SizedBox(
+          width: 500,
+          height: 400,
+          child: TextField(
+            controller: textController,
+            maxLines: null,
+            expands: true,
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+            decoration: const InputDecoration(
+              hintText: 'Paste JSON here...',
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              try {
+                final data = jsonDecode(textController.text) as Map<String, Object?>;
+                _loadDocumentFromJson(data);
+                Navigator.of(ctx).pop();
+              } on Object {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(content: Text('Invalid JSON')),
+                );
+              }
+            },
+            child: const Text('Load'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _loadDocumentFromJson(Map<String, Object?> data) {
+    final nodeList = data['nodes'] as List<Object?>? ?? [];
+    final nodes = <DocumentNode>[];
+    for (final raw in nodeList) {
+      final map = raw! as Map<String, Object?>;
+      final id = map['id'] as String? ?? generateNodeId();
+      final type = map['type'] as String?;
+      switch (type) {
+        case 'paragraph':
+          final text = _textFromJson(map);
+          final blockTypeName = map['blockType'] as String?;
+          nodes.add(ParagraphNode(
+            id: id,
+            text: text,
+            blockType: blockTypeName != null
+                ? ParagraphBlockType.values.firstWhere(
+                    (bt) => bt.name == blockTypeName,
+                    orElse: () => ParagraphBlockType.paragraph,
+                  )
+                : ParagraphBlockType.paragraph,
+          ));
+        case 'listItem':
+          final text = _textFromJson(map);
+          final listTypeName = map['listType'] as String? ?? 'unordered';
+          nodes.add(ListItemNode(
+            id: id,
+            text: text,
+            type: listTypeName == 'ordered' ? ListItemType.ordered : ListItemType.unordered,
+            indent: (map['indent'] as int?) ?? 0,
+          ));
+        case 'codeBlock':
+          final text = _textFromJson(map);
+          nodes.add(CodeBlockNode(
+            id: id,
+            text: text,
+            language: map['language'] as String?,
+          ));
+        case 'image':
+          nodes.add(ImageNode(
+            id: id,
+            imageUrl: map['imageUrl'] as String? ?? '',
+            altText: map['altText'] as String?,
+          ));
+        case 'horizontalRule':
+          nodes.add(HorizontalRuleNode(id: id));
+        default:
+          nodes.add(ParagraphNode(
+            id: id,
+            text: AttributedText(map['text'] as String? ?? ''),
+          ));
+      }
+    }
+    if (nodes.isEmpty) return;
+
+    // Clear existing document and load new nodes.
+    _controller.clearSelection();
+    _document.reset(nodes);
+  }
+
+  AttributedText _textFromJson(Map<String, Object?> map) {
+    final text = AttributedText(map['text'] as String? ?? '');
+    final attributions = map['attributions'] as List<Object?>?;
+    if (attributions != null) {
+      for (final raw in attributions) {
+        final span = raw! as Map<String, Object?>;
+        final attrId = span['attribution'] as String;
+        final start = span['start'] as int;
+        final end = span['end'] as int;
+        text.applyAttribution(NamedAttribution(attrId), start, end);
+      }
+    }
+    return text;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Phase 10: Word and character count
+  // ---------------------------------------------------------------------------
+
+  int _wordCount() {
+    var count = 0;
+    for (final node in _document.nodes) {
+      if (node is TextNode) {
+        final trimmed = node.text.text.trim();
+        if (trimmed.isNotEmpty) {
+          count += trimmed.split(RegExp(r'\s+')).length;
+        }
+      }
+    }
+    return count;
+  }
+
+  int _charCount() {
+    var count = 0;
+    for (final node in _document.nodes) {
+      if (node is TextNode) {
+        count += node.text.text.length;
+      }
+    }
+    return count;
+  }
+
+  // ---------------------------------------------------------------------------
   // Build
   // ---------------------------------------------------------------------------
 
@@ -368,6 +615,17 @@ class _DocumentDemoState extends State<DocumentDemo> {
       appBar: AppBar(
         title: const Text('editable_document'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.save_outlined),
+            onPressed: _showSaveDialog,
+            tooltip: 'Save as JSON',
+          ),
+          IconButton(
+            icon: const Icon(Icons.file_open_outlined),
+            onPressed: _showLoadDialog,
+            tooltip: 'Load from JSON',
+          ),
+          const VerticalDivider(width: 1),
           IconButton(
             icon: const Icon(Icons.undo),
             onPressed: _editor.canUndo ? () => setState(() => _editor.undo()) : null,
@@ -388,6 +646,11 @@ class _DocumentDemoState extends State<DocumentDemo> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Phase 10: Formatting toolbar.
+              _buildToolbar(),
+
+              const SizedBox(height: 8),
+
               // Interactive document editor (Phases 5-7).
               // DocumentScrollable provides auto-scroll to caret (Phase 7).
               // DocumentMouseInteractor handles click/drag/double-click.
@@ -439,7 +702,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
 
               const Divider(height: 32),
 
-              // Info panel showing document stats.
+              // Info panel showing document stats (with word/char count).
               _buildInfoPanel(),
 
               const SizedBox(height: 16),
@@ -466,6 +729,11 @@ class _DocumentDemoState extends State<DocumentDemo> {
 
               // Phase 8 accessibility info panel.
               _buildPhase8Info(),
+
+              const SizedBox(height: 16),
+
+              // Phase 9-10 info panel.
+              _buildPhase9Info(),
             ],
           ),
         ),
@@ -496,6 +764,75 @@ class _DocumentDemoState extends State<DocumentDemo> {
         ],
       ),
     );
+  }
+
+  Widget _buildToolbar() {
+    final sel = _controller.selection;
+    final hasExpandedSelection = sel != null && !sel.isCollapsed;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Row(
+          children: [
+            Text('Format:', style: Theme.of(context).textTheme.labelMedium),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: const Icon(Icons.format_bold),
+              onPressed:
+                  hasExpandedSelection ? () => _toggleAttribution(NamedAttribution.bold) : null,
+              tooltip: 'Bold',
+              isSelected: _isAttributionActive(NamedAttribution.bold),
+            ),
+            IconButton(
+              icon: const Icon(Icons.format_italic),
+              onPressed:
+                  hasExpandedSelection ? () => _toggleAttribution(NamedAttribution.italics) : null,
+              tooltip: 'Italic',
+              isSelected: _isAttributionActive(NamedAttribution.italics),
+            ),
+            IconButton(
+              icon: const Icon(Icons.format_underline),
+              onPressed: hasExpandedSelection
+                  ? () => _toggleAttribution(NamedAttribution.underline)
+                  : null,
+              tooltip: 'Underline',
+              isSelected: _isAttributionActive(NamedAttribution.underline),
+            ),
+            IconButton(
+              icon: const Icon(Icons.format_strikethrough),
+              onPressed: hasExpandedSelection
+                  ? () => _toggleAttribution(NamedAttribution.strikethrough)
+                  : null,
+              tooltip: 'Strikethrough',
+              isSelected: _isAttributionActive(NamedAttribution.strikethrough),
+            ),
+            IconButton(
+              icon: const Icon(Icons.code),
+              onPressed:
+                  hasExpandedSelection ? () => _toggleAttribution(NamedAttribution.code) : null,
+              tooltip: 'Inline code',
+              isSelected: _isAttributionActive(NamedAttribution.code),
+            ),
+            const Spacer(),
+            Text(
+              '${_wordCount()} words  |  ${_charCount()} chars',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  bool _isAttributionActive(Attribution attribution) {
+    final sel = _controller.selection;
+    if (sel == null || sel.isCollapsed) return false;
+    final node = _document.nodeById(sel.base.nodeId);
+    if (node is! TextNode) return false;
+    final pos = sel.base.nodePosition;
+    if (pos is! TextNodePosition) return false;
+    return node.text.hasAttributionAt(pos.offset, attribution);
   }
 
   Widget _buildPhase6Info() {
@@ -560,7 +897,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 8),
-            const Text('  - Heading levels (H1–H6) from ParagraphBlockType'),
+            const Text('  - Heading levels (H1-H6) from ParagraphBlockType'),
             const Text('  - Image alt text from ImageNode.altText'),
             const Text('  - "Horizontal rule" label for HorizontalRuleNode'),
             const Text('  - isTextField / isMultiline / isReadOnly on text blocks'),
@@ -572,6 +909,37 @@ class _DocumentDemoState extends State<DocumentDemo> {
               'altText: "Screenshot of an editable_document editor with rich '
               'text", which is announced by screen readers when the user '
               'navigates to that block.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPhase9Info() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Benchmarks & Documentation (Phases 9-10)',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Phase 9 provides micro-benchmarks (document model operations, '
+              'IME serialization, selection queries) and baseline comparisons '
+              'against EditableText. Run via: scripts/ci/benchmark.sh',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Phase 10 adds this formatting toolbar, JSON save/load, word '
+              'and character count, architecture documentation, and a '
+              'migration guide from EditableText.',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
@@ -725,8 +1093,6 @@ class _DocumentDemoState extends State<DocumentDemo> {
 
   Widget _buildInfoPanel() {
     final textNodeCount = _document.nodes.whereType<TextNode>().length;
-    final totalChars =
-        _document.nodes.whereType<TextNode>().fold<int>(0, (sum, n) => sum + n.text.text.length);
 
     return Card(
       child: Padding(
@@ -741,7 +1107,8 @@ class _DocumentDemoState extends State<DocumentDemo> {
             const SizedBox(height: 8),
             Text('Total nodes: ${_document.nodeCount}'),
             Text('Text nodes: $textNodeCount'),
-            Text('Total characters: $totalChars'),
+            Text('Words: ${_wordCount()}'),
+            Text('Characters: ${_charCount()}'),
             Text('Can undo: ${_editor.canUndo}'),
             Text('Can redo: ${_editor.canRedo}'),
           ],

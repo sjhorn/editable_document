@@ -255,15 +255,15 @@ class EditableDocument extends StatefulWidget {
 /// - [DocumentKeyboardHandler] wiring via [Focus.onKeyEvent].
 /// - Selection-change listener forwarded to [EditableDocument.onSelectionChanged].
 /// - Auto-scrolling the caret into view on selection change via
-///   [_scheduleShowCaretOnScreen].
+///   `_scheduleShowCaretOnScreen`.
 class EditableDocumentState extends State<EditableDocument> {
   late DocumentImeInputClient _imeClient;
   late DocumentKeyboardHandler _keyboardHandler;
   late DocumentAutofillClient _autofillClient;
   AutofillGroupState? _currentAutofillScope;
 
-  /// Internal [GlobalKey] for [DocumentLayout], used when [widget.layoutKey]
-  /// is not provided so that [_scheduleShowCaretOnScreen] can always locate
+  /// Internal [GlobalKey] for [DocumentLayout], used when `widget.layoutKey`
+  /// is not provided so that `_scheduleShowCaretOnScreen` can always locate
   /// the render object.
   final _internalLayoutKey = GlobalKey<DocumentLayoutState>();
 
@@ -379,7 +379,7 @@ class EditableDocumentState extends State<EditableDocument> {
 
   /// The autofill identifier used for scope registration.
   ///
-  /// Delegates to [_autofillClient.autofillId].
+  /// Delegates to `_autofillClient.autofillId`.
   String get autofillId => _autofillClient.autofillId;
 
   @override
@@ -642,8 +642,8 @@ class EditableDocumentState extends State<EditableDocument> {
   // Request routing
   // -------------------------------------------------------------------------
 
-  /// Routes an [EditRequest] through [widget.editor] when available, otherwise
-  /// applies it directly to the document via [widget.controller].
+  /// Routes an [EditRequest] through `widget.editor` when available, otherwise
+  /// applies it directly to the document via `widget.controller`.
   void _handleRequest(EditRequest request) {
     if (widget.editor != null) {
       widget.editor!.submit(request);

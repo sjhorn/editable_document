@@ -26,7 +26,7 @@ import 'render_text_block.dart';
 /// | `blockquote` | 1.0× italic     |
 /// | `codeBlock`  | 1.0× monospace  |
 ///
-/// Changing [blockType] calls [markNeedsLayout] automatically.
+/// Changing [blockType] calls `markNeedsLayout` automatically.
 class RenderParagraphBlock extends RenderTextBlock {
   /// Creates a [RenderParagraphBlock].
   ///

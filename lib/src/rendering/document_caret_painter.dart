@@ -16,7 +16,7 @@ import 'package:flutter/rendering.dart';
 ///
 /// Blink is controlled by the widget layer: the widget toggles [visible]
 /// at each blink interval, which triggers a repaint via [shouldRepaint].
-/// This painter never calls [markNeedsPaint] directly.
+/// This painter never calls `markNeedsPaint` directly.
 ///
 /// Example:
 /// ```dart

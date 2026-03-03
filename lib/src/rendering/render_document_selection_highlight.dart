@@ -19,7 +19,7 @@ import 'render_document_layout.dart';
 /// [documentLayout] at paint time.
 ///
 /// Properties that affect painting — [documentLayout], [selection], and
-/// [selectionColor] — all call [markNeedsPaint] when changed.  Layout is
+/// [selectionColor] — all call `markNeedsPaint` when changed.  Layout is
 /// never invalidated by these setters.
 ///
 /// ## Layout

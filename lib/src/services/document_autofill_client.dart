@@ -130,11 +130,11 @@ class DocumentAutofillClient implements AutofillClient {
   ///
   /// When [enabled] is `false` this is a no-op. Otherwise the method:
   ///
-  /// 1. If the current text differs from [value.text], issues a
+  /// 1. If the current text differs from `value.text`, issues a
   ///    [DeleteContentRequest] covering the full existing text (when non-empty)
-  ///    followed by an [InsertTextRequest] with [value.text] (when non-empty).
+  ///    followed by an [InsertTextRequest] with `value.text` (when non-empty).
   /// 2. Always updates [DocumentEditingController.selection] to match
-  ///    [value.selection].
+  ///    `value.selection`.
   @override
   void autofill(TextEditingValue value) {
     if (!enabled) return;
@@ -185,7 +185,7 @@ class DocumentAutofillClient implements AutofillClient {
   // Private helpers
   // -------------------------------------------------------------------------
 
-  /// Updates [DocumentEditingController.selection] from [value.selection].
+  /// Updates [DocumentEditingController.selection] from `value.selection`.
   void _updateSelectionFromValue(String nodeId, TextEditingValue value) {
     final sel = value.selection;
     controller.setSelection(

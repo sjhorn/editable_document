@@ -206,8 +206,6 @@ class DocumentField extends StatefulWidget {
   /// Defaults to `true`.
   final bool enabled;
 
-  /// {@macro editable_document.scrollPadding}
-  ///
   /// Padding around the caret to ensure it is not flush against the viewport
   /// edge after auto-scrolling.
   ///
@@ -218,7 +216,7 @@ class DocumentField extends StatefulWidget {
   /// Autofill hints passed to the controller when non-null.
   ///
   /// When set, [DocumentEditingController.autofillHints] is updated in
-  /// [initState] and whenever the widget is rebuilt with new hints.
+  /// `initState` and whenever the widget is rebuilt with new hints.
   final List<String>? autofillHints;
 
   @override
@@ -306,7 +304,7 @@ class DocumentFieldState extends State<DocumentField> {
 
   /// The effective editor (either caller-supplied or internal).
   ///
-  /// Never null — an internal [UndoableEditor] is created when [widget.editor]
+  /// Never null — an internal [UndoableEditor] is created when `widget.editor`
   /// is `null` so that IME-originated requests are never silently dropped.
   Editor get _effectiveEditor => widget.editor ?? _internalEditor!;
 

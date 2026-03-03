@@ -44,7 +44,7 @@ import 'document_semantics_scope.dart';
 /// widgets are arranged by [RenderDocumentLayout] using [blockSpacing] pixels
 /// of vertical gap between consecutive blocks.
 ///
-/// [DocumentLayout] listens to [document.changes] and [controller] so it
+/// [DocumentLayout] listens to `document.changes` and [controller] so it
 /// rebuilds whenever the document structure or selection changes.
 ///
 /// Access geometry queries through [DocumentLayoutState] using a [GlobalKey]:
@@ -205,7 +205,7 @@ class DocumentLayoutState extends State<DocumentLayout> {
   }
 
   /// Returns the [Rect], in [DocumentLayout]'s local coordinates, for
-  /// [position], or `null` if [position.nodeId] is not rendered.
+  /// [position], or `null` if `position.nodeId` is not rendered.
   Rect? rectForDocumentPosition(DocumentPosition position) {
     return _renderObject?.getRectForDocumentPosition(position);
   }
@@ -350,7 +350,7 @@ class _DocumentLayoutRenderWidget extends MultiChildRenderObjectWidget {
 // DocumentLayoutElement
 // ---------------------------------------------------------------------------
 
-/// The [Element] produced by [_DocumentLayoutRenderWidget].
+/// The [Element] produced by `_DocumentLayoutRenderWidget`.
 ///
 /// Extends [MultiChildRenderObjectElement] to inherit standard multi-child
 /// reconciliation. Overrides [mount] and [update] to propagate semantics
@@ -372,8 +372,8 @@ class DocumentLayoutElement extends MultiChildRenderObjectElement {
     _syncChildSemantics();
   }
 
-  /// Propagates [_DocumentLayoutRenderWidget.isFocused] and
-  /// [_DocumentLayoutRenderWidget.isReadOnly] to every [RenderTextBlock]
+  /// Propagates `_DocumentLayoutRenderWidget.isFocused` and
+  /// `_DocumentLayoutRenderWidget.isReadOnly` to every [RenderTextBlock]
   /// child so their semantics nodes stay in sync with the document-level
   /// focus/readOnly state.
   void _syncChildSemantics() {

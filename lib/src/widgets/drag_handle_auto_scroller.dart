@@ -181,11 +181,11 @@ class DragHandleAutoScrollerState extends State<DragHandleAutoScroller>
   /// dragging without overshooting.
   static const double _kMaxScrollPerFrame = 8.0;
 
-  /// Recalculates [_scrollDelta] from the current [_dragPosition].
+  /// Recalculates `_scrollDelta` from the current `_dragPosition`.
   ///
   /// The velocity is linear:
   /// - 0 at the zone boundary (edge of auto-scroll area)
-  /// - [_kMaxScrollPerFrame] at the viewport edge (top or bottom)
+  /// - `_kMaxScrollPerFrame` at the viewport edge (top or bottom)
   void _recalculateVelocity() {
     final pos = _dragPosition;
     if (pos == null) {
@@ -239,7 +239,7 @@ class DragHandleAutoScrollerState extends State<DragHandleAutoScroller>
 
   /// Called every animation frame by the [Ticker].
   ///
-  /// Advances the [ScrollController.offset] by [_scrollDelta], clamped to the
+  /// Advances the [ScrollController] offset by `_scrollDelta`, clamped to the
   /// valid scroll range.
   void _onTick(Duration elapsed) {
     if (_scrollDelta == 0.0) {

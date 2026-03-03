@@ -92,7 +92,7 @@ class CaretDocumentOverlay extends StatefulWidget {
   /// [caretColor] defaults to opaque black.
   /// [caretWidth] defaults to `2.0` logical pixels.
   /// [cornerRadius] defaults to `1.0` logical pixel.
-  /// [blinkInterval] defaults to [_kCursorBlinkInterval] (500 ms), matching
+  /// [blinkInterval] defaults to `_kCursorBlinkInterval` (500 ms), matching
   /// [EditableText]'s blink rate.
   /// [showCaret] defaults to `true`; set to `false` in read-only mode.
   const CaretDocumentOverlay({
@@ -183,7 +183,7 @@ class CaretDocumentOverlayState extends State<CaretDocumentOverlay> {
 
   /// Whether the caret is in the visible phase of the blink cycle.
   ///
-  /// This flag is toggled by [_blinkTimer] every [CaretDocumentOverlay.blinkInterval].
+  /// This flag is toggled by `_blinkTimer` every [CaretDocumentOverlay.blinkInterval].
   bool _blinkVisible = true;
 
   /// The periodic timer that drives the blink.
@@ -288,7 +288,7 @@ class CaretDocumentOverlayState extends State<CaretDocumentOverlay> {
 
   /// Starts or stops the blink timer based on the current selection state.
   ///
-  /// Timer is active only when [widget.showCaret] is `true` and the selection
+  /// Timer is active only when `widget.showCaret` is `true` and the selection
   /// is collapsed.
   void _updateBlinkState() {
     final sel = widget.controller.selection;
