@@ -50,8 +50,8 @@ test/src/services/
 
 ## Quality checks — ALWAYS use scripts/ci/
 
-**NEVER run `flutter test`, `flutter analyze`, `dart format`, or `dart fix` directly.**
-Always use the scripts in `scripts/ci/`. They handle output capture internally — no `2>&1` or redirects needed.
+**NEVER run `flutter test`, `flutter analyze`, `dart format`, `dart fix`, or `sed` directly.**
+Always use the scripts in `scripts/ci/`. They handle output capture internally — no `2>&1` or redirects needed. Use `scripts/ci/sed.sh <args>` instead of raw `sed`.
 
 ```bash
 scripts/ci/ci_gate.sh                          # full gate

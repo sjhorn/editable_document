@@ -109,6 +109,7 @@ Each agent owns its directory exclusively. **No agent may write files outside it
 6. **Golden tests** for all pixel-drawing code. Update only via the `qa` agent on Linux (`scripts/ci/flutter_test.sh --update-goldens`).
 7. **Commit messages:** `type(scope): description` — one ROADMAP checkbox per commit maximum.
 8. **No `$()` in Bash tool calls.** Claude Code blocks command substitution `$()` in Bash tool arguments. Never use `$()` in any Bash tool call — write intermediate values to temp files instead. For git commits: write the message to `/tmp/ed_commit_msg.txt` first, then `git commit -F /tmp/ed_commit_msg.txt`. (`$()` inside `.sh` script files is fine — the restriction only applies to Bash tool call arguments.)
+9. **Use `scripts/ci/sed.sh` instead of raw `sed`.** Never call `sed` directly in Bash tool calls — use `scripts/ci/sed.sh <args>` instead. The wrapper is in the permission allowlist so it runs without interactive prompts.
 
 ---
 

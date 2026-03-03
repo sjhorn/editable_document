@@ -22,6 +22,7 @@ All scripts live in `scripts/ci/`. Always invoke them from the project root.
 | `scripts/ci/dart_fix.sh` | Preview or apply dart fix | `/tmp/ed_fix_full.txt`, `/tmp/ed_fix_summary.txt` |
 | `scripts/ci/coverage.sh` | Run coverage + threshold check | `/tmp/ed_coverage_summary.txt` |
 | `scripts/ci/log_tail.sh` | Read/grep/tail any log file | (reads existing logs) |
+| `scripts/ci/sed.sh` | `sed` wrapper (runs without permission prompt) | (pass-through) |
 
 ## Workflow for every QA task
 
@@ -148,6 +149,7 @@ All log files live under `/tmp/ed_*`. They are overwritten on each run.
 - Never run `flutter test` directly — always via `scripts/ci/flutter_test.sh`.
 - Never run `flutter analyze` directly — always via `scripts/ci/flutter_analyze.sh`.
 - Never run `dart fix` directly — always via `scripts/ci/dart_fix.sh`.
+- Never run `sed` directly — always via `scripts/ci/sed.sh`.
 - Never modify source files — you are read-only on `lib/` and `test/`.
 - Never update golden files unless explicitly asked and confirm it's running on Linux.
 - Never commit — only other agents commit after QA has passed.
