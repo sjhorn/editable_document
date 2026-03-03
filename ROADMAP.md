@@ -355,8 +355,8 @@ All widgets in `lib/src/widgets/`. Tests in `test/src/widgets/` using `testWidge
 - [ ] Write design doc via `flutter.dev/go/template`; mint shortlink `flutter.dev/go/editable-document`.
 - [ ] File Flutter tracking issue with `design doc` label.
 - [ ] Engage Flutter framework team on Discord `#hackers-text-input`.
-- [ ] Ensure package layering mirrors Flutter internals: `model/` → `rendering/` → `widgets/` → `material/`/`cupertino/` with no upward dependencies.
-- [ ] Replace all package-relative imports with path-relative imports (Flutter framework style).
+- [x] Ensure package layering mirrors Flutter internals: `model/` → `rendering/` → `widgets/` → `material/`/`cupertino/` with no upward dependencies.
+- [x] Replace all package-relative imports with path-relative imports (Flutter framework style).
 - [ ] Run full Flutter framework test suite against prototype integration branch.
 - [ ] Address all feedback from design doc review before filing merge PR.
 
