@@ -15,6 +15,7 @@ import 'document_node.dart';
 import 'document_position.dart';
 import 'document_selection.dart';
 import 'edit_context.dart';
+import 'list_item_node.dart';
 import 'node_position.dart';
 import 'paragraph_node.dart';
 import 'text_node.dart';
@@ -581,5 +582,57 @@ class RemoveAttributionCommand extends EditCommand {
     }
 
     return events;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ConvertListItemToParagraphCommand
+// ---------------------------------------------------------------------------
+
+/// Converts a [ListItemNode] into a plain [ParagraphNode], preserving
+/// the node's id, text, and metadata.
+///
+/// This command is used when the user presses Enter or Backspace on an empty
+/// list item, effectively exiting the list.
+///
+/// Throws [StateError] when [nodeId] does not exist or is not a
+/// [ListItemNode].
+class ConvertListItemToParagraphCommand extends EditCommand {
+  /// Creates a [ConvertListItemToParagraphCommand].
+  const ConvertListItemToParagraphCommand({required this.nodeId});
+
+  /// The id of the list item node to convert.
+  final String nodeId;
+
+  @override
+  List<DocumentChangeEvent> execute(EditContext context) {
+    final node = context.document.nodeById(nodeId);
+    if (node == null) {
+      throw StateError('ConvertListItemToParagraphCommand: no node with id "$nodeId".');
+    }
+    if (node is! ListItemNode) {
+      throw StateError(
+        'ConvertListItemToParagraphCommand: node "$nodeId" is not a ListItemNode.',
+      );
+    }
+
+    final paragraph = ParagraphNode(
+      id: node.id,
+      text: node.text,
+      metadata: node.metadata,
+    );
+    context.document.replaceNode(nodeId, paragraph);
+
+    // Collapse the caret to offset 0 of the (now paragraph) node.
+    context.controller.setSelection(
+      DocumentSelection.collapsed(
+        position: DocumentPosition(
+          nodeId: nodeId,
+          nodePosition: const TextNodePosition(offset: 0),
+        ),
+      ),
+    );
+
+    return [NodeReplaced(oldNodeId: nodeId, newNodeId: nodeId)];
   }
 }

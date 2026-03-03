@@ -279,6 +279,9 @@ class DocumentKeyboardHandler {
     if (logicalKey == LogicalKeyboardKey.tab) {
       return shiftPressed ? _handleShiftTab() : _handleTab();
     }
+    if (logicalKey == LogicalKeyboardKey.enter) {
+      if (_handleEnter()) return true;
+    }
 
     // macOS/iOS Emacs bindings: only when Ctrl is held but NOT Cmd (Meta) or
     // Alt (Option), to avoid conflicting with line/word modifier combos.
@@ -608,11 +611,16 @@ class DocumentKeyboardHandler {
     if (node is TextNode) {
       final offset = (extentPos.nodePosition as TextNodePosition).offset;
       if (offset == 0) {
-        final prevNode = _document.nodeBefore(extentPos.nodeId);
-        if (prevNode == null) return false;
-        _requestHandler(
-          MergeNodeRequest(firstNodeId: prevNode.id, secondNodeId: node.id),
-        );
+        // Empty list item → convert to paragraph instead of merging.
+        if (node is ListItemNode && node.text.text.isEmpty) {
+          _requestHandler(ConvertListItemToParagraphRequest(nodeId: node.id));
+        } else {
+          final prevNode = _document.nodeBefore(extentPos.nodeId);
+          if (prevNode == null) return false;
+          _requestHandler(
+            MergeNodeRequest(firstNodeId: prevNode.id, secondNodeId: node.id),
+          );
+        }
       } else {
         _requestHandler(
           DeleteContentRequest(
@@ -671,6 +679,26 @@ class DocumentKeyboardHandler {
     final node = _document.nodeById(selection.extent.nodeId);
     if (node is ListItemNode) {
       _requestHandler(UnindentListItemRequest(nodeId: node.id));
+      return true;
+    }
+    return false;
+  }
+
+  // -------------------------------------------------------------------------
+  // Enter (list-item exit)
+  // -------------------------------------------------------------------------
+
+  /// Converts an empty [ListItemNode] to a [ParagraphNode] when Enter is
+  /// pressed while the caret is inside an empty list item.
+  ///
+  /// Returns `false` for all other cases so the IME can handle the normal
+  /// Enter/newline behavior.
+  bool _handleEnter() {
+    final selection = _controller.selection;
+    if (selection == null || selection.isExpanded) return false;
+    final node = _document.nodeById(selection.extent.nodeId);
+    if (node is ListItemNode && node.text.text.isEmpty) {
+      _requestHandler(ConvertListItemToParagraphRequest(nodeId: node.id));
       return true;
     }
     return false;

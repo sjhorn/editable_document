@@ -391,3 +391,33 @@ class UnindentListItemRequest extends EditRequest {
   @override
   String toString() => 'UnindentListItemRequest(nodeId: $nodeId)';
 }
+
+// ---------------------------------------------------------------------------
+// ConvertListItemToParagraphRequest
+// ---------------------------------------------------------------------------
+
+/// Request to convert the [ListItemNode] identified by [nodeId] into a plain
+/// [ParagraphNode].
+///
+/// This is used when Enter or Backspace is pressed on an empty list item,
+/// exiting the list by converting it to a regular paragraph. The node must
+/// be a [ListItemNode].
+class ConvertListItemToParagraphRequest extends EditRequest {
+  /// Creates a [ConvertListItemToParagraphRequest].
+  const ConvertListItemToParagraphRequest({required this.nodeId});
+
+  /// The id of the [ListItemNode] to convert.
+  final String nodeId;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is ConvertListItemToParagraphRequest && other.nodeId == nodeId;
+  }
+
+  @override
+  int get hashCode => nodeId.hashCode;
+
+  @override
+  String toString() => 'ConvertListItemToParagraphRequest(nodeId: $nodeId)';
+}

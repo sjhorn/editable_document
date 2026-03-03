@@ -154,6 +154,8 @@ class Editor {
         selection: request.selection,
         attribution: request.attribution,
       );
+    } else if (request is ConvertListItemToParagraphRequest) {
+      return ConvertListItemToParagraphCommand(nodeId: request.nodeId);
     }
     throw ArgumentError('No command registered for request type ${request.runtimeType}.');
   }

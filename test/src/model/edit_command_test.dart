@@ -534,4 +534,84 @@ void main() {
       expect(events, isEmpty);
     });
   });
+
+  // =========================================================================
+  // ConvertListItemToParagraphCommand
+  // =========================================================================
+
+  group('ConvertListItemToParagraphCommand', () {
+    test('1. converts unordered ListItemNode to ParagraphNode', () {
+      final doc = MutableDocument([
+        ListItemNode(
+          id: 'li1',
+          text: AttributedText('Item text'),
+          type: ListItemType.unordered,
+          metadata: {'key': 'value'},
+        ),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = const ConvertListItemToParagraphCommand(nodeId: 'li1');
+
+      final events = cmd.execute(ctx);
+
+      final node = doc.nodeById('li1');
+      expect(node, isA<ParagraphNode>());
+      expect((node as ParagraphNode).text.text, 'Item text');
+      expect(node.metadata, {'key': 'value'});
+      expect(events, [const NodeReplaced(oldNodeId: 'li1', newNodeId: 'li1')]);
+    });
+
+    test('2. converts ordered ListItemNode to ParagraphNode', () {
+      final doc = MutableDocument([
+        ListItemNode(
+          id: 'li1',
+          text: AttributedText('Ordered item'),
+          type: ListItemType.ordered,
+        ),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = const ConvertListItemToParagraphCommand(nodeId: 'li1');
+
+      final events = cmd.execute(ctx);
+
+      final node = doc.nodeById('li1');
+      expect(node, isA<ParagraphNode>());
+      expect((node as ParagraphNode).text.text, 'Ordered item');
+      expect(events, [const NodeReplaced(oldNodeId: 'li1', newNodeId: 'li1')]);
+    });
+
+    test('3. collapses selection to offset 0', () {
+      final doc = MutableDocument([
+        ListItemNode(id: 'li1', text: AttributedText('')),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = const ConvertListItemToParagraphCommand(nodeId: 'li1');
+
+      cmd.execute(ctx);
+
+      final sel = ctx.controller.selection;
+      expect(sel, isNotNull);
+      expect(sel!.isCollapsed, isTrue);
+      expect(sel.extent.nodeId, 'li1');
+      expect((sel.extent.nodePosition as TextNodePosition).offset, 0);
+    });
+
+    test('4. throws StateError for non-ListItemNode', () {
+      final doc = _twoParaDoc();
+      final ctx = _ctx(doc);
+      expect(
+        () => const ConvertListItemToParagraphCommand(nodeId: 'p1').execute(ctx),
+        throwsStateError,
+      );
+    });
+
+    test('5. throws StateError for missing node', () {
+      final doc = _twoParaDoc();
+      final ctx = _ctx(doc);
+      expect(
+        () => const ConvertListItemToParagraphCommand(nodeId: 'nope').execute(ctx),
+        throwsStateError,
+      );
+    });
+  });
 }

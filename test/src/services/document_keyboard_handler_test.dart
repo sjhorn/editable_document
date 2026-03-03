@@ -3579,4 +3579,144 @@ void main() {
       debugDefaultTargetPlatformOverride = null;
     });
   });
+
+  // =========================================================================
+  // Enter — empty list item → paragraph
+  // =========================================================================
+
+  group('Enter (empty list item → paragraph)', () {
+    test('dispatches ConvertListItemToParagraphRequest for empty unordered list item', () {
+      final doc = MutableDocument([
+        ListItemNode(id: 'li1', text: AttributedText(''), type: ListItemType.unordered),
+      ]);
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('li1', 0));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.enter));
+
+      expect(result, true);
+      expect(requests, hasLength(1));
+      final req = requests.first as ConvertListItemToParagraphRequest;
+      expect(req.nodeId, equals('li1'));
+    });
+
+    test('dispatches ConvertListItemToParagraphRequest for empty ordered list item', () {
+      final doc = MutableDocument([
+        ListItemNode(id: 'li1', text: AttributedText(''), type: ListItemType.ordered),
+      ]);
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('li1', 0));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.enter));
+
+      expect(result, true);
+      expect(requests, hasLength(1));
+      expect(requests.first, isA<ConvertListItemToParagraphRequest>());
+    });
+
+    test('returns false for non-empty list item (IME handles)', () {
+      final doc = MutableDocument([
+        ListItemNode(id: 'li1', text: AttributedText('Some text')),
+      ]);
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('li1', 5));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.enter));
+
+      expect(result, false);
+      expect(requests, isEmpty);
+    });
+
+    test('returns false for empty paragraph (not a list item)', () {
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('')),
+      ]);
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 0));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.enter));
+
+      expect(result, false);
+      expect(requests, isEmpty);
+    });
+
+    test('returns false when selection is null', () {
+      final doc = MutableDocument([
+        ListItemNode(id: 'li1', text: AttributedText('')),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.enter));
+
+      expect(result, false);
+      expect(requests, isEmpty);
+    });
+
+    test('returns false when selection is expanded', () {
+      final doc = MutableDocument([
+        ListItemNode(id: 'li1', text: AttributedText('Some text')),
+      ]);
+      final controller = DocumentEditingController(
+        document: doc,
+        selection: const DocumentSelection(
+          base: DocumentPosition(nodeId: 'li1', nodePosition: TextNodePosition(offset: 0)),
+          extent: DocumentPosition(nodeId: 'li1', nodePosition: TextNodePosition(offset: 5)),
+        ),
+      );
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.enter));
+
+      expect(result, false);
+      expect(requests, isEmpty);
+    });
+  });
+
+  // =========================================================================
+  // Backspace — empty list item → paragraph
+  // =========================================================================
+
+  group('Backspace (empty list item → paragraph)', () {
+    test('dispatches ConvertListItemToParagraphRequest for empty list item at offset 0', () {
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('Above')),
+        ListItemNode(id: 'li1', text: AttributedText('')),
+      ]);
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('li1', 0));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.backspace));
+
+      expect(result, true);
+      expect(requests, hasLength(1));
+      final req = requests.first as ConvertListItemToParagraphRequest;
+      expect(req.nodeId, equals('li1'));
+    });
+
+    test('dispatches MergeNodeRequest for non-empty list item at offset 0', () {
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('Above')),
+        ListItemNode(id: 'li1', text: AttributedText('Item text')),
+      ]);
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('li1', 0));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.backspace));
+
+      expect(result, true);
+      expect(requests, hasLength(1));
+      final req = requests.first as MergeNodeRequest;
+      expect(req.firstNodeId, equals('p1'));
+      expect(req.secondNodeId, equals('li1'));
+    });
+  });
 }
