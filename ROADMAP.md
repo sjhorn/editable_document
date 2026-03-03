@@ -330,13 +330,13 @@ All widgets in `lib/src/widgets/`. Tests in `test/src/widgets/` using `testWidge
 > **Commit message:** `docs: complete API documentation and example app`
 
 ### 10.1 API documentation
-- [ ] Every public symbol has `///` dartdoc; multi-paragraph docs for complex APIs.
-- [ ] `{@tool snippet}` examples for: `DocumentEditingController`, `EditableDocument`, `DocumentField`, `ComponentBuilder`, custom `DocumentNode`.
-- [ ] `dart doc` generates zero warnings.
-- [ ] `doc/` — architecture overview (`architecture.md`): widget tree diagram, IME bridge data flow, command pipeline sequence diagram.
+- [x] Every public symbol has `///` dartdoc; multi-paragraph docs for complex APIs.
+- [x] `{@tool snippet}` examples for: `DocumentEditingController`, `EditableDocument`, `DocumentField`, `ComponentBuilder`, custom `DocumentNode`.
+- [x] `dart doc` generates zero warnings.
+- [x] `doc/` — architecture overview (`architecture.md`): widget tree diagram, IME bridge data flow, command pipeline sequence diagram.
 
 ### 10.2 Example app
-- [ ] `example/` — full-featured rich text editor demo:
+- [x] `example/` — full-featured rich text editor demo:
   - Toolbar: bold, italic, underline, strikethrough, link, H1–H3, bullet list, ordered list, code block, horizontal rule, image insert.
   - Platform-adaptive: Material on Android/Windows/Linux, Cupertino on iOS/macOS, native scrollbar on Web.
   - Load/save document as JSON.
@@ -344,7 +344,7 @@ All widgets in `lib/src/widgets/`. Tests in `test/src/widgets/` using `testWidge
   - Word and character count.
 
 ### 10.3 Migration guide
-- [ ] `doc/migration_from_editable_text.md` — side-by-side API comparison; how to wrap `EditableDocument` to match `EditableText` signature; `DocumentEditingController` vs `TextEditingController`.
+- [x] `doc/migration_from_editable_text.md` — side-by-side API comparison; how to wrap `EditableDocument` to match `EditableText` signature; `DocumentEditingController` vs `TextEditingController`.
 
 ---
 
