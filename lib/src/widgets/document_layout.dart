@@ -28,7 +28,9 @@ import '../model/document_position.dart';
 import '../model/mutable_document.dart';
 import '../rendering/render_document_block.dart';
 import '../rendering/render_document_layout.dart';
+import '../rendering/render_text_block.dart';
 import 'component_builder.dart';
+import 'document_semantics_scope.dart';
 
 // ---------------------------------------------------------------------------
 // DocumentLayout
@@ -281,9 +283,12 @@ class DocumentLayoutState extends State<DocumentLayout> {
 
   @override
   Widget build(BuildContext context) {
+    final scope = DocumentSemanticsScope.maybeOf(context);
     return _DocumentLayoutRenderWidget(
       key: _renderWidgetKey,
       blockSpacing: widget.blockSpacing,
+      isFocused: scope?.isFocused ?? false,
+      isReadOnly: scope?.isReadOnly ?? false,
       children: _buildChildren(),
     );
   }
@@ -302,10 +307,25 @@ class _DocumentLayoutRenderWidget extends MultiChildRenderObjectWidget {
   const _DocumentLayoutRenderWidget({
     super.key,
     required this.blockSpacing,
+    required this.isFocused,
+    required this.isReadOnly,
     super.children,
   });
 
   final double blockSpacing;
+
+  /// Whether the enclosing [EditableDocument] currently holds input focus.
+  ///
+  /// Propagated to every [RenderTextBlock] child via [updateRenderObject].
+  final bool isFocused;
+
+  /// Whether the enclosing [EditableDocument] is read-only.
+  ///
+  /// Propagated to every [RenderTextBlock] child via [updateRenderObject].
+  final bool isReadOnly;
+
+  @override
+  DocumentLayoutElement createElement() => DocumentLayoutElement(this);
 
   @override
   RenderDocumentLayout createRenderObject(BuildContext context) {
@@ -321,6 +341,8 @@ class _DocumentLayoutRenderWidget extends MultiChildRenderObjectWidget {
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
     properties.add(DoubleProperty('blockSpacing', blockSpacing));
+    properties.add(FlagProperty('isFocused', value: isFocused, ifTrue: 'focused'));
+    properties.add(FlagProperty('isReadOnly', value: isReadOnly, ifTrue: 'readOnly'));
   }
 }
 
@@ -331,8 +353,39 @@ class _DocumentLayoutRenderWidget extends MultiChildRenderObjectWidget {
 /// The [Element] produced by [_DocumentLayoutRenderWidget].
 ///
 /// Extends [MultiChildRenderObjectElement] to inherit standard multi-child
-/// reconciliation. The name is exposed for widget inspector visibility.
+/// reconciliation. Overrides [mount] and [update] to propagate semantics
+/// state (`isFocused`, `isReadOnly`) from the widget to each
+/// [RenderTextBlock] child after the render tree is built.
 class DocumentLayoutElement extends MultiChildRenderObjectElement {
   /// Creates a [DocumentLayoutElement] for [widget].
   DocumentLayoutElement(_DocumentLayoutRenderWidget super.widget);
+
+  @override
+  void mount(Element? parent, Object? newSlot) {
+    super.mount(parent, newSlot);
+    _syncChildSemantics();
+  }
+
+  @override
+  void update(MultiChildRenderObjectWidget newWidget) {
+    super.update(newWidget);
+    _syncChildSemantics();
+  }
+
+  /// Propagates [_DocumentLayoutRenderWidget.isFocused] and
+  /// [_DocumentLayoutRenderWidget.isReadOnly] to every [RenderTextBlock]
+  /// child so their semantics nodes stay in sync with the document-level
+  /// focus/readOnly state.
+  void _syncChildSemantics() {
+    final w = widget as _DocumentLayoutRenderWidget;
+    final ro = renderObject as RenderDocumentLayout;
+    RenderDocumentBlock? child = ro.firstChild;
+    while (child != null) {
+      if (child is RenderTextBlock) {
+        child.isFocused = w.isFocused;
+        child.isReadOnly = w.isReadOnly;
+      }
+      child = ro.childAfter(child);
+    }
+  }
 }

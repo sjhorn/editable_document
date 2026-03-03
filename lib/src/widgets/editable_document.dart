@@ -35,6 +35,7 @@ import '../rendering/render_text_block.dart';
 import 'component_builder.dart';
 import 'document_layout.dart';
 import 'document_scrollable.dart';
+import 'document_semantics_scope.dart';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -392,6 +393,8 @@ class EditableDocumentState extends State<EditableDocument> {
   // -------------------------------------------------------------------------
 
   void _onFocusChanged() {
+    // Rebuild so DocumentSemanticsScope reflects the new focus state.
+    setState(() {});
     if (widget.focusNode.hasFocus) {
       _onFocusGained();
     } else {
@@ -678,13 +681,17 @@ class EditableDocumentState extends State<EditableDocument> {
       focusNode: widget.focusNode,
       autofocus: widget.autofocus,
       onKeyEvent: _onKeyEvent,
-      child: DocumentLayout(
-        key: _layoutKey,
-        document: widget.controller.document,
-        controller: widget.controller,
-        componentBuilders: builders,
-        blockSpacing: widget.blockSpacing,
-        stylesheet: widget.stylesheet,
+      child: DocumentSemanticsScope(
+        isFocused: widget.focusNode.hasFocus,
+        isReadOnly: widget.readOnly,
+        child: DocumentLayout(
+          key: _layoutKey,
+          document: widget.controller.document,
+          controller: widget.controller,
+          componentBuilders: builders,
+          blockSpacing: widget.blockSpacing,
+          stylesheet: widget.stylesheet,
+        ),
       ),
     );
   }
