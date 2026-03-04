@@ -364,6 +364,223 @@ void main() {
     });
   });
 
+  group('FontFamilyAttribution rendering', () {
+    test('renders text with font family attribution without throwing', () {
+      final text = AttributedText('Roboto text').applyAttribution(
+        const FontFamilyAttribution('Roboto'),
+        0,
+        10,
+      );
+      final block = RenderTextBlock(
+        nodeId: 'ff1',
+        text: text,
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      expect(
+        () => block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true),
+        returnsNormally,
+      );
+    });
+
+    test('font family attribution produces a positive-height block', () {
+      final text = AttributedText('Monospace').applyAttribution(
+        const FontFamilyAttribution('monospace'),
+        0,
+        8,
+      );
+      final block = RenderTextBlock(
+        nodeId: 'ff2',
+        text: text,
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      expect(block.size.height, greaterThan(0));
+    });
+
+    test('different font families on adjacent runs do not throw', () {
+      final rawText = AttributedText('AB');
+      final withA = rawText.applyAttribution(const FontFamilyAttribution('Roboto'), 0, 0);
+      final withAB = withA.applyAttribution(const FontFamilyAttribution('Merriweather'), 1, 1);
+      final block = RenderTextBlock(
+        nodeId: 'ff3',
+        text: withAB,
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      expect(
+        () => block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true),
+        returnsNormally,
+      );
+    });
+  });
+
+  group('FontSizeAttribution rendering', () {
+    test('renders text with font size attribution without throwing', () {
+      final text = AttributedText('Large text').applyAttribution(
+        const FontSizeAttribution(24.0),
+        0,
+        9,
+      );
+      final block = RenderTextBlock(
+        nodeId: 'fs1',
+        text: text,
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      expect(
+        () => block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true),
+        returnsNormally,
+      );
+    });
+
+    test('larger font size attribution produces a taller block', () {
+      final normalText = AttributedText('Hello');
+      final largeText = AttributedText('Hello').applyAttribution(
+        const FontSizeAttribution(48.0),
+        0,
+        4,
+      );
+
+      final normalBlock = RenderTextBlock(
+        nodeId: 'fs2a',
+        text: normalText,
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      normalBlock.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+
+      final largeBlock = RenderTextBlock(
+        nodeId: 'fs2b',
+        text: largeText,
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      largeBlock.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+
+      expect(largeBlock.size.height, greaterThan(normalBlock.size.height));
+    });
+
+    test('font size attribution on partial run does not throw', () {
+      // Apply large font to just a few characters in the middle.
+      final text = AttributedText('Hello World').applyAttribution(
+        const FontSizeAttribution(32.0),
+        3,
+        7,
+      );
+      final block = RenderTextBlock(
+        nodeId: 'fs3',
+        text: text,
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      expect(
+        () => block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true),
+        returnsNormally,
+      );
+    });
+  });
+
+  group('TextColorAttribution rendering', () {
+    test('renders text with text color attribution without throwing', () {
+      final text = AttributedText('Red text').applyAttribution(
+        const TextColorAttribution(0xFFFF0000),
+        0,
+        7,
+      );
+      final block = RenderTextBlock(
+        nodeId: 'tc1',
+        text: text,
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      expect(
+        () => block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true),
+        returnsNormally,
+      );
+    });
+
+    test('text color attribution produces a positive-height block', () {
+      final text = AttributedText('Blue text').applyAttribution(
+        const TextColorAttribution(0xFF0000FF),
+        0,
+        8,
+      );
+      final block = RenderTextBlock(
+        nodeId: 'tc2',
+        text: text,
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      expect(block.size.height, greaterThan(0));
+    });
+
+    test('multiple text color attributions on adjacent runs do not throw', () {
+      final rawText = AttributedText('RG');
+      final withR = rawText.applyAttribution(const TextColorAttribution(0xFFFF0000), 0, 0);
+      final withRG = withR.applyAttribution(const TextColorAttribution(0xFF00FF00), 1, 1);
+      final block = RenderTextBlock(
+        nodeId: 'tc3',
+        text: withRG,
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      expect(
+        () => block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true),
+        returnsNormally,
+      );
+    });
+  });
+
+  group('BackgroundColorAttribution rendering', () {
+    test('renders text with background color attribution without throwing', () {
+      final text = AttributedText('Highlighted').applyAttribution(
+        const BackgroundColorAttribution(0xFFFFFF00),
+        0,
+        10,
+      );
+      final block = RenderTextBlock(
+        nodeId: 'bg1',
+        text: text,
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      expect(
+        () => block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true),
+        returnsNormally,
+      );
+    });
+
+    test('background color attribution produces a positive-height block', () {
+      final text = AttributedText('Highlighted').applyAttribution(
+        const BackgroundColorAttribution(0xFF00FF00),
+        0,
+        10,
+      );
+      final block = RenderTextBlock(
+        nodeId: 'bg2',
+        text: text,
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      expect(block.size.height, greaterThan(0));
+    });
+
+    test('background color does not interfere with text color attribution', () {
+      // Apply both text color and background color to the same span.
+      final withTextColor = AttributedText('Styled').applyAttribution(
+        const TextColorAttribution(0xFFFFFFFF),
+        0,
+        5,
+      );
+      final withBoth = withTextColor.applyAttribution(
+        const BackgroundColorAttribution(0xFF000000),
+        0,
+        5,
+      );
+      final block = RenderTextBlock(
+        nodeId: 'bg3',
+        text: withBoth,
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      expect(
+        () => block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true),
+        returnsNormally,
+      );
+    });
+  });
+
   group('RenderTextBlock property setters', () {
     test('setting nodeId updates nodeId', () {
       final block = RenderTextBlock(

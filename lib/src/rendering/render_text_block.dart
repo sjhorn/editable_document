@@ -21,13 +21,17 @@ import 'render_document_block.dart';
 ///
 /// ## Attribution → TextStyle mapping
 ///
-/// | [NamedAttribution] | Applied [TextStyle] property              |
-/// |--------------------|-------------------------------------------|
-/// | `bold`             | `fontWeight: FontWeight.bold`             |
-/// | `italics`          | `fontStyle: FontStyle.italic`             |
-/// | `underline`        | `decoration: TextDecoration.underline`    |
-/// | `strikethrough`    | `decoration: TextDecoration.lineThrough`  |
-/// | `code`             | `fontFamily: 'monospace'`                 |
+/// | Attribution                   | Applied [TextStyle] property              |
+/// |-------------------------------|-------------------------------------------|
+/// | [NamedAttribution.bold]       | `fontWeight: FontWeight.bold`             |
+/// | [NamedAttribution.italics]    | `fontStyle: FontStyle.italic`             |
+/// | [NamedAttribution.underline]  | `decoration: TextDecoration.underline`    |
+/// | [NamedAttribution.strikethrough] | `decoration: TextDecoration.lineThrough` |
+/// | [NamedAttribution.code]       | `fontFamily: 'monospace'`                 |
+/// | [FontFamilyAttribution]       | `fontFamily: attribution.fontFamily`      |
+/// | [FontSizeAttribution]         | `fontSize: attribution.fontSize`          |
+/// | [TextColorAttribution]        | `color: Color(attribution.colorValue)`    |
+/// | [BackgroundColorAttribution]  | `backgroundColor: Color(attribution.colorValue)` |
 ///
 /// [LinkAttribution] is currently rendered unstyled (future: add color/underline).
 class RenderTextBlock extends RenderDocumentBlock {
@@ -506,6 +510,16 @@ class RenderTextBlock extends RenderDocumentBlock {
         decorations.add(TextDecoration.lineThrough);
       } else if (attribution == NamedAttribution.code) {
         style = style.copyWith(fontFamily: 'monospace');
+      } else if (attribution is FontFamilyAttribution) {
+        // Explicit font family overrides the code monospace, so this branch
+        // is placed after the code check.
+        style = style.copyWith(fontFamily: attribution.fontFamily);
+      } else if (attribution is FontSizeAttribution) {
+        style = style.copyWith(fontSize: attribution.fontSize);
+      } else if (attribution is TextColorAttribution) {
+        style = style.copyWith(color: Color(attribution.colorValue));
+      } else if (attribution is BackgroundColorAttribution) {
+        style = style.copyWith(backgroundColor: Color(attribution.colorValue));
       }
       // LinkAttribution is intentionally not styled here — the widget layer
       // is responsible for tappable link rendering.
