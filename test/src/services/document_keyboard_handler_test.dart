@@ -1182,6 +1182,35 @@ void main() {
       expect(requests.first, isA<DeleteContentRequest>());
     });
 
+    test(
+        'dispatches DeleteContentRequest (not MergeNodeRequest) when at offset 0 '
+        'of a paragraph preceded by a non-TextNode (HorizontalRuleNode)', () {
+      // Regression test: MergeNodeCommand requires both nodes to be TextNodes.
+      // When the previous node is a HorizontalRuleNode, we must delete it via
+      // DeleteContentRequest rather than attempting a merge.
+      final doc = MutableDocument([
+        HorizontalRuleNode(id: 'rule-1'),
+        ParagraphNode(id: 'p1', text: AttributedText('Hello')),
+      ]);
+      final controller = DocumentEditingController(
+        document: doc,
+        selection: _collapsed('p1', 0),
+      );
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.backspace));
+
+      expect(result, true);
+      expect(requests, hasLength(1));
+      final req = requests.first as DeleteContentRequest;
+      // The request must cover the entire previous (non-text) node.
+      expect(req.selection.base.nodeId, equals('rule-1'));
+      expect(req.selection.base.nodePosition, equals(const BinaryNodePosition.upstream()));
+      expect(req.selection.extent.nodeId, equals('rule-1'));
+      expect(req.selection.extent.nodePosition, equals(const BinaryNodePosition.downstream()));
+    });
+
     test('returns ignored when node is not found', () {
       final doc = _singleParagraph('Hello');
       final controller = DocumentEditingController(

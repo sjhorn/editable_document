@@ -633,9 +633,29 @@ class DocumentKeyboardHandler {
         } else {
           final prevNode = _document.nodeBefore(extentPos.nodeId);
           if (prevNode == null) return false;
-          _requestHandler(
-            MergeNodeRequest(firstNodeId: prevNode.id, secondNodeId: node.id),
-          );
+          if (prevNode is TextNode) {
+            _requestHandler(
+              MergeNodeRequest(firstNodeId: prevNode.id, secondNodeId: node.id),
+            );
+          } else {
+            // The previous node is a non-text node (e.g. HorizontalRuleNode,
+            // ImageNode). MergeNodeCommand requires both nodes to be TextNodes,
+            // so we delete the previous node entirely instead of merging.
+            _requestHandler(
+              DeleteContentRequest(
+                selection: DocumentSelection(
+                  base: DocumentPosition(
+                    nodeId: prevNode.id,
+                    nodePosition: const BinaryNodePosition.upstream(),
+                  ),
+                  extent: DocumentPosition(
+                    nodeId: prevNode.id,
+                    nodePosition: const BinaryNodePosition.downstream(),
+                  ),
+                ),
+              ),
+            );
+          }
         }
       } else {
         _requestHandler(
