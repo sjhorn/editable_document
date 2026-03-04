@@ -18,6 +18,7 @@ import '../model/document_selection.dart';
 import '../model/edit_request.dart';
 import '../model/list_item_node.dart';
 import '../model/node_position.dart';
+import '../model/paragraph_node.dart';
 import '../model/text_node.dart';
 
 // ---------------------------------------------------------------------------
@@ -620,6 +621,15 @@ class DocumentKeyboardHandler {
         // Empty list item → convert to paragraph instead of merging.
         if (node is ListItemNode && node.text.text.isEmpty) {
           _requestHandler(ConvertListItemToParagraphRequest(nodeId: node.id));
+        } else if (node is ParagraphNode &&
+            node.blockType == ParagraphBlockType.blockquote &&
+            node.text.text.isEmpty) {
+          _requestHandler(
+            ChangeBlockTypeRequest(
+              nodeId: node.id,
+              newBlockType: ParagraphBlockType.paragraph,
+            ),
+          );
         } else {
           final prevNode = _document.nodeBefore(extentPos.nodeId);
           if (prevNode == null) return false;
@@ -714,6 +724,19 @@ class DocumentKeyboardHandler {
     // Empty list item → convert to paragraph.
     if (node is ListItemNode && node.text.text.isEmpty) {
       _requestHandler(ConvertListItemToParagraphRequest(nodeId: node.id));
+      return true;
+    }
+
+    // Empty blockquote → convert to plain paragraph.
+    if (node is ParagraphNode &&
+        node.blockType == ParagraphBlockType.blockquote &&
+        node.text.text.isEmpty) {
+      _requestHandler(
+        ChangeBlockTypeRequest(
+          nodeId: node.id,
+          newBlockType: ParagraphBlockType.paragraph,
+        ),
+      );
       return true;
     }
 

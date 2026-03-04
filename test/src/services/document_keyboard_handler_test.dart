@@ -3910,4 +3910,132 @@ void main() {
       expect(req.secondNodeId, equals('li1'));
     });
   });
+
+  // =========================================================================
+  // Enter — empty blockquote → plain paragraph
+  // =========================================================================
+
+  group('Enter (empty blockquote → plain paragraph)', () {
+    test('dispatches ChangeBlockTypeRequest for empty blockquote', () {
+      final doc = MutableDocument([
+        ParagraphNode(
+          id: 'bq1',
+          text: AttributedText(''),
+          blockType: ParagraphBlockType.blockquote,
+        ),
+      ]);
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('bq1', 0));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.enter));
+
+      expect(result, true);
+      expect(requests, hasLength(1));
+      final req = requests.first as ChangeBlockTypeRequest;
+      expect(req.nodeId, equals('bq1'));
+      expect(req.newBlockType, equals(ParagraphBlockType.paragraph));
+    });
+
+    test('returns false for non-empty blockquote (IME handles)', () {
+      final doc = MutableDocument([
+        ParagraphNode(
+          id: 'bq1',
+          text: AttributedText('Quote text'),
+          blockType: ParagraphBlockType.blockquote,
+        ),
+      ]);
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('bq1', 5));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.enter));
+
+      expect(result, false);
+      expect(requests, isEmpty);
+    });
+
+    test('returns false for empty plain paragraph', () {
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('')),
+      ]);
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 0));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.enter));
+
+      expect(result, false);
+      expect(requests, isEmpty);
+    });
+  });
+
+  // =========================================================================
+  // Backspace — empty blockquote → plain paragraph
+  // =========================================================================
+
+  group('Backspace (empty blockquote → plain paragraph)', () {
+    test('dispatches ChangeBlockTypeRequest for empty blockquote at offset 0', () {
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('Above')),
+        ParagraphNode(
+          id: 'bq1',
+          text: AttributedText(''),
+          blockType: ParagraphBlockType.blockquote,
+        ),
+      ]);
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('bq1', 0));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.backspace));
+
+      expect(result, true);
+      expect(requests, hasLength(1));
+      final req = requests.first as ChangeBlockTypeRequest;
+      expect(req.nodeId, equals('bq1'));
+      expect(req.newBlockType, equals(ParagraphBlockType.paragraph));
+    });
+
+    test('dispatches MergeNodeRequest for non-empty blockquote at offset 0', () {
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('Above')),
+        ParagraphNode(
+          id: 'bq1',
+          text: AttributedText('Quote text'),
+          blockType: ParagraphBlockType.blockquote,
+        ),
+      ]);
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('bq1', 0));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.backspace));
+
+      expect(result, true);
+      expect(requests, hasLength(1));
+      final req = requests.first as MergeNodeRequest;
+      expect(req.firstNodeId, equals('p1'));
+      expect(req.secondNodeId, equals('bq1'));
+    });
+
+    test('deletes character for blockquote with cursor mid-text', () {
+      final doc = MutableDocument([
+        ParagraphNode(
+          id: 'bq1',
+          text: AttributedText('Quote'),
+          blockType: ParagraphBlockType.blockquote,
+        ),
+      ]);
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('bq1', 3));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.backspace));
+
+      expect(result, true);
+      expect(requests, hasLength(1));
+      expect(requests.first, isA<DeleteContentRequest>());
+    });
+  });
 }
