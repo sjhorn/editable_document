@@ -2,20 +2,16 @@
 // Use of this source code is governed by a BSD-3-Clause license that can be
 // found in the LICENSE file.
 
-/// Comprehensive example demonstrating all implemented layers of the
-/// editable_document package.
+/// Example app showcasing EditableDocument — a rich-text block editor built
+/// on top of Flutter's rendering pipeline.
 ///
 /// Demonstrates:
-/// - **Phase 1**: Document model — nodes, attributed text, positions, selections
-/// - **Phase 2**: Command pipeline — edit requests, undo/redo
-/// - **Phase 3**: Rendering — per-block render objects via ComponentBuilder
-/// - **Phase 4**: Services — IME serialization, keyboard handler, autofill
-/// - **Phase 5**: Widgets — EditableDocument, DocumentField, ComponentBuilder
-/// - **Phase 6**: Selection overlay, caret blink, mouse interaction, handles
-/// - **Phase 7**: DocumentScrollable — document-aware scrolling
-/// - **Phase 8**: Accessibility — semantics for screen readers
-/// - **Phase 9**: Performance benchmarks (run via `scripts/ci/benchmark.sh`)
-/// - **Phase 10**: Formatting toolbar, JSON save/load, word count
+/// - Block-level document model with multiple node types
+/// - Inline text formatting (bold, italic, underline, strikethrough, code)
+/// - Block type changes (headings, blockquote, paragraph)
+/// - Block insertion (lists, code blocks, horizontal rules, images)
+/// - Undo/redo via UndoableEditor
+/// - JSON save/load round-trip
 ///
 /// Run with: `flutter run -t example/main.dart`
 library;
@@ -39,7 +35,7 @@ class ExampleApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'editable_document example',
+      title: 'EditableDocument Demo',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
         useMaterial3: true,
@@ -49,7 +45,7 @@ class ExampleApp extends StatelessWidget {
   }
 }
 
-/// Demonstrates all implemented editable_document layers.
+/// Demonstrates EditableDocument as a rich-text block editor.
 class DocumentDemo extends StatefulWidget {
   /// Creates the demo screen.
   const DocumentDemo({super.key});
@@ -64,21 +60,15 @@ class _DocumentDemoState extends State<DocumentDemo> {
   late final UndoableEditor _editor;
   late final FocusNode _focusNode;
 
-  // Phase 6: selection overlay and mouse interaction support.
   final _layoutKey = GlobalKey<DocumentLayoutState>();
   final _startHandleLayerLink = LayerLink();
   final _endHandleLayerLink = LayerLink();
 
-  // Phase 4.4: autofill demo — dedicated controllers, editors, and focus nodes.
-  late final DocumentEditingController _emailController;
-  late final DocumentEditingController _passwordController;
-  late final UndoableEditor _emailEditor;
-  late final UndoableEditor _passwordEditor;
-  late final FocusNode _emailFocusNode;
-  late final FocusNode _passwordFocusNode;
-
   /// Counter for generating unique node IDs.
   int _nextNodeId = 100;
+
+  /// Vertical spacing between document blocks.
+  double _blockSpacing = 0.0;
 
   @override
   void initState() {
@@ -90,33 +80,6 @@ class _DocumentDemoState extends State<DocumentDemo> {
     );
     _focusNode = FocusNode(debugLabel: 'DocumentDemo');
 
-    // Phase 4.4: autofill demo controllers and focus nodes.
-    _emailController = DocumentEditingController(
-      document: MutableDocument([
-        ParagraphNode(id: 'email-p1', text: AttributedText()),
-      ]),
-    );
-    _passwordController = DocumentEditingController(
-      document: MutableDocument([
-        ParagraphNode(id: 'password-p1', text: AttributedText()),
-      ]),
-    );
-    _emailEditor = UndoableEditor(
-      editContext: EditContext(
-        document: _emailController.document,
-        controller: _emailController,
-      ),
-    );
-    _passwordEditor = UndoableEditor(
-      editContext: EditContext(
-        document: _passwordController.document,
-        controller: _passwordController,
-      ),
-    );
-    _emailFocusNode = FocusNode(debugLabel: 'AutofillEmail');
-    _passwordFocusNode = FocusNode(debugLabel: 'AutofillPassword');
-
-    // Listen for document changes to rebuild the UI.
     _document.changes.addListener(_onDocumentChanged);
     _controller.addListener(_onDocumentChanged);
   }
@@ -127,10 +90,6 @@ class _DocumentDemoState extends State<DocumentDemo> {
     _document.changes.removeListener(_onDocumentChanged);
     _focusNode.dispose();
     _controller.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
-    _emailFocusNode.dispose();
-    _passwordFocusNode.dispose();
     super.dispose();
   }
 
@@ -139,115 +98,96 @@ class _DocumentDemoState extends State<DocumentDemo> {
   }
 
   MutableDocument _buildSampleDocument() {
-    // Rich text with bold attribution.
-    final boldHello = AttributedText('Hello, editable_document!')
-      ..applyAttribution(NamedAttribution.bold, 0, 4);
+    final welcome = AttributedText('Welcome to EditableDocument')
+      ..applyAttribution(NamedAttribution.bold, 11, 26);
 
-    // Rich text with italic and underline.
-    final styledDesc = AttributedText(
-      'A drop-in replacement for EditableText with full block-level '
-      'document model support. This text has italic and underline styling.',
+    final intro = AttributedText(
+      'A drop-in replacement for EditableText that supports rich, '
+      'block-level documents. Select text and use the toolbar above '
+      'to apply formatting.',
     )
       ..applyAttribution(NamedAttribution.italics, 27, 40)
-      ..applyAttribution(NamedAttribution.underline, 77, 82);
+      ..applyAttribution(NamedAttribution.bold, 27, 40);
 
     return MutableDocument([
       ParagraphNode(
-        id: 'heading',
-        text: AttributedText('editable_document'),
+        id: 'h1',
+        text: welcome,
         blockType: ParagraphBlockType.header1,
       ),
+      ParagraphNode(id: 'intro', text: intro),
       ParagraphNode(
-        id: 'intro',
-        text: boldHello,
-      ),
-      ParagraphNode(
-        id: 'desc',
-        text: styledDesc,
-      ),
-      ParagraphNode(
-        id: 'phases-heading',
-        text: AttributedText('Implemented Phases'),
+        id: 'h2-rich',
+        text: AttributedText('Rich Text Editing'),
         blockType: ParagraphBlockType.header2,
       ),
-      // Ordered list items demonstrating Phase 1 model.
       ListItemNode(
-        id: 'phase-1',
-        text: AttributedText('Document model (nodes, text, positions, selections)'),
+        id: 'cap-1',
+        text: AttributedText('Inline styles: bold, italic, underline, '
+            'strikethrough, code'),
+        type: ListItemType.unordered,
+      ),
+      ListItemNode(
+        id: 'cap-1a',
+        text: AttributedText('Applied via toolbar or keyboard shortcuts'),
+        type: ListItemType.unordered,
+        indent: 1,
+      ),
+      ListItemNode(
+        id: 'cap-2',
+        text: AttributedText('Block-level structure with headings, '
+            'lists, and quotes'),
+        type: ListItemType.unordered,
+      ),
+      ListItemNode(
+        id: 'cap-3',
+        text: AttributedText('Full undo/redo with snapshot-based history'),
+        type: ListItemType.unordered,
+      ),
+      ParagraphNode(
+        id: 'h2-blocks',
+        text: AttributedText('Block Types'),
+        blockType: ParagraphBlockType.header2,
+      ),
+      ListItemNode(
+        id: 'bt-1',
+        text: AttributedText('Paragraph — standard body text'),
         type: ListItemType.ordered,
       ),
       ListItemNode(
-        id: 'phase-2',
-        text: AttributedText('Command pipeline with undo/redo'),
+        id: 'bt-2',
+        text: AttributedText('Headings — H1 through H3 for hierarchy'),
         type: ListItemType.ordered,
       ),
       ListItemNode(
-        id: 'phase-3',
-        text: AttributedText('Per-block render objects and layout'),
+        id: 'bt-3',
+        text: AttributedText('Lists — ordered and unordered with nesting'),
         type: ListItemType.ordered,
       ),
       ListItemNode(
-        id: 'phase-4',
-        text: AttributedText('IME bridge (serializer, input client, keyboard)'),
+        id: 'bt-4',
+        text: AttributedText('Code blocks — syntax-highlighted source'),
         type: ListItemType.ordered,
       ),
       ListItemNode(
-        id: 'phase-5',
-        text: AttributedText('ComponentBuilder widget system'),
+        id: 'bt-5',
+        text: AttributedText('Images, horizontal rules, and blockquotes'),
         type: ListItemType.ordered,
       ),
       HorizontalRuleNode(id: 'rule-1'),
       ParagraphNode(
-        id: 'features-heading',
-        text: AttributedText('Features'),
-        blockType: ParagraphBlockType.header2,
-      ),
-      // Unordered list with nested indent levels.
-      ListItemNode(
-        id: 'feature-1',
-        text: AttributedText('Block-level document model'),
-        type: ListItemType.unordered,
-      ),
-      ListItemNode(
-        id: 'feature-1a',
-        text: AttributedText('Paragraph, list, code, image, HR nodes'),
-        type: ListItemType.unordered,
-        indent: 1,
-      ),
-      ListItemNode(
-        id: 'feature-1b',
-        text: AttributedText('Rich text attributions (bold, italic, underline)'),
-        type: ListItemType.unordered,
-        indent: 1,
-      ),
-      ListItemNode(
-        id: 'feature-2',
-        text: AttributedText('Event-sourced command pipeline'),
-        type: ListItemType.unordered,
-      ),
-      ListItemNode(
-        id: 'feature-3',
-        text: AttributedText('Snapshot-based undo/redo'),
-        type: ListItemType.unordered,
-      ),
-      ListItemNode(
-        id: 'feature-4',
-        text: AttributedText('IME delta model bridge'),
-        type: ListItemType.unordered,
-      ),
-      HorizontalRuleNode(id: 'rule-2'),
-      ParagraphNode(
-        id: 'code-heading',
-        text: AttributedText('Code example'),
+        id: 'h3-code',
+        text: AttributedText('Code Example'),
         blockType: ParagraphBlockType.header3,
       ),
       CodeBlockNode(
-        id: 'code',
+        id: 'code-1',
         text: AttributedText(
           'final doc = MutableDocument([\n'
           '  ParagraphNode(\n'
-          '    id: "1",\n'
-          '    text: AttributedText("Hello"),\n'
+          '    id: "title",\n'
+          '    text: AttributedText("Hello!"),\n'
+          '    blockType: ParagraphBlockType.header1,\n'
           '  ),\n'
           ']);\n'
           '\n'
@@ -258,42 +198,26 @@ class _DocumentDemoState extends State<DocumentDemo> {
           '  ),\n'
           ');',
         ),
+        language: 'dart',
       ),
-      // Phase 8: altText is surfaced to the accessibility tree automatically.
-      // Screen readers (TalkBack, VoiceOver) announce this label when the user
-      // navigates to the image block — no extra widget code is required.
       ImageNode(
-        id: 'image',
-        imageUrl: 'https://example.com/placeholder.png',
-        altText: 'Screenshot of an editable_document editor with rich text',
+        id: 'image-1',
+        imageUrl: 'https://picsum.photos/600/200',
+        altText: 'Placeholder image demonstrating ImageNode support',
       ),
       ParagraphNode(
-        id: 'quote',
+        id: 'quote-1',
         text: AttributedText(
-          'EditableDocument is to block documents what EditableText is to '
-          'single-field text.',
+          'EditableDocument is to block documents what EditableText '
+          'is to single-field text.',
         ),
         blockType: ParagraphBlockType.blockquote,
-      ),
-      ParagraphNode(
-        id: 'ime-heading',
-        text: AttributedText('IME Serialization'),
-        blockType: ParagraphBlockType.header3,
-      ),
-      ParagraphNode(
-        id: 'ime-desc',
-        text: AttributedText(
-          'The DocumentImeSerializer converts between the block document model '
-          'and the flat TextEditingValue that platform IMEs expect. '
-          'The DocumentKeyboardHandler maps non-IME key events (arrows, '
-          'Home/End, Delete, Tab) to EditRequests.',
-        ),
       ),
     ]);
   }
 
   // ---------------------------------------------------------------------------
-  // Command pipeline demo actions
+  // Insert helpers
   // ---------------------------------------------------------------------------
 
   /// Returns the insert index after the currently selected node, or the end
@@ -307,67 +231,89 @@ class _DocumentDemoState extends State<DocumentDemo> {
     return _document.nodeCount;
   }
 
-  void _addParagraph() {
-    final newId = 'dynamic-${_nextNodeId++}';
-    _document.insertNode(
-      _insertIndex(),
-      ParagraphNode(id: newId, text: AttributedText()),
-    );
-    _controller.setSelection(DocumentSelection.collapsed(
-      position: DocumentPosition(
-        nodeId: newId,
-        nodePosition: const TextNodePosition(offset: 0),
-      ),
-    ));
-  }
+  String _newId() => 'dynamic-${_nextNodeId++}';
 
-  void _addListItem() {
-    final newId = 'dynamic-${_nextNodeId++}';
-    _document.insertNode(
-      _insertIndex(),
-      ListItemNode(
-        id: newId,
-        text: AttributedText(),
-        type: ListItemType.unordered,
-      ),
-    );
-    _controller.setSelection(DocumentSelection.collapsed(
-      position: DocumentPosition(
-        nodeId: newId,
-        nodePosition: const TextNodePosition(offset: 0),
-      ),
-    ));
-  }
-
-  void _removeLastNode() {
-    if (_document.nodeCount > 1) {
-      final lastId = _document.nodes.last.id;
-      // If selection is in the node being deleted, move it first.
-      final sel = _controller.selection;
-      if (sel != null && (sel.base.nodeId == lastId || sel.extent.nodeId == lastId)) {
-        final newLast = _document.nodes[_document.nodeCount - 2];
-        _controller.setSelection(DocumentSelection.collapsed(
-          position: DocumentPosition(
-            nodeId: newLast.id,
-            nodePosition: newLast is TextNode
-                ? TextNodePosition(offset: newLast.text.text.length)
-                : const BinaryNodePosition.downstream(),
-          ),
-        ));
+  void _insertNode(DocumentNode node) {
+    final sel = _controller.selection;
+    String? emptyNodeId;
+    if (sel != null) {
+      final selected = _document.nodeById(sel.extent.nodeId);
+      if (selected is TextNode && selected.text.text.isEmpty) {
+        emptyNodeId = selected.id;
       }
-      _document.deleteNode(lastId);
+    }
+
+    _document.insertNode(_insertIndex(), node);
+
+    if (emptyNodeId != null) {
+      _document.deleteNode(emptyNodeId);
+    }
+
+    if (node is TextNode) {
+      _controller.setSelection(DocumentSelection.collapsed(
+        position: DocumentPosition(
+          nodeId: node.id,
+          nodePosition: const TextNodePosition(offset: 0),
+        ),
+      ));
     }
   }
 
   // ---------------------------------------------------------------------------
-  // Phase 10: Formatting toolbar actions
+  // Block type changes
+  // ---------------------------------------------------------------------------
+
+  void _changeBlockType(ParagraphBlockType blockType) {
+    final sel = _controller.selection;
+    if (sel == null) return;
+    final node = _document.nodeById(sel.extent.nodeId);
+    if (node is! ParagraphNode) return;
+    _editor.submit(ChangeBlockTypeRequest(
+      nodeId: node.id,
+      newBlockType: blockType,
+    ));
+  }
+
+  /// Returns the current block type name for the selected node.
+  String _currentBlockLabel() {
+    final sel = _controller.selection;
+    if (sel == null) return '';
+    final node = _document.nodeById(sel.extent.nodeId);
+    if (node is ParagraphNode) {
+      switch (node.blockType) {
+        case ParagraphBlockType.header1:
+          return 'H1';
+        case ParagraphBlockType.header2:
+          return 'H2';
+        case ParagraphBlockType.header3:
+          return 'H3';
+        case ParagraphBlockType.blockquote:
+          return 'Blockquote';
+        case ParagraphBlockType.paragraph:
+          return 'Paragraph';
+        default:
+          return 'Paragraph';
+      }
+    } else if (node is ListItemNode) {
+      return node.type == ListItemType.ordered ? 'Ordered list' : 'Bullet list';
+    } else if (node is CodeBlockNode) {
+      return 'Code block';
+    } else if (node is HorizontalRuleNode) {
+      return 'Horizontal rule';
+    } else if (node is ImageNode) {
+      return 'Image';
+    }
+    return '';
+  }
+
+  // ---------------------------------------------------------------------------
+  // Formatting toolbar actions
   // ---------------------------------------------------------------------------
 
   void _toggleAttribution(Attribution attribution) {
     final sel = _controller.selection;
     if (sel == null || sel.isCollapsed) return;
 
-    // Check if the attribution is already applied at the selection start.
     final startNode = _document.nodeById(sel.base.nodeId);
     final isApplied = startNode is TextNode &&
         sel.base.nodePosition is TextNodePosition &&
@@ -389,8 +335,18 @@ class _DocumentDemoState extends State<DocumentDemo> {
     }
   }
 
+  bool _isAttributionActive(Attribution attribution) {
+    final sel = _controller.selection;
+    if (sel == null || sel.isCollapsed) return false;
+    final node = _document.nodeById(sel.base.nodeId);
+    if (node is! TextNode) return false;
+    final pos = sel.base.nodePosition;
+    if (pos is! TextNodePosition) return false;
+    return node.text.hasAttributionAt(pos.offset, attribution);
+  }
+
   // ---------------------------------------------------------------------------
-  // Phase 10: JSON save/load
+  // JSON save/load
   // ---------------------------------------------------------------------------
 
   Map<String, Object?> _documentToJson() {
@@ -558,7 +514,6 @@ class _DocumentDemoState extends State<DocumentDemo> {
     }
     if (nodes.isEmpty) return;
 
-    // Clear existing document and load new nodes.
     _controller.clearSelection();
     _document.reset(nodes);
   }
@@ -579,7 +534,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
   }
 
   // ---------------------------------------------------------------------------
-  // Phase 10: Word and character count
+  // Word and character count
   // ---------------------------------------------------------------------------
 
   int _wordCount() {
@@ -613,154 +568,19 @@ class _DocumentDemoState extends State<DocumentDemo> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('editable_document'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.save_outlined),
-            onPressed: _showSaveDialog,
-            tooltip: 'Save as JSON',
-          ),
-          IconButton(
-            icon: const Icon(Icons.file_open_outlined),
-            onPressed: _showLoadDialog,
-            tooltip: 'Load from JSON',
-          ),
-          const VerticalDivider(width: 1),
-          IconButton(
-            icon: const Icon(Icons.undo),
-            onPressed: _editor.canUndo ? () => setState(() => _editor.undo()) : null,
-            tooltip: 'Undo',
-          ),
-          IconButton(
-            icon: const Icon(Icons.redo),
-            onPressed: _editor.canRedo ? () => setState(() => _editor.redo()) : null,
-            tooltip: 'Redo',
-          ),
-        ],
+        title: const Text('EditableDocument Demo'),
       ),
-      body: GestureDetector(
-        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-        behavior: HitTestBehavior.translucent,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Phase 10: Formatting toolbar.
-              _buildToolbar(),
-
-              const SizedBox(height: 8),
-
-              // Interactive document editor (Phases 5-7).
-              // DocumentScrollable provides auto-scroll to caret (Phase 7).
-              // DocumentMouseInteractor handles click/drag/double-click.
-              // DocumentSelectionOverlay renders caret + selection highlights.
-              // EditableDocument wires Focus, IME, and keyboard handler.
-              SizedBox(
-                height: 400,
-                child: DocumentScrollable(
-                  controller: _controller,
-                  layoutKey: _layoutKey,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: DocumentMouseInteractor(
-                      controller: _controller,
-                      layoutKey: _layoutKey,
-                      document: _document,
-                      focusNode: _focusNode,
-                      child: Stack(
-                        children: [
-                          // Selection highlights (no static caret — the
-                          // blinking overlay below handles that).
-                          DocumentSelectionOverlay(
-                            controller: _controller,
-                            layoutKey: _layoutKey,
-                            startHandleLayerLink: _startHandleLayerLink,
-                            endHandleLayerLink: _endHandleLayerLink,
-                            showCaret: false,
-                            child: EditableDocument(
-                              controller: _controller,
-                              focusNode: _focusNode,
-                              layoutKey: _layoutKey,
-                              autofocus: true,
-                              editor: _editor,
-                            ),
-                          ),
-                          // Blinking caret overlay.
-                          Positioned.fill(
-                            child: CaretDocumentOverlay(
-                              controller: _controller,
-                              layoutKey: _layoutKey,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-
-              const Divider(height: 32),
-
-              // Info panel showing document stats (with word/char count).
-              _buildInfoPanel(),
-
-              const SizedBox(height: 16),
-
-              // IME serialization preview.
-              _buildImePreview(),
-
-              const SizedBox(height: 16),
-
-              // DocumentField demo (Phase 5.4) — TextField equivalent.
-              _buildDocumentFieldDemo(),
-
-              const SizedBox(height: 16),
-
-              // Autofill demo (Phase 4.4).
-              _buildAutofillDemo(),
-
-              const SizedBox(height: 16),
-
-              // Phase 6-7 info panel.
-              _buildPhase6Info(),
-
-              const SizedBox(height: 16),
-
-              // Phase 8 accessibility info panel.
-              _buildPhase8Info(),
-
-              const SizedBox(height: 16),
-
-              // Phase 9-10 info panel.
-              _buildPhase9Info(),
-            ],
-          ),
-        ),
-      ),
-      floatingActionButton: Column(
-        mainAxisSize: MainAxisSize.min,
+      body: Column(
         children: [
-          FloatingActionButton.small(
-            heroTag: 'add-paragraph',
-            onPressed: _addParagraph,
-            tooltip: 'Add paragraph',
-            child: const Icon(Icons.text_fields),
+          _buildToolbar(),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+              behavior: HitTestBehavior.translucent,
+              child: _buildEditor(),
+            ),
           ),
-          const SizedBox(height: 8),
-          FloatingActionButton.small(
-            heroTag: 'add-list',
-            onPressed: _addListItem,
-            tooltip: 'Add list item',
-            child: const Icon(Icons.format_list_bulleted),
-          ),
-          const SizedBox(height: 8),
-          FloatingActionButton.small(
-            heroTag: 'remove-last',
-            onPressed: _document.nodeCount > 1 ? _removeLastNode : null,
-            tooltip: 'Remove last node',
-            child: const Icon(Icons.delete_outline),
-          ),
+          _buildStatusBar(),
         ],
       ),
     );
@@ -769,278 +589,242 @@ class _DocumentDemoState extends State<DocumentDemo> {
   Widget _buildToolbar() {
     final sel = _controller.selection;
     final hasExpandedSelection = sel != null && !sel.isCollapsed;
+    final hasCursor = sel != null;
+    final selectedNode = sel != null ? _document.nodeById(sel.extent.nodeId) : null;
+    final isOnParagraph = selectedNode is ParagraphNode;
+    final colorScheme = Theme.of(context).colorScheme;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    const iconSize = 18.0;
+    final buttonStyle = IconButton.styleFrom(
+      minimumSize: const Size(32, 32),
+      padding: const EdgeInsets.all(4),
+    );
+
+    Widget divider() => const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 4),
+          child: SizedBox(height: 24, child: VerticalDivider(width: 1)),
+        );
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Row(
+        children: [
+          // --- File actions ---
+          IconButton(
+            icon: const Icon(Icons.save_outlined, size: iconSize),
+            onPressed: _showSaveDialog,
+            tooltip: 'Save as JSON',
+            style: buttonStyle,
+          ),
+          IconButton(
+            icon: const Icon(Icons.file_open_outlined, size: iconSize),
+            onPressed: _showLoadDialog,
+            tooltip: 'Load from JSON',
+            style: buttonStyle,
+          ),
+          divider(),
+          // --- Undo / Redo ---
+          IconButton(
+            icon: const Icon(Icons.undo, size: iconSize),
+            onPressed: _editor.canUndo ? () => setState(() => _editor.undo()) : null,
+            tooltip: 'Undo',
+            style: buttonStyle,
+          ),
+          IconButton(
+            icon: const Icon(Icons.redo, size: iconSize),
+            onPressed: _editor.canRedo ? () => setState(() => _editor.redo()) : null,
+            tooltip: 'Redo',
+            style: buttonStyle,
+          ),
+          divider(),
+          // --- Block type dropdown ---
+          _buildBlockTypeDropdown(isOnParagraph, selectedNode),
+          const SizedBox(width: 8),
+          divider(),
+          // --- Inline formatting ---
+          _FormatToggle(
+            icon: Icons.format_bold,
+            tooltip: 'Bold',
+            isActive: _isAttributionActive(NamedAttribution.bold),
+            onPressed:
+                hasExpandedSelection ? () => _toggleAttribution(NamedAttribution.bold) : null,
+          ),
+          _FormatToggle(
+            icon: Icons.format_italic,
+            tooltip: 'Italic',
+            isActive: _isAttributionActive(NamedAttribution.italics),
+            onPressed:
+                hasExpandedSelection ? () => _toggleAttribution(NamedAttribution.italics) : null,
+          ),
+          _FormatToggle(
+            icon: Icons.format_underlined,
+            tooltip: 'Underline',
+            isActive: _isAttributionActive(NamedAttribution.underline),
+            onPressed:
+                hasExpandedSelection ? () => _toggleAttribution(NamedAttribution.underline) : null,
+          ),
+          _FormatToggle(
+            icon: Icons.strikethrough_s,
+            tooltip: 'Strikethrough',
+            isActive: _isAttributionActive(NamedAttribution.strikethrough),
+            onPressed: hasExpandedSelection
+                ? () => _toggleAttribution(NamedAttribution.strikethrough)
+                : null,
+          ),
+          _FormatToggle(
+            icon: Icons.code,
+            tooltip: 'Inline code',
+            isActive: _isAttributionActive(NamedAttribution.code),
+            onPressed:
+                hasExpandedSelection ? () => _toggleAttribution(NamedAttribution.code) : null,
+          ),
+          divider(),
+          // --- Lists ---
+          IconButton(
+            icon: const Icon(Icons.format_list_bulleted, size: iconSize),
+            onPressed: hasCursor
+                ? () => _insertNode(ListItemNode(
+                      id: _newId(),
+                      text: AttributedText(),
+                      type: ListItemType.unordered,
+                    ))
+                : null,
+            tooltip: 'Bullet list',
+            style: buttonStyle,
+          ),
+          IconButton(
+            icon: const Icon(Icons.format_list_numbered, size: iconSize),
+            onPressed: hasCursor
+                ? () => _insertNode(ListItemNode(
+                      id: _newId(),
+                      text: AttributedText(),
+                      type: ListItemType.ordered,
+                    ))
+                : null,
+            tooltip: 'Numbered list',
+            style: buttonStyle,
+          ),
+          divider(),
+          // --- Insert menu ---
+          _buildInsertMenu(hasCursor),
+          divider(),
+          // --- Line spacing ---
+          PopupMenuButton<double>(
+            tooltip: 'Line spacing',
+            offset: const Offset(0, 36),
+            onSelected: (value) => setState(() => _blockSpacing = value),
+            itemBuilder: (context) => [
+              for (final entry in {0.0: 'Single', 6.0: '1.5 lines', 12.0: 'Double'}.entries)
+                PopupMenuItem(
+                  value: entry.key,
+                  child: Row(
+                    children: [
+                      if (_blockSpacing == entry.key)
+                        const Icon(Icons.check, size: 16)
+                      else
+                        const SizedBox(width: 16),
+                      const SizedBox(width: 8),
+                      Text(entry.value),
+                    ],
+                  ),
+                ),
+            ],
+            child: const SizedBox(
+              height: 32,
+              width: 32,
+              child: Icon(Icons.format_line_spacing, size: 18),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBlockTypeDropdown(bool isOnParagraph, DocumentNode? selectedNode) {
+    final current = _currentBlockTypeValue(selectedNode);
+    return SizedBox(
+      width: 140,
+      height: 32,
+      child: DropdownButtonFormField<String>(
+        initialValue: current,
+        decoration: InputDecoration(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
+          isDense: true,
+        ),
+        style: Theme.of(context).textTheme.bodySmall,
+        items: const [
+          DropdownMenuItem(value: 'paragraph', child: Text('Paragraph')),
+          DropdownMenuItem(value: 'header1', child: Text('Heading 1')),
+          DropdownMenuItem(value: 'header2', child: Text('Heading 2')),
+          DropdownMenuItem(value: 'header3', child: Text('Heading 3')),
+          DropdownMenuItem(value: 'blockquote', child: Text('Blockquote')),
+        ],
+        onChanged: isOnParagraph
+            ? (value) {
+                if (value == null) return;
+                final blockType = ParagraphBlockType.values.firstWhere(
+                  (bt) => bt.name == value,
+                  orElse: () => ParagraphBlockType.paragraph,
+                );
+                _changeBlockType(blockType);
+              }
+            : null,
+      ),
+    );
+  }
+
+  String? _currentBlockTypeValue(DocumentNode? node) {
+    if (node is ParagraphNode) return node.blockType.name;
+    return null;
+  }
+
+  Widget _buildInsertMenu(bool enabled) {
+    return PopupMenuButton<String>(
+      tooltip: 'Insert',
+      enabled: enabled,
+      offset: const Offset(0, 36),
+      onSelected: (value) {
+        switch (value) {
+          case 'code':
+            _insertNode(CodeBlockNode(
+              id: _newId(),
+              text: AttributedText(),
+              language: 'dart',
+            ));
+          case 'hr':
+            _insertNode(HorizontalRuleNode(id: _newId()));
+          case 'image':
+            _insertNode(ImageNode(
+              id: _newId(),
+              imageUrl: 'https://picsum.photos/600/200',
+              altText: 'Inserted image',
+            ));
+        }
+      },
+      itemBuilder: (context) => const [
+        PopupMenuItem(value: 'code', child: Text('Code block')),
+        PopupMenuItem(value: 'hr', child: Text('Horizontal rule')),
+        PopupMenuItem(value: 'image', child: Text('Image')),
+      ],
+      child: Container(
+        height: 32,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        alignment: Alignment.center,
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Format:', style: Theme.of(context).textTheme.labelMedium),
-            const SizedBox(width: 8),
-            IconButton(
-              icon: const Icon(Icons.format_bold),
-              onPressed:
-                  hasExpandedSelection ? () => _toggleAttribution(NamedAttribution.bold) : null,
-              tooltip: 'Bold',
-              isSelected: _isAttributionActive(NamedAttribution.bold),
-            ),
-            IconButton(
-              icon: const Icon(Icons.format_italic),
-              onPressed:
-                  hasExpandedSelection ? () => _toggleAttribution(NamedAttribution.italics) : null,
-              tooltip: 'Italic',
-              isSelected: _isAttributionActive(NamedAttribution.italics),
-            ),
-            IconButton(
-              icon: const Icon(Icons.format_underline),
-              onPressed: hasExpandedSelection
-                  ? () => _toggleAttribution(NamedAttribution.underline)
-                  : null,
-              tooltip: 'Underline',
-              isSelected: _isAttributionActive(NamedAttribution.underline),
-            ),
-            IconButton(
-              icon: const Icon(Icons.format_strikethrough),
-              onPressed: hasExpandedSelection
-                  ? () => _toggleAttribution(NamedAttribution.strikethrough)
-                  : null,
-              tooltip: 'Strikethrough',
-              isSelected: _isAttributionActive(NamedAttribution.strikethrough),
-            ),
-            IconButton(
-              icon: const Icon(Icons.code),
-              onPressed:
-                  hasExpandedSelection ? () => _toggleAttribution(NamedAttribution.code) : null,
-              tooltip: 'Inline code',
-              isSelected: _isAttributionActive(NamedAttribution.code),
-            ),
-            const Spacer(),
+            Icon(Icons.add, size: 18, color: enabled ? null : Theme.of(context).disabledColor),
+            const SizedBox(width: 4),
             Text(
-              '${_wordCount()} words  |  ${_charCount()} chars',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  bool _isAttributionActive(Attribution attribution) {
-    final sel = _controller.selection;
-    if (sel == null || sel.isCollapsed) return false;
-    final node = _document.nodeById(sel.base.nodeId);
-    if (node is! TextNode) return false;
-    final pos = sel.base.nodePosition;
-    if (pos is! TextNodePosition) return false;
-    return node.text.hasAttributionAt(pos.offset, attribution);
-  }
-
-  Widget _buildPhase6Info() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Selection & Scrolling (Phases 6-7)',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'The document above is wrapped in DocumentScrollable (Phase 7) '
-              'for auto-scroll to caret, and DocumentSelectionOverlay '
-              '(Phase 6) for caret and selection highlights.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 8),
-            const Text('Phase 6 widgets:'),
-            const SizedBox(height: 4),
-            const Text('  - DocumentSelectionOverlay (caret + highlights)'),
-            const Text('  - CaretDocumentOverlay (blink animation)'),
-            const Text('  - DocumentMouseInteractor (desktop mouse)'),
-            const Text('  - iOS handles, magnifier, gesture controller'),
-            const Text('  - Android handles, magnifier, gesture controller'),
-            const Text('  - DocumentTextSelectionControls (floating toolbar)'),
-            const SizedBox(height: 8),
-            const Text('Phase 7 widgets:'),
-            const SizedBox(height: 4),
-            const Text('  - DocumentScrollable (auto-scroll to caret)'),
-            const Text('  - DragHandleAutoScroller (drag-based auto-scroll)'),
-            const Text('  - SliverEditableDocument (CustomScrollView support)'),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPhase8Info() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Accessibility (Phase 8)',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            // Phase 8: EditableDocument builds a full semantics tree
-            // automatically.  No extra code is required from the user —
-            // just populate your document nodes normally and screen readers
-            // (TalkBack on Android, VoiceOver on iOS/macOS) receive correct
-            // roles, labels, and live-region notifications.
-            Text(
-              'EditableDocument populates the Flutter semantics tree '
-              'automatically.  Screen readers receive:',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 8),
-            const Text('  - Heading levels (H1-H6) from ParagraphBlockType'),
-            const Text('  - Image alt text from ImageNode.altText'),
-            const Text('  - "Horizontal rule" label for HorizontalRuleNode'),
-            const Text('  - isTextField / isMultiline / isReadOnly on text blocks'),
-            const Text('  - Live-region announcements for document mutations'),
-            const Text('  - Focus state reflected from EditableDocument.focusNode'),
-            const SizedBox(height: 8),
-            Text(
-              'The ImageNode in the document above carries '
-              'altText: "Screenshot of an editable_document editor with rich '
-              'text", which is announced by screen readers when the user '
-              'navigates to that block.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPhase9Info() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Benchmarks & Documentation (Phases 9-10)',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Phase 9 provides micro-benchmarks (document model operations, '
-              'IME serialization, selection queries) and baseline comparisons '
-              'against EditableText. Run via: scripts/ci/benchmark.sh',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Phase 10 adds this formatting toolbar, JSON save/load, word '
-              'and character count, architecture documentation, and a '
-              'migration guide from EditableText.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAutofillDemo() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Autofill Support (Phase 4.4)',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'When EditableDocument is placed inside an AutofillGroup with '
-              'autofillHints, the platform can offer autofill suggestions '
-              '(e.g. email, password). Only single-TextNode documents '
-              'participate in autofill.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 12),
-            AutofillGroup(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  DocumentField(
-                    controller: _emailController,
-                    focusNode: _emailFocusNode,
-                    editor: _emailEditor,
-                    autofillHints: const [AutofillHints.email],
-                    decoration: const InputDecoration(
-                      labelText: 'Email (DocumentField)',
-                      hintText: 'user@example.com',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.email_outlined),
-                    ),
-                    keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.next,
+              'Insert',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: enabled ? null : Theme.of(context).disabledColor,
                   ),
-                  const SizedBox(height: 12),
-                  DocumentField(
-                    controller: _passwordController,
-                    focusNode: _passwordFocusNode,
-                    editor: _passwordEditor,
-                    autofillHints: const [AutofillHints.password],
-                    decoration: const InputDecoration(
-                      labelText: 'Password (DocumentField)',
-                      hintText: 'Enter password',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.lock_outlined),
-                    ),
-                    keyboardType: TextInputType.visiblePassword,
-                    textInputAction: TextInputAction.done,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Comparison: standard Flutter TextField with same autofill hints '
-              '(if neither shows system suggestions, it is a Flutter platform '
-              'limitation on macOS desktop — autofill works on iOS/Android).',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 8),
-            const AutofillGroup(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  TextField(
-                    autofillHints: [AutofillHints.email],
-                    decoration: InputDecoration(
-                      labelText: 'Email (TextField)',
-                      hintText: 'user@example.com',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.email_outlined),
-                    ),
-                    keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.next,
-                  ),
-                  SizedBox(height: 12),
-                  TextField(
-                    autofillHints: [AutofillHints.password],
-                    decoration: InputDecoration(
-                      labelText: 'Password (TextField)',
-                      hintText: 'Enter password',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.lock_outlined),
-                    ),
-                    keyboardType: TextInputType.visiblePassword,
-                    textInputAction: TextInputAction.done,
-                  ),
-                ],
-              ),
             ),
           ],
         ),
@@ -1048,124 +832,67 @@ class _DocumentDemoState extends State<DocumentDemo> {
     );
   }
 
-  Widget _buildDocumentFieldDemo() {
-    return Card(
+  Widget _buildEditor() {
+    return DocumentScrollable(
+      controller: _controller,
+      layoutKey: _layoutKey,
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'DocumentField (Phase 5.4)',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'DocumentField wraps EditableDocument with InputDecoration, '
-              'just like TextField wraps EditableText.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 12),
-            // A DocumentField with label, hint, and character counter.
-            const DocumentField(
-              decoration: InputDecoration(
-                labelText: 'Notes',
-                hintText: 'Start typing...',
-                border: OutlineInputBorder(),
-              ),
-              maxLength: 500,
-            ),
-            const SizedBox(height: 12),
-            // A disabled DocumentField.
-            const DocumentField(
-              decoration: InputDecoration(
-                labelText: 'Read-only field',
-                helperText: 'This field is disabled',
-                border: OutlineInputBorder(),
-              ),
-              enabled: false,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoPanel() {
-    final textNodeCount = _document.nodes.whereType<TextNode>().length;
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Document Stats',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Text('Total nodes: ${_document.nodeCount}'),
-            Text('Text nodes: $textNodeCount'),
-            Text('Words: ${_wordCount()}'),
-            Text('Characters: ${_charCount()}'),
-            Text('Can undo: ${_editor.canUndo}'),
-            Text('Can redo: ${_editor.canRedo}'),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildImePreview() {
-    const serializer = DocumentImeSerializer();
-    final value = serializer.toTextEditingValue(
-      document: _document,
-      selection: _controller.selection,
-    );
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'IME Serialization Preview',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'TextEditingValue text length: ${value.text.length}',
-            ),
-            Text(
-              'Selection: ${value.selection}',
-            ),
-            Text(
-              'Composing: ${value.composing}',
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'First 200 chars of serialized text:',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 4),
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                value.text.length > 200 ? '${value.text.substring(0, 200)}...' : value.text,
-                style: const TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 11,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: DocumentMouseInteractor(
+          controller: _controller,
+          layoutKey: _layoutKey,
+          document: _document,
+          focusNode: _focusNode,
+          child: Stack(
+            children: [
+              DocumentSelectionOverlay(
+                controller: _controller,
+                layoutKey: _layoutKey,
+                startHandleLayerLink: _startHandleLayerLink,
+                endHandleLayerLink: _endHandleLayerLink,
+                showCaret: false,
+                child: EditableDocument(
+                  controller: _controller,
+                  focusNode: _focusNode,
+                  layoutKey: _layoutKey,
+                  autofocus: true,
+                  editor: _editor,
+                  blockSpacing: _blockSpacing,
                 ),
               ),
-            ),
-          ],
+              Positioned.fill(
+                child: CaretDocumentOverlay(
+                  controller: _controller,
+                  layoutKey: _layoutKey,
+                ),
+              ),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildStatusBar() {
+    final style = Theme.of(context).textTheme.bodySmall;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        border: Border(
+          top: BorderSide(color: Theme.of(context).dividerColor),
+        ),
+      ),
+      child: Row(
+        children: [
+          Text('${_document.nodeCount} blocks', style: style),
+          const SizedBox(width: 16),
+          Text('${_wordCount()} words', style: style),
+          const SizedBox(width: 16),
+          Text('${_charCount()} chars', style: style),
+          const Spacer(),
+          if (_controller.selection != null) Text(_currentBlockLabel(), style: style),
+        ],
       ),
     );
   }
@@ -1182,5 +909,58 @@ class _DocumentDemoState extends State<DocumentDemo> {
         _controller,
       ),
     );
+  }
+}
+
+/// A small toggle button for inline formatting in the toolbar ribbon.
+class _FormatToggle extends StatelessWidget {
+  const _FormatToggle({
+    required this.icon,
+    required this.tooltip,
+    required this.isActive,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final bool isActive;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: isActive ? colorScheme.primaryContainer : Colors.transparent,
+        borderRadius: BorderRadius.circular(4),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(4),
+          onTap: onPressed,
+          child: SizedBox(
+            width: 32,
+            height: 32,
+            child: Icon(
+              icon,
+              size: 18,
+              color: onPressed == null
+                  ? Theme.of(context).disabledColor
+                  : isActive
+                      ? colorScheme.onPrimaryContainer
+                      : colorScheme.onSurface,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties.add(DiagnosticsProperty<IconData>('icon', icon));
+    properties.add(StringProperty('tooltip', tooltip));
+    properties.add(FlagProperty('isActive', value: isActive, ifTrue: 'active'));
+    properties.add(ObjectFlagProperty<VoidCallback?>.has('onPressed', onPressed));
   }
 }
