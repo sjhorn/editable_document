@@ -8,10 +8,11 @@
 /// Demonstrates:
 /// - Block-level document model with multiple node types
 /// - Inline text formatting (bold, italic, underline, strikethrough, code)
+/// - Parameterized formatting: font family, font size, text color, background color
 /// - Block type changes (headings, blockquote, paragraph)
 /// - Block insertion (lists, code blocks, horizontal rules, images)
 /// - Undo/redo via UndoableEditor
-/// - JSON save/load round-trip
+/// - JSON save/load round-trip with full attribution serialization
 ///
 /// Run with: `flutter run -t example/main.dart`
 library;
@@ -70,6 +71,19 @@ class _DocumentDemoState extends State<DocumentDemo> {
   /// Vertical spacing between document blocks.
   double _blockSpacing = 0.0;
 
+  /// Preset color swatches for text-color and background-color pickers.
+  ///
+  /// Keys are ARGB 32-bit integer values; values are display labels.
+  static const _colorPresets = {
+    0xFF000000: 'Black',
+    0xFFF44336: 'Red',
+    0xFF4CAF50: 'Green',
+    0xFF2196F3: 'Blue',
+    0xFFFF9800: 'Orange',
+    0xFF9C27B0: 'Purple',
+    0xFF9E9E9E: 'Grey',
+  };
+
   @override
   void initState() {
     super.initState();
@@ -108,6 +122,16 @@ class _DocumentDemoState extends State<DocumentDemo> {
     )
       ..applyAttribution(NamedAttribution.italics, 27, 40)
       ..applyAttribution(NamedAttribution.bold, 27, 40);
+
+    // Paragraph demonstrating parameterized formatting attributions.
+    final colorDemo = AttributedText(
+      'Font family, font size, text color, and background color '
+      'attributions are supported. Select this text and try the new toolbar controls.',
+    )
+      ..applyAttribution(const FontFamilyAttribution('serif'), 0, 10)
+      ..applyAttribution(const FontSizeAttribution(18.0), 13, 21)
+      ..applyAttribution(const TextColorAttribution(0xFF2196F3), 24, 33)
+      ..applyAttribution(const BackgroundColorAttribution(0xFFFF9800), 38, 53);
 
     return MutableDocument([
       ParagraphNode(
@@ -175,6 +199,15 @@ class _DocumentDemoState extends State<DocumentDemo> {
         type: ListItemType.ordered,
       ),
       HorizontalRuleNode(id: 'rule-1'),
+      ParagraphNode(
+        id: 'h2-color',
+        text: AttributedText('Parameterized Formatting'),
+        blockType: ParagraphBlockType.header2,
+      ),
+      ParagraphNode(
+        id: 'color-demo',
+        text: colorDemo,
+      ),
       ParagraphNode(
         id: 'h3-code',
         text: AttributedText('Code Example'),
@@ -345,6 +378,72 @@ class _DocumentDemoState extends State<DocumentDemo> {
     return node.text.hasAttributionAt(pos.offset, attribution);
   }
 
+  /// Returns the active parameterized attribution of type [T] at the selection
+  /// base offset, or `null` if none is found.
+  ///
+  /// Looks at the text node at the selection base and searches its attributions
+  /// at that offset for an instance of [T].
+  T? _getAttributionValue<T extends Attribution>() {
+    final sel = _controller.selection;
+    if (sel == null) return null;
+    final node = _document.nodeById(sel.base.nodeId);
+    if (node is! TextNode) return null;
+    final pos = sel.base.nodePosition;
+    if (pos is! TextNodePosition) return null;
+    final offset = pos.offset;
+    final attributions = node.text.getAttributionsAt(offset);
+    return attributions.whereType<T>().firstOrNull;
+  }
+
+  /// Applies a parameterized [attribution] to the current expanded selection.
+  ///
+  /// Removes any existing attribution of the same runtime type from the
+  /// selection first, then applies the new one. This ensures only one value
+  /// of each parameterized type is active at a time.
+  void _applyParameterizedAttribution(Attribution newAttribution) {
+    final sel = _controller.selection;
+    if (sel == null || sel.isCollapsed) return;
+
+    // Remove any existing attribution of the same runtime type.
+    final node = _document.nodeById(sel.base.nodeId);
+    if (node is TextNode) {
+      final pos = sel.base.nodePosition;
+      if (pos is TextNodePosition) {
+        final existing = node.text.getAttributionsAt(pos.offset);
+        for (final attr in existing) {
+          if (attr.runtimeType == newAttribution.runtimeType) {
+            _editor.submit(RemoveAttributionRequest(
+              selection: sel,
+              attribution: attr,
+            ));
+          }
+        }
+      }
+    }
+
+    _editor.submit(ApplyAttributionRequest(
+      selection: sel,
+      attribution: newAttribution,
+    ));
+  }
+
+  /// Removes all attributions of type [T] from the current expanded selection.
+  void _clearParameterizedAttribution<T extends Attribution>() {
+    final sel = _controller.selection;
+    if (sel == null || sel.isCollapsed) return;
+    final node = _document.nodeById(sel.base.nodeId);
+    if (node is! TextNode) return;
+    final pos = sel.base.nodePosition;
+    if (pos is! TextNodePosition) return;
+    final existing = node.text.getAttributionsAt(pos.offset);
+    for (final attr in existing.whereType<T>()) {
+      _editor.submit(RemoveAttributionRequest(
+        selection: sel,
+        attribution: attr,
+      ));
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // JSON save/load
   // ---------------------------------------------------------------------------
@@ -382,11 +481,32 @@ class _DocumentDemoState extends State<DocumentDemo> {
     return {'nodes': nodes};
   }
 
+  /// Serializes attribution spans from [text] into [map] under the key
+  /// `'attributions'`.
+  ///
+  /// Parameterized attributions ([FontFamilyAttribution], [FontSizeAttribution],
+  /// [TextColorAttribution], [BackgroundColorAttribution]) include an additional
+  /// `'value'` key so the round-trip can reconstruct the correct type.
   void _addAttributionSpans(Map<String, Object?> map, AttributedText text) {
     final spans = text.getAttributionSpansInRange(0, text.text.length);
     if (spans.isEmpty) return;
     map['attributions'] = spans.map((s) {
-      return {'attribution': s.attribution.id, 'start': s.start, 'end': s.end};
+      final spanMap = <String, Object?>{
+        'attribution': s.attribution.id,
+        'start': s.start,
+        'end': s.end,
+      };
+      final attr = s.attribution;
+      if (attr is FontFamilyAttribution) {
+        spanMap['value'] = attr.fontFamily;
+      } else if (attr is FontSizeAttribution) {
+        spanMap['value'] = attr.fontSize;
+      } else if (attr is TextColorAttribution) {
+        spanMap['value'] = attr.colorValue;
+      } else if (attr is BackgroundColorAttribution) {
+        spanMap['value'] = attr.colorValue;
+      }
+      return spanMap;
     }).toList();
   }
 
@@ -518,6 +638,12 @@ class _DocumentDemoState extends State<DocumentDemo> {
     _document.reset(nodes);
   }
 
+  /// Deserializes an [AttributedText] from a JSON node map.
+  ///
+  /// Handles both plain [NamedAttribution]s (stored with only an `'attribution'`
+  /// id key) and the four parameterized attribution types
+  /// ([FontFamilyAttribution], [FontSizeAttribution], [TextColorAttribution],
+  /// [BackgroundColorAttribution]), which include a `'value'` key.
   AttributedText _textFromJson(Map<String, Object?> map) {
     final text = AttributedText(map['text'] as String? ?? '');
     final attributions = map['attributions'] as List<Object?>?;
@@ -527,7 +653,20 @@ class _DocumentDemoState extends State<DocumentDemo> {
         final attrId = span['attribution'] as String;
         final start = span['start'] as int;
         final end = span['end'] as int;
-        text.applyAttribution(NamedAttribution(attrId), start, end);
+        final Attribution attribution;
+        switch (attrId) {
+          case 'fontFamily':
+            attribution = FontFamilyAttribution(span['value'] as String);
+          case 'fontSize':
+            attribution = FontSizeAttribution((span['value'] as num).toDouble());
+          case 'textColor':
+            attribution = TextColorAttribution(span['value'] as int);
+          case 'backgroundColor':
+            attribution = BackgroundColorAttribution(span['value'] as int);
+          default:
+            attribution = NamedAttribution(attrId);
+        }
+        text.applyAttribution(attribution, start, end);
       }
     }
     return text;
@@ -605,13 +744,23 @@ class _DocumentDemoState extends State<DocumentDemo> {
           child: SizedBox(height: 24, child: VerticalDivider(width: 1)),
         );
 
+    // Resolve current parameterized attribution values at the selection base.
+    final currentFontFamily = _getAttributionValue<FontFamilyAttribution>()?.fontFamily;
+    final currentFontSize = _getAttributionValue<FontSizeAttribution>()?.fontSize;
+    final activeTextColor = _getAttributionValue<TextColorAttribution>()?.colorValue;
+    final activeBgColor = _getAttributionValue<BackgroundColorAttribution>()?.colorValue;
+
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLow,
         border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: Row(
+      // Use a Wrap so the toolbar reflows onto a second line on narrow screens.
+      child: Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 0,
+        runSpacing: 4,
         children: [
           // --- File actions ---
           IconButton(
@@ -681,6 +830,197 @@ class _DocumentDemoState extends State<DocumentDemo> {
             isActive: _isAttributionActive(NamedAttribution.code),
             onPressed:
                 hasExpandedSelection ? () => _toggleAttribution(NamedAttribution.code) : null,
+          ),
+          divider(),
+          // --- Font family dropdown ---
+          SizedBox(
+            width: 120,
+            height: 32,
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String?>(
+                value: currentFontFamily,
+                hint: const Text('Font', style: TextStyle(fontSize: 12)),
+                style: const TextStyle(fontSize: 12),
+                isDense: true,
+                isExpanded: true,
+                onChanged: hasExpandedSelection
+                    ? (value) {
+                        if (value == null) {
+                          _clearParameterizedAttribution<FontFamilyAttribution>();
+                        } else {
+                          _applyParameterizedAttribution(FontFamilyAttribution(value));
+                        }
+                      }
+                    : null,
+                items: const [
+                  DropdownMenuItem<String?>(value: null, child: Text('Default')),
+                  DropdownMenuItem<String?>(value: 'serif', child: Text('Serif')),
+                  DropdownMenuItem<String?>(value: 'monospace', child: Text('Mono')),
+                  DropdownMenuItem<String?>(value: 'cursive', child: Text('Cursive')),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          // --- Font size dropdown ---
+          SizedBox(
+            width: 80,
+            height: 32,
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<double?>(
+                value: currentFontSize,
+                hint: const Text('Size', style: TextStyle(fontSize: 12)),
+                style: const TextStyle(fontSize: 12),
+                isDense: true,
+                isExpanded: true,
+                onChanged: hasExpandedSelection
+                    ? (value) {
+                        if (value == null) {
+                          _clearParameterizedAttribution<FontSizeAttribution>();
+                        } else {
+                          _applyParameterizedAttribution(FontSizeAttribution(value));
+                        }
+                      }
+                    : null,
+                items: const [
+                  DropdownMenuItem<double?>(value: null, child: Text('Default')),
+                  DropdownMenuItem<double?>(value: 12, child: Text('12')),
+                  DropdownMenuItem<double?>(value: 14, child: Text('14')),
+                  DropdownMenuItem<double?>(value: 16, child: Text('16')),
+                  DropdownMenuItem<double?>(value: 18, child: Text('18')),
+                  DropdownMenuItem<double?>(value: 24, child: Text('24')),
+                  DropdownMenuItem<double?>(value: 32, child: Text('32')),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          divider(),
+          // --- Text color popup ---
+          Tooltip(
+            message: 'Text color',
+            child: PopupMenuButton<int?>(
+              enabled: hasExpandedSelection,
+              offset: const Offset(0, 36),
+              onSelected: (value) {
+                if (value == null) {
+                  _clearParameterizedAttribution<TextColorAttribution>();
+                } else {
+                  _applyParameterizedAttribution(TextColorAttribution(value));
+                }
+              },
+              itemBuilder: (ctx) => [
+                const PopupMenuItem<int?>(
+                  value: null,
+                  child: Text('Default'),
+                ),
+                for (final entry in _colorPresets.entries)
+                  PopupMenuItem<int?>(
+                    value: entry.key,
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 16,
+                          height: 16,
+                          decoration: BoxDecoration(
+                            color: Color(entry.key),
+                            border: Border.all(
+                              color: Colors.black26,
+                              width: 0.5,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(entry.value),
+                      ],
+                    ),
+                  ),
+              ],
+              child: SizedBox(
+                height: 32,
+                width: 32,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.format_color_text,
+                      size: 18,
+                      color: hasExpandedSelection
+                          ? colorScheme.onSurface
+                          : colorScheme.onSurface.withValues(alpha: 0.38),
+                    ),
+                    Container(
+                      height: 3,
+                      width: 16,
+                      color: activeTextColor != null ? Color(activeTextColor) : Colors.transparent,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // --- Background color popup ---
+          Tooltip(
+            message: 'Background color',
+            child: PopupMenuButton<int?>(
+              enabled: hasExpandedSelection,
+              offset: const Offset(0, 36),
+              onSelected: (value) {
+                if (value == null) {
+                  _clearParameterizedAttribution<BackgroundColorAttribution>();
+                } else {
+                  _applyParameterizedAttribution(BackgroundColorAttribution(value));
+                }
+              },
+              itemBuilder: (ctx) => [
+                const PopupMenuItem<int?>(
+                  value: null,
+                  child: Text('Default'),
+                ),
+                for (final entry in _colorPresets.entries)
+                  PopupMenuItem<int?>(
+                    value: entry.key,
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 16,
+                          height: 16,
+                          decoration: BoxDecoration(
+                            color: Color(entry.key),
+                            border: Border.all(
+                              color: Colors.black26,
+                              width: 0.5,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(entry.value),
+                      ],
+                    ),
+                  ),
+              ],
+              child: SizedBox(
+                height: 32,
+                width: 32,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.format_color_fill,
+                      size: 18,
+                      color: hasExpandedSelection
+                          ? colorScheme.onSurface
+                          : colorScheme.onSurface.withValues(alpha: 0.38),
+                    ),
+                    Container(
+                      height: 3,
+                      width: 16,
+                      color: activeBgColor != null ? Color(activeBgColor) : Colors.transparent,
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
           divider(),
           // --- Lists ---
