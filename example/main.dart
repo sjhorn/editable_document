@@ -128,7 +128,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
       'Font family, font size, text color, and background color '
       'attributions are supported. Select this text and try the new toolbar controls.',
     )
-      ..applyAttribution(const FontFamilyAttribution('serif'), 0, 10)
+      ..applyAttribution(const FontFamilyAttribution('Georgia'), 0, 10)
       ..applyAttribution(const FontSizeAttribution(18.0), 13, 21)
       ..applyAttribution(const TextColorAttribution(0xFF2196F3), 24, 33)
       ..applyAttribution(const BackgroundColorAttribution(0xFFFF9800), 38, 53);
@@ -734,6 +734,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
     final colorScheme = Theme.of(context).colorScheme;
 
     const iconSize = 18.0;
+    final bodySmall = Theme.of(context).textTheme.bodySmall;
     final buttonStyle = IconButton.styleFrom(
       minimumSize: const Size(32, 32),
       padding: const EdgeInsets.all(4),
@@ -756,330 +757,339 @@ class _DocumentDemoState extends State<DocumentDemo> {
         border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      // Use a Wrap so the toolbar reflows onto a second line on narrow screens.
-      child: Wrap(
-        crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: 0,
-        runSpacing: 4,
-        children: [
-          // --- File actions ---
-          IconButton(
-            icon: const Icon(Icons.save_outlined, size: iconSize),
-            onPressed: _showSaveDialog,
-            tooltip: 'Save as JSON',
-            style: buttonStyle,
-          ),
-          IconButton(
-            icon: const Icon(Icons.file_open_outlined, size: iconSize),
-            onPressed: _showLoadDialog,
-            tooltip: 'Load from JSON',
-            style: buttonStyle,
-          ),
-          divider(),
-          // --- Undo / Redo ---
-          IconButton(
-            icon: const Icon(Icons.undo, size: iconSize),
-            onPressed: _editor.canUndo ? () => setState(() => _editor.undo()) : null,
-            tooltip: 'Undo',
-            style: buttonStyle,
-          ),
-          IconButton(
-            icon: const Icon(Icons.redo, size: iconSize),
-            onPressed: _editor.canRedo ? () => setState(() => _editor.redo()) : null,
-            tooltip: 'Redo',
-            style: buttonStyle,
-          ),
-          divider(),
-          // --- Block type dropdown ---
-          _buildBlockTypeDropdown(isOnParagraph, selectedNode),
-          const SizedBox(width: 8),
-          divider(),
-          // --- Inline formatting ---
-          _FormatToggle(
-            icon: Icons.format_bold,
-            tooltip: 'Bold',
-            isActive: _isAttributionActive(NamedAttribution.bold),
-            onPressed:
-                hasExpandedSelection ? () => _toggleAttribution(NamedAttribution.bold) : null,
-          ),
-          _FormatToggle(
-            icon: Icons.format_italic,
-            tooltip: 'Italic',
-            isActive: _isAttributionActive(NamedAttribution.italics),
-            onPressed:
-                hasExpandedSelection ? () => _toggleAttribution(NamedAttribution.italics) : null,
-          ),
-          _FormatToggle(
-            icon: Icons.format_underlined,
-            tooltip: 'Underline',
-            isActive: _isAttributionActive(NamedAttribution.underline),
-            onPressed:
-                hasExpandedSelection ? () => _toggleAttribution(NamedAttribution.underline) : null,
-          ),
-          _FormatToggle(
-            icon: Icons.strikethrough_s,
-            tooltip: 'Strikethrough',
-            isActive: _isAttributionActive(NamedAttribution.strikethrough),
-            onPressed: hasExpandedSelection
-                ? () => _toggleAttribution(NamedAttribution.strikethrough)
-                : null,
-          ),
-          _FormatToggle(
-            icon: Icons.code,
-            tooltip: 'Inline code',
-            isActive: _isAttributionActive(NamedAttribution.code),
-            onPressed:
-                hasExpandedSelection ? () => _toggleAttribution(NamedAttribution.code) : null,
-          ),
-          divider(),
-          // --- Font family dropdown ---
-          SizedBox(
-            width: 120,
-            height: 32,
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String?>(
-                value: currentFontFamily,
-                hint: const Text('Font', style: TextStyle(fontSize: 12)),
-                style: const TextStyle(fontSize: 12),
-                isDense: true,
-                isExpanded: true,
-                onChanged: hasExpandedSelection
-                    ? (value) {
-                        if (value == null) {
-                          _clearParameterizedAttribution<FontFamilyAttribution>();
-                        } else {
-                          _applyParameterizedAttribution(FontFamilyAttribution(value));
-                        }
-                      }
-                    : null,
-                items: const [
-                  DropdownMenuItem<String?>(value: null, child: Text('Default')),
-                  DropdownMenuItem<String?>(value: 'serif', child: Text('Serif')),
-                  DropdownMenuItem<String?>(value: 'monospace', child: Text('Mono')),
-                  DropdownMenuItem<String?>(value: 'cursive', child: Text('Cursive')),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 4),
-          // --- Font size dropdown ---
-          SizedBox(
-            width: 80,
-            height: 32,
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<double?>(
-                value: currentFontSize,
-                hint: const Text('Size', style: TextStyle(fontSize: 12)),
-                style: const TextStyle(fontSize: 12),
-                isDense: true,
-                isExpanded: true,
-                onChanged: hasExpandedSelection
-                    ? (value) {
-                        if (value == null) {
-                          _clearParameterizedAttribution<FontSizeAttribution>();
-                        } else {
-                          _applyParameterizedAttribution(FontSizeAttribution(value));
-                        }
-                      }
-                    : null,
-                items: const [
-                  DropdownMenuItem<double?>(value: null, child: Text('Default')),
-                  DropdownMenuItem<double?>(value: 12, child: Text('12')),
-                  DropdownMenuItem<double?>(value: 14, child: Text('14')),
-                  DropdownMenuItem<double?>(value: 16, child: Text('16')),
-                  DropdownMenuItem<double?>(value: 18, child: Text('18')),
-                  DropdownMenuItem<double?>(value: 24, child: Text('24')),
-                  DropdownMenuItem<double?>(value: 32, child: Text('32')),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 4),
-          divider(),
-          // --- Text color popup ---
-          Tooltip(
-            message: 'Text color',
-            child: PopupMenuButton<int?>(
-              enabled: hasExpandedSelection,
-              offset: const Offset(0, 36),
-              onSelected: (value) {
-                if (value == null) {
-                  _clearParameterizedAttribution<TextColorAttribution>();
-                } else {
-                  _applyParameterizedAttribution(TextColorAttribution(value));
-                }
-              },
-              itemBuilder: (ctx) => [
-                const PopupMenuItem<int?>(
-                  value: null,
-                  child: Text('Default'),
+      child: LayoutBuilder(
+        builder: (context, constraints) => SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minWidth: constraints.maxWidth),
+            child: Row(
+              children: [
+                // --- File actions ---
+                IconButton(
+                  icon: const Icon(Icons.save_outlined, size: iconSize),
+                  onPressed: _showSaveDialog,
+                  tooltip: 'Save as JSON',
+                  style: buttonStyle,
                 ),
-                for (final entry in _colorPresets.entries)
-                  PopupMenuItem<int?>(
-                    value: entry.key,
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 16,
-                          height: 16,
-                          decoration: BoxDecoration(
-                            color: Color(entry.key),
-                            border: Border.all(
-                              color: Colors.black26,
-                              width: 0.5,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(entry.value),
+                IconButton(
+                  icon: const Icon(Icons.file_open_outlined, size: iconSize),
+                  onPressed: _showLoadDialog,
+                  tooltip: 'Load from JSON',
+                  style: buttonStyle,
+                ),
+                divider(),
+                // --- Undo / Redo ---
+                IconButton(
+                  icon: const Icon(Icons.undo, size: iconSize),
+                  onPressed: _editor.canUndo ? () => setState(() => _editor.undo()) : null,
+                  tooltip: 'Undo',
+                  style: buttonStyle,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.redo, size: iconSize),
+                  onPressed: _editor.canRedo ? () => setState(() => _editor.redo()) : null,
+                  tooltip: 'Redo',
+                  style: buttonStyle,
+                ),
+                divider(),
+                // --- Block type dropdown ---
+                _buildBlockTypeDropdown(isOnParagraph, selectedNode),
+                const SizedBox(width: 8),
+                divider(),
+                // --- Inline formatting ---
+                _FormatToggle(
+                  icon: Icons.format_bold,
+                  tooltip: 'Bold',
+                  isActive: _isAttributionActive(NamedAttribution.bold),
+                  onPressed:
+                      hasExpandedSelection ? () => _toggleAttribution(NamedAttribution.bold) : null,
+                ),
+                _FormatToggle(
+                  icon: Icons.format_italic,
+                  tooltip: 'Italic',
+                  isActive: _isAttributionActive(NamedAttribution.italics),
+                  onPressed: hasExpandedSelection
+                      ? () => _toggleAttribution(NamedAttribution.italics)
+                      : null,
+                ),
+                _FormatToggle(
+                  icon: Icons.format_underlined,
+                  tooltip: 'Underline',
+                  isActive: _isAttributionActive(NamedAttribution.underline),
+                  onPressed: hasExpandedSelection
+                      ? () => _toggleAttribution(NamedAttribution.underline)
+                      : null,
+                ),
+                _FormatToggle(
+                  icon: Icons.strikethrough_s,
+                  tooltip: 'Strikethrough',
+                  isActive: _isAttributionActive(NamedAttribution.strikethrough),
+                  onPressed: hasExpandedSelection
+                      ? () => _toggleAttribution(NamedAttribution.strikethrough)
+                      : null,
+                ),
+                _FormatToggle(
+                  icon: Icons.code,
+                  tooltip: 'Inline code',
+                  isActive: _isAttributionActive(NamedAttribution.code),
+                  onPressed:
+                      hasExpandedSelection ? () => _toggleAttribution(NamedAttribution.code) : null,
+                ),
+                divider(),
+                // --- Font family dropdown ---
+                SizedBox(
+                  width: 120,
+                  height: 32,
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String?>(
+                      value: currentFontFamily,
+                      hint: Text('Font', style: bodySmall),
+                      style: bodySmall,
+                      isDense: true,
+                      isExpanded: true,
+                      onChanged: hasExpandedSelection
+                          ? (value) {
+                              if (value == null) {
+                                _clearParameterizedAttribution<FontFamilyAttribution>();
+                              } else {
+                                _applyParameterizedAttribution(FontFamilyAttribution(value));
+                              }
+                            }
+                          : null,
+                      items: const [
+                        DropdownMenuItem<String?>(value: null, child: Text('Default')),
+                        DropdownMenuItem<String?>(value: 'Georgia', child: Text('Serif')),
+                        DropdownMenuItem<String?>(value: 'Courier New', child: Text('Mono')),
+                        DropdownMenuItem<String?>(value: 'Comic Sans MS', child: Text('Casual')),
                       ],
                     ),
                   ),
-              ],
-              child: SizedBox(
-                height: 32,
-                width: 32,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.format_color_text,
-                      size: 18,
-                      color: hasExpandedSelection
-                          ? colorScheme.onSurface
-                          : colorScheme.onSurface.withValues(alpha: 0.38),
-                    ),
-                    Container(
-                      height: 3,
-                      width: 16,
-                      color: activeTextColor != null ? Color(activeTextColor) : Colors.transparent,
-                    ),
-                  ],
                 ),
-              ),
-            ),
-          ),
-          // --- Background color popup ---
-          Tooltip(
-            message: 'Background color',
-            child: PopupMenuButton<int?>(
-              enabled: hasExpandedSelection,
-              offset: const Offset(0, 36),
-              onSelected: (value) {
-                if (value == null) {
-                  _clearParameterizedAttribution<BackgroundColorAttribution>();
-                } else {
-                  _applyParameterizedAttribution(BackgroundColorAttribution(value));
-                }
-              },
-              itemBuilder: (ctx) => [
-                const PopupMenuItem<int?>(
-                  value: null,
-                  child: Text('Default'),
-                ),
-                for (final entry in _colorPresets.entries)
-                  PopupMenuItem<int?>(
-                    value: entry.key,
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 16,
-                          height: 16,
-                          decoration: BoxDecoration(
-                            color: Color(entry.key),
-                            border: Border.all(
-                              color: Colors.black26,
-                              width: 0.5,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(entry.value),
+                const SizedBox(width: 4),
+                // --- Font size dropdown ---
+                SizedBox(
+                  width: 80,
+                  height: 32,
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<double?>(
+                      value: currentFontSize,
+                      hint: Text('Size', style: bodySmall),
+                      style: bodySmall,
+                      isDense: true,
+                      isExpanded: true,
+                      onChanged: hasExpandedSelection
+                          ? (value) {
+                              if (value == null) {
+                                _clearParameterizedAttribution<FontSizeAttribution>();
+                              } else {
+                                _applyParameterizedAttribution(FontSizeAttribution(value));
+                              }
+                            }
+                          : null,
+                      items: const [
+                        DropdownMenuItem<double?>(value: null, child: Text('Default')),
+                        DropdownMenuItem<double?>(value: 12, child: Text('12')),
+                        DropdownMenuItem<double?>(value: 14, child: Text('14')),
+                        DropdownMenuItem<double?>(value: 16, child: Text('16')),
+                        DropdownMenuItem<double?>(value: 18, child: Text('18')),
+                        DropdownMenuItem<double?>(value: 24, child: Text('24')),
+                        DropdownMenuItem<double?>(value: 32, child: Text('32')),
                       ],
                     ),
                   ),
-              ],
-              child: SizedBox(
-                height: 32,
-                width: 32,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.format_color_fill,
-                      size: 18,
-                      color: hasExpandedSelection
-                          ? colorScheme.onSurface
-                          : colorScheme.onSurface.withValues(alpha: 0.38),
-                    ),
-                    Container(
-                      height: 3,
-                      width: 16,
-                      color: activeBgColor != null ? Color(activeBgColor) : Colors.transparent,
-                    ),
-                  ],
                 ),
-              ),
-            ),
-          ),
-          divider(),
-          // --- Lists ---
-          IconButton(
-            icon: const Icon(Icons.format_list_bulleted, size: iconSize),
-            onPressed: hasCursor
-                ? () => _insertNode(ListItemNode(
-                      id: _newId(),
-                      text: AttributedText(),
-                      type: ListItemType.unordered,
-                    ))
-                : null,
-            tooltip: 'Bullet list',
-            style: buttonStyle,
-          ),
-          IconButton(
-            icon: const Icon(Icons.format_list_numbered, size: iconSize),
-            onPressed: hasCursor
-                ? () => _insertNode(ListItemNode(
-                      id: _newId(),
-                      text: AttributedText(),
-                      type: ListItemType.ordered,
-                    ))
-                : null,
-            tooltip: 'Numbered list',
-            style: buttonStyle,
-          ),
-          divider(),
-          // --- Insert menu ---
-          _buildInsertMenu(hasCursor),
-          divider(),
-          // --- Line spacing ---
-          PopupMenuButton<double>(
-            tooltip: 'Line spacing',
-            offset: const Offset(0, 36),
-            onSelected: (value) => setState(() => _blockSpacing = value),
-            itemBuilder: (context) => [
-              for (final entry in {0.0: 'Single', 6.0: '1.5 lines', 12.0: 'Double'}.entries)
-                PopupMenuItem(
-                  value: entry.key,
-                  child: Row(
-                    children: [
-                      if (_blockSpacing == entry.key)
-                        const Icon(Icons.check, size: 16)
-                      else
-                        const SizedBox(width: 16),
-                      const SizedBox(width: 8),
-                      Text(entry.value),
+                const SizedBox(width: 4),
+                divider(),
+                // --- Text color popup ---
+                Tooltip(
+                  message: 'Text color',
+                  child: PopupMenuButton<int?>(
+                    enabled: hasExpandedSelection,
+                    offset: const Offset(0, 36),
+                    onSelected: (value) {
+                      if (value == null) {
+                        _clearParameterizedAttribution<TextColorAttribution>();
+                      } else {
+                        _applyParameterizedAttribution(TextColorAttribution(value));
+                      }
+                    },
+                    itemBuilder: (ctx) => [
+                      const PopupMenuItem<int?>(
+                        value: null,
+                        child: Text('Default'),
+                      ),
+                      for (final entry in _colorPresets.entries)
+                        PopupMenuItem<int?>(
+                          value: entry.key,
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 16,
+                                height: 16,
+                                decoration: BoxDecoration(
+                                  color: Color(entry.key),
+                                  border: Border.all(
+                                    color: Colors.black26,
+                                    width: 0.5,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(entry.value),
+                            ],
+                          ),
+                        ),
                     ],
+                    child: SizedBox(
+                      height: 32,
+                      width: 32,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.format_color_text,
+                            size: 18,
+                            color: hasExpandedSelection
+                                ? colorScheme.onSurface
+                                : colorScheme.onSurface.withValues(alpha: 0.38),
+                          ),
+                          Container(
+                            height: 3,
+                            width: 16,
+                            color: activeTextColor != null
+                                ? Color(activeTextColor)
+                                : Colors.transparent,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-            ],
-            child: const SizedBox(
-              height: 32,
-              width: 32,
-              child: Icon(Icons.format_line_spacing, size: 18),
+                // --- Background color popup ---
+                Tooltip(
+                  message: 'Background color',
+                  child: PopupMenuButton<int?>(
+                    enabled: hasExpandedSelection,
+                    offset: const Offset(0, 36),
+                    onSelected: (value) {
+                      if (value == null) {
+                        _clearParameterizedAttribution<BackgroundColorAttribution>();
+                      } else {
+                        _applyParameterizedAttribution(BackgroundColorAttribution(value));
+                      }
+                    },
+                    itemBuilder: (ctx) => [
+                      const PopupMenuItem<int?>(
+                        value: null,
+                        child: Text('Default'),
+                      ),
+                      for (final entry in _colorPresets.entries)
+                        PopupMenuItem<int?>(
+                          value: entry.key,
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 16,
+                                height: 16,
+                                decoration: BoxDecoration(
+                                  color: Color(entry.key),
+                                  border: Border.all(
+                                    color: Colors.black26,
+                                    width: 0.5,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(entry.value),
+                            ],
+                          ),
+                        ),
+                    ],
+                    child: SizedBox(
+                      height: 32,
+                      width: 32,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.format_color_fill,
+                            size: 18,
+                            color: hasExpandedSelection
+                                ? colorScheme.onSurface
+                                : colorScheme.onSurface.withValues(alpha: 0.38),
+                          ),
+                          Container(
+                            height: 3,
+                            width: 16,
+                            color:
+                                activeBgColor != null ? Color(activeBgColor) : Colors.transparent,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                divider(),
+                // --- Lists ---
+                IconButton(
+                  icon: const Icon(Icons.format_list_bulleted, size: iconSize),
+                  onPressed: hasCursor
+                      ? () => _insertNode(ListItemNode(
+                            id: _newId(),
+                            text: AttributedText(),
+                            type: ListItemType.unordered,
+                          ))
+                      : null,
+                  tooltip: 'Bullet list',
+                  style: buttonStyle,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.format_list_numbered, size: iconSize),
+                  onPressed: hasCursor
+                      ? () => _insertNode(ListItemNode(
+                            id: _newId(),
+                            text: AttributedText(),
+                            type: ListItemType.ordered,
+                          ))
+                      : null,
+                  tooltip: 'Numbered list',
+                  style: buttonStyle,
+                ),
+                divider(),
+                // --- Insert menu ---
+                _buildInsertMenu(hasCursor),
+                divider(),
+                // --- Line spacing ---
+                PopupMenuButton<double>(
+                  tooltip: 'Line spacing',
+                  offset: const Offset(0, 36),
+                  onSelected: (value) => setState(() => _blockSpacing = value),
+                  itemBuilder: (context) => [
+                    for (final entry in {0.0: 'Single', 6.0: '1.5 lines', 12.0: 'Double'}.entries)
+                      PopupMenuItem(
+                        value: entry.key,
+                        child: Row(
+                          children: [
+                            if (_blockSpacing == entry.key)
+                              const Icon(Icons.check, size: 16)
+                            else
+                              const SizedBox(width: 16),
+                            const SizedBox(width: 8),
+                            Text(entry.value),
+                          ],
+                        ),
+                      ),
+                  ],
+                  child: const SizedBox(
+                    height: 32,
+                    width: 32,
+                    child: Icon(Icons.format_line_spacing, size: 18),
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }

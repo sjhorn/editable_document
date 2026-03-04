@@ -103,9 +103,11 @@ void main() {
 
       await tester.pumpWidget(
         _wrap(
-          EditableDocument(
-            controller: controller,
-            focusNode: focusNode,
+          SingleChildScrollView(
+            child: EditableDocument(
+              controller: controller,
+              focusNode: focusNode,
+            ),
           ),
         ),
       );
