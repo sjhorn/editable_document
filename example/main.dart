@@ -1055,6 +1055,26 @@ class _DocumentDemoState extends State<DocumentDemo> {
                   tooltip: 'Numbered list',
                   style: buttonStyle,
                 ),
+                IconButton(
+                  icon: const Icon(Icons.format_indent_increase, size: iconSize),
+                  onPressed: selectedNode is ListItemNode
+                      ? () => _editor.submit(
+                            IndentListItemRequest(nodeId: selectedNode.id),
+                          )
+                      : null,
+                  tooltip: 'Indent',
+                  style: buttonStyle,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.format_indent_decrease, size: iconSize),
+                  onPressed: selectedNode is ListItemNode && selectedNode.indent > 0
+                      ? () => _editor.submit(
+                            UnindentListItemRequest(nodeId: selectedNode.id),
+                          )
+                      : null,
+                  tooltip: 'Unindent',
+                  style: buttonStyle,
+                ),
                 divider(),
                 // --- Insert menu ---
                 _buildInsertMenu(hasCursor),
