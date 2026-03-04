@@ -4,6 +4,8 @@
 /// implementation used for paragraph, list-item, and code-block nodes.
 library;
 
+import 'dart:ui' as ui show BoxHeightStyle;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 
@@ -417,6 +419,23 @@ class RenderTextBlock extends RenderDocumentBlock {
     final tp = position as TextNodePosition;
     final textPosition = TextPosition(offset: tp.offset, affinity: tp.affinity);
     final caretOffset = _textPainter.getOffsetForCaret(textPosition, Rect.zero);
+
+    // Use a 1-char selection with BoxHeightStyle.max to get the actual line
+    // height, which accounts for mixed fonts on the same line.
+    final textLength = _text.text.length;
+    if (textLength > 0) {
+      final start = tp.offset >= textLength ? textLength - 1 : tp.offset;
+      final end = start + 1;
+      final boxes = _textPainter.getBoxesForSelection(
+        TextSelection(baseOffset: start, extentOffset: end),
+        boxHeightStyle: ui.BoxHeightStyle.max,
+      );
+      if (boxes.isNotEmpty) {
+        final box = boxes.first.toRect();
+        return Rect.fromLTWH(caretOffset.dx, box.top, 0, box.height);
+      }
+    }
+
     return Rect.fromLTWH(caretOffset.dx, caretOffset.dy, 0, _textPainter.preferredLineHeight);
   }
 
@@ -452,6 +471,7 @@ class RenderTextBlock extends RenderDocumentBlock {
 
     final boxes = _textPainter.getBoxesForSelection(
       TextSelection(baseOffset: start, extentOffset: end),
+      boxHeightStyle: ui.BoxHeightStyle.max,
     );
     return boxes.map((box) => box.toRect()).toList();
   }
