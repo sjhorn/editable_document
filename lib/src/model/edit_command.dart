@@ -152,6 +152,40 @@ class DeleteContentCommand extends EditCommand {
             ),
           ),
         );
+      } else {
+        // Binary / block node (e.g. HorizontalRuleNode, ImageNode) — delete
+        // the whole node and move the selection to the nearest surviving node.
+        final prevNode = doc.nodeBefore(startPos.nodeId);
+        final nextNode = doc.nodeAfter(startPos.nodeId);
+
+        final nodeIndex = doc.getNodeIndexById(startPos.nodeId);
+        doc.deleteNode(startPos.nodeId);
+        events.add(NodeDeleted(nodeId: startPos.nodeId, index: nodeIndex));
+
+        if (prevNode is TextNode) {
+          // Collapse to the end of the preceding text node.
+          context.controller.setSelection(
+            DocumentSelection.collapsed(
+              position: DocumentPosition(
+                nodeId: prevNode.id,
+                nodePosition: TextNodePosition(offset: prevNode.text.length),
+              ),
+            ),
+          );
+        } else if (nextNode != null) {
+          // No text node before — collapse to the start of the next node.
+          context.controller.setSelection(
+            DocumentSelection.collapsed(
+              position: DocumentPosition(
+                nodeId: nextNode.id,
+                nodePosition: const TextNodePosition(offset: 0),
+              ),
+            ),
+          );
+        } else {
+          // Document is now empty — clear the selection entirely.
+          context.controller.clearSelection();
+        }
       }
     } else {
       // ----------------------------------------------------------------

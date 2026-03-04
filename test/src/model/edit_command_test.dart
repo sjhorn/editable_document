@@ -215,6 +215,146 @@ void main() {
       expect(doc.nodeById('p3'), isNull);
       expect(events.whereType<NodeDeleted>().length, 2);
     });
+
+    // -----------------------------------------------------------------------
+    // Single-node deletion of binary (non-text) nodes
+    // -----------------------------------------------------------------------
+
+    test(
+        '7. deletes HorizontalRuleNode — upstream to downstream — and moves selection '
+        'to end of preceding TextNode', () {
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('Hello')),
+        HorizontalRuleNode(id: 'hr1'),
+        ParagraphNode(id: 'p2', text: AttributedText('World')),
+      ]);
+      final ctx = _ctx(doc);
+      // Simulate "delete the horizontal rule" selection: entire binary node selected.
+      final sel = const DocumentSelection(
+        base: DocumentPosition(
+          nodeId: 'hr1',
+          nodePosition: BinaryNodePosition.upstream(),
+        ),
+        extent: DocumentPosition(
+          nodeId: 'hr1',
+          nodePosition: BinaryNodePosition.downstream(),
+        ),
+      );
+      final cmd = DeleteContentCommand(selection: sel);
+
+      final events = cmd.execute(ctx);
+
+      // The horizontal rule must be gone.
+      expect(doc.nodeById('hr1'), isNull);
+      expect(doc.nodeCount, 2);
+
+      // NodeDeleted event must be emitted.
+      expect(events.any((e) => e is NodeDeleted), isTrue);
+      final deleted = events.whereType<NodeDeleted>().first;
+      expect(deleted.nodeId, 'hr1');
+
+      // Selection collapses to end of the preceding TextNode ('Hello' = 5 chars).
+      final sel2 = ctx.controller.selection;
+      expect(sel2, isNotNull);
+      expect(sel2!.isCollapsed, isTrue);
+      expect(sel2.extent.nodeId, 'p1');
+      expect((sel2.extent.nodePosition as TextNodePosition).offset, 5);
+    });
+
+    test(
+        '8. deletes HorizontalRuleNode with no preceding node — selection moves '
+        'to start of next node', () {
+      final doc = MutableDocument([
+        HorizontalRuleNode(id: 'hr1'),
+        ParagraphNode(id: 'p1', text: AttributedText('After')),
+      ]);
+      final ctx = _ctx(doc);
+      final sel = const DocumentSelection(
+        base: DocumentPosition(
+          nodeId: 'hr1',
+          nodePosition: BinaryNodePosition.upstream(),
+        ),
+        extent: DocumentPosition(
+          nodeId: 'hr1',
+          nodePosition: BinaryNodePosition.downstream(),
+        ),
+      );
+      final cmd = DeleteContentCommand(selection: sel);
+
+      final events = cmd.execute(ctx);
+
+      expect(doc.nodeById('hr1'), isNull);
+      expect(doc.nodeCount, 1);
+      expect(events.any((e) => e is NodeDeleted), isTrue);
+
+      // Selection moves to offset 0 of the next node.
+      final sel2 = ctx.controller.selection;
+      expect(sel2, isNotNull);
+      expect(sel2!.isCollapsed, isTrue);
+      expect(sel2.extent.nodeId, 'p1');
+      expect((sel2.extent.nodePosition as TextNodePosition).offset, 0);
+    });
+
+    test('9. deletes the only node in the document — selection is cleared to null', () {
+      final doc = MutableDocument([
+        HorizontalRuleNode(id: 'hr1'),
+      ]);
+      final ctx = _ctx(doc);
+      final sel = const DocumentSelection(
+        base: DocumentPosition(
+          nodeId: 'hr1',
+          nodePosition: BinaryNodePosition.upstream(),
+        ),
+        extent: DocumentPosition(
+          nodeId: 'hr1',
+          nodePosition: BinaryNodePosition.downstream(),
+        ),
+      );
+      final cmd = DeleteContentCommand(selection: sel);
+
+      final events = cmd.execute(ctx);
+
+      expect(doc.nodeById('hr1'), isNull);
+      expect(doc.nodeCount, 0);
+      expect(events.any((e) => e is NodeDeleted), isTrue);
+
+      // Document is empty — selection is cleared.
+      expect(ctx.controller.selection, isNull);
+    });
+
+    test(
+        '10. deletes ImageNode — upstream to downstream — and moves selection '
+        'to end of preceding TextNode', () {
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('Caption')),
+        ImageNode(id: 'img1', imageUrl: 'https://example.com/img.png'),
+      ]);
+      final ctx = _ctx(doc);
+      final sel = const DocumentSelection(
+        base: DocumentPosition(
+          nodeId: 'img1',
+          nodePosition: BinaryNodePosition.upstream(),
+        ),
+        extent: DocumentPosition(
+          nodeId: 'img1',
+          nodePosition: BinaryNodePosition.downstream(),
+        ),
+      );
+      final cmd = DeleteContentCommand(selection: sel);
+
+      final events = cmd.execute(ctx);
+
+      expect(doc.nodeById('img1'), isNull);
+      expect(doc.nodeCount, 1);
+      expect(events.any((e) => e is NodeDeleted), isTrue);
+
+      // Selection collapses to end of 'Caption' (7 chars).
+      final sel2 = ctx.controller.selection;
+      expect(sel2, isNotNull);
+      expect(sel2!.isCollapsed, isTrue);
+      expect(sel2.extent.nodeId, 'p1');
+      expect((sel2.extent.nodePosition as TextNodePosition).offset, 7);
+    });
   });
 
   // =========================================================================
