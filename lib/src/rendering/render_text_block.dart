@@ -370,7 +370,12 @@ class RenderTextBlock extends RenderDocumentBlock {
   double get layoutTextHeight => _textPainter.height;
 
   void _layoutText(double maxWidth) {
-    _textPainter.text = _buildTextSpan();
+    final span = _buildTextSpan();
+    // TextSpan.== doesn't compare children, so TextPainter.text setter may
+    // skip the update when only child spans changed (e.g. a new font
+    // attribution). Clear first to guarantee the painter accepts the new span.
+    _textPainter.text = null;
+    _textPainter.text = span;
     _textPainter.layout(maxWidth: maxWidth);
   }
 

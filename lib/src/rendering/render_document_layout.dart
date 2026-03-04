@@ -8,6 +8,7 @@ library;
 import 'package:flutter/rendering.dart';
 
 import '../model/document_position.dart';
+import '../model/document_selection.dart';
 import '../model/node_position.dart';
 import 'render_document_block.dart';
 
@@ -369,6 +370,79 @@ class RenderDocumentLayout extends RenderBox
     final childData = component.parentData as DocumentBlockParentData;
     final localRect = component.getLocalRectForPosition(pos.nodePosition);
     return localRect.shift(childData.offset);
+  }
+
+  /// Returns the set of highlight [Rect]s (in this layout's local coordinates)
+  /// that represent [selection].
+  ///
+  /// ## Same-node selections
+  ///
+  /// When both [DocumentSelection.base] and [DocumentSelection.extent] refer to
+  /// the same node, the method delegates directly to
+  /// [RenderDocumentBlock.getEndpointsForSelection].  This uses
+  /// [TextPainter.getBoxesForSelection] internally, which correctly handles
+  /// mixed-font lines — avoiding the caret y-value comparison that fails when
+  /// different fonts produce slightly different ascent values.
+  ///
+  /// ## Cross-node selections
+  ///
+  /// When the selection spans multiple nodes the method falls back to computing
+  /// rects from the caret endpoint geometry:
+  ///
+  /// - **Top line**: from the base endpoint's left edge to the full layout width.
+  /// - **Intermediate gap** (when there is vertical space between the top line's
+  ///   bottom and the bottom line's top): a full-width rect.
+  /// - **Bottom line**: from the left edge to the extent endpoint's right edge.
+  ///
+  /// Returns an empty list when:
+  /// - [selection] is collapsed.
+  /// - Either endpoint's node cannot be found among this layout's children.
+  List<Rect> getRectsForSelection(DocumentSelection selection) {
+    if (selection.isCollapsed) return const [];
+
+    final base = selection.base;
+    final extent = selection.extent;
+
+    // -----------------------------------------------------------------------
+    // Same-node path — delegate to the component's getEndpointsForSelection.
+    // This correctly handles mixed fonts by using TextPainter.getBoxesForSelection.
+    // -----------------------------------------------------------------------
+    if (base.nodeId == extent.nodeId) {
+      final component = getComponentByNodeId(base.nodeId);
+      if (component == null) return const [];
+
+      final childData = component.parentData as DocumentBlockParentData;
+      final localRects = component.getEndpointsForSelection(base.nodePosition, extent.nodePosition);
+      return localRects.map((r) => r.shift(childData.offset)).toList();
+    }
+
+    // -----------------------------------------------------------------------
+    // Cross-node path — use caret endpoint rects with top/middle/bottom logic.
+    // -----------------------------------------------------------------------
+    final baseRect = getRectForDocumentPosition(base);
+    final extentRect = getRectForDocumentPosition(extent);
+
+    if (baseRect == null || extentRect == null) return const [];
+
+    // Determine which rect is upstream (top) and which is downstream (bottom).
+    final topRect = baseRect.top <= extentRect.top ? baseRect : extentRect;
+    final bottomRect = baseRect.top <= extentRect.top ? extentRect : baseRect;
+
+    final layoutWidth = size.width;
+    final rects = <Rect>[];
+
+    // Top line: from the upstream endpoint to the right edge.
+    rects.add(Rect.fromLTRB(topRect.left, topRect.top, layoutWidth, topRect.bottom));
+
+    // Intermediate lines (fill the gap between top and bottom, if any).
+    if (bottomRect.top > topRect.bottom + 1.0) {
+      rects.add(Rect.fromLTRB(0, topRect.bottom, layoutWidth, bottomRect.top));
+    }
+
+    // Bottom line: from the left edge to the downstream endpoint's right edge.
+    rects.add(Rect.fromLTRB(0, bottomRect.top, bottomRect.right, bottomRect.bottom));
+
+    return rects;
   }
 
   // ---------------------------------------------------------------------------

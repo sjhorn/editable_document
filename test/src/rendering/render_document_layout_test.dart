@@ -416,4 +416,173 @@ void main() {
       expect(prop.toDescription(), contains('8'));
     });
   });
+
+  group('RenderDocumentLayout — getRectsForSelection', () {
+    test('collapsed selection returns empty list', () {
+      final child = _textBlock('p1', 'Hello world');
+      final layout = _layout(children: [child], blockSpacing: 0.0);
+
+      const sel = DocumentSelection.collapsed(
+        position: DocumentPosition(
+          nodeId: 'p1',
+          nodePosition: TextNodePosition(offset: 3),
+        ),
+      );
+      final rects = layout.getRectsForSelection(sel);
+      expect(rects, isEmpty);
+    });
+
+    test('same-node selection returns rects from getEndpointsForSelection', () {
+      final child = _textBlock('p1', 'Hello world');
+      final layout = _layout(children: [child], blockSpacing: 0.0);
+
+      const sel = DocumentSelection(
+        base: DocumentPosition(
+          nodeId: 'p1',
+          nodePosition: TextNodePosition(offset: 0),
+        ),
+        extent: DocumentPosition(
+          nodeId: 'p1',
+          nodePosition: TextNodePosition(offset: 5),
+        ),
+      );
+      final rects = layout.getRectsForSelection(sel);
+      // Non-empty: the selection covers "Hello"
+      expect(rects, isNotEmpty);
+      // All rects must lie within the first child's y-range.
+      final childData = child.parentData as DocumentBlockParentData;
+      final childTop = childData.offset.dy;
+      final childBottom = childTop + child.size.height;
+      for (final r in rects) {
+        expect(r.top, greaterThanOrEqualTo(childTop));
+        expect(r.bottom, lessThanOrEqualTo(childBottom));
+      }
+    });
+
+    test('same-node selection with mixed font sizes returns correct per-span rects', () {
+      // Build a text block whose attributions produce two different font sizes.
+      // The key constraint: the returned rects must all have the same top
+      // (or nearly so) — meaning the multi-line path must NOT be taken for a
+      // selection that fits on one visual line.
+      final mixedText = AttributedText(
+        'AB',
+        [
+          const SpanMarker(
+            attribution: FontSizeAttribution(12),
+            offset: 0,
+            markerType: SpanMarkerType.start,
+          ),
+          const SpanMarker(
+            attribution: FontSizeAttribution(12),
+            offset: 0,
+            markerType: SpanMarkerType.end,
+          ),
+          const SpanMarker(
+            attribution: FontSizeAttribution(24),
+            offset: 1,
+            markerType: SpanMarkerType.start,
+          ),
+          const SpanMarker(
+            attribution: FontSizeAttribution(24),
+            offset: 1,
+            markerType: SpanMarkerType.end,
+          ),
+        ],
+      );
+      final child = RenderTextBlock(
+        nodeId: 'p1',
+        text: mixedText,
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      final layout = _layout(children: [child], blockSpacing: 0.0);
+
+      const sel = DocumentSelection(
+        base: DocumentPosition(
+          nodeId: 'p1',
+          nodePosition: TextNodePosition(offset: 0),
+        ),
+        extent: DocumentPosition(
+          nodeId: 'p1',
+          nodePosition: TextNodePosition(offset: 2),
+        ),
+      );
+      final rects = layout.getRectsForSelection(sel);
+      // Must return at least one rect without exploding.
+      expect(rects, isNotEmpty);
+      // All rects originate in the same child — verify they are within bounds.
+      final childData = child.parentData as DocumentBlockParentData;
+      final childTop = childData.offset.dy;
+      final childBottom = childTop + child.size.height;
+      for (final r in rects) {
+        expect(r.top, greaterThanOrEqualTo(childTop - 1.0)); // 1 px tolerance
+        expect(r.bottom, lessThanOrEqualTo(childBottom + 1.0));
+      }
+    });
+
+    test('cross-node selection returns rects covering both nodes', () {
+      final c1 = _textBlock('p1', 'First paragraph');
+      final c2 = _textBlock('p2', 'Second paragraph');
+      final layout = _layout(children: [c1, c2], blockSpacing: 0.0);
+
+      const sel = DocumentSelection(
+        base: DocumentPosition(
+          nodeId: 'p1',
+          nodePosition: TextNodePosition(offset: 0),
+        ),
+        extent: DocumentPosition(
+          nodeId: 'p2',
+          nodePosition: TextNodePosition(offset: 3),
+        ),
+      );
+      final rects = layout.getRectsForSelection(sel);
+      // At least two rects (one for each node's line).
+      expect(rects.length, greaterThanOrEqualTo(2));
+
+      // The top-most rect should be within p1 y-range.
+      final c1Data = c1.parentData as DocumentBlockParentData;
+      final topRect = rects.reduce((a, b) => a.top < b.top ? a : b);
+      expect(topRect.top, closeTo(c1Data.offset.dy, 2.0));
+
+      // The bottom-most rect should be within p2 y-range.
+      final c2Data = c2.parentData as DocumentBlockParentData;
+      final bottomRect = rects.reduce((a, b) => a.bottom > b.bottom ? a : b);
+      expect(bottomRect.bottom, greaterThanOrEqualTo(c2Data.offset.dy));
+    });
+
+    test('returns empty list when base node is not found', () {
+      final child = _textBlock('p1', 'Hello');
+      final layout = _layout(children: [child], blockSpacing: 0.0);
+
+      const sel = DocumentSelection(
+        base: DocumentPosition(
+          nodeId: 'unknown',
+          nodePosition: TextNodePosition(offset: 0),
+        ),
+        extent: DocumentPosition(
+          nodeId: 'p1',
+          nodePosition: TextNodePosition(offset: 3),
+        ),
+      );
+      final rects = layout.getRectsForSelection(sel);
+      expect(rects, isEmpty);
+    });
+
+    test('returns empty list when extent node is not found', () {
+      final child = _textBlock('p1', 'Hello');
+      final layout = _layout(children: [child], blockSpacing: 0.0);
+
+      const sel = DocumentSelection(
+        base: DocumentPosition(
+          nodeId: 'p1',
+          nodePosition: TextNodePosition(offset: 0),
+        ),
+        extent: DocumentPosition(
+          nodeId: 'unknown',
+          nodePosition: TextNodePosition(offset: 3),
+        ),
+      );
+      final rects = layout.getRectsForSelection(sel);
+      expect(rects, isEmpty);
+    });
+  });
 }

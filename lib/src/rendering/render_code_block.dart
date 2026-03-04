@@ -10,7 +10,7 @@ import '../model/node_position.dart';
 import 'render_text_block.dart';
 
 /// Internal padding applied on all sides of a [RenderCodeBlock].
-const double _kCodeBlockPadding = 12.0;
+const double _kCodeBlockPadding = 16.0;
 
 /// A [RenderTextBlock] with a monospace font and a filled background.
 ///
@@ -25,7 +25,7 @@ class RenderCodeBlock extends RenderTextBlock {
   /// [baseTextStyle] is the base style; its [TextStyle.fontFamily] is ignored
   /// and replaced with `'monospace'`.
   /// [backgroundColor] defaults to a light grey.
-  /// [padding] defaults to [_kCodeBlockPadding] (12 dp) on all sides.
+  /// [padding] defaults to [_kCodeBlockPadding] (16 dp) on all sides.
   RenderCodeBlock({
     required super.nodeId,
     required super.text,

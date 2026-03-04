@@ -6,8 +6,12 @@ library;
 
 import 'package:flutter/rendering.dart';
 
+import '../model/node_position.dart';
 import '../model/paragraph_node.dart';
 import 'render_text_block.dart';
+
+/// Total left inset for blockquote styling: border width (3 dp) + gap (8 dp).
+const double _kBlockquoteLeftInset = 11.0;
 
 /// A [RenderTextBlock] for paragraph nodes with heading-level styling.
 ///
@@ -113,6 +117,22 @@ class RenderParagraphBlock extends RenderTextBlock {
   }
 
   // ---------------------------------------------------------------------------
+  // Layout
+  // ---------------------------------------------------------------------------
+
+  @override
+  void performLayout() {
+    if (_blockType == ParagraphBlockType.blockquote) {
+      final textMaxWidth =
+          (constraints.maxWidth - _kBlockquoteLeftInset).clamp(0.0, double.infinity);
+      layoutText(textMaxWidth);
+      size = Size(constraints.maxWidth, layoutTextHeight);
+    } else {
+      super.performLayout();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Semantics
   // ---------------------------------------------------------------------------
 
@@ -159,8 +179,10 @@ class RenderParagraphBlock extends RenderTextBlock {
   void paint(PaintingContext context, Offset offset) {
     if (_blockType == ParagraphBlockType.blockquote) {
       _paintBlockquoteBorder(context.canvas, offset);
+      super.paint(context, offset.translate(_kBlockquoteLeftInset, 0));
+    } else {
+      super.paint(context, offset);
     }
-    super.paint(context, offset);
   }
 
   void _paintBlockquoteBorder(Canvas canvas, Offset offset) {
@@ -172,6 +194,38 @@ class RenderParagraphBlock extends RenderTextBlock {
       Rect.fromLTWH(offset.dx, offset.dy, borderWidth, size.height),
       paint,
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Geometry queries — adjust for blockquote inset
+  // ---------------------------------------------------------------------------
+
+  @override
+  Rect getLocalRectForPosition(NodePosition position) {
+    final inner = super.getLocalRectForPosition(position);
+    if (_blockType == ParagraphBlockType.blockquote) {
+      return inner.translate(_kBlockquoteLeftInset, 0);
+    }
+    return inner;
+  }
+
+  @override
+  NodePosition getPositionAtOffset(Offset localOffset) {
+    if (_blockType == ParagraphBlockType.blockquote) {
+      return super.getPositionAtOffset(
+        localOffset.translate(-_kBlockquoteLeftInset, 0),
+      );
+    }
+    return super.getPositionAtOffset(localOffset);
+  }
+
+  @override
+  List<Rect> getEndpointsForSelection(NodePosition base, NodePosition extent) {
+    final rects = super.getEndpointsForSelection(base, extent);
+    if (_blockType == ParagraphBlockType.blockquote) {
+      return rects.map((r) => r.translate(_kBlockquoteLeftInset, 0)).toList();
+    }
+    return rects;
   }
 
   // ---------------------------------------------------------------------------

@@ -159,47 +159,22 @@ class RenderDocumentSelectionHighlight extends RenderBox {
     }
   }
 
-  /// Computes the selection-highlight rectangles for [selection] by querying
-  /// [layout] for endpoint geometry.
+  /// Computes the selection-highlight rectangles for [selection] by delegating
+  /// to [RenderDocumentLayout.getRectsForSelection].
   ///
-  /// Returns an empty list when either endpoint rect cannot be resolved.
+  /// Same-node selections use [RenderDocumentBlock.getEndpointsForSelection]
+  /// (backed by [TextPainter.getBoxesForSelection]) so that mixed-font lines
+  /// produce correct per-character rects rather than full-line rects.
+  ///
+  /// Cross-node selections use caret endpoint geometry with the top-line,
+  /// optional-intermediate, bottom-line approach.
+  ///
+  /// Returns an empty list when either endpoint cannot be resolved.
   List<Rect> _computeSelectionRects(
     DocumentSelection selection,
     RenderDocumentLayout layout,
   ) {
-    final baseRect = layout.getRectForDocumentPosition(selection.base);
-    final extentRect = layout.getRectForDocumentPosition(selection.extent);
-
-    if (baseRect == null || extentRect == null) return const [];
-
-    // Determine which rect is upstream (top) and which is downstream (bottom).
-    final topRect = baseRect.top <= extentRect.top ? baseRect : extentRect;
-    final bottomRect = baseRect.top <= extentRect.top ? extentRect : baseRect;
-
-    final layoutWidth = layout.size.width;
-
-    // Single-line selection.
-    if ((topRect.top - bottomRect.top).abs() < 1.0) {
-      final left = topRect.left < bottomRect.right ? topRect.left : bottomRect.left;
-      final right = topRect.right > bottomRect.left ? topRect.right : bottomRect.right;
-      return [Rect.fromLTRB(left, topRect.top, right, topRect.bottom)];
-    }
-
-    // Multi-line selection.
-    final rects = <Rect>[];
-
-    // Top line: from the upstream endpoint to the right edge.
-    rects.add(Rect.fromLTRB(topRect.left, topRect.top, layoutWidth, topRect.bottom));
-
-    // Intermediate lines (fill the gap between top and bottom, if any).
-    if (bottomRect.top > topRect.bottom + 1.0) {
-      rects.add(Rect.fromLTRB(0, topRect.bottom, layoutWidth, bottomRect.top));
-    }
-
-    // Bottom line: from the left edge to the downstream endpoint's right edge.
-    rects.add(Rect.fromLTRB(0, bottomRect.top, bottomRect.right, bottomRect.bottom));
-
-    return rects;
+    return layout.getRectsForSelection(selection);
   }
 
   // ---------------------------------------------------------------------------

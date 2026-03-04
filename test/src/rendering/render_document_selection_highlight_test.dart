@@ -310,6 +310,102 @@ void main() {
     });
   });
 
+  group('RenderDocumentSelectionHighlight — mixed-font same-node selection', () {
+    // Regression test: with mixed font sizes on the same visual line,
+    // `getOffsetForCaret` can return different y-values, which previously
+    // caused the multi-line path to fire and paint full-width highlight rects.
+    // After the fix, same-node selections always delegate to
+    // `getEndpointsForSelection` (TextPainter.getBoxesForSelection), which
+    // correctly handles mixed fonts.
+
+    test('same-node selection uses getEndpointsForSelection (not full-line rects)', () {
+      // Two characters with very different font sizes on the same line.
+      final mixedText = AttributedText(
+        'AB',
+        [
+          const SpanMarker(
+            attribution: FontSizeAttribution(12),
+            offset: 0,
+            markerType: SpanMarkerType.start,
+          ),
+          const SpanMarker(
+            attribution: FontSizeAttribution(12),
+            offset: 0,
+            markerType: SpanMarkerType.end,
+          ),
+          const SpanMarker(
+            attribution: FontSizeAttribution(24),
+            offset: 1,
+            markerType: SpanMarkerType.start,
+          ),
+          const SpanMarker(
+            attribution: FontSizeAttribution(24),
+            offset: 1,
+            markerType: SpanMarkerType.end,
+          ),
+        ],
+      );
+      final layout = RenderDocumentLayout(blockSpacing: 0.0);
+      layout.add(
+        RenderTextBlock(
+          nodeId: 'p1',
+          text: mixedText,
+          textStyle: const TextStyle(fontSize: 16),
+        ),
+      );
+      layout.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+
+      const sel = DocumentSelection(
+        base: DocumentPosition(
+          nodeId: 'p1',
+          nodePosition: TextNodePosition(offset: 0),
+        ),
+        extent: DocumentPosition(
+          nodeId: 'p1',
+          nodePosition: TextNodePosition(offset: 2),
+        ),
+      );
+
+      // Obtain the rects via the layout — no full-width rects.
+      final rects = layout.getRectsForSelection(sel);
+      expect(rects, isNotEmpty);
+
+      // None of the rects should span the full layout width (which would
+      // indicate the broken multi-line path was taken).
+      for (final r in rects) {
+        expect(r.width, lessThan(layout.size.width),
+            reason: 'Full-width rect detected — multi-line path was incorrectly taken');
+      }
+    });
+
+    test('cross-node selection still paints without error', () {
+      final layout = _buildLayout();
+      const sel = DocumentSelection(
+        base: DocumentPosition(
+          nodeId: 'p1',
+          nodePosition: TextNodePosition(offset: 0),
+        ),
+        extent: DocumentPosition(
+          nodeId: 'p2',
+          nodePosition: TextNodePosition(offset: 3),
+        ),
+      );
+      final highlight = RenderDocumentSelectionHighlight()
+        ..documentLayout = layout
+        ..selection = sel;
+      highlight.layout(const BoxConstraints.tightFor(width: 400, height: 200));
+
+      final recorder = PictureRecorder();
+      final canvas = Canvas(recorder);
+      final context = _MockPaintingContext(canvas);
+
+      expect(
+        () => highlight.paint(context, Offset.zero),
+        returnsNormally,
+      );
+    });
+  });
+
   group('RenderDocumentSelectionHighlight — diagnostics', () {
     test('debugFillProperties includes all properties', () {
       final layout = _buildLayout();
