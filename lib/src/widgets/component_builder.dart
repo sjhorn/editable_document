@@ -346,16 +346,31 @@ class ListItemComponentBuilder extends ComponentBuilder {
   }
 
   /// Computes the 1-based ordinal index for [node] within a run of ordered
-  /// list items at the same indent level. Resets to 1 after any non-list-item
-  /// node or after a list item at a different indent level.
+  /// list items at the same indent level.
+  ///
+  /// The counter increments for each preceding ordered item at the same indent.
+  /// It resets to 1 when:
+  /// - A non-list-item node is encountered.
+  /// - A list item at a shallower or equal indent (parent or sibling of a
+  ///   different type) is encountered.
+  ///
+  /// Items at a deeper indent (children) are skipped without affecting the
+  /// counter so that nested sub-lists do not break the parent run.
   int _computeOrdinal(Document document, ListItemNode node) {
     if (node.type != ListItemType.ordered) return 1;
     var count = 1;
     for (final n in document.nodes) {
       if (n.id == node.id) break;
-      if (n is ListItemNode && n.type == ListItemType.ordered && n.indent == node.indent) {
-        count++;
-      } else if (n is! ListItemNode) {
+      if (n is ListItemNode) {
+        if (n.type == ListItemType.ordered && n.indent == node.indent) {
+          count++;
+        } else if (n.indent <= node.indent) {
+          // A parent-level item or a same-level item of a different type
+          // breaks the ordered run.
+          count = 1;
+        }
+        // n.indent > node.indent → child items never break a parent run.
+      } else {
         // A non-list node resets the run.
         count = 1;
       }

@@ -277,6 +277,88 @@ void main() {
       expect(vmB.ordinalIndex, 1);
     });
 
+    test('nested sub-list restarts numbering after returning to parent level', () {
+      // Document:
+      //   ordered indent=0  "First"      → ordinal 1
+      //   ordered indent=1  "Nested-A"   → ordinal 1
+      //   ordered indent=0  "Second"     → ordinal 2
+      //   ordered indent=1  "Nested-C"   → ordinal 1  (NOT 2)
+      final nodes = [
+        ListItemNode(id: 'a', text: AttributedText('First'), type: ListItemType.ordered, indent: 0),
+        ListItemNode(
+          id: 'b',
+          text: AttributedText('Nested-A'),
+          type: ListItemType.ordered,
+          indent: 1,
+        ),
+        ListItemNode(
+          id: 'c',
+          text: AttributedText('Second'),
+          type: ListItemType.ordered,
+          indent: 0,
+        ),
+        ListItemNode(
+          id: 'd',
+          text: AttributedText('Nested-C'),
+          type: ListItemType.ordered,
+          indent: 1,
+        ),
+      ];
+      final doc = _doc(nodes);
+
+      final vmD = builder.createViewModel(doc, nodes[3]) as ListItemComponentViewModel;
+
+      // After the parent-level "Second" (indent=0), the indent=1 sub-list
+      // must restart at 1.
+      expect(vmD.ordinalIndex, 1);
+    });
+
+    test('deep nesting does not break parent-level run', () {
+      // Document:
+      //   ordered indent=1  "A"    → ordinal 1
+      //   ordered indent=2  "deep" → ordinal 1
+      //   ordered indent=1  "B"    → ordinal 2  (indent=2 item must NOT break indent=1 run)
+      final nodes = [
+        ListItemNode(id: 'a', text: AttributedText('A'), type: ListItemType.ordered, indent: 1),
+        ListItemNode(
+          id: 'deep',
+          text: AttributedText('deep'),
+          type: ListItemType.ordered,
+          indent: 2,
+        ),
+        ListItemNode(id: 'b', text: AttributedText('B'), type: ListItemType.ordered, indent: 1),
+      ];
+      final doc = _doc(nodes);
+
+      final vmB = builder.createViewModel(doc, nodes[2]) as ListItemComponentViewModel;
+
+      // Children (deeper indent) must not break the parent run.
+      expect(vmB.ordinalIndex, 2);
+    });
+
+    test('unordered item at same level resets ordered numbering', () {
+      // Document:
+      //   ordered   indent=1  "A"      → ordinal 1
+      //   unordered indent=1  "bullet" → (unordered, ignored for ordinal)
+      //   ordered   indent=1  "B"      → ordinal 1  (same-level bullet resets)
+      final nodes = [
+        ListItemNode(id: 'a', text: AttributedText('A'), type: ListItemType.ordered, indent: 1),
+        ListItemNode(
+          id: 'bullet',
+          text: AttributedText('bullet'),
+          type: ListItemType.unordered,
+          indent: 1,
+        ),
+        ListItemNode(id: 'b', text: AttributedText('B'), type: ListItemType.ordered, indent: 1),
+      ];
+      final doc = _doc(nodes);
+
+      final vmB = builder.createViewModel(doc, nodes[2]) as ListItemComponentViewModel;
+
+      // The unordered item at the same indent level resets the ordered run.
+      expect(vmB.ordinalIndex, 1);
+    });
+
     test('createComponent returns non-null for ListItemComponentViewModel', () {
       final doc = _doc([_listItem()]);
       final ctx = _ctx(doc);
