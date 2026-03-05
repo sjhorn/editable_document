@@ -4067,4 +4067,405 @@ void main() {
       expect(requests.first, isA<DeleteContentRequest>());
     });
   });
+
+  // =========================================================================
+  // Clipboard shortcuts — Cmd/Ctrl + C / X / V / A
+  // =========================================================================
+
+  group('clipboard shortcuts', () {
+    testWidgets('Cmd+C fires onCopy on macOS', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _singleParagraph('Hello');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 0));
+      final requests = <EditRequest>[];
+      var copyCalled = false;
+      final handler = DocumentKeyboardHandler(
+        document: doc,
+        controller: controller,
+        requestHandler: requests.add,
+        onCopy: () => copyCalled = true,
+      );
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyC);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyC);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+
+      expect(copyCalled, isTrue);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Ctrl+C fires onCopy on Linux', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+
+      final doc = _singleParagraph('Hello');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 0));
+      final requests = <EditRequest>[];
+      var copyCalled = false;
+      final handler = DocumentKeyboardHandler(
+        document: doc,
+        controller: controller,
+        requestHandler: requests.add,
+        onCopy: () => copyCalled = true,
+      );
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyC);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyC);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+
+      expect(copyCalled, isTrue);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Cmd+X fires onCut on macOS', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _singleParagraph('Hello');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 0));
+      final requests = <EditRequest>[];
+      var cutCalled = false;
+      final handler = DocumentKeyboardHandler(
+        document: doc,
+        controller: controller,
+        requestHandler: requests.add,
+        onCut: () => cutCalled = true,
+      );
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyX);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyX);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+
+      expect(cutCalled, isTrue);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Ctrl+X fires onCut on Linux', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+
+      final doc = _singleParagraph('Hello');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 0));
+      final requests = <EditRequest>[];
+      var cutCalled = false;
+      final handler = DocumentKeyboardHandler(
+        document: doc,
+        controller: controller,
+        requestHandler: requests.add,
+        onCut: () => cutCalled = true,
+      );
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyX);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyX);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+
+      expect(cutCalled, isTrue);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Cmd+V fires onPaste on macOS', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _singleParagraph('Hello');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 0));
+      final requests = <EditRequest>[];
+      var pasteCalled = false;
+      final handler = DocumentKeyboardHandler(
+        document: doc,
+        controller: controller,
+        requestHandler: requests.add,
+        onPaste: () => pasteCalled = true,
+      );
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+
+      expect(pasteCalled, isTrue);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Ctrl+V fires onPaste on Linux', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+
+      final doc = _singleParagraph('Hello');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 0));
+      final requests = <EditRequest>[];
+      var pasteCalled = false;
+      final handler = DocumentKeyboardHandler(
+        document: doc,
+        controller: controller,
+        requestHandler: requests.add,
+        onPaste: () => pasteCalled = true,
+      );
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+
+      expect(pasteCalled, isTrue);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Cmd+A fires onSelectAll on macOS', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _singleParagraph('Hello');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 0));
+      final requests = <EditRequest>[];
+      var selectAllCalled = false;
+      final handler = DocumentKeyboardHandler(
+        document: doc,
+        controller: controller,
+        requestHandler: requests.add,
+        onSelectAll: () => selectAllCalled = true,
+      );
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyA);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyA);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+
+      expect(selectAllCalled, isTrue);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Ctrl+A fires onSelectAll on Linux', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+
+      final doc = _singleParagraph('Hello');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 0));
+      final requests = <EditRequest>[];
+      var selectAllCalled = false;
+      final handler = DocumentKeyboardHandler(
+        document: doc,
+        controller: controller,
+        requestHandler: requests.add,
+        onSelectAll: () => selectAllCalled = true,
+      );
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyA);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyA);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+
+      expect(selectAllCalled, isTrue);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('returns false when onCopy is null', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _singleParagraph('Hello');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 0));
+      final requests = <EditRequest>[];
+      // No onCopy provided.
+      final handler = DocumentKeyboardHandler(
+        document: doc,
+        controller: controller,
+        requestHandler: requests.add,
+      );
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      // Collect the onKeyEvent result by invoking directly (key down only).
+      final result = handler.onKeyEvent(
+        const KeyDownEvent(
+          physicalKey: PhysicalKeyboardKey.keyC,
+          logicalKey: LogicalKeyboardKey.keyC,
+          timeStamp: Duration.zero,
+        ),
+      );
+
+      // Without Meta held the handler won't enter clipboard block,
+      // but we can verify onCopy=null path by simulating via tester and
+      // checking no callback was fired (already covered by no crash).
+      // The direct call without modifier pressed returns false.
+      expect(result, isFalse);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Cmd+C returns false when onCopy is null (pass-through)', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _singleParagraph('Hello');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 0));
+      final requests = <EditRequest>[];
+      bool? capturedResult;
+      // Build a handler with no onCopy — wrap in a Focus that captures the
+      // KeyEventResult so we can verify the key was NOT consumed.
+      final handler = DocumentKeyboardHandler(
+        document: doc,
+        controller: controller,
+        requestHandler: requests.add,
+        // onCopy intentionally omitted → null
+      );
+
+      await tester.pumpWidget(
+        Builder(
+          builder: (context) => Focus(
+            autofocus: true,
+            onKeyEvent: (node, event) {
+              final handled = handler.onKeyEvent(event);
+              capturedResult = handled;
+              return handled ? KeyEventResult.handled : KeyEventResult.ignored;
+            },
+            child: const SizedBox.expand(),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyC);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyC);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+
+      expect(capturedResult, isFalse);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Cmd+X returns false when onCut is null (pass-through)', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _singleParagraph('Hello');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 0));
+      final requests = <EditRequest>[];
+      bool? capturedResult;
+      final handler = DocumentKeyboardHandler(
+        document: doc,
+        controller: controller,
+        requestHandler: requests.add,
+        // onCut intentionally omitted → null
+      );
+
+      await tester.pumpWidget(
+        Builder(
+          builder: (context) => Focus(
+            autofocus: true,
+            onKeyEvent: (node, event) {
+              final handled = handler.onKeyEvent(event);
+              capturedResult = handled;
+              return handled ? KeyEventResult.handled : KeyEventResult.ignored;
+            },
+            child: const SizedBox.expand(),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyX);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyX);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+
+      expect(capturedResult, isFalse);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Cmd+V returns false when onPaste is null (pass-through)', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _singleParagraph('Hello');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 0));
+      final requests = <EditRequest>[];
+      bool? capturedResult;
+      final handler = DocumentKeyboardHandler(
+        document: doc,
+        controller: controller,
+        requestHandler: requests.add,
+        // onPaste intentionally omitted → null
+      );
+
+      await tester.pumpWidget(
+        Builder(
+          builder: (context) => Focus(
+            autofocus: true,
+            onKeyEvent: (node, event) {
+              final handled = handler.onKeyEvent(event);
+              capturedResult = handled;
+              return handled ? KeyEventResult.handled : KeyEventResult.ignored;
+            },
+            child: const SizedBox.expand(),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+
+      expect(capturedResult, isFalse);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Cmd+A returns false when onSelectAll is null (pass-through)', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final doc = _singleParagraph('Hello');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 0));
+      final requests = <EditRequest>[];
+      bool? capturedResult;
+      final handler = DocumentKeyboardHandler(
+        document: doc,
+        controller: controller,
+        requestHandler: requests.add,
+        // onSelectAll intentionally omitted → null
+      );
+
+      await tester.pumpWidget(
+        Builder(
+          builder: (context) => Focus(
+            autofocus: true,
+            onKeyEvent: (node, event) {
+              final handled = handler.onKeyEvent(event);
+              capturedResult = handled;
+              return handled ? KeyEventResult.handled : KeyEventResult.ignored;
+            },
+            child: const SizedBox.expand(),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyA);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyA);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+
+      expect(capturedResult, isFalse);
+      debugDefaultTargetPlatformOverride = null;
+    });
+  });
 }

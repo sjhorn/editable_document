@@ -89,6 +89,14 @@ typedef LineMoveResolver = DocumentPosition? Function({
 ///   otherwise ignored (returns `false`).
 /// * **Shift + Tab** — [UnindentListItemRequest] when in a [ListItemNode].
 /// * **Escape** — collapse an expanded selection to its extent.
+/// * **Primary modifier + C** — invokes [onCopy] when non-null; passes
+///   through (`false`) when `null`.
+/// * **Primary modifier + X** — invokes [onCut] when non-null; passes
+///   through (`false`) when `null`.
+/// * **Primary modifier + V** — invokes [onPaste] when non-null; passes
+///   through (`false`) when `null`.
+/// * **Primary modifier + A** — invokes [onSelectAll] when non-null; passes
+///   through (`false`) when `null`.
 /// * **Unknown keys** — returns `false`.
 ///
 /// ### Platform modifier mapping
@@ -150,6 +158,22 @@ class DocumentKeyboardHandler {
   /// * [lineMoveResolver] — optional callback that resolves line-boundary
   ///   Left/Right movement to a target [DocumentPosition]. When `null`,
   ///   line-modifier + Left/Right falls back to node start/end.
+  /// * [onCopy] — optional callback invoked when the user presses the
+  ///   platform copy shortcut (Cmd+C on macOS/iOS, Ctrl+C elsewhere). When
+  ///   non-null and the shortcut is detected, the callback is invoked and the
+  ///   key event is consumed. When `null`, the key event passes through.
+  /// * [onCut] — optional callback invoked when the user presses the platform
+  ///   cut shortcut (Cmd+X on macOS/iOS, Ctrl+X elsewhere). When non-null and
+  ///   the shortcut is detected, the callback is invoked and the key event is
+  ///   consumed. When `null`, the key event passes through.
+  /// * [onPaste] — optional callback invoked when the user presses the
+  ///   platform paste shortcut (Cmd+V on macOS/iOS, Ctrl+V elsewhere). When
+  ///   non-null and the shortcut is detected, the callback is invoked and the
+  ///   key event is consumed. When `null`, the key event passes through.
+  /// * [onSelectAll] — optional callback invoked when the user presses the
+  ///   platform select-all shortcut (Cmd+A on macOS/iOS, Ctrl+A elsewhere).
+  ///   When non-null and the shortcut is detected, the callback is invoked and
+  ///   the key event is consumed. When `null`, the key event passes through.
   DocumentKeyboardHandler({
     required Document document,
     required DocumentEditingController controller,
@@ -157,6 +181,10 @@ class DocumentKeyboardHandler {
     this.pageMoveResolver,
     this.verticalMoveResolver,
     this.lineMoveResolver,
+    this.onCopy,
+    this.onCut,
+    this.onPaste,
+    this.onSelectAll,
   })  : _document = document,
         _controller = controller,
         _requestHandler = requestHandler;
@@ -197,6 +225,34 @@ class DocumentKeyboardHandler {
   /// When this field is `null`, line-modifier + Left/Right always moves to
   /// node start/end (the pre-existing behavior).
   final LineMoveResolver? lineMoveResolver;
+
+  /// Optional callback invoked when the user presses the platform copy
+  /// shortcut (Cmd+C on macOS/iOS, Ctrl+C elsewhere).
+  ///
+  /// When non-null and the shortcut is detected, the callback is invoked and
+  /// the key event is consumed. When `null`, the key event passes through.
+  final VoidCallback? onCopy;
+
+  /// Optional callback invoked when the user presses the platform cut
+  /// shortcut (Cmd+X on macOS/iOS, Ctrl+X elsewhere).
+  ///
+  /// When non-null and the shortcut is detected, the callback is invoked and
+  /// the key event is consumed. When `null`, the key event passes through.
+  final VoidCallback? onCut;
+
+  /// Optional callback invoked when the user presses the platform paste
+  /// shortcut (Cmd+V on macOS/iOS, Ctrl+V elsewhere).
+  ///
+  /// When non-null and the shortcut is detected, the callback is invoked and
+  /// the key event is consumed. When `null`, the key event passes through.
+  final VoidCallback? onPaste;
+
+  /// Optional callback invoked when the user presses the platform select-all
+  /// shortcut (Cmd+A on macOS/iOS, Ctrl+A elsewhere).
+  ///
+  /// When non-null and the shortcut is detected, the callback is invoked and
+  /// the key event is consumed. When `null`, the key event passes through.
+  final VoidCallback? onSelectAll;
 
   // -------------------------------------------------------------------------
   // Public entry point
@@ -287,6 +343,40 @@ class DocumentKeyboardHandler {
         if (_handleShiftEnter()) return true;
       } else {
         if (_handleEnter()) return true;
+      }
+    }
+
+    // Clipboard shortcuts: primary modifier + C/X/V/A.
+    // Checked before Emacs bindings so that Cmd+A on macOS is treated as
+    // select-all (clipboard), not Emacs line-start (Ctrl+A).
+    if (primaryModifier) {
+      if (logicalKey == LogicalKeyboardKey.keyC) {
+        if (onCopy != null) {
+          onCopy!();
+          return true;
+        }
+        return false;
+      }
+      if (logicalKey == LogicalKeyboardKey.keyX) {
+        if (onCut != null) {
+          onCut!();
+          return true;
+        }
+        return false;
+      }
+      if (logicalKey == LogicalKeyboardKey.keyV) {
+        if (onPaste != null) {
+          onPaste!();
+          return true;
+        }
+        return false;
+      }
+      if (logicalKey == LogicalKeyboardKey.keyA) {
+        if (onSelectAll != null) {
+          onSelectAll!();
+          return true;
+        }
+        return false;
       }
     }
 

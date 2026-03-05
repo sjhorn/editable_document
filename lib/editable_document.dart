@@ -42,6 +42,7 @@ export 'src/rendering/render_document_caret.dart';
 export 'src/rendering/document_selection_painter.dart';
 export 'src/rendering/render_document_selection_highlight.dart';
 export 'src/services/document_autofill_client.dart';
+export 'src/services/document_clipboard.dart';
 export 'src/services/document_ime_serializer.dart';
 export 'src/services/document_ime_input_client.dart';
 export 'src/services/document_keyboard_handler.dart';
