@@ -15,18 +15,35 @@ import '../model/document_editing_controller.dart';
 import '../model/document_position.dart';
 import '../model/document_selection.dart';
 import '../model/edit_context.dart';
+import '../model/edit_request.dart';
 import '../model/editor.dart';
 import '../model/mutable_document.dart';
 import '../model/node_position.dart';
 import '../model/paragraph_node.dart';
 import '../model/text_node.dart';
 import '../model/undoable_editor.dart';
+import '../services/document_clipboard.dart';
 import 'caret_document_overlay.dart';
 import 'component_builder.dart';
 import 'document_layout.dart';
 import 'document_selection_overlay.dart';
 import 'editable_document.dart';
 import 'gestures/document_mouse_interactor.dart';
+
+// ---------------------------------------------------------------------------
+// DocumentContextMenuBuilder typedef
+// ---------------------------------------------------------------------------
+
+/// Signature for building a custom context menu for a [DocumentField].
+///
+/// The [context] is the overlay entry's build context. [primaryAnchor] is the
+/// global position where the menu should be anchored (typically the right-click
+/// position). When provided as [DocumentField.contextMenuBuilder], this builder
+/// replaces the default [AdaptiveTextSelectionToolbar].
+typedef DocumentContextMenuBuilder = Widget Function(
+  BuildContext context,
+  Offset primaryAnchor,
+);
 
 // ---------------------------------------------------------------------------
 // DocumentField
@@ -99,6 +116,7 @@ class DocumentField extends StatefulWidget {
     this.enabled = true,
     this.scrollPadding = const EdgeInsets.all(20.0),
     this.autofillHints,
+    this.contextMenuBuilder,
   });
 
   /// The controller for the document being edited.
@@ -219,6 +237,30 @@ class DocumentField extends StatefulWidget {
   /// `initState` and whenever the widget is rebuilt with new hints.
   final List<String>? autofillHints;
 
+  /// An optional builder for the context menu shown on right-click.
+  ///
+  /// When `null`, a default [AdaptiveTextSelectionToolbar] with Cut, Copy,
+  /// Paste, and Select All buttons is shown. Provide a custom builder to
+  /// replace the default menu entirely.
+  ///
+  /// The builder receives the [BuildContext] of the overlay entry and the
+  /// global [Offset] of the right-click position as the primary anchor.
+  ///
+  /// Example:
+  /// ```dart
+  /// DocumentField(
+  ///   contextMenuBuilder: (context, anchor) {
+  ///     return AdaptiveTextSelectionToolbar.buttonItems(
+  ///       anchors: TextSelectionToolbarAnchors(primaryAnchor: anchor),
+  ///       buttonItems: [
+  ///         ContextMenuButtonItem(label: 'My Action', onPressed: () {}),
+  ///       ],
+  ///     );
+  ///   },
+  /// )
+  /// ```
+  final DocumentContextMenuBuilder? contextMenuBuilder;
+
   @override
   State<DocumentField> createState() => DocumentFieldState();
 
@@ -264,6 +306,12 @@ class DocumentField extends StatefulWidget {
     properties.add(DiagnosticsProperty<EdgeInsets>('scrollPadding', scrollPadding));
     properties.add(
       IterableProperty<String>('autofillHints', autofillHints, defaultValue: null),
+    );
+    properties.add(
+      ObjectFlagProperty<DocumentContextMenuBuilder?>.has(
+        'contextMenuBuilder',
+        contextMenuBuilder,
+      ),
     );
   }
 }
@@ -313,6 +361,12 @@ class DocumentFieldState extends State<DocumentField> {
   UndoableEditor? _internalEditor;
 
   bool _hasFocus = false;
+
+  /// Clipboard service — stateless, safe to hold as a field.
+  final _clipboard = const DocumentClipboard();
+
+  /// Controls the visibility of the right-click context menu.
+  final _contextMenuController = ContextMenuController();
 
   // -------------------------------------------------------------------------
   // Lifecycle
@@ -432,6 +486,7 @@ class DocumentFieldState extends State<DocumentField> {
 
   @override
   void dispose() {
+    _contextMenuController.remove();
     _effectiveFocusNode.removeListener(_onFocusChanged);
     _effectiveController.removeListener(_onControllerChanged);
     _internalController?.dispose();
@@ -463,6 +518,7 @@ class DocumentFieldState extends State<DocumentField> {
         );
       }
     } else if (!_hasFocus) {
+      _contextMenuController.remove();
       _effectiveController.setSelection(null);
     }
   }
@@ -496,6 +552,138 @@ class DocumentFieldState extends State<DocumentField> {
       if (node is TextNode && node.text.text.isNotEmpty) return false;
     }
     return true;
+  }
+
+  // -------------------------------------------------------------------------
+  // Context menu
+  // -------------------------------------------------------------------------
+
+  /// Shows the context menu anchored at [globalPosition].
+  ///
+  /// Delegates to [DocumentField.contextMenuBuilder] when one is provided;
+  /// otherwise shows the default [AdaptiveTextSelectionToolbar].
+  void _showContextMenu(Offset globalPosition) {
+    _contextMenuController.show(
+      context: context,
+      contextMenuBuilder: (BuildContext menuContext) {
+        if (widget.contextMenuBuilder != null) {
+          return widget.contextMenuBuilder!(menuContext, globalPosition);
+        }
+        return _buildDefaultContextMenu(menuContext, globalPosition);
+      },
+    );
+  }
+
+  /// Builds the default Cut/Copy/Paste/Select All context menu.
+  Widget _buildDefaultContextMenu(BuildContext menuContext, Offset primaryAnchor) {
+    final selection = _effectiveController.selection;
+    final bool isReadOnly = !widget.enabled || widget.readOnly;
+    final bool hasExpandedSelection = selection != null && selection.isExpanded;
+
+    return AdaptiveTextSelectionToolbar.buttonItems(
+      anchors: TextSelectionToolbarAnchors(primaryAnchor: primaryAnchor),
+      buttonItems: [
+        if (hasExpandedSelection && !isReadOnly)
+          ContextMenuButtonItem(
+            label: 'Cut',
+            onPressed: () {
+              _contextMenuCut();
+              _contextMenuController.remove();
+            },
+          ),
+        if (hasExpandedSelection)
+          ContextMenuButtonItem(
+            label: 'Copy',
+            onPressed: () {
+              _contextMenuCopy();
+              _contextMenuController.remove();
+            },
+          ),
+        if (!isReadOnly)
+          ContextMenuButtonItem(
+            label: 'Paste',
+            onPressed: () {
+              _contextMenuPaste();
+              _contextMenuController.remove();
+            },
+          ),
+        ContextMenuButtonItem(
+          label: 'Select All',
+          onPressed: () {
+            _contextMenuSelectAll();
+            _contextMenuController.remove();
+          },
+        ),
+      ],
+    );
+  }
+
+  /// Copies the selected text to the clipboard.
+  void _contextMenuCopy() {
+    final selection = _effectiveController.selection;
+    if (selection == null || selection.isCollapsed) return;
+    _clipboard.copy(_effectiveController.document, selection);
+  }
+
+  /// Copies the selected text to the clipboard and deletes it from the document.
+  void _contextMenuCut() {
+    if (!widget.enabled || widget.readOnly) return;
+    final selection = _effectiveController.selection;
+    if (selection == null || selection.isCollapsed) return;
+    _clipboard.cut(_effectiveController.document, selection).then((request) {
+      if (request != null) _effectiveEditor.submit(request);
+    });
+  }
+
+  /// Pastes clipboard text at the current caret position.
+  ///
+  /// When the selection is expanded the selected content is deleted first,
+  /// then the clipboard text is inserted at the resulting caret.
+  void _contextMenuPaste() {
+    if (!widget.enabled || widget.readOnly) return;
+    final selection = _effectiveController.selection;
+    if (selection == null) return;
+
+    // Delete expanded selection first.
+    if (selection.isExpanded) {
+      _effectiveEditor.submit(DeleteContentRequest(selection: selection));
+    }
+
+    // Re-read selection after possible deletion.
+    final pasteSelection = _effectiveController.selection;
+    if (pasteSelection == null) return;
+    final pastePos = pasteSelection.extent;
+    final node = _effectiveController.document.nodeById(pastePos.nodeId);
+    if (node == null || node is! TextNode) return;
+    final offset = (pastePos.nodePosition as TextNodePosition).offset;
+
+    _clipboard.paste(pastePos.nodeId, offset).then((request) {
+      if (request != null) _effectiveEditor.submit(request);
+    });
+  }
+
+  /// Selects the entire document.
+  void _contextMenuSelectAll() {
+    final doc = _effectiveController.document;
+    if (doc.nodes.isEmpty) return;
+    final firstNode = doc.nodes.first;
+    final lastNode = doc.nodes.last;
+    _effectiveController.setSelection(
+      DocumentSelection(
+        base: DocumentPosition(
+          nodeId: firstNode.id,
+          nodePosition: firstNode is TextNode
+              ? const TextNodePosition(offset: 0)
+              : const BinaryNodePosition.upstream(),
+        ),
+        extent: DocumentPosition(
+          nodeId: lastNode.id,
+          nodePosition: lastNode is TextNode
+              ? TextNodePosition(offset: lastNode.text.text.length)
+              : const BinaryNodePosition.downstream(),
+        ),
+      ),
+    );
   }
 
   // -------------------------------------------------------------------------
@@ -539,6 +727,7 @@ class DocumentFieldState extends State<DocumentField> {
       document: _effectiveController.document,
       focusNode: _effectiveFocusNode,
       enabled: widget.enabled,
+      onSecondaryTapDown: widget.enabled ? _showContextMenu : null,
       child: InputDecorator(
         decoration: effectiveDecoration,
         baseStyle: effectiveStyle,
