@@ -26,7 +26,9 @@ import '../model/document_selection.dart';
 import '../model/edit_request.dart';
 import '../model/editor.dart';
 import '../model/node_position.dart';
+import '../model/text_node.dart';
 import '../services/document_autofill_client.dart';
+import '../services/document_clipboard.dart';
 import '../services/document_ime_input_client.dart';
 import '../services/document_ime_serializer.dart';
 import '../services/document_keyboard_handler.dart';
@@ -262,6 +264,9 @@ class EditableDocumentState extends State<EditableDocument> {
   late DocumentAutofillClient _autofillClient;
   AutofillGroupState? _currentAutofillScope;
 
+  /// Stateless clipboard service used by copy/cut/paste handlers.
+  final DocumentClipboard _clipboard = const DocumentClipboard();
+
   /// Internal [GlobalKey] for [DocumentLayout], used when `widget.layoutKey`
   /// is not provided so that `_scheduleShowCaretOnScreen` can always locate
   /// the render object.
@@ -298,6 +303,10 @@ class EditableDocumentState extends State<EditableDocument> {
       pageMoveResolver: _resolvePageMove,
       verticalMoveResolver: _resolveVerticalMove,
       lineMoveResolver: _resolveLineMove,
+      onCopy: _handleCopy,
+      onCut: _handleCut,
+      onPaste: _handlePaste,
+      onSelectAll: _handleSelectAll,
     );
     widget.focusNode.addListener(_onFocusChanged);
     widget.controller.addListener(_onControllerChanged);
@@ -326,6 +335,10 @@ class EditableDocumentState extends State<EditableDocument> {
         pageMoveResolver: _resolvePageMove,
         verticalMoveResolver: _resolveVerticalMove,
         lineMoveResolver: _resolveLineMove,
+        onCopy: _handleCopy,
+        onCut: _handleCut,
+        onPaste: _handlePaste,
+        onSelectAll: _handleSelectAll,
       );
       // Rebuild autofill client and IME client for the new controller.
       _autofillClient = DocumentAutofillClient(
@@ -636,6 +649,92 @@ class EditableDocumentState extends State<EditableDocument> {
       return (viewport as RenderBox).size.height;
     }
     return null;
+  }
+
+  // -------------------------------------------------------------------------
+  // Clipboard handlers
+  // -------------------------------------------------------------------------
+
+  /// Copies the selected text to the system clipboard.
+  ///
+  /// No-op when the selection is `null` or collapsed.
+  void _handleCopy() {
+    final selection = widget.controller.selection;
+    if (selection == null || selection.isCollapsed) return;
+    _clipboard.copy(widget.controller.document, selection);
+  }
+
+  /// Cuts the selected text: writes to the clipboard and deletes the selection.
+  ///
+  /// No-op when [EditableDocument.readOnly] is `true`, or when the selection
+  /// is `null` or collapsed.
+  void _handleCut() {
+    if (widget.readOnly) return;
+    final selection = widget.controller.selection;
+    if (selection == null || selection.isCollapsed) return;
+    _clipboard.cut(widget.controller.document, selection).then((request) {
+      if (request != null) _handleRequest(request);
+    });
+  }
+
+  /// Pastes plain text from the system clipboard at the current caret position.
+  ///
+  /// If the selection is expanded, the selected content is deleted first, then
+  /// the clipboard text is inserted at the resulting collapsed position.
+  ///
+  /// No-op when [EditableDocument.readOnly] is `true`, when the selection is
+  /// `null`, or when the target node is not a [TextNode].
+  void _handlePaste() {
+    if (widget.readOnly) return;
+    final selection = widget.controller.selection;
+    if (selection == null) return;
+
+    // If the selection is expanded, delete it first so paste always inserts
+    // at a collapsed position.
+    if (selection.isExpanded) {
+      _handleRequest(DeleteContentRequest(selection: selection));
+    }
+
+    // After the potential delete the controller carries the updated selection.
+    final pasteSelection = widget.controller.selection;
+    if (pasteSelection == null) return;
+    final pastePos = pasteSelection.extent;
+    final node = widget.controller.document.nodeById(pastePos.nodeId);
+    if (node == null || node is! TextNode) return;
+
+    final offset = (pastePos.nodePosition as TextNodePosition).offset;
+    _clipboard.paste(pastePos.nodeId, offset).then((request) {
+      if (request != null) _handleRequest(request);
+    });
+  }
+
+  /// Selects all content in the document.
+  ///
+  /// Sets a [DocumentSelection] from the very first position of the first node
+  /// to the very last position of the last node.
+  ///
+  /// No-op when the document is empty.
+  void _handleSelectAll() {
+    final doc = widget.controller.document;
+    if (doc.nodes.isEmpty) return;
+    final firstNode = doc.nodes.first;
+    final lastNode = doc.nodes.last;
+    widget.controller.setSelection(
+      DocumentSelection(
+        base: DocumentPosition(
+          nodeId: firstNode.id,
+          nodePosition: firstNode is TextNode
+              ? const TextNodePosition(offset: 0)
+              : const BinaryNodePosition.upstream(),
+        ),
+        extent: DocumentPosition(
+          nodeId: lastNode.id,
+          nodePosition: lastNode is TextNode
+              ? TextNodePosition(offset: lastNode.text.text.length)
+              : const BinaryNodePosition.downstream(),
+        ),
+      ),
+    );
   }
 
   // -------------------------------------------------------------------------

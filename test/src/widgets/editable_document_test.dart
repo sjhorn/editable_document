@@ -1528,6 +1528,369 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
+  // Clipboard operations (Cmd/Ctrl+C/X/V/A)
+  // -------------------------------------------------------------------------
+
+  group('EditableDocument — clipboard operations', () {
+    // -----------------------------------------------------------------------
+    // Clipboard mock (re-uses the same pattern as document_clipboard_test.dart)
+    // -----------------------------------------------------------------------
+
+    String? _clipboardData;
+
+    void installClipboardMock(WidgetTester tester) {
+      _clipboardData = null;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (MethodCall call) async {
+          if (call.method == 'Clipboard.setData') {
+            _clipboardData = (call.arguments as Map<String, dynamic>)['text'] as String?;
+            return null;
+          }
+          if (call.method == 'Clipboard.getData') {
+            if (_clipboardData == null) return null;
+            return <String, dynamic>{'text': _clipboardData};
+          }
+          return null;
+        },
+      );
+    }
+
+    void removeClipboardMock(WidgetTester tester) {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null);
+      _clipboardData = null;
+    }
+
+    // -----------------------------------------------------------------------
+    // Helper: build a focused EditableDocument with an Editor so that
+    // DeleteContentRequest and InsertTextRequest are actually executed.
+    // -----------------------------------------------------------------------
+    Future<({DocumentEditingController controller, FocusNode focusNode})> _buildFocused(
+      WidgetTester tester, {
+      String text = 'Hello world',
+      bool readOnly = false,
+    }) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText(text)),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      final editor = UndoableEditor(
+        editContext: EditContext(document: doc, controller: controller),
+      );
+      final focusNode = FocusNode();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: EditableDocument(
+              controller: controller,
+              focusNode: focusNode,
+              readOnly: readOnly,
+              editor: editor,
+            ),
+          ),
+        ),
+      );
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      return (controller: controller, focusNode: focusNode);
+    }
+
+    // -----------------------------------------------------------------------
+    // Test 1: Cmd+C copies selected text to clipboard (macOS)
+    // -----------------------------------------------------------------------
+    testWidgets('Cmd+C copies selected text to clipboard', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      installClipboardMock(tester);
+
+      final (:controller, :focusNode) = await _buildFocused(tester, text: 'Hello world');
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      // Select 'Hello' (offset 0..5)
+      controller.setSelection(
+        const DocumentSelection(
+          base: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 0)),
+          extent: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 5)),
+        ),
+      );
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyC);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyC);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pump();
+
+      expect(_clipboardData, equals('Hello'));
+
+      removeClipboardMock(tester);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    // -----------------------------------------------------------------------
+    // Test 2: Cmd+X cuts text in editable mode (macOS)
+    // -----------------------------------------------------------------------
+    testWidgets('Cmd+X cuts text in editable mode', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      installClipboardMock(tester);
+
+      final (:controller, :focusNode) = await _buildFocused(tester, text: 'Hello world');
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      // Select 'Hello' (offset 0..5)
+      controller.setSelection(
+        const DocumentSelection(
+          base: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 0)),
+          extent: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 5)),
+        ),
+      );
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyX);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyX);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      // Settle for the async cut operation.
+      await tester.pumpAndSettle();
+
+      expect(_clipboardData, equals('Hello'));
+
+      removeClipboardMock(tester);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    // -----------------------------------------------------------------------
+    // Test 3: Cmd+V pastes text at caret (macOS)
+    // -----------------------------------------------------------------------
+    testWidgets('Cmd+V pastes text at caret', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      installClipboardMock(tester);
+
+      final (:controller, :focusNode) = await _buildFocused(tester, text: 'world');
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      // Pre-fill clipboard after building the widget.
+      _clipboardData = 'pasted';
+
+      // Collapsed caret at offset 0.
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 0),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pumpAndSettle();
+
+      final node = controller.document.nodeById('p1')! as ParagraphNode;
+      expect(node.text.text, equals('pastedworld'));
+
+      removeClipboardMock(tester);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    // -----------------------------------------------------------------------
+    // Test 4: Cmd+A selects all content (macOS)
+    // -----------------------------------------------------------------------
+    testWidgets('Cmd+A selects all content', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('First')),
+        ParagraphNode(id: 'p2', text: AttributedText('Second')),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      final focusNode = FocusNode();
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: EditableDocument(controller: controller, focusNode: focusNode),
+          ),
+        ),
+      );
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      // Set any non-null starting selection.
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 0),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyA);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyA);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pump();
+
+      expect(controller.selection, isNotNull);
+      expect(controller.selection!.isCollapsed, isFalse);
+      expect(controller.selection!.base.nodeId, 'p1');
+      expect(controller.selection!.extent.nodeId, 'p2');
+      expect(
+        (controller.selection!.base.nodePosition as TextNodePosition).offset,
+        0,
+      );
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        6, // 'Second'.length
+      );
+
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    // -----------------------------------------------------------------------
+    // Test 5: Cmd+X is no-op in readOnly mode (macOS)
+    // -----------------------------------------------------------------------
+    testWidgets('Cmd+X is no-op in readOnly mode', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      installClipboardMock(tester);
+
+      final (:controller, :focusNode) =
+          await _buildFocused(tester, text: 'Hello world', readOnly: true);
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      controller.setSelection(
+        const DocumentSelection(
+          base: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 0)),
+          extent: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 5)),
+        ),
+      );
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyX);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyX);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pump();
+
+      // Clipboard should remain empty — readOnly blocks the cut.
+      expect(_clipboardData, isNull);
+      // Document text should be unchanged.
+      final node = controller.document.nodeById('p1')! as ParagraphNode;
+      expect(node.text.text, equals('Hello world'));
+
+      removeClipboardMock(tester);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    // -----------------------------------------------------------------------
+    // Test 6: Cmd+V is no-op in readOnly mode (macOS)
+    // -----------------------------------------------------------------------
+    testWidgets('Cmd+V is no-op in readOnly mode', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      installClipboardMock(tester);
+
+      _clipboardData = 'pasted';
+
+      final (:controller, :focusNode) =
+          await _buildFocused(tester, text: 'Hello world', readOnly: true);
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 5),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pump();
+
+      // Document should be unchanged — readOnly blocks the paste.
+      final node = controller.document.nodeById('p1')! as ParagraphNode;
+      expect(node.text.text, equals('Hello world'));
+
+      removeClipboardMock(tester);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    // -----------------------------------------------------------------------
+    // Test 7: Ctrl+C copies on Linux
+    // -----------------------------------------------------------------------
+    testWidgets('Ctrl+C works on Linux', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      installClipboardMock(tester);
+
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('Hello world')),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      final focusNode = FocusNode();
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: EditableDocument(controller: controller, focusNode: focusNode),
+          ),
+        ),
+      );
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      // Select 'Hello' (offset 0..5)
+      controller.setSelection(
+        const DocumentSelection(
+          base: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 0)),
+          extent: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 5)),
+        ),
+      );
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyC);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyC);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+
+      expect(_clipboardData, equals('Hello'));
+
+      removeClipboardMock(tester);
+      debugDefaultTargetPlatformOverride = null;
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // Autofill support
   // -------------------------------------------------------------------------
 

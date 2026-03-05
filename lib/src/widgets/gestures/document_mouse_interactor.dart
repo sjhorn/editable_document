@@ -16,6 +16,9 @@
 /// - **Shift+tap** — extends the existing selection's [base] to the tapped
 ///   position; falls back to a collapsed selection when no prior selection
 ///   exists.
+/// - **Secondary tap (right-click)** — optionally invokes
+///   [DocumentMouseInteractor.onSecondaryTapDown] with the global tap
+///   position, after requesting focus and optionally collapsing the caret.
 ///
 /// ## Timing note
 ///
@@ -89,6 +92,7 @@ class DocumentMouseInteractor extends StatefulWidget {
     this.focusNode,
     this.enabled = true,
     this.cursor = SystemMouseCursors.text,
+    this.onSecondaryTapDown,
   });
 
   /// The controller whose [DocumentEditingController.selection] is updated
@@ -124,6 +128,17 @@ class DocumentMouseInteractor extends StatefulWidget {
   /// Defaults to [SystemMouseCursors.text].
   final MouseCursor cursor;
 
+  /// Optional callback invoked when a secondary (right-click) tap is detected.
+  ///
+  /// The callback receives the global position of the tap, which can be used
+  /// to show a context menu. Before the callback is invoked:
+  /// 1. Focus is requested (if [focusNode] is non-null).
+  /// 2. If the tap position is outside the current selection, the caret is
+  ///    moved to the tapped position (matching [TextField] behaviour).
+  ///
+  /// When `null`, secondary taps are ignored.
+  final ValueChanged<Offset>? onSecondaryTapDown;
+
   @override
   State<DocumentMouseInteractor> createState() => DocumentMouseInteractorState();
 
@@ -136,6 +151,9 @@ class DocumentMouseInteractor extends StatefulWidget {
     properties.add(DiagnosticsProperty<FocusNode?>('focusNode', focusNode, defaultValue: null));
     properties.add(FlagProperty('enabled', value: enabled, ifTrue: 'enabled', ifFalse: 'disabled'));
     properties.add(DiagnosticsProperty<MouseCursor>('cursor', cursor));
+    properties.add(
+      ObjectFlagProperty<ValueChanged<Offset>?>.has('onSecondaryTapDown', onSecondaryTapDown),
+    );
   }
 }
 
@@ -430,6 +448,88 @@ class DocumentMouseInteractorState extends State<DocumentMouseInteractor> {
     }
   }
 
+  /// Handles secondary (right-click) tap down events.
+  ///
+  /// 1. Requests focus.
+  /// 2. If the tap position is outside the current expanded selection,
+  ///    collapses the caret to the tapped position.
+  /// 3. Invokes [DocumentMouseInteractor.onSecondaryTapDown] with the
+  ///    global position.
+  void _onSecondaryTapDown(TapDownDetails details) {
+    if (!widget.enabled) return;
+    if (widget.onSecondaryTapDown == null) return;
+
+    // Request focus.
+    widget.focusNode?.requestFocus();
+
+    final tapPos = _positionForOffset(details.localPosition);
+    if (tapPos == null) return;
+
+    // If tap is outside current selection, collapse to tapped position.
+    final selection = widget.controller.selection;
+    if (selection == null ||
+        selection.isCollapsed ||
+        !_isPositionInsideSelection(tapPos, selection)) {
+      widget.controller.setSelection(DocumentSelection.collapsed(position: tapPos));
+    }
+
+    widget.onSecondaryTapDown!(details.globalPosition);
+  }
+
+  /// Returns `true` when [position] falls within the normalized [selection].
+  ///
+  /// For an expanded selection, checks whether [position] is between the
+  /// normalized base and extent in document order. For a collapsed selection,
+  /// always returns `false`.
+  bool _isPositionInsideSelection(DocumentPosition position, DocumentSelection selection) {
+    if (selection.isCollapsed) return false;
+
+    final normalised = selection.normalize(widget.document);
+
+    final baseIndex = widget.document.getNodeIndexById(normalised.base.nodeId);
+    final extentIndex = widget.document.getNodeIndexById(normalised.extent.nodeId);
+    final posIndex = widget.document.getNodeIndexById(position.nodeId);
+
+    if (posIndex < 0 || baseIndex < 0 || extentIndex < 0) return false;
+
+    if (posIndex < baseIndex || posIndex > extentIndex) return false;
+
+    // Position is in a middle node — definitely inside.
+    if (posIndex > baseIndex && posIndex < extentIndex) return true;
+
+    // Position is in the same node as base and/or extent.
+    final nodePos = position.nodePosition;
+
+    if (posIndex == baseIndex && posIndex == extentIndex) {
+      // Single-node selection.
+      if (nodePos is TextNodePosition) {
+        final baseOffset = (normalised.base.nodePosition as TextNodePosition).offset;
+        final extentOffset = (normalised.extent.nodePosition as TextNodePosition).offset;
+        return nodePos.offset >= baseOffset && nodePos.offset <= extentOffset;
+      }
+      // Binary node — if in the same node, it's inside.
+      return true;
+    }
+
+    if (posIndex == baseIndex) {
+      // At the first node — check if at or after the base offset.
+      if (nodePos is TextNodePosition && normalised.base.nodePosition is TextNodePosition) {
+        return nodePos.offset >= (normalised.base.nodePosition as TextNodePosition).offset;
+      }
+      return true;
+    }
+
+    if (posIndex == extentIndex) {
+      // At the last node — check if at or before the extent offset.
+      if (nodePos is TextNodePosition && normalised.extent.nodePosition is TextNodePosition) {
+        return nodePos.offset <= (normalised.extent.nodePosition as TextNodePosition).offset;
+      }
+      return true;
+    }
+
+    return false;
+  }
+
   /// Selects the entire block (node) that contains [localOffset].
   void _selectBlock(Offset localOffset) {
     final pos = _positionForOffset(localOffset);
@@ -487,6 +587,7 @@ class DocumentMouseInteractorState extends State<DocumentMouseInteractor> {
           behavior: HitTestBehavior.translucent,
           onTapDown: widget.enabled ? _onTapDown : null,
           onDoubleTapDown: widget.enabled ? _onDoubleTapDown : null,
+          onSecondaryTapDown: widget.enabled ? _onSecondaryTapDown : null,
           child: widget.child,
         ),
       ),
