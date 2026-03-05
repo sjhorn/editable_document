@@ -12,6 +12,7 @@
 /// - Block type changes (headings, blockquote, paragraph)
 /// - Block insertion (lists, code blocks, horizontal rules, images)
 /// - Undo/redo via UndoableEditor
+/// - Clipboard (Cmd/Ctrl+C/X/V/A) and right-click context menu
 /// - JSON save/load round-trip with full attribution serialization
 ///
 /// Run with: `flutter run -t example/main.dart`
@@ -64,6 +65,8 @@ class _DocumentDemoState extends State<DocumentDemo> {
   final _layoutKey = GlobalKey<DocumentLayoutState>();
   final _startHandleLayerLink = LayerLink();
   final _endHandleLayerLink = LayerLink();
+  final _contextMenuController = ContextMenuController();
+  final _clipboard = const DocumentClipboard();
 
   /// Counter for generating unique node IDs.
   int _nextNodeId = 100;
@@ -100,6 +103,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
 
   @override
   void dispose() {
+    _contextMenuController.remove();
     _controller.removeListener(_onDocumentChanged);
     _document.changes.removeListener(_onDocumentChanged);
     _focusNode.dispose();
@@ -108,7 +112,113 @@ class _DocumentDemoState extends State<DocumentDemo> {
   }
 
   void _onDocumentChanged() {
+    _contextMenuController.remove();
     setState(() {});
+  }
+
+  // -----------------------------------------------------------------------
+  // Context menu
+  // -----------------------------------------------------------------------
+
+  void _showContextMenu(Offset globalPosition) {
+    final selection = _controller.selection;
+    final bool hasExpanded = selection != null && selection.isExpanded;
+
+    _contextMenuController.show(
+      context: context,
+      contextMenuBuilder: (BuildContext menuContext) {
+        return AdaptiveTextSelectionToolbar.buttonItems(
+          anchors: TextSelectionToolbarAnchors(
+            primaryAnchor: globalPosition,
+          ),
+          buttonItems: [
+            if (hasExpanded)
+              ContextMenuButtonItem(
+                label: 'Cut',
+                onPressed: () {
+                  _contextMenuController.remove();
+                  _handleCut();
+                },
+              ),
+            if (hasExpanded)
+              ContextMenuButtonItem(
+                label: 'Copy',
+                onPressed: () {
+                  _contextMenuController.remove();
+                  _handleCopy();
+                },
+              ),
+            ContextMenuButtonItem(
+              label: 'Paste',
+              onPressed: () {
+                _contextMenuController.remove();
+                _handlePaste();
+              },
+            ),
+            ContextMenuButtonItem(
+              label: 'Select All',
+              onPressed: () {
+                _contextMenuController.remove();
+                _handleSelectAll();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _handleCopy() {
+    final selection = _controller.selection;
+    if (selection == null || selection.isCollapsed) return;
+    _clipboard.copy(_document, selection);
+  }
+
+  void _handleCut() {
+    final selection = _controller.selection;
+    if (selection == null || selection.isCollapsed) return;
+    _clipboard.cut(_document, selection).then((request) {
+      if (request != null) _editor.submit(request);
+    });
+  }
+
+  void _handlePaste() {
+    final selection = _controller.selection;
+    if (selection == null) return;
+    if (selection.isExpanded) {
+      _editor.submit(DeleteContentRequest(selection: selection));
+    }
+    final pasteSelection = _controller.selection;
+    if (pasteSelection == null) return;
+    final pos = pasteSelection.extent;
+    final node = _document.nodeById(pos.nodeId);
+    if (node == null || node is! TextNode) return;
+    final offset = (pos.nodePosition as TextNodePosition).offset;
+    _clipboard.paste(pos.nodeId, offset).then((request) {
+      if (request != null) _editor.submit(request);
+    });
+  }
+
+  void _handleSelectAll() {
+    if (_document.nodes.isEmpty) return;
+    final first = _document.nodes.first;
+    final last = _document.nodes.last;
+    _controller.setSelection(
+      DocumentSelection(
+        base: DocumentPosition(
+          nodeId: first.id,
+          nodePosition: first is TextNode
+              ? const TextNodePosition(offset: 0)
+              : const BinaryNodePosition.upstream(),
+        ),
+        extent: DocumentPosition(
+          nodeId: last.id,
+          nodePosition: last is TextNode
+              ? TextNodePosition(offset: last.text.text.length)
+              : const BinaryNodePosition.downstream(),
+        ),
+      ),
+    );
   }
 
   MutableDocument _buildSampleDocument() {
@@ -1213,6 +1323,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
           layoutKey: _layoutKey,
           document: _document,
           focusNode: _focusNode,
+          onSecondaryTapDown: _showContextMenu,
           child: Stack(
             children: [
               DocumentSelectionOverlay(
