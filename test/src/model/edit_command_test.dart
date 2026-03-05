@@ -954,4 +954,157 @@ void main() {
       expect(node.metadata, {'key': 'value'});
     });
   });
+
+  // =========================================================================
+  // IndentListItemCommand
+  // =========================================================================
+
+  group('IndentListItemCommand', () {
+    test('1. increments indent by 1 and returns NodeReplaced event', () {
+      final doc = MutableDocument([
+        ListItemNode(id: 'li1', text: AttributedText('Item'), indent: 0),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = const IndentListItemCommand(nodeId: 'li1');
+
+      final events = cmd.execute(ctx);
+
+      final node = doc.nodeById('li1') as ListItemNode;
+      expect(node.indent, 1);
+      expect(events, [const NodeReplaced(oldNodeId: 'li1', newNodeId: 'li1')]);
+    });
+
+    test('2. increments indent from non-zero starting value', () {
+      final doc = MutableDocument([
+        ListItemNode(id: 'li1', text: AttributedText('Nested'), indent: 2),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = const IndentListItemCommand(nodeId: 'li1');
+
+      cmd.execute(ctx);
+
+      final node = doc.nodeById('li1') as ListItemNode;
+      expect(node.indent, 3);
+    });
+
+    test('3. preserves type, text, and metadata', () {
+      final doc = MutableDocument([
+        ListItemNode(
+          id: 'li1',
+          text: AttributedText('Ordered item'),
+          type: ListItemType.ordered,
+          indent: 1,
+          metadata: {'key': 'value'},
+        ),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = const IndentListItemCommand(nodeId: 'li1');
+
+      cmd.execute(ctx);
+
+      final node = doc.nodeById('li1') as ListItemNode;
+      expect(node.type, ListItemType.ordered);
+      expect(node.text.text, 'Ordered item');
+      expect(node.metadata, {'key': 'value'});
+    });
+
+    test('4. throws StateError for unknown nodeId', () {
+      final doc = MutableDocument([
+        ListItemNode(id: 'li1', text: AttributedText('Item')),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = const IndentListItemCommand(nodeId: 'nope');
+      expect(() => cmd.execute(ctx), throwsStateError);
+    });
+
+    test('5. throws StateError for non-ListItemNode', () {
+      final doc = _twoParaDoc();
+      final ctx = _ctx(doc);
+      final cmd = const IndentListItemCommand(nodeId: 'p1');
+      expect(() => cmd.execute(ctx), throwsStateError);
+    });
+  });
+
+  // =========================================================================
+  // UnindentListItemCommand
+  // =========================================================================
+
+  group('UnindentListItemCommand', () {
+    test('1. decrements indent by 1 and returns NodeReplaced event', () {
+      final doc = MutableDocument([
+        ListItemNode(id: 'li1', text: AttributedText('Item'), indent: 2),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = const UnindentListItemCommand(nodeId: 'li1');
+
+      final events = cmd.execute(ctx);
+
+      final node = doc.nodeById('li1') as ListItemNode;
+      expect(node.indent, 1);
+      expect(events, [const NodeReplaced(oldNodeId: 'li1', newNodeId: 'li1')]);
+    });
+
+    test('2. clamps to 0 when already at 0', () {
+      final doc = MutableDocument([
+        ListItemNode(id: 'li1', text: AttributedText('Top level'), indent: 0),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = const UnindentListItemCommand(nodeId: 'li1');
+
+      cmd.execute(ctx);
+
+      final node = doc.nodeById('li1') as ListItemNode;
+      expect(node.indent, 0);
+    });
+
+    test('3. decrements from indent 1 to 0', () {
+      final doc = MutableDocument([
+        ListItemNode(id: 'li1', text: AttributedText('Item'), indent: 1),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = const UnindentListItemCommand(nodeId: 'li1');
+
+      cmd.execute(ctx);
+
+      final node = doc.nodeById('li1') as ListItemNode;
+      expect(node.indent, 0);
+    });
+
+    test('4. preserves type, text, and metadata', () {
+      final doc = MutableDocument([
+        ListItemNode(
+          id: 'li1',
+          text: AttributedText('Unordered item'),
+          type: ListItemType.unordered,
+          indent: 3,
+          metadata: {'foo': 'bar'},
+        ),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = const UnindentListItemCommand(nodeId: 'li1');
+
+      cmd.execute(ctx);
+
+      final node = doc.nodeById('li1') as ListItemNode;
+      expect(node.type, ListItemType.unordered);
+      expect(node.text.text, 'Unordered item');
+      expect(node.metadata, {'foo': 'bar'});
+    });
+
+    test('5. throws StateError for unknown nodeId', () {
+      final doc = MutableDocument([
+        ListItemNode(id: 'li1', text: AttributedText('Item')),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = const UnindentListItemCommand(nodeId: 'nope');
+      expect(() => cmd.execute(ctx), throwsStateError);
+    });
+
+    test('6. throws StateError for non-ListItemNode', () {
+      final doc = _twoParaDoc();
+      final ctx = _ctx(doc);
+      final cmd = const UnindentListItemCommand(nodeId: 'p1');
+      expect(() => cmd.execute(ctx), throwsStateError);
+    });
+  });
 }

@@ -191,6 +191,42 @@ void main() {
       expect((doc.nodeById('p1') as TextNode).text.text, ' world');
       editor.dispose();
     });
+
+    test('10. IndentListItemRequest increments list item indent', () {
+      final doc = MutableDocument([
+        ListItemNode(id: 'li1', text: AttributedText('Item'), indent: 0),
+      ]);
+      final editor = Editor(editContext: _ctx(doc));
+
+      editor.submit(const IndentListItemRequest(nodeId: 'li1'));
+
+      expect((doc.nodeById('li1') as ListItemNode).indent, 1);
+      editor.dispose();
+    });
+
+    test('11. UnindentListItemRequest decrements list item indent', () {
+      final doc = MutableDocument([
+        ListItemNode(id: 'li1', text: AttributedText('Item'), indent: 2),
+      ]);
+      final editor = Editor(editContext: _ctx(doc));
+
+      editor.submit(const UnindentListItemRequest(nodeId: 'li1'));
+
+      expect((doc.nodeById('li1') as ListItemNode).indent, 1);
+      editor.dispose();
+    });
+
+    test('12. UnindentListItemRequest clamps indent to 0', () {
+      final doc = MutableDocument([
+        ListItemNode(id: 'li1', text: AttributedText('Item'), indent: 0),
+      ]);
+      final editor = Editor(editContext: _ctx(doc));
+
+      editor.submit(const UnindentListItemRequest(nodeId: 'li1'));
+
+      expect((doc.nodeById('li1') as ListItemNode).indent, 0);
+      editor.dispose();
+    });
   });
 
   // =========================================================================

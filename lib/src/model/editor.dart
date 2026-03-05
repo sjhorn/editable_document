@@ -156,6 +156,10 @@ class Editor {
       );
     } else if (request is ConvertListItemToParagraphRequest) {
       return ConvertListItemToParagraphCommand(nodeId: request.nodeId);
+    } else if (request is IndentListItemRequest) {
+      return IndentListItemCommand(nodeId: request.nodeId);
+    } else if (request is UnindentListItemRequest) {
+      return UnindentListItemCommand(nodeId: request.nodeId);
     } else if (request is ExitCodeBlockRequest) {
       return ExitCodeBlockCommand(
         nodeId: request.nodeId,

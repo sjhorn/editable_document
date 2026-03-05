@@ -673,6 +673,81 @@ class ConvertListItemToParagraphCommand extends EditCommand {
 }
 
 // ---------------------------------------------------------------------------
+// IndentListItemCommand
+// ---------------------------------------------------------------------------
+
+/// Increases the indent level of the [ListItemNode] identified by [nodeId] by
+/// one step.
+///
+/// The node's [ListItemNode.indent] is incremented by 1 and the node is
+/// replaced in the document via [MutableDocument.replaceNode]. No maximum
+/// nesting depth is enforced; callers are responsible for applying any
+/// upper-bound policy before submitting this command.
+///
+/// Returns a [NodeReplaced] event with identical [oldNodeId] and [newNodeId].
+///
+/// Throws [StateError] when [nodeId] does not exist or is not a
+/// [ListItemNode].
+class IndentListItemCommand extends EditCommand {
+  /// Creates an [IndentListItemCommand].
+  const IndentListItemCommand({required this.nodeId});
+
+  /// The id of the [ListItemNode] to indent.
+  final String nodeId;
+
+  @override
+  List<DocumentChangeEvent> execute(EditContext context) {
+    final node = context.document.nodeById(nodeId);
+    if (node == null) {
+      throw StateError('IndentListItemCommand: no node with id "$nodeId".');
+    }
+    if (node is! ListItemNode) {
+      throw StateError('IndentListItemCommand: node "$nodeId" is not a ListItemNode.');
+    }
+
+    context.document.replaceNode(nodeId, node.copyWith(indent: node.indent + 1));
+    return [NodeReplaced(oldNodeId: nodeId, newNodeId: nodeId)];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// UnindentListItemCommand
+// ---------------------------------------------------------------------------
+
+/// Decreases the indent level of the [ListItemNode] identified by [nodeId] by
+/// one step, clamped to a minimum of `0`.
+///
+/// The node's [ListItemNode.indent] is decremented by 1 (floor `0`) and the
+/// node is replaced in the document via [MutableDocument.replaceNode].
+///
+/// Returns a [NodeReplaced] event with identical [oldNodeId] and [newNodeId].
+///
+/// Throws [StateError] when [nodeId] does not exist or is not a
+/// [ListItemNode].
+class UnindentListItemCommand extends EditCommand {
+  /// Creates an [UnindentListItemCommand].
+  const UnindentListItemCommand({required this.nodeId});
+
+  /// The id of the [ListItemNode] to unindent.
+  final String nodeId;
+
+  @override
+  List<DocumentChangeEvent> execute(EditContext context) {
+    final node = context.document.nodeById(nodeId);
+    if (node == null) {
+      throw StateError('UnindentListItemCommand: no node with id "$nodeId".');
+    }
+    if (node is! ListItemNode) {
+      throw StateError('UnindentListItemCommand: node "$nodeId" is not a ListItemNode.');
+    }
+
+    final newIndent = (node.indent - 1).clamp(0, node.indent);
+    context.document.replaceNode(nodeId, node.copyWith(indent: newIndent));
+    return [NodeReplaced(oldNodeId: nodeId, newNodeId: nodeId)];
+  }
+}
+
+// ---------------------------------------------------------------------------
 // ExitCodeBlockCommand
 // ---------------------------------------------------------------------------
 
