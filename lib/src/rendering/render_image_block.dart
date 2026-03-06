@@ -1,9 +1,12 @@
 /// Image block render object for the editable_document rendering layer.
 ///
-/// Provides [RenderImageBlock], a [RenderDocumentBlock] that renders a
-/// placeholder rectangle in place of the actual image.  Actual image loading
-/// is performed in the widget layer.
+/// Provides [RenderImageBlock], a [RenderDocumentBlock] that renders either a
+/// decoded [dart:ui] image or a placeholder rectangle in place of the actual
+/// image.  Actual image loading and lifecycle management is performed in the
+/// widget layer; this render object does **not** dispose the image.
 library;
+
+import 'dart:ui' as ui show Image;
 
 import 'package:flutter/rendering.dart';
 
@@ -11,7 +14,8 @@ import '../model/document_selection.dart';
 import '../model/node_position.dart';
 import 'render_document_block.dart';
 
-/// Default aspect ratio used when no [imageWidth]/[imageHeight] is known.
+/// Default aspect ratio used when no [imageWidth]/[imageHeight] is known and
+/// no [image] has been provided.
 const double _kDefaultAspectRatio = 16.0 / 9.0;
 
 /// Inset from the right edge for the downstream caret position.
@@ -23,19 +27,30 @@ const double _kCaretInset = 2.0;
 
 /// A [RenderDocumentBlock] for image nodes.
 ///
-/// Renders a filled placeholder rectangle sized according to the optional
-/// [imageWidth] and [imageHeight] hints:
+/// Renders a decoded [dart:ui.Image] when one is available, or a filled
+/// placeholder rectangle sized according to the optional [imageWidth] and
+/// [imageHeight] hints:
 ///
 /// - When both dimensions are provided and the image fits within the layout
 ///   constraints, the block is exactly [imageWidth] × [imageHeight].
 /// - When the image is wider than the available space, it is scaled down
 ///   uniformly to fit, preserving the aspect ratio.
-/// - When no dimensions are provided, the block fills the available width
-///   with a 16:9 aspect ratio.
+/// - When no dimensions are provided but an [image] is set, the image's
+///   intrinsic pixel dimensions are used (with the same scaling logic).
+/// - When no dimensions are provided and no image is set, the block fills
+///   the available width with a 16:9 aspect ratio.
 ///
 /// Hit testing uses [BinaryNodePosition]: taps in the left half of the block
 /// return [BinaryNodePosition.upstream] and taps in the right half return
 /// [BinaryNodePosition.downstream].
+///
+/// ## Image lifecycle
+///
+/// This render object does **not** own the [image] — it neither decodes nor
+/// disposes it.  The widget layer is responsible for obtaining the
+/// [dart:ui.Image] (e.g. via [ImageStream]) and setting [image] on this
+/// render object.  When the widget is disposed, the widget layer must also
+/// dispose the [dart:ui.Image].
 ///
 /// ## Accessibility
 ///
@@ -48,19 +63,26 @@ class RenderImageBlock extends RenderDocumentBlock {
   /// Creates a [RenderImageBlock].
   ///
   /// [imageWidth] and [imageHeight] are the intrinsic dimensions of the image
-  /// in logical pixels.  When omitted, a 16:9 aspect ratio is used.
-  /// [placeholderColor] is the fill color of the placeholder rectangle.
+  /// in logical pixels.  When omitted and no [image] is provided, a 16:9
+  /// aspect ratio is used.
+  /// [image] is an optional pre-decoded [dart:ui.Image].  When non-null and
+  /// no explicit [imageWidth]/[imageHeight] are set, the image's own pixel
+  /// dimensions are used for layout.
+  /// [placeholderColor] is the fill color of the placeholder rectangle drawn
+  /// when [image] is `null`.
   /// [altText] is the accessible description announced by screen readers; when
   /// `null` the block is labelled `'Image'`.
   RenderImageBlock({
     required String nodeId,
     double? imageWidth,
     double? imageHeight,
+    ui.Image? image,
     Color placeholderColor = const Color(0xFFE0E0E0),
     String? altText,
   })  : _nodeId = nodeId,
         _imageWidth = imageWidth,
         _imageHeight = imageHeight,
+        _image = image,
         _placeholderColor = placeholderColor,
         _altText = altText;
 
@@ -71,6 +93,7 @@ class RenderImageBlock extends RenderDocumentBlock {
   String _nodeId;
   double? _imageWidth;
   double? _imageHeight;
+  ui.Image? _image;
   Color _placeholderColor;
   String? _altText;
   DocumentSelection? _nodeSelection;
@@ -129,6 +152,37 @@ class RenderImageBlock extends RenderDocumentBlock {
     markNeedsLayout();
   }
 
+  /// The decoded image to paint, or `null` when no image has been loaded yet.
+  ///
+  /// When non-null and no explicit [imageWidth]/[imageHeight] are set, the
+  /// image's pixel dimensions are used to size this block.
+  ///
+  /// This render object does **not** own the image — it does not dispose it.
+  /// The widget layer is responsible for the image lifecycle.
+  // ignore: diagnostic_describe_all_properties
+  ui.Image? get image => _image;
+
+  /// Sets the image.
+  ///
+  /// If the new image has different dimensions than the current one, a layout
+  /// pass is scheduled so the block resizes to match the new intrinsic size.
+  /// Otherwise only a paint pass is scheduled.
+  ///
+  /// Assigning the same instance is a no-op.
+  set image(ui.Image? value) {
+    if (identical(_image, value)) return;
+    final oldW = _image?.width;
+    final oldH = _image?.height;
+    _image = value;
+    final newW = _image?.width;
+    final newH = _image?.height;
+    if (oldW != newW || oldH != newH) {
+      markNeedsLayout();
+    } else {
+      markNeedsPaint();
+    }
+  }
+
   /// The fill color of the placeholder rectangle.
   // ignore: diagnostic_describe_all_properties
   Color get placeholderColor => _placeholderColor;
@@ -165,13 +219,22 @@ class RenderImageBlock extends RenderDocumentBlock {
     final maxW = constraints.maxWidth;
 
     if (_imageWidth != null && _imageHeight != null) {
+      // Explicit dimensions — use them (scaled down if needed).
       final w = _imageWidth!;
       final h = _imageHeight!;
       if (w <= maxW) {
-        // Image fits — use its exact size.
         size = Size(w, h);
       } else {
-        // Scale down to fit, preserving aspect ratio.
+        final scale = maxW / w;
+        size = Size(maxW, h * scale);
+      }
+    } else if (_image != null) {
+      // No explicit dimensions — derive from the decoded image's pixel size.
+      final w = _image!.width.toDouble();
+      final h = _image!.height.toDouble();
+      if (w <= maxW) {
+        size = Size(w, h);
+      } else {
         final scale = maxW / w;
         size = Size(maxW, h * scale);
       }
@@ -187,13 +250,25 @@ class RenderImageBlock extends RenderDocumentBlock {
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    final paint = Paint()..color = _placeholderColor;
-    context.canvas.drawRect(offset & size, paint);
+    final dst = offset & size;
+
+    if (_image != null) {
+      final src = Rect.fromLTWH(
+        0,
+        0,
+        _image!.width.toDouble(),
+        _image!.height.toDouble(),
+      );
+      context.canvas.drawImageRect(_image!, src, dst, Paint());
+    } else {
+      final paint = Paint()..color = _placeholderColor;
+      context.canvas.drawRect(dst, paint);
+    }
 
     // Paint selection highlight if applicable.
     if (_nodeSelection != null) {
       final selPaint = Paint()..color = const Color(0x663399FF);
-      context.canvas.drawRect(offset & size, selPaint);
+      context.canvas.drawRect(dst, selPaint);
     }
   }
 
@@ -255,5 +330,6 @@ class RenderImageBlock extends RenderDocumentBlock {
     properties.add(DoubleProperty('imageHeight', _imageHeight, defaultValue: null));
     properties.add(ColorProperty('placeholderColor', _placeholderColor));
     properties.add(StringProperty('altText', _altText, defaultValue: null));
+    properties.add(DiagnosticsProperty<ui.Image?>('image', _image, defaultValue: null));
   }
 }

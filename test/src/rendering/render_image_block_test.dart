@@ -1,9 +1,31 @@
 /// Tests for [RenderImageBlock].
 library;
 
+import 'dart:ui' as ui;
+
 import 'package:editable_document/editable_document.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+// ---------------------------------------------------------------------------
+// Helper: create a tiny solid-color ui.Image for use in unit tests.
+// ---------------------------------------------------------------------------
+
+Future<ui.Image> _createTestImage(int width, int height) async {
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(
+    recorder,
+    Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble()),
+  );
+  canvas.drawRect(
+    Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble()),
+    Paint()..color = const Color(0xFFFF0000),
+  );
+  final picture = recorder.endRecording();
+  final image = await picture.toImage(width, height);
+  picture.dispose();
+  return image;
+}
 
 void main() {
   group('RenderImageBlock layout', () {
@@ -44,6 +66,58 @@ void main() {
       expect(block.size.width, 400.0);
       // Aspect ratio should be maintained: 400 * (400/800) = 200.
       expect(block.size.height, closeTo(200.0, 1.0));
+    });
+
+    test('layout uses image intrinsic size when no explicit dimensions', () async {
+      final img = await _createTestImage(320, 180);
+      addTearDown(img.dispose);
+
+      final block = RenderImageBlock(nodeId: 'img-1', image: img);
+      block.layout(
+        const BoxConstraints(maxWidth: 800, maxHeight: double.infinity),
+        parentUsesSize: true,
+      );
+      // Image fits within 800px max-width, so exact image dimensions are used.
+      expect(block.size.width, 320.0);
+      expect(block.size.height, 180.0);
+    });
+
+    test('explicit dimensions override image intrinsic size', () async {
+      final img = await _createTestImage(320, 180);
+      addTearDown(img.dispose);
+
+      final block = RenderImageBlock(
+        nodeId: 'img-1',
+        image: img,
+        imageWidth: 200,
+        imageHeight: 100,
+      );
+      block.layout(
+        const BoxConstraints(maxWidth: 800, maxHeight: double.infinity),
+        parentUsesSize: true,
+      );
+      // Explicit dimensions take priority over the image's intrinsic size.
+      expect(block.size.width, 200.0);
+      expect(block.size.height, 100.0);
+    });
+
+    test('image scales down when wider than constraints', () async {
+      final img = await _createTestImage(800, 400);
+      addTearDown(img.dispose);
+
+      final block = RenderImageBlock(nodeId: 'img-1', image: img);
+      block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      // Image (800×400) scaled to fit 400px max-width → 400×200.
+      expect(block.size.width, 400.0);
+      expect(block.size.height, closeTo(200.0, 1.0));
+    });
+
+    test('placeholder is used when image is null', () {
+      final block = RenderImageBlock(nodeId: 'img-1');
+      block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      // Without image or explicit dimensions, falls back to 16:9 placeholder.
+      expect(block.size.width, 400.0);
+      expect(block.size.height, closeTo(400.0 * 9.0 / 16.0, 1.0));
     });
   });
 
@@ -120,6 +194,50 @@ void main() {
         placeholderColor: const Color(0xFFCCCCCC),
       );
       expect(block.placeholderColor, const Color(0xFFCCCCCC));
+    });
+
+    test('image getter returns null by default', () {
+      final block = RenderImageBlock(nodeId: 'img-1');
+      expect(block.image, isNull);
+    });
+
+    test('image getter/setter roundtrip', () async {
+      final img = await _createTestImage(100, 50);
+      addTearDown(img.dispose);
+
+      final block = RenderImageBlock(nodeId: 'img-1');
+      block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      block.image = img;
+      expect(block.image, same(img));
+    });
+
+    test('setting image to same value is a no-op', () async {
+      final img = await _createTestImage(100, 50);
+      addTearDown(img.dispose);
+
+      final block = RenderImageBlock(nodeId: 'img-1', image: img);
+      block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      // Assign same instance — should not throw or trigger any extra work.
+      block.image = img;
+      expect(block.image, same(img));
+    });
+
+    test('setting image to null clears it', () async {
+      final img = await _createTestImage(100, 50);
+      addTearDown(img.dispose);
+
+      final block = RenderImageBlock(nodeId: 'img-1', image: img);
+      block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      block.image = null;
+      expect(block.image, isNull);
+    });
+
+    test('image constructor parameter is stored', () async {
+      final img = await _createTestImage(200, 100);
+      addTearDown(img.dispose);
+
+      final block = RenderImageBlock(nodeId: 'img-1', image: img);
+      expect(block.image, same(img));
     });
   });
 }
