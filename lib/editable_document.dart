@@ -7,6 +7,8 @@ library editable_document;
 
 export 'src/model/attribution.dart';
 export 'src/model/attributed_text.dart';
+export 'src/model/block_alignment.dart';
+export 'src/model/blockquote_node.dart';
 export 'src/model/code_block_node.dart';
 export 'src/model/composer_preferences.dart';
 export 'src/model/document.dart';
