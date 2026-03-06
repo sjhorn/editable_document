@@ -36,6 +36,7 @@ export 'src/rendering/render_text_block.dart';
 export 'src/rendering/render_paragraph_block.dart';
 export 'src/rendering/render_list_item_block.dart';
 export 'src/rendering/render_image_block.dart';
+export 'src/rendering/render_blockquote_block.dart';
 export 'src/rendering/render_code_block.dart';
 export 'src/rendering/render_horizontal_rule_block.dart';
 export 'src/rendering/render_document_layout.dart';
