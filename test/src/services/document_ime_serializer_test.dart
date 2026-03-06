@@ -705,6 +705,313 @@ void main() {
     });
 
     // -------------------------------------------------------------------------
+    // BlockquoteNode — TextNode subclass compatibility
+    // -------------------------------------------------------------------------
+    //
+    // BlockquoteNode extends TextNode, so every `is TextNode` branch in the
+    // serializer must accept it automatically.  These tests pin that contract
+    // so a future refactor that switches to `is ParagraphNode` checks would
+    // immediately be caught.
+
+    group('BlockquoteNode (TextNode subclass)', () {
+      // -- toTextEditingValue --------------------------------------------------
+
+      test('single BlockquoteNode, collapsed selection serializes node text (Mode 1)', () {
+        final node = BlockquoteNode(id: 'bq1', text: AttributedText('To be or not to be'));
+        final doc = Document([node]);
+        final selection = const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'bq1',
+            nodePosition: TextNodePosition(offset: 5),
+          ),
+        );
+
+        final value = serializer.toTextEditingValue(document: doc, selection: selection);
+
+        // Mode 1: full node text is serialized.
+        expect(value.text, equals('To be or not to be'));
+        expect(value.selection, equals(const TextSelection.collapsed(offset: 5)));
+        expect(value.composing, equals(TextRange.empty));
+      });
+
+      test('single BlockquoteNode, expanded selection maps base and extent', () {
+        final node = BlockquoteNode(id: 'bq1', text: AttributedText('Shakespeare'));
+        final doc = Document([node]);
+        final selection = const DocumentSelection(
+          base: DocumentPosition(
+            nodeId: 'bq1',
+            nodePosition: TextNodePosition(offset: 0),
+          ),
+          extent: DocumentPosition(
+            nodeId: 'bq1',
+            nodePosition: TextNodePosition(offset: 11),
+          ),
+        );
+
+        final value = serializer.toTextEditingValue(document: doc, selection: selection);
+
+        expect(value.text, equals('Shakespeare'));
+        expect(
+          value.selection,
+          equals(const TextSelection(baseOffset: 0, extentOffset: 11)),
+        );
+      });
+
+      test('BlockquoteNode composing region is preserved in Mode 1', () {
+        final node = BlockquoteNode(id: 'bq1', text: AttributedText('composing'));
+        final doc = Document([node]);
+        final selection = const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'bq1',
+            nodePosition: TextNodePosition(offset: 9),
+          ),
+        );
+
+        final value = serializer.toTextEditingValue(
+          document: doc,
+          selection: selection,
+          composingNodeId: 'bq1',
+          composingBase: 0,
+          composingExtent: 9,
+        );
+
+        expect(value.text, equals('composing'));
+        expect(value.composing, equals(const TextRange(start: 0, end: 9)));
+      });
+
+      test(
+          'cross-block selection spanning BlockquoteNode and ParagraphNode '
+          'produces Mode 2 synthetic value', () {
+        final bq = BlockquoteNode(id: 'bq1', text: AttributedText('Quote'));
+        final para = ParagraphNode(id: 'p1', text: AttributedText('Para'));
+        final doc = Document([bq, para]);
+        final selection = const DocumentSelection(
+          base: DocumentPosition(
+            nodeId: 'bq1',
+            nodePosition: TextNodePosition(offset: 0),
+          ),
+          extent: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 2),
+          ),
+        );
+
+        final value = serializer.toTextEditingValue(document: doc, selection: selection);
+
+        expect(value.text, equals('\u200B'));
+        expect(value.selection, equals(const TextSelection.collapsed(offset: 1)));
+      });
+
+      // -- toDocumentSelection -------------------------------------------------
+
+      test('round-trip through toTextEditingValue / toDocumentSelection with BlockquoteNode', () {
+        final node = BlockquoteNode(id: 'bq1', text: AttributedText('Flutter'));
+        final doc = Document([node]);
+        final originalSelection = const DocumentSelection(
+          base: DocumentPosition(
+            nodeId: 'bq1',
+            nodePosition: TextNodePosition(offset: 1),
+          ),
+          extent: DocumentPosition(
+            nodeId: 'bq1',
+            nodePosition: TextNodePosition(offset: 4),
+          ),
+        );
+
+        final imeValue = serializer.toTextEditingValue(document: doc, selection: originalSelection);
+        final recovered = serializer.toDocumentSelection(
+          imeValue: imeValue,
+          document: doc,
+          serializedNodeId: 'bq1',
+        );
+
+        expect(recovered, equals(originalSelection));
+      });
+
+      // -- deltaToRequests -----------------------------------------------------
+
+      test('TextEditingDeltaInsertion into BlockquoteNode produces InsertTextRequest', () {
+        final node = BlockquoteNode(id: 'bq1', text: AttributedText(''));
+        final doc = Document([node]);
+        final selection = const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'bq1',
+            nodePosition: TextNodePosition(offset: 0),
+          ),
+        );
+
+        final delta = const TextEditingDeltaInsertion(
+          oldText: '',
+          textInserted: 'Q',
+          insertionOffset: 0,
+          selection: TextSelection.collapsed(offset: 1),
+          composing: TextRange.empty,
+        );
+
+        final requests = serializer.deltaToRequests(
+          deltas: [delta],
+          document: doc,
+          selection: selection,
+        );
+
+        expect(requests, hasLength(1));
+        expect(requests.first, isA<InsertTextRequest>());
+        final req = requests.first as InsertTextRequest;
+        expect(req.nodeId, equals('bq1'));
+        expect(req.offset, equals(0));
+        expect(req.text.text, equals('Q'));
+      });
+
+      test(
+          'TextEditingDeltaInsertion of newline into BlockquoteNode produces SplitParagraphRequest',
+          () {
+        final node = BlockquoteNode(id: 'bq1', text: AttributedText('Quote'));
+        final doc = Document([node]);
+        final selection = const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'bq1',
+            nodePosition: TextNodePosition(offset: 5),
+          ),
+        );
+
+        final delta = const TextEditingDeltaInsertion(
+          oldText: 'Quote',
+          textInserted: '\n',
+          insertionOffset: 5,
+          selection: TextSelection.collapsed(offset: 6),
+          composing: TextRange.empty,
+        );
+
+        final requests = serializer.deltaToRequests(
+          deltas: [delta],
+          document: doc,
+          selection: selection,
+        );
+
+        expect(requests, hasLength(1));
+        expect(requests.first, isA<SplitParagraphRequest>());
+        final req = requests.first as SplitParagraphRequest;
+        expect(req.nodeId, equals('bq1'));
+        expect(req.splitOffset, equals(5));
+      });
+
+      test('TextEditingDeltaDeletion into BlockquoteNode produces DeleteContentRequest', () {
+        final node = BlockquoteNode(id: 'bq1', text: AttributedText('Quote'));
+        final doc = Document([node]);
+        final selection = const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'bq1',
+            nodePosition: TextNodePosition(offset: 5),
+          ),
+        );
+
+        final delta = const TextEditingDeltaDeletion(
+          oldText: 'Quote',
+          deletedRange: TextRange(start: 4, end: 5),
+          selection: TextSelection.collapsed(offset: 4),
+          composing: TextRange.empty,
+        );
+
+        final requests = serializer.deltaToRequests(
+          deltas: [delta],
+          document: doc,
+          selection: selection,
+        );
+
+        expect(requests, hasLength(1));
+        expect(requests.first, isA<DeleteContentRequest>());
+        final req = requests.first as DeleteContentRequest;
+        expect(
+          req.selection.base,
+          equals(
+            const DocumentPosition(
+              nodeId: 'bq1',
+              nodePosition: TextNodePosition(offset: 4),
+            ),
+          ),
+        );
+        expect(
+          req.selection.extent,
+          equals(
+            const DocumentPosition(
+              nodeId: 'bq1',
+              nodePosition: TextNodePosition(offset: 5),
+            ),
+          ),
+        );
+      });
+
+      test('TextEditingDeltaReplacement into BlockquoteNode produces delete + insert', () {
+        final node = BlockquoteNode(id: 'bq1', text: AttributedText('Quote'));
+        final doc = Document([node]);
+        final selection = const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'bq1',
+            nodePosition: TextNodePosition(offset: 5),
+          ),
+        );
+
+        final delta = const TextEditingDeltaReplacement(
+          oldText: 'Quote',
+          replacementText: 'Citation',
+          replacedRange: TextRange(start: 0, end: 5),
+          selection: TextSelection.collapsed(offset: 8),
+          composing: TextRange.empty,
+        );
+
+        final requests = serializer.deltaToRequests(
+          deltas: [delta],
+          document: doc,
+          selection: selection,
+        );
+
+        expect(requests, hasLength(2));
+        expect(requests[0], isA<DeleteContentRequest>());
+        expect(requests[1], isA<InsertTextRequest>());
+
+        final deleteReq = requests[0] as DeleteContentRequest;
+        expect(
+          deleteReq.selection.base.nodePosition,
+          equals(const TextNodePosition(offset: 0)),
+        );
+        expect(
+          deleteReq.selection.extent.nodePosition,
+          equals(const TextNodePosition(offset: 5)),
+        );
+
+        final insertReq = requests[1] as InsertTextRequest;
+        expect(insertReq.nodeId, equals('bq1'));
+        expect(insertReq.offset, equals(0));
+        expect(insertReq.text.text, equals('Citation'));
+      });
+
+      test('TextEditingDeltaNonTextUpdate into BlockquoteNode returns empty list', () {
+        final node = BlockquoteNode(id: 'bq1', text: AttributedText('Quote'));
+        final doc = Document([node]);
+        final selection = const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'bq1',
+            nodePosition: TextNodePosition(offset: 5),
+          ),
+        );
+
+        final delta = const TextEditingDeltaNonTextUpdate(
+          oldText: 'Quote',
+          selection: TextSelection.collapsed(offset: 3),
+          composing: TextRange.empty,
+        );
+
+        final requests = serializer.deltaToRequests(
+          deltas: [delta],
+          document: doc,
+          selection: selection,
+        );
+
+        expect(requests, isEmpty);
+      });
+    });
+
+    // -------------------------------------------------------------------------
     // Edge cases
     // -------------------------------------------------------------------------
 
