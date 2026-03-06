@@ -10,7 +10,7 @@
 /// - [ComponentBuilder] — abstract factory that converts a [DocumentNode] into
 ///   a [ComponentViewModel] and a [ComponentViewModel] into a [Widget].
 ///
-/// The five default builders are available via [defaultComponentBuilders].
+/// The six default builders are available via [defaultComponentBuilders].
 /// Use [resolveViewModel] to try builders in order and return the first
 /// non-null result.
 library;
@@ -22,6 +22,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../model/attributed_text.dart';
+import '../model/block_alignment.dart';
+import '../model/blockquote_node.dart';
 import '../model/code_block_node.dart';
 import '../model/document.dart';
 import '../model/document_node.dart';
@@ -30,6 +32,7 @@ import '../model/horizontal_rule_node.dart';
 import '../model/image_node.dart';
 import '../model/list_item_node.dart';
 import '../model/paragraph_node.dart';
+import '../rendering/render_blockquote_block.dart';
 import '../rendering/render_code_block.dart';
 import '../rendering/render_horizontal_rule_block.dart';
 import '../rendering/render_image_block.dart';
@@ -169,7 +172,8 @@ ComponentViewModel? resolveViewModel(
 /// 2. [ListItemComponentBuilder]
 /// 3. [ImageComponentBuilder]
 /// 4. [CodeBlockComponentBuilder]
-/// 5. [HorizontalRuleComponentBuilder]
+/// 5. [BlockquoteComponentBuilder]
+/// 6. [HorizontalRuleComponentBuilder]
 ///
 /// Prepend custom builders to override defaults for specific node types.
 const List<ComponentBuilder> defaultComponentBuilders = [
@@ -177,6 +181,7 @@ const List<ComponentBuilder> defaultComponentBuilders = [
   ListItemComponentBuilder(),
   ImageComponentBuilder(),
   CodeBlockComponentBuilder(),
+  BlockquoteComponentBuilder(),
   HorizontalRuleComponentBuilder(),
 ];
 
@@ -438,6 +443,8 @@ class ImageComponentViewModel extends ComponentViewModel {
     this.altText,
     this.imageWidth,
     this.imageHeight,
+    this.alignment = BlockAlignment.stretch,
+    this.textWrap = false,
     super.nodeSelection,
     super.isSelected,
   });
@@ -454,6 +461,16 @@ class ImageComponentViewModel extends ComponentViewModel {
   /// Preferred display height in logical pixels, or `null`.
   final double? imageHeight;
 
+  /// The horizontal alignment of this image within the layout.
+  ///
+  /// Defaults to [BlockAlignment.stretch].
+  final BlockAlignment alignment;
+
+  /// Whether subsequent blocks should wrap around this image.
+  ///
+  /// Defaults to `false`.
+  final bool textWrap;
+
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
@@ -463,13 +480,24 @@ class ImageComponentViewModel extends ComponentViewModel {
         other.altText == altText &&
         other.imageWidth == imageWidth &&
         other.imageHeight == imageHeight &&
+        other.alignment == alignment &&
+        other.textWrap == textWrap &&
         other.nodeSelection == nodeSelection &&
         other.isSelected == isSelected;
   }
 
   @override
-  int get hashCode =>
-      Object.hash(nodeId, imageUrl, altText, imageWidth, imageHeight, nodeSelection, isSelected);
+  int get hashCode => Object.hash(
+        nodeId,
+        imageUrl,
+        altText,
+        imageWidth,
+        imageHeight,
+        alignment,
+        textWrap,
+        nodeSelection,
+        isSelected,
+      );
 }
 
 /// [ComponentBuilder] that handles [ImageNode].
@@ -486,6 +514,8 @@ class ImageComponentBuilder extends ComponentBuilder {
       altText: node.altText,
       imageWidth: node.width,
       imageHeight: node.height,
+      alignment: node.alignment,
+      textWrap: node.textWrap,
     );
   }
 
@@ -602,6 +632,8 @@ class _RawImageBlockWidget extends LeafRenderObjectWidget {
       imageHeight: viewModel.imageHeight,
       altText: viewModel.altText,
       image: image,
+      blockAlignment: viewModel.alignment,
+      textWrap: viewModel.textWrap,
     );
   }
 
@@ -613,6 +645,8 @@ class _RawImageBlockWidget extends LeafRenderObjectWidget {
       ..imageHeight = viewModel.imageHeight
       ..altText = viewModel.altText
       ..image = image
+      ..blockAlignment = viewModel.alignment
+      ..textWrap = viewModel.textWrap
       ..nodeSelection = viewModel.nodeSelection;
   }
 
@@ -636,6 +670,10 @@ class CodeBlockComponentViewModel extends ComponentViewModel {
     required this.text,
     required this.textStyle,
     this.language,
+    this.width,
+    this.height,
+    this.alignment = BlockAlignment.stretch,
+    this.textWrap = false,
     super.nodeSelection,
     super.isSelected,
   });
@@ -649,6 +687,22 @@ class CodeBlockComponentViewModel extends ComponentViewModel {
   /// The programming language identifier for syntax highlighting, or `null`.
   final String? language;
 
+  /// Preferred display width in logical pixels, or `null`.
+  final double? width;
+
+  /// Preferred display height in logical pixels, or `null`.
+  final double? height;
+
+  /// The horizontal alignment of this code block within the layout.
+  ///
+  /// Defaults to [BlockAlignment.stretch].
+  final BlockAlignment alignment;
+
+  /// Whether subsequent blocks should wrap around this code block.
+  ///
+  /// Defaults to `false`.
+  final bool textWrap;
+
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
@@ -657,12 +711,27 @@ class CodeBlockComponentViewModel extends ComponentViewModel {
         other.text == text &&
         other.textStyle == textStyle &&
         other.language == language &&
+        other.width == width &&
+        other.height == height &&
+        other.alignment == alignment &&
+        other.textWrap == textWrap &&
         other.nodeSelection == nodeSelection &&
         other.isSelected == isSelected;
   }
 
   @override
-  int get hashCode => Object.hash(nodeId, text, textStyle, language, nodeSelection, isSelected);
+  int get hashCode => Object.hash(
+        nodeId,
+        text,
+        textStyle,
+        language,
+        width,
+        height,
+        alignment,
+        textWrap,
+        nodeSelection,
+        isSelected,
+      );
 }
 
 /// [ComponentBuilder] that handles [CodeBlockNode].
@@ -678,6 +747,10 @@ class CodeBlockComponentBuilder extends ComponentBuilder {
       text: node.text,
       textStyle: const TextStyle(),
       language: node.language,
+      width: node.width,
+      height: node.height,
+      alignment: node.alignment,
+      textWrap: node.textWrap,
     );
   }
 
@@ -700,6 +773,10 @@ class _CodeBlockWidget extends LeafRenderObjectWidget {
       nodeId: viewModel.nodeId,
       text: viewModel.text,
       baseTextStyle: DefaultTextStyle.of(context).style.merge(viewModel.textStyle),
+      blockAlignment: viewModel.alignment,
+      requestedWidth: viewModel.width,
+      requestedHeight: viewModel.height,
+      textWrap: viewModel.textWrap,
     );
   }
 
@@ -708,6 +785,10 @@ class _CodeBlockWidget extends LeafRenderObjectWidget {
     renderObject
       ..nodeId = viewModel.nodeId
       ..text = viewModel.text
+      ..blockAlignment = viewModel.alignment
+      ..requestedWidth = viewModel.width
+      ..requestedHeight = viewModel.height
+      ..textWrap = viewModel.textWrap
       ..nodeSelection = viewModel.nodeSelection;
   }
 
@@ -727,21 +808,28 @@ class HorizontalRuleComponentViewModel extends ComponentViewModel {
   /// Creates a [HorizontalRuleComponentViewModel].
   const HorizontalRuleComponentViewModel({
     required super.nodeId,
+    this.alignment = BlockAlignment.stretch,
     super.nodeSelection,
     super.isSelected,
   });
+
+  /// The horizontal alignment of this rule within the layout.
+  ///
+  /// Defaults to [BlockAlignment.stretch].
+  final BlockAlignment alignment;
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
     return other is HorizontalRuleComponentViewModel &&
         other.nodeId == nodeId &&
+        other.alignment == alignment &&
         other.nodeSelection == nodeSelection &&
         other.isSelected == isSelected;
   }
 
   @override
-  int get hashCode => Object.hash(nodeId, nodeSelection, isSelected);
+  int get hashCode => Object.hash(nodeId, alignment, nodeSelection, isSelected);
 }
 
 /// [ComponentBuilder] that handles [HorizontalRuleNode].
@@ -752,7 +840,7 @@ class HorizontalRuleComponentBuilder extends ComponentBuilder {
   @override
   ComponentViewModel? createViewModel(Document document, DocumentNode node) {
     if (node is! HorizontalRuleNode) return null;
-    return HorizontalRuleComponentViewModel(nodeId: node.id);
+    return HorizontalRuleComponentViewModel(nodeId: node.id, alignment: node.alignment);
   }
 
   @override
@@ -770,13 +858,17 @@ class _HorizontalRuleBlockWidget extends LeafRenderObjectWidget {
 
   @override
   RenderHorizontalRuleBlock createRenderObject(BuildContext context) {
-    return RenderHorizontalRuleBlock(nodeId: viewModel.nodeId);
+    return RenderHorizontalRuleBlock(
+      nodeId: viewModel.nodeId,
+      blockAlignment: viewModel.alignment,
+    );
   }
 
   @override
   void updateRenderObject(BuildContext context, RenderHorizontalRuleBlock renderObject) {
     renderObject
       ..nodeId = viewModel.nodeId
+      ..blockAlignment = viewModel.alignment
       ..nodeSelection = viewModel.nodeSelection;
   }
 
@@ -786,5 +878,140 @@ class _HorizontalRuleBlockWidget extends LeafRenderObjectWidget {
     properties.add(
       DiagnosticsProperty<HorizontalRuleComponentViewModel>('viewModel', viewModel),
     );
+  }
+}
+
+// ===========================================================================
+// BlockquoteComponentBuilder
+// ===========================================================================
+
+/// [ComponentViewModel] for [BlockquoteNode].
+class BlockquoteComponentViewModel extends ComponentViewModel {
+  /// Creates a [BlockquoteComponentViewModel].
+  const BlockquoteComponentViewModel({
+    required super.nodeId,
+    required this.text,
+    required this.textStyle,
+    this.width,
+    this.height,
+    this.alignment = BlockAlignment.stretch,
+    this.textWrap = false,
+    super.nodeSelection,
+    super.isSelected,
+  });
+
+  /// The attributed text content of the blockquote.
+  final AttributedText text;
+
+  /// The base [TextStyle] applied before attributions.
+  final TextStyle textStyle;
+
+  /// Preferred display width in logical pixels, or `null`.
+  final double? width;
+
+  /// Preferred display height in logical pixels, or `null`.
+  final double? height;
+
+  /// The horizontal alignment of this blockquote within the layout.
+  ///
+  /// Defaults to [BlockAlignment.stretch].
+  final BlockAlignment alignment;
+
+  /// Whether subsequent blocks should wrap around this blockquote.
+  ///
+  /// Defaults to `false`.
+  final bool textWrap;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is BlockquoteComponentViewModel &&
+        other.nodeId == nodeId &&
+        other.text == text &&
+        other.textStyle == textStyle &&
+        other.width == width &&
+        other.height == height &&
+        other.alignment == alignment &&
+        other.textWrap == textWrap &&
+        other.nodeSelection == nodeSelection &&
+        other.isSelected == isSelected;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        nodeId,
+        text,
+        textStyle,
+        width,
+        height,
+        alignment,
+        textWrap,
+        nodeSelection,
+        isSelected,
+      );
+}
+
+/// [ComponentBuilder] that handles [BlockquoteNode].
+class BlockquoteComponentBuilder extends ComponentBuilder {
+  /// Creates a const [BlockquoteComponentBuilder].
+  const BlockquoteComponentBuilder();
+
+  @override
+  ComponentViewModel? createViewModel(Document document, DocumentNode node) {
+    if (node is! BlockquoteNode) return null;
+    return BlockquoteComponentViewModel(
+      nodeId: node.id,
+      text: node.text,
+      textStyle: const TextStyle(),
+      width: node.width,
+      height: node.height,
+      alignment: node.alignment,
+      textWrap: node.textWrap,
+    );
+  }
+
+  @override
+  Widget? createComponent(ComponentViewModel viewModel, ComponentContext context) {
+    if (viewModel is! BlockquoteComponentViewModel) return null;
+    return _BlockquoteBlockWidget(viewModel: viewModel);
+  }
+}
+
+/// [LeafRenderObjectWidget] that wraps [RenderBlockquoteBlock].
+class _BlockquoteBlockWidget extends LeafRenderObjectWidget {
+  const _BlockquoteBlockWidget({required this.viewModel});
+
+  final BlockquoteComponentViewModel viewModel;
+
+  @override
+  RenderBlockquoteBlock createRenderObject(BuildContext context) {
+    return RenderBlockquoteBlock(
+      nodeId: viewModel.nodeId,
+      text: viewModel.text,
+      textStyle: DefaultTextStyle.of(context).style.merge(viewModel.textStyle),
+      blockAlignment: viewModel.alignment,
+      requestedWidth: viewModel.width,
+      requestedHeight: viewModel.height,
+      textWrap: viewModel.textWrap,
+    );
+  }
+
+  @override
+  void updateRenderObject(BuildContext context, RenderBlockquoteBlock renderObject) {
+    renderObject
+      ..nodeId = viewModel.nodeId
+      ..text = viewModel.text
+      ..textStyle = DefaultTextStyle.of(context).style.merge(viewModel.textStyle)
+      ..blockAlignment = viewModel.alignment
+      ..requestedWidth = viewModel.width
+      ..requestedHeight = viewModel.height
+      ..textWrap = viewModel.textWrap
+      ..nodeSelection = viewModel.nodeSelection;
+  }
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties.add(DiagnosticsProperty<BlockquoteComponentViewModel>('viewModel', viewModel));
   }
 }

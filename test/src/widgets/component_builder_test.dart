@@ -1,5 +1,5 @@
 /// Tests for [ComponentBuilder], [ComponentViewModel], [ComponentContext],
-/// and the five default builder implementations.
+/// and the six default builder implementations.
 library;
 
 import 'package:flutter/material.dart';
@@ -66,6 +66,9 @@ CodeBlockNode _codeBlock({String id = 'cb1', String text = 'void main() {}'}) =>
 
 // ignore: unused_element_parameter
 HorizontalRuleNode _rule({String id = 'hr1'}) => HorizontalRuleNode(id: id);
+
+BlockquoteNode _blockquote({String id = 'bq1', String text = 'To be or not to be'}) =>
+    BlockquoteNode(id: id, text: AttributedText(text));
 
 Document _doc(List<DocumentNode> nodes) => Document(nodes);
 
@@ -207,7 +210,7 @@ void main() {
       expect(widget, isNull);
     });
 
-    testWidgets('created widget renders in a widget tree', (tester) async {
+    testWidgets('created widget renders in a widget tree', (WidgetTester tester) async {
       final node = _paragraph(text: 'Flutter');
       final doc = _doc([node]);
 
@@ -403,6 +406,26 @@ void main() {
       expect(vm, isNull);
     });
 
+    test('createViewModel copies alignment and textWrap from ImageNode', () {
+      final node = ImageNode(
+        id: 'img1',
+        imageUrl: 'https://example.com/img.png',
+        alignment: BlockAlignment.center,
+        textWrap: true,
+      );
+      final doc = _doc([node]);
+      final vm = builder.createViewModel(doc, node) as ImageComponentViewModel;
+      expect(vm.alignment, BlockAlignment.center);
+      expect(vm.textWrap, isTrue);
+    });
+
+    test('createViewModel defaults alignment to stretch and textWrap to false', () {
+      final doc = _doc([_image()]);
+      final vm = builder.createViewModel(doc, _image()) as ImageComponentViewModel;
+      expect(vm.alignment, BlockAlignment.stretch);
+      expect(vm.textWrap, isFalse);
+    });
+
     test('createComponent returns non-null for ImageComponentViewModel', () {
       final doc = _doc([_image()]);
       final ctx = _ctx(doc);
@@ -425,7 +448,47 @@ void main() {
       expect(widget, isNull);
     });
 
-    testWidgets('ImageComponentBuilder created widget renders in a widget tree', (tester) async {
+    test('ImageComponentViewModel equality includes alignment and textWrap', () {
+      const a = ImageComponentViewModel(
+        nodeId: 'img1',
+        imageUrl: 'https://example.com/img.png',
+        alignment: BlockAlignment.center,
+        textWrap: true,
+      );
+      const b = ImageComponentViewModel(
+        nodeId: 'img1',
+        imageUrl: 'https://example.com/img.png',
+        alignment: BlockAlignment.center,
+        textWrap: true,
+      );
+      const c = ImageComponentViewModel(
+        nodeId: 'img1',
+        imageUrl: 'https://example.com/img.png',
+        alignment: BlockAlignment.start,
+        textWrap: false,
+      );
+      expect(a, equals(b));
+      expect(a, isNot(equals(c)));
+    });
+
+    test('ImageComponentViewModel hashCode includes alignment and textWrap', () {
+      const a = ImageComponentViewModel(
+        nodeId: 'img1',
+        imageUrl: 'https://example.com/img.png',
+        alignment: BlockAlignment.center,
+        textWrap: true,
+      );
+      const b = ImageComponentViewModel(
+        nodeId: 'img1',
+        imageUrl: 'https://example.com/img.png',
+        alignment: BlockAlignment.center,
+        textWrap: true,
+      );
+      expect(a.hashCode, equals(b.hashCode));
+    });
+
+    testWidgets('ImageComponentBuilder created widget renders in a widget tree',
+        (WidgetTester tester) async {
       final node = _image();
       final doc = _doc([node]);
 
@@ -463,6 +526,32 @@ void main() {
       expect(vm, isNull);
     });
 
+    test('createViewModel copies width, height, alignment, textWrap from CodeBlockNode', () {
+      final node = CodeBlockNode(
+        id: 'cb1',
+        text: AttributedText('code'),
+        width: 400.0,
+        height: 200.0,
+        alignment: BlockAlignment.end,
+        textWrap: true,
+      );
+      final doc = _doc([node]);
+      final vm = builder.createViewModel(doc, node) as CodeBlockComponentViewModel;
+      expect(vm.width, 400.0);
+      expect(vm.height, 200.0);
+      expect(vm.alignment, BlockAlignment.end);
+      expect(vm.textWrap, isTrue);
+    });
+
+    test('createViewModel defaults width, height to null and alignment to stretch', () {
+      final doc = _doc([_codeBlock()]);
+      final vm = builder.createViewModel(doc, _codeBlock()) as CodeBlockComponentViewModel;
+      expect(vm.width, isNull);
+      expect(vm.height, isNull);
+      expect(vm.alignment, BlockAlignment.stretch);
+      expect(vm.textWrap, isFalse);
+    });
+
     test('createComponent returns non-null for CodeBlockComponentViewModel', () {
       final doc = _doc([_codeBlock()]);
       final ctx = _ctx(doc);
@@ -481,6 +570,56 @@ void main() {
       const vm = _FakeViewModel(nodeId: 'n1');
       final widget = builder.createComponent(vm, ctx);
       expect(widget, isNull);
+    });
+
+    test('CodeBlockComponentViewModel equality includes width, height, alignment, textWrap', () {
+      final a = CodeBlockComponentViewModel(
+        nodeId: 'cb1',
+        text: AttributedText('code'),
+        textStyle: const TextStyle(),
+        width: 400.0,
+        height: 200.0,
+        alignment: BlockAlignment.center,
+        textWrap: true,
+      );
+      final b = CodeBlockComponentViewModel(
+        nodeId: 'cb1',
+        text: AttributedText('code'),
+        textStyle: const TextStyle(),
+        width: 400.0,
+        height: 200.0,
+        alignment: BlockAlignment.center,
+        textWrap: true,
+      );
+      final c = CodeBlockComponentViewModel(
+        nodeId: 'cb1',
+        text: AttributedText('code'),
+        textStyle: const TextStyle(),
+        width: 300.0,
+        alignment: BlockAlignment.start,
+      );
+      expect(a, equals(b));
+      expect(a, isNot(equals(c)));
+    });
+
+    test('CodeBlockComponentViewModel hashCode includes width, height, alignment, textWrap', () {
+      final a = CodeBlockComponentViewModel(
+        nodeId: 'cb1',
+        text: AttributedText('code'),
+        textStyle: const TextStyle(),
+        width: 400.0,
+        alignment: BlockAlignment.center,
+        textWrap: true,
+      );
+      final b = CodeBlockComponentViewModel(
+        nodeId: 'cb1',
+        text: AttributedText('code'),
+        textStyle: const TextStyle(),
+        width: 400.0,
+        alignment: BlockAlignment.center,
+        textWrap: true,
+      );
+      expect(a.hashCode, equals(b.hashCode));
     });
   });
 
@@ -504,6 +643,19 @@ void main() {
       expect(vm, isNull);
     });
 
+    test('createViewModel copies alignment from HorizontalRuleNode', () {
+      final node = HorizontalRuleNode(id: 'hr1', alignment: BlockAlignment.center);
+      final doc = _doc([node]);
+      final vm = builder.createViewModel(doc, node) as HorizontalRuleComponentViewModel;
+      expect(vm.alignment, BlockAlignment.center);
+    });
+
+    test('createViewModel defaults alignment to stretch', () {
+      final doc = _doc([_rule()]);
+      final vm = builder.createViewModel(doc, _rule()) as HorizontalRuleComponentViewModel;
+      expect(vm.alignment, BlockAlignment.stretch);
+    });
+
     test('createComponent returns non-null for HorizontalRuleComponentViewModel', () {
       final doc = _doc([_rule()]);
       final ctx = _ctx(doc);
@@ -519,6 +671,157 @@ void main() {
       final widget = builder.createComponent(vm, ctx);
       expect(widget, isNull);
     });
+
+    test('HorizontalRuleComponentViewModel equality includes alignment', () {
+      const a = HorizontalRuleComponentViewModel(
+        nodeId: 'hr1',
+        alignment: BlockAlignment.center,
+      );
+      const b = HorizontalRuleComponentViewModel(
+        nodeId: 'hr1',
+        alignment: BlockAlignment.center,
+      );
+      const c = HorizontalRuleComponentViewModel(
+        nodeId: 'hr1',
+        alignment: BlockAlignment.start,
+      );
+      expect(a, equals(b));
+      expect(a, isNot(equals(c)));
+    });
+
+    test('HorizontalRuleComponentViewModel hashCode includes alignment', () {
+      const a = HorizontalRuleComponentViewModel(
+        nodeId: 'hr1',
+        alignment: BlockAlignment.center,
+      );
+      const b = HorizontalRuleComponentViewModel(
+        nodeId: 'hr1',
+        alignment: BlockAlignment.center,
+      );
+      expect(a.hashCode, equals(b.hashCode));
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // BlockquoteComponentBuilder
+  // -------------------------------------------------------------------------
+
+  group('BlockquoteComponentBuilder', () {
+    const builder = BlockquoteComponentBuilder();
+
+    test('createViewModel returns non-null for BlockquoteNode', () {
+      final doc = _doc([_blockquote()]);
+      final vm = builder.createViewModel(doc, _blockquote());
+      expect(vm, isNotNull);
+      expect(vm, isA<BlockquoteComponentViewModel>());
+    });
+
+    test('createViewModel returns null for non-BlockquoteNode', () {
+      final doc = _doc([_paragraph()]);
+      final vm = builder.createViewModel(doc, _paragraph());
+      expect(vm, isNull);
+    });
+
+    test('createViewModel returns null for CodeBlockNode', () {
+      final doc = _doc([_codeBlock()]);
+      final vm = builder.createViewModel(doc, _codeBlock());
+      expect(vm, isNull);
+    });
+
+    test('createViewModel copies text, width, height, alignment, textWrap from BlockquoteNode', () {
+      final node = BlockquoteNode(
+        id: 'bq1',
+        text: AttributedText('To be or not to be'),
+        width: 500.0,
+        height: 100.0,
+        alignment: BlockAlignment.center,
+        textWrap: true,
+      );
+      final doc = _doc([node]);
+      final vm = builder.createViewModel(doc, node) as BlockquoteComponentViewModel;
+      expect(vm.text.text, 'To be or not to be');
+      expect(vm.width, 500.0);
+      expect(vm.height, 100.0);
+      expect(vm.alignment, BlockAlignment.center);
+      expect(vm.textWrap, isTrue);
+    });
+
+    test('createViewModel defaults width, height to null and alignment to stretch', () {
+      final doc = _doc([_blockquote()]);
+      final vm = builder.createViewModel(doc, _blockquote()) as BlockquoteComponentViewModel;
+      expect(vm.width, isNull);
+      expect(vm.height, isNull);
+      expect(vm.alignment, BlockAlignment.stretch);
+      expect(vm.textWrap, isFalse);
+    });
+
+    test('createComponent returns non-null for BlockquoteComponentViewModel', () {
+      final doc = _doc([_blockquote()]);
+      final ctx = _ctx(doc);
+      final vm = BlockquoteComponentViewModel(
+        nodeId: 'bq1',
+        text: AttributedText('To be or not to be'),
+        textStyle: const TextStyle(),
+      );
+      final widget = builder.createComponent(vm, ctx);
+      expect(widget, isNotNull);
+    });
+
+    test('createComponent returns null for unhandled viewModel', () {
+      final doc = _doc([]);
+      final ctx = _ctx(doc);
+      const vm = _FakeViewModel(nodeId: 'n1');
+      final widget = builder.createComponent(vm, ctx);
+      expect(widget, isNull);
+    });
+
+    test('BlockquoteComponentViewModel equality and hashCode', () {
+      final a = BlockquoteComponentViewModel(
+        nodeId: 'bq1',
+        text: AttributedText('quote'),
+        textStyle: const TextStyle(),
+        width: 500.0,
+        height: 100.0,
+        alignment: BlockAlignment.center,
+        textWrap: true,
+      );
+      final b = BlockquoteComponentViewModel(
+        nodeId: 'bq1',
+        text: AttributedText('quote'),
+        textStyle: const TextStyle(),
+        width: 500.0,
+        height: 100.0,
+        alignment: BlockAlignment.center,
+        textWrap: true,
+      );
+      final c = BlockquoteComponentViewModel(
+        nodeId: 'bq1',
+        text: AttributedText('different'),
+        textStyle: const TextStyle(),
+        alignment: BlockAlignment.start,
+      );
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+      expect(a, isNot(equals(c)));
+    });
+
+    testWidgets('BlockquoteComponentBuilder created widget renders in a widget tree',
+        (WidgetTester tester) async {
+      final node = _blockquote();
+      final doc = _doc([node]);
+
+      const builder = BlockquoteComponentBuilder();
+      final vm = builder.createViewModel(doc, node) as BlockquoteComponentViewModel;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: builder.createComponent(vm, _ctx(doc))!,
+          ),
+        ),
+      );
+      // Should not throw.
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -526,13 +829,20 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('defaultComponentBuilders', () {
-    test('list contains all five default builders', () {
-      expect(defaultComponentBuilders, hasLength(5));
+    test('list contains all six default builders', () {
+      expect(defaultComponentBuilders, hasLength(6));
       expect(defaultComponentBuilders[0], isA<ParagraphComponentBuilder>());
       expect(defaultComponentBuilders[1], isA<ListItemComponentBuilder>());
       expect(defaultComponentBuilders[2], isA<ImageComponentBuilder>());
       expect(defaultComponentBuilders[3], isA<CodeBlockComponentBuilder>());
-      expect(defaultComponentBuilders[4], isA<HorizontalRuleComponentBuilder>());
+      expect(defaultComponentBuilders[4], isA<BlockquoteComponentBuilder>());
+      expect(defaultComponentBuilders[5], isA<HorizontalRuleComponentBuilder>());
+    });
+
+    test('defaultComponentBuilders includes BlockquoteComponentBuilder', () {
+      final hasBlockquoteBuilder =
+          defaultComponentBuilders.any((b) => b is BlockquoteComponentBuilder);
+      expect(hasBlockquoteBuilder, isTrue);
     });
 
     test('custom builder prepended takes priority over default', () {
@@ -554,7 +864,7 @@ void main() {
     });
 
     test('resolveViewModel returns first non-null across builders', () {
-      final doc = _doc([_paragraph(), _listItem(), _image()]);
+      final doc = _doc([_paragraph(), _listItem(), _image(), _blockquote()]);
 
       // Paragraph should be handled by ParagraphComponentBuilder.
       final paraVm = resolveViewModel(defaultComponentBuilders, doc, _paragraph());
@@ -567,6 +877,10 @@ void main() {
       // Image should be handled by ImageComponentBuilder.
       final imgVm = resolveViewModel(defaultComponentBuilders, doc, _image());
       expect(imgVm, isA<ImageComponentViewModel>());
+
+      // Blockquote should be handled by BlockquoteComponentBuilder.
+      final bqVm = resolveViewModel(defaultComponentBuilders, doc, _blockquote());
+      expect(bqVm, isA<BlockquoteComponentViewModel>());
 
       // Unknown node type should return null.
       final unknownVm = resolveViewModel(defaultComponentBuilders, doc, _UnknownNode());
