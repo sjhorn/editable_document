@@ -6,6 +6,7 @@ library;
 
 import 'package:flutter/foundation.dart';
 
+import 'block_alignment.dart';
 import 'document_node.dart';
 
 /// A [DocumentNode] representing a block-level image.
@@ -15,6 +16,10 @@ import 'document_node.dart';
 /// node has no editable text, cursor placement is handled by
 /// [BinaryNodePosition] (either before or after the image).
 ///
+/// The [alignment] field controls how the image is positioned within the
+/// available layout width. The [textWrap] field controls whether surrounding
+/// text may flow around the image.
+///
 /// ```dart
 /// final image = ImageNode(
 ///   id: generateNodeId(),
@@ -22,16 +27,23 @@ import 'document_node.dart';
 ///   altText: 'A scenic mountain vista',
 ///   width: 1920.0,
 ///   height: 1080.0,
+///   alignment: BlockAlignment.center,
+///   textWrap: false,
 /// );
 /// ```
 class ImageNode extends DocumentNode {
   /// Creates an [ImageNode] with a required [imageUrl] and optional fields.
+  ///
+  /// [alignment] defaults to [BlockAlignment.stretch] (full-width).
+  /// [textWrap] defaults to `false` (no text wrapping around the image).
   ImageNode({
     required super.id,
     required this.imageUrl,
     this.altText,
     this.width,
     this.height,
+    this.alignment = BlockAlignment.stretch,
+    this.textWrap = false,
     super.metadata,
   });
 
@@ -47,6 +59,19 @@ class ImageNode extends DocumentNode {
   /// Preferred display height in logical pixels, or `null` to use intrinsic size.
   final double? height;
 
+  /// How the image is horizontally aligned within the available layout width.
+  ///
+  /// Defaults to [BlockAlignment.stretch], which causes the image to fill the
+  /// entire available width. Use [BlockAlignment.center] or the other values
+  /// when the image has an explicit [width] that is smaller than the layout.
+  final BlockAlignment alignment;
+
+  /// Whether surrounding text may flow around this image.
+  ///
+  /// When `true` the rendering layer is expected to apply text-wrap layout
+  /// (similar to CSS `float`). Defaults to `false`.
+  final bool textWrap;
+
   @override
   ImageNode copyWith({
     String? id,
@@ -54,6 +79,8 @@ class ImageNode extends DocumentNode {
     String? altText,
     double? width,
     double? height,
+    BlockAlignment? alignment,
+    bool? textWrap,
     Map<String, dynamic>? metadata,
   }) {
     return ImageNode(
@@ -62,6 +89,8 @@ class ImageNode extends DocumentNode {
       altText: altText ?? this.altText,
       width: width ?? this.width,
       height: height ?? this.height,
+      alignment: alignment ?? this.alignment,
+      textWrap: textWrap ?? this.textWrap,
       metadata: metadata ?? this.metadata,
     );
   }
@@ -76,6 +105,8 @@ class ImageNode extends DocumentNode {
         other.altText == altText &&
         other.width == width &&
         other.height == height &&
+        other.alignment == alignment &&
+        other.textWrap == textWrap &&
         mapEquals(other.metadata, metadata);
   }
 
@@ -86,6 +117,8 @@ class ImageNode extends DocumentNode {
         altText,
         width,
         height,
+        alignment,
+        textWrap,
         Object.hashAll(metadata.entries.map((e) => e)),
       );
 
@@ -96,10 +129,15 @@ class ImageNode extends DocumentNode {
     properties.add(StringProperty('altText', altText, defaultValue: null));
     properties.add(DoubleProperty('width', width, defaultValue: null));
     properties.add(DoubleProperty('height', height, defaultValue: null));
+    properties.add(
+      EnumProperty<BlockAlignment>('alignment', alignment, defaultValue: BlockAlignment.stretch),
+    );
+    properties.add(DiagnosticsProperty<bool>('textWrap', textWrap, defaultValue: false));
   }
 
   @override
   String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) =>
       'ImageNode(id: $id, imageUrl: $imageUrl, altText: $altText, '
-      'width: $width, height: $height, metadata: $metadata)';
+      'width: $width, height: $height, alignment: ${alignment.name}, '
+      'textWrap: $textWrap, metadata: $metadata)';
 }

@@ -1,5 +1,6 @@
 import 'package:editable_document/src/model/attributed_text.dart';
 import 'package:editable_document/src/model/attribution.dart';
+import 'package:editable_document/src/model/block_alignment.dart';
 import 'package:editable_document/src/model/document_node.dart';
 import 'package:editable_document/src/model/text_node.dart';
 import 'package:editable_document/src/model/paragraph_node.dart';
@@ -417,6 +418,268 @@ void main() {
       final a = HorizontalRuleNode(id: 'hr1');
       final b = HorizontalRuleNode(id: 'hr2');
       expect(a, isNot(equals(b)));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // ImageNode — alignment and textWrap
+  // ---------------------------------------------------------------------------
+  group('ImageNode alignment and textWrap', () {
+    test('default alignment is BlockAlignment.stretch', () {
+      final node = ImageNode(id: 'img1', imageUrl: 'https://example.com/img.png');
+      expect(node.alignment, BlockAlignment.stretch);
+    });
+
+    test('default textWrap is false', () {
+      final node = ImageNode(id: 'img1', imageUrl: 'https://example.com/img.png');
+      expect(node.textWrap, isFalse);
+    });
+
+    test('custom alignment and textWrap set in constructor', () {
+      final node = ImageNode(
+        id: 'img1',
+        imageUrl: 'https://example.com/img.png',
+        alignment: BlockAlignment.center,
+        textWrap: true,
+      );
+      expect(node.alignment, BlockAlignment.center);
+      expect(node.textWrap, isTrue);
+    });
+
+    test('copyWith replaces alignment', () {
+      final node = ImageNode(
+        id: 'img1',
+        imageUrl: 'https://example.com/img.png',
+        alignment: BlockAlignment.start,
+      );
+      final copy = node.copyWith(alignment: BlockAlignment.end);
+      expect(copy.alignment, BlockAlignment.end);
+      expect(copy.id, 'img1');
+    });
+
+    test('copyWith replaces textWrap', () {
+      final node = ImageNode(
+        id: 'img1',
+        imageUrl: 'https://example.com/img.png',
+        textWrap: false,
+      );
+      final copy = node.copyWith(textWrap: true);
+      expect(copy.textWrap, isTrue);
+    });
+
+    test('copyWith preserves alignment and textWrap when not specified', () {
+      final node = ImageNode(
+        id: 'img1',
+        imageUrl: 'https://example.com/img.png',
+        alignment: BlockAlignment.center,
+        textWrap: true,
+      );
+      final copy = node.copyWith(id: 'img2');
+      expect(copy.alignment, BlockAlignment.center);
+      expect(copy.textWrap, isTrue);
+    });
+
+    test('equality includes alignment', () {
+      final a = ImageNode(
+        id: 'img1',
+        imageUrl: 'https://example.com/img.png',
+        alignment: BlockAlignment.center,
+      );
+      final b = ImageNode(
+        id: 'img1',
+        imageUrl: 'https://example.com/img.png',
+        alignment: BlockAlignment.center,
+      );
+      final c = ImageNode(
+        id: 'img1',
+        imageUrl: 'https://example.com/img.png',
+        alignment: BlockAlignment.start,
+      );
+      expect(a, equals(b));
+      expect(a, isNot(equals(c)));
+    });
+
+    test('equality includes textWrap', () {
+      final a = ImageNode(
+        id: 'img1',
+        imageUrl: 'https://example.com/img.png',
+        textWrap: true,
+      );
+      final b = ImageNode(
+        id: 'img1',
+        imageUrl: 'https://example.com/img.png',
+        textWrap: true,
+      );
+      final c = ImageNode(
+        id: 'img1',
+        imageUrl: 'https://example.com/img.png',
+        textWrap: false,
+      );
+      expect(a, equals(b));
+      expect(a, isNot(equals(c)));
+    });
+
+    test('toString includes alignment and textWrap', () {
+      final node = ImageNode(
+        id: 'img1',
+        imageUrl: 'https://example.com/img.png',
+        alignment: BlockAlignment.center,
+        textWrap: true,
+      );
+      final str = node.toString();
+      expect(str, contains('center'));
+      expect(str, contains('true'));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // CodeBlockNode — width, height, alignment, textWrap
+  // ---------------------------------------------------------------------------
+  group('CodeBlockNode width, height, alignment, textWrap', () {
+    test('default width and height are null', () {
+      final node = CodeBlockNode(id: 'cb1');
+      expect(node.width, isNull);
+      expect(node.height, isNull);
+    });
+
+    test('default alignment is BlockAlignment.stretch', () {
+      final node = CodeBlockNode(id: 'cb1');
+      expect(node.alignment, BlockAlignment.stretch);
+    });
+
+    test('default textWrap is false', () {
+      final node = CodeBlockNode(id: 'cb1');
+      expect(node.textWrap, isFalse);
+    });
+
+    test('custom values set in constructor', () {
+      final node = CodeBlockNode(
+        id: 'cb1',
+        width: 640.0,
+        height: 480.0,
+        alignment: BlockAlignment.center,
+        textWrap: true,
+      );
+      expect(node.width, 640.0);
+      expect(node.height, 480.0);
+      expect(node.alignment, BlockAlignment.center);
+      expect(node.textWrap, isTrue);
+    });
+
+    test('copyWith replaces width and height', () {
+      final node = CodeBlockNode(id: 'cb1', width: 100.0, height: 50.0);
+      final copy = node.copyWith(width: 200.0, height: 100.0);
+      expect(copy.width, 200.0);
+      expect(copy.height, 100.0);
+      expect(copy.id, 'cb1');
+    });
+
+    test('copyWith replaces alignment', () {
+      final node = CodeBlockNode(id: 'cb1', alignment: BlockAlignment.start);
+      final copy = node.copyWith(alignment: BlockAlignment.end);
+      expect(copy.alignment, BlockAlignment.end);
+    });
+
+    test('copyWith replaces textWrap', () {
+      final node = CodeBlockNode(id: 'cb1', textWrap: false);
+      final copy = node.copyWith(textWrap: true);
+      expect(copy.textWrap, isTrue);
+    });
+
+    test('copyWith preserves all new fields when not specified', () {
+      final node = CodeBlockNode(
+        id: 'cb1',
+        width: 320.0,
+        height: 240.0,
+        alignment: BlockAlignment.center,
+        textWrap: true,
+      );
+      final copy = node.copyWith(id: 'cb2');
+      expect(copy.width, 320.0);
+      expect(copy.height, 240.0);
+      expect(copy.alignment, BlockAlignment.center);
+      expect(copy.textWrap, isTrue);
+    });
+
+    test('equality includes width and height', () {
+      final a = CodeBlockNode(id: 'cb1', width: 100.0, height: 50.0);
+      final b = CodeBlockNode(id: 'cb1', width: 100.0, height: 50.0);
+      final c = CodeBlockNode(id: 'cb1', width: 999.0, height: 50.0);
+      expect(a, equals(b));
+      expect(a, isNot(equals(c)));
+    });
+
+    test('equality includes alignment', () {
+      final a = CodeBlockNode(id: 'cb1', alignment: BlockAlignment.center);
+      final b = CodeBlockNode(id: 'cb1', alignment: BlockAlignment.center);
+      final c = CodeBlockNode(id: 'cb1', alignment: BlockAlignment.start);
+      expect(a, equals(b));
+      expect(a, isNot(equals(c)));
+    });
+
+    test('equality includes textWrap', () {
+      final a = CodeBlockNode(id: 'cb1', textWrap: true);
+      final b = CodeBlockNode(id: 'cb1', textWrap: true);
+      final c = CodeBlockNode(id: 'cb1', textWrap: false);
+      expect(a, equals(b));
+      expect(a, isNot(equals(c)));
+    });
+
+    test('toString includes new fields', () {
+      final node = CodeBlockNode(
+        id: 'cb1',
+        width: 640.0,
+        height: 480.0,
+        alignment: BlockAlignment.center,
+        textWrap: true,
+      );
+      final str = node.toString();
+      expect(str, contains('640.0'));
+      expect(str, contains('480.0'));
+      expect(str, contains('center'));
+      expect(str, contains('true'));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // HorizontalRuleNode — alignment
+  // ---------------------------------------------------------------------------
+  group('HorizontalRuleNode alignment', () {
+    test('default alignment is BlockAlignment.stretch', () {
+      final node = HorizontalRuleNode(id: 'hr1');
+      expect(node.alignment, BlockAlignment.stretch);
+    });
+
+    test('custom alignment set in constructor', () {
+      final node = HorizontalRuleNode(id: 'hr1', alignment: BlockAlignment.center);
+      expect(node.alignment, BlockAlignment.center);
+    });
+
+    test('copyWith replaces alignment', () {
+      final node = HorizontalRuleNode(id: 'hr1', alignment: BlockAlignment.start);
+      final copy = node.copyWith(alignment: BlockAlignment.end);
+      expect(copy.alignment, BlockAlignment.end);
+      expect(copy.id, 'hr1');
+    });
+
+    test('copyWith preserves alignment when not specified', () {
+      final node = HorizontalRuleNode(id: 'hr1', alignment: BlockAlignment.center);
+      final copy = node.copyWith(id: 'hr2');
+      expect(copy.alignment, BlockAlignment.center);
+    });
+
+    test('equality includes alignment', () {
+      final a = HorizontalRuleNode(id: 'hr1', alignment: BlockAlignment.center);
+      final b = HorizontalRuleNode(id: 'hr1', alignment: BlockAlignment.center);
+      final c = HorizontalRuleNode(id: 'hr1', alignment: BlockAlignment.start);
+      expect(a, equals(b));
+      expect(a, isNot(equals(c)));
+    });
+
+    test('toString includes alignment', () {
+      final node = HorizontalRuleNode(id: 'hr1', alignment: BlockAlignment.center);
+      final str = node.toString();
+      expect(str, contains('center'));
     });
   });
 }

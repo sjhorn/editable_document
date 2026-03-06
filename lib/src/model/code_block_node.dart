@@ -7,30 +7,45 @@ library;
 import 'package:flutter/foundation.dart';
 
 import 'attributed_text.dart';
+import 'block_alignment.dart';
 import 'text_node.dart';
 
 /// A [TextNode] representing a fenced code block.
 ///
 /// [CodeBlockNode] holds source code as plain [AttributedText] and stores the
-/// optional [language] identifier for syntax highlighting.  Unlike
+/// optional [language] identifier for syntax highlighting. Unlike
 /// [ParagraphNode] with [ParagraphBlockType.codeBlock], this node type is
 /// explicitly specialised for code and carries language metadata directly.
+///
+/// The [width] and [height] fields constrain the rendered block to a fixed
+/// size. The [alignment] field positions the block within available layout
+/// width. The [textWrap] field controls whether surrounding text may flow
+/// around the code block.
 ///
 /// ```dart
 /// final snippet = CodeBlockNode(
 ///   id: generateNodeId(),
 ///   text: AttributedText('void main() => print("hello");'),
 ///   language: 'dart',
+///   width: 640.0,
+///   alignment: BlockAlignment.center,
 /// );
 /// ```
 class CodeBlockNode extends TextNode {
-  /// Creates a [CodeBlockNode] with optional [text] and [language].
+  /// Creates a [CodeBlockNode] with optional [text], [language], sizing, and
+  /// layout fields.
   ///
-  /// [language] may be `null` when the code block has no declared language.
+  /// [alignment] defaults to [BlockAlignment.stretch].
+  /// [textWrap] defaults to `false`.
+  /// [width] and [height] default to `null` (use available / intrinsic size).
   CodeBlockNode({
     required super.id,
     super.text,
     this.language,
+    this.width,
+    this.height,
+    this.alignment = BlockAlignment.stretch,
+    this.textWrap = false,
     super.metadata,
   });
 
@@ -39,17 +54,44 @@ class CodeBlockNode extends TextNode {
   /// Common values include `'dart'`, `'python'`, `'javascript'`, etc.
   final String? language;
 
+  /// Preferred display width in logical pixels, or `null` to fill available width.
+  final double? width;
+
+  /// Preferred display height in logical pixels, or `null` to use intrinsic height.
+  final double? height;
+
+  /// How the code block is horizontally aligned within the available layout width.
+  ///
+  /// Defaults to [BlockAlignment.stretch], which causes the block to fill the
+  /// entire available width. Use other values when [width] is smaller than the
+  /// layout width.
+  final BlockAlignment alignment;
+
+  /// Whether surrounding text may flow around this code block.
+  ///
+  /// When `true` the rendering layer is expected to apply text-wrap layout.
+  /// Defaults to `false`.
+  final bool textWrap;
+
   @override
   CodeBlockNode copyWith({
     String? id,
     AttributedText? text,
     String? language,
+    double? width,
+    double? height,
+    BlockAlignment? alignment,
+    bool? textWrap,
     Map<String, dynamic>? metadata,
   }) {
     return CodeBlockNode(
       id: id ?? this.id,
       text: text ?? this.text,
       language: language ?? this.language,
+      width: width ?? this.width,
+      height: height ?? this.height,
+      alignment: alignment ?? this.alignment,
+      textWrap: textWrap ?? this.textWrap,
       metadata: metadata ?? this.metadata,
     );
   }
@@ -62,6 +104,10 @@ class CodeBlockNode extends TextNode {
         other.id == id &&
         other.text == text &&
         other.language == language &&
+        other.width == width &&
+        other.height == height &&
+        other.alignment == alignment &&
+        other.textWrap == textWrap &&
         mapEquals(other.metadata, metadata);
   }
 
@@ -70,6 +116,10 @@ class CodeBlockNode extends TextNode {
         id,
         text,
         language,
+        width,
+        height,
+        alignment,
+        textWrap,
         Object.hashAll(metadata.entries.map((e) => e)),
       );
 
@@ -77,9 +127,16 @@ class CodeBlockNode extends TextNode {
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
     properties.add(StringProperty('language', language, defaultValue: null));
+    properties.add(DoubleProperty('width', width, defaultValue: null));
+    properties.add(DoubleProperty('height', height, defaultValue: null));
+    properties.add(
+      EnumProperty<BlockAlignment>('alignment', alignment, defaultValue: BlockAlignment.stretch),
+    );
+    properties.add(DiagnosticsProperty<bool>('textWrap', textWrap, defaultValue: false));
   }
 
   @override
   String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) =>
-      'CodeBlockNode(id: $id, language: $language, text: $text, metadata: $metadata)';
+      'CodeBlockNode(id: $id, language: $language, width: $width, height: $height, '
+      'alignment: ${alignment.name}, textWrap: $textWrap, text: $text, metadata: $metadata)';
 }
