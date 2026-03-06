@@ -15,8 +15,11 @@
 /// non-null result.
 library;
 
+import 'dart:ui' as ui show Image;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../model/attributed_text.dart';
 import '../model/code_block_node.dart';
@@ -493,11 +496,103 @@ class ImageComponentBuilder extends ComponentBuilder {
   }
 }
 
-/// [LeafRenderObjectWidget] that wraps [RenderImageBlock].
-class _ImageBlockWidget extends LeafRenderObjectWidget {
+/// [StatefulWidget] that loads an image via [ImageStream] and renders it
+/// with [_RawImageBlockWidget].
+///
+/// Manages the full [ImageStream] lifecycle: resolves the stream in
+/// [State.didChangeDependencies] (and whenever [imageUrl] changes in
+/// [State.didUpdateWidget]), adds/removes listeners, and disposes [ImageInfo]
+/// in a post-frame callback to avoid disposing an image still in use during
+/// the current frame.
+class _ImageBlockWidget extends StatefulWidget {
   const _ImageBlockWidget({required this.viewModel});
 
   final ImageComponentViewModel viewModel;
+
+  @override
+  State<_ImageBlockWidget> createState() => _ImageBlockWidgetState();
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties.add(DiagnosticsProperty<ImageComponentViewModel>('viewModel', viewModel));
+  }
+}
+
+class _ImageBlockWidgetState extends State<_ImageBlockWidget> {
+  ImageStream? _imageStream;
+  ImageInfo? _imageInfo;
+  late final ImageStreamListener _listener = ImageStreamListener(
+    _handleImageFrame,
+    onError: _handleImageError,
+  );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _resolveImage();
+  }
+
+  @override
+  void didUpdateWidget(_ImageBlockWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.viewModel.imageUrl != widget.viewModel.imageUrl) {
+      _resolveImage();
+    }
+  }
+
+  void _resolveImage() {
+    final provider = NetworkImage(widget.viewModel.imageUrl);
+    final newStream = provider.resolve(createLocalImageConfiguration(context));
+    if (newStream.key != _imageStream?.key) {
+      _imageStream?.removeListener(_listener);
+      _imageStream = newStream;
+      _imageStream!.addListener(_listener);
+    }
+  }
+
+  void _handleImageFrame(ImageInfo info, bool synchronousCall) {
+    if (identical(_imageInfo, info)) return;
+    final old = _imageInfo;
+    setState(() {
+      _imageInfo = info;
+    });
+    if (old != null) {
+      SchedulerBinding.instance.addPostFrameCallback((_) => old.dispose());
+    }
+  }
+
+  void _handleImageError(Object error, StackTrace? stackTrace) {
+    debugPrint('Failed to load image: $error');
+  }
+
+  @override
+  void dispose() {
+    _imageStream?.removeListener(_listener);
+    _imageInfo?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _RawImageBlockWidget(
+      viewModel: widget.viewModel,
+      image: _imageInfo?.image,
+    );
+  }
+}
+
+/// [LeafRenderObjectWidget] that wraps [RenderImageBlock] directly.
+///
+/// Accepts an optional pre-decoded [image] which is forwarded to the render
+/// object. When [image] is `null` the render object paints a placeholder.
+class _RawImageBlockWidget extends LeafRenderObjectWidget {
+  const _RawImageBlockWidget({required this.viewModel, this.image});
+
+  final ImageComponentViewModel viewModel;
+
+  /// The decoded image to paint, or `null` to show the placeholder.
+  final ui.Image? image;
 
   @override
   RenderImageBlock createRenderObject(BuildContext context) {
@@ -505,6 +600,8 @@ class _ImageBlockWidget extends LeafRenderObjectWidget {
       nodeId: viewModel.nodeId,
       imageWidth: viewModel.imageWidth,
       imageHeight: viewModel.imageHeight,
+      altText: viewModel.altText,
+      image: image,
     );
   }
 
@@ -514,6 +611,8 @@ class _ImageBlockWidget extends LeafRenderObjectWidget {
       ..nodeId = viewModel.nodeId
       ..imageWidth = viewModel.imageWidth
       ..imageHeight = viewModel.imageHeight
+      ..altText = viewModel.altText
+      ..image = image
       ..nodeSelection = viewModel.nodeSelection;
   }
 
@@ -521,6 +620,7 @@ class _ImageBlockWidget extends LeafRenderObjectWidget {
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
     properties.add(DiagnosticsProperty<ImageComponentViewModel>('viewModel', viewModel));
+    properties.add(DiagnosticsProperty<ui.Image?>('image', image, defaultValue: null));
   }
 }
 

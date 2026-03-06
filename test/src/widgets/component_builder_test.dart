@@ -424,6 +424,23 @@ void main() {
       final widget = builder.createComponent(vm, ctx);
       expect(widget, isNull);
     });
+
+    testWidgets('ImageComponentBuilder created widget renders in a widget tree', (tester) async {
+      final node = _image();
+      final doc = _doc([node]);
+
+      const builder = ImageComponentBuilder();
+      final vm = builder.createViewModel(doc, node) as ImageComponentViewModel;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: builder.createComponent(vm, _ctx(doc))!,
+          ),
+        ),
+      );
+      // Should not throw.
+    });
   });
 
   // -------------------------------------------------------------------------
