@@ -7,6 +7,7 @@ library;
 
 import 'package:flutter/rendering.dart';
 
+import '../model/block_alignment.dart';
 import '../model/document_position.dart';
 import '../model/document_selection.dart';
 import '../model/node_position.dart';
@@ -19,8 +20,49 @@ import 'render_document_block.dart';
 /// [ParentData] for children of [RenderDocumentLayout].
 ///
 /// Stores the paint offset assigned to each [RenderDocumentBlock] child
-/// during [RenderDocumentLayout.performLayout].
-class DocumentBlockParentData extends ContainerBoxParentData<RenderDocumentBlock> {}
+/// during [RenderDocumentLayout.performLayout], and whether the block is
+/// positioned as a float.
+class DocumentBlockParentData extends ContainerBoxParentData<RenderDocumentBlock> {
+  /// Whether this block is positioned as a float.
+  ///
+  /// When `true`, the block occupies an exclusion zone and adjacent blocks
+  /// may wrap beside it.  Set by [RenderDocumentLayout.performLayout].
+  bool isFloat = false;
+}
+
+// ---------------------------------------------------------------------------
+// _ExclusionZone
+// ---------------------------------------------------------------------------
+
+/// Tracks a floated block's position so subsequent blocks can wrap around it.
+class _ExclusionZone {
+  /// Creates an [_ExclusionZone] describing a floated block's occupied area.
+  _ExclusionZone({
+    required this.side,
+    required this.width,
+    required this.top,
+    required this.bottom,
+  });
+
+  /// Which side the float is on.
+  final BlockAlignment side;
+
+  /// Width consumed by the float (including gap).
+  final double width;
+
+  /// Top of the exclusion zone in layout coordinates.
+  final double top;
+
+  /// Bottom of the exclusion zone in layout coordinates.
+  final double bottom;
+}
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+/// Horizontal gap between a floated block and adjacent content.
+const double _kFloatGap = 8.0;
 
 // ---------------------------------------------------------------------------
 // RenderDocumentLayout
@@ -34,6 +76,21 @@ class DocumentBlockParentData extends ContainerBoxParentData<RenderDocumentBlock
 /// selection and caret painting systems use to translate between document
 /// coordinates and pixel coordinates.
 ///
+/// ## Alignment and Float Layout
+///
+/// By default every child is laid out with [BlockAlignment.stretch], filling
+/// the full available width.  When a child overrides [RenderDocumentBlock.blockAlignment]
+/// the layout adapts:
+///
+/// - [BlockAlignment.center] — the block takes its natural/requested width and
+///   is centred horizontally.
+/// - [BlockAlignment.start] / [BlockAlignment.end] (without [RenderDocumentBlock.textWrap])
+///   — the block is aligned to the corresponding edge but occupies a full
+///   vertical row (no wrapping of adjacent content).
+/// - [BlockAlignment.start] / [BlockAlignment.end] (with [RenderDocumentBlock.textWrap] `true`)
+///   — the block becomes a *float*: it is pinned to the edge, and subsequent
+///   blocks are narrowed to wrap beside it until the float's bottom is cleared.
+///
 /// ## Geometry queries
 ///
 /// | Method | Description |
@@ -46,9 +103,10 @@ class DocumentBlockParentData extends ContainerBoxParentData<RenderDocumentBlock
 ///
 /// ## Layout
 ///
-/// Children are laid out with `BoxConstraints(maxWidth: constraints.maxWidth)`.
-/// Their paint offsets are stored in [DocumentBlockParentData.offset].
-/// No spacing is added before the first child or after the last child.
+/// Children are laid out with `BoxConstraints(maxWidth: constraints.maxWidth)`
+/// unless alignment or float layout applies.  Their paint offsets are stored
+/// in [DocumentBlockParentData.offset].  No spacing is added before the first
+/// child or after the last child.
 ///
 /// ## Example
 ///
@@ -140,27 +198,108 @@ class RenderDocumentLayout extends RenderBox
 
   @override
   void performLayout() {
+    final maxW = constraints.maxWidth;
     var yOffset = 0.0;
     var childIndex = 0;
+    _ExclusionZone? activeExclusion;
     RenderDocumentBlock? child = firstChild;
 
     while (child != null) {
-      final childConstraints = BoxConstraints(maxWidth: constraints.maxWidth);
-      child.layout(childConstraints, parentUsesSize: true);
-
       final parentData = child.parentData as DocumentBlockParentData;
+      final alignment = child.blockAlignment;
+      final isFloat =
+          child.textWrap && (alignment == BlockAlignment.start || alignment == BlockAlignment.end);
+      parentData.isFloat = isFloat;
 
       if (childIndex > 0) {
         yOffset += _blockSpacing;
       }
-      parentData.offset = Offset(0, yOffset);
-      yOffset += child.size.height;
+
+      // Check if the active exclusion zone has been cleared (we're past its bottom).
+      if (activeExclusion != null && yOffset >= activeExclusion.bottom) {
+        activeExclusion = null;
+      }
+
+      if (alignment == BlockAlignment.stretch) {
+        // Case 1: Stretch — fill width, but account for any active exclusion zone.
+        double childMaxWidth = maxW;
+        double xOffset = 0.0;
+
+        if (activeExclusion != null && yOffset < activeExclusion.bottom) {
+          // Narrow the block to avoid the exclusion zone.
+          childMaxWidth = maxW - activeExclusion.width;
+          if (activeExclusion.side == BlockAlignment.start) {
+            xOffset = activeExclusion.width;
+          }
+        }
+
+        child.layout(
+          BoxConstraints.tightFor(width: childMaxWidth),
+          parentUsesSize: true,
+        );
+        parentData.offset = Offset(xOffset, yOffset);
+        yOffset += child.size.height;
+      } else if (isFloat) {
+        // Case 3: Float — aligned block with text wrap enabled.
+        final childWidth = child.requestedWidth ?? maxW;
+        final childConstraints = BoxConstraints(
+          maxWidth: childWidth.clamp(0.0, maxW),
+        );
+        child.layout(childConstraints, parentUsesSize: true);
+
+        final double xOffset;
+        if (alignment == BlockAlignment.start) {
+          xOffset = 0.0;
+        } else {
+          // BlockAlignment.end
+          xOffset = maxW - child.size.width;
+        }
+
+        parentData.offset = Offset(xOffset, yOffset);
+
+        // Create exclusion zone so subsequent blocks wrap beside the float.
+        activeExclusion = _ExclusionZone(
+          side: alignment,
+          width: child.size.width + _kFloatGap,
+          top: yOffset,
+          bottom: yOffset + child.size.height,
+        );
+
+        // Do not advance yOffset — next block wraps beside the float.
+      } else {
+        // Case 2: Aligned, no text wrap — block takes a full vertical row.
+        final childWidth = child.requestedWidth ?? maxW;
+        final childConstraints = BoxConstraints(
+          maxWidth: childWidth.clamp(0.0, maxW),
+        );
+        child.layout(childConstraints, parentUsesSize: true);
+
+        final double xOffset;
+        switch (alignment) {
+          case BlockAlignment.start:
+            xOffset = 0.0;
+          case BlockAlignment.center:
+            xOffset = (maxW - child.size.width) / 2;
+          case BlockAlignment.end:
+            xOffset = maxW - child.size.width;
+          case BlockAlignment.stretch:
+            xOffset = 0.0; // Already handled above, but for completeness.
+        }
+
+        parentData.offset = Offset(xOffset, yOffset);
+        yOffset += child.size.height;
+      }
 
       childIndex++;
       child = childAfter(child);
     }
 
-    size = Size(constraints.maxWidth, yOffset);
+    // If there is still an active exclusion, ensure total height accounts for it.
+    if (activeExclusion != null && activeExclusion.bottom > yOffset) {
+      yOffset = activeExclusion.bottom;
+    }
+
+    size = Size(maxW, yOffset);
   }
 
   // ---------------------------------------------------------------------------
@@ -241,21 +380,20 @@ class RenderDocumentLayout extends RenderBox
     return null;
   }
 
-  /// Returns the [DocumentPosition] for the child whose vertical bounds contain
-  /// [localOffset], or `null` if the offset falls outside all children (e.g.,
-  /// in a gap between blocks or past the last child).
+  /// Returns the [DocumentPosition] for the child whose bounds contain
+  /// [localOffset], or `null` if the offset falls outside all children.
   ///
-  /// The x-coordinate is passed through to the child's
-  /// [RenderDocumentBlock.getPositionAtOffset] so text blocks can determine
-  /// the column.
+  /// Unlike the previous y-only check, this method uses the full child rect
+  /// so that float layouts — where blocks can share the same y-range — are
+  /// hit-tested correctly.
   DocumentPosition? getDocumentPositionAtOffset(Offset localOffset) {
+    // Walk children and check both x and y bounds.
     RenderDocumentBlock? child = firstChild;
     while (child != null) {
       final childData = child.parentData as DocumentBlockParentData;
-      final childTop = childData.offset.dy;
-      final childBottom = childTop + child.size.height;
+      final childRect = childData.offset & child.size;
 
-      if (localOffset.dy >= childTop && localOffset.dy < childBottom) {
+      if (childRect.contains(localOffset)) {
         final childLocalOffset = localOffset - childData.offset;
         final nodePos = child.getPositionAtOffset(childLocalOffset);
         return DocumentPosition(nodeId: child.nodeId, nodePosition: nodePos);
@@ -270,10 +408,11 @@ class RenderDocumentLayout extends RenderBox
   /// returning a valid position even when the offset falls outside all
   /// children.
   ///
-  /// - Offsets above all children are clamped to the first child.
-  /// - Offsets below all children are clamped to the last child.
-  /// - Offsets within a gap between two children are resolved to the nearest
-  ///   child (the one whose boundary is closer in the y-direction).
+  /// First attempts an exact hit via [getDocumentPositionAtOffset].  When that
+  /// misses, it finds the nearest child by Euclidean distance from [localOffset]
+  /// to each child's bounding rect, then delegates to that child's
+  /// [RenderDocumentBlock.getPositionAtOffset] with the offset clamped to the
+  /// child bounds.
   DocumentPosition getDocumentPositionNearestToOffset(Offset localOffset) {
     if (firstChild == null) {
       // No children — should not occur in practice, but guard against it.
@@ -287,72 +426,39 @@ class RenderDocumentLayout extends RenderBox
     final exact = getDocumentPositionAtOffset(localOffset);
     if (exact != null) return exact;
 
-    // Clamp: if above the first child, return position within first child.
-    final firstData = firstChild!.parentData as DocumentBlockParentData;
-    if (localOffset.dy < firstData.offset.dy) {
-      final clampedOffset = Offset(
-        localOffset.dx.clamp(0.0, firstChild!.size.width),
-        0.0,
-      );
-      final nodePos = firstChild!.getPositionAtOffset(clampedOffset);
-      return DocumentPosition(nodeId: firstChild!.nodeId, nodePosition: nodePos);
-    }
+    // Find the nearest child by distance from offset to child rect.
+    RenderDocumentBlock? nearest;
+    double nearestDist = double.infinity;
 
-    // Clamp: if below the last child, return position within last child.
-    final lastData = lastChild!.parentData as DocumentBlockParentData;
-    final lastBottom = lastData.offset.dy + lastChild!.size.height;
-    if (localOffset.dy >= lastBottom) {
-      final clampedOffset = Offset(
-        localOffset.dx.clamp(0.0, lastChild!.size.width),
-        lastChild!.size.height - 1,
-      );
-      final nodePos = lastChild!.getPositionAtOffset(clampedOffset);
-      return DocumentPosition(nodeId: lastChild!.nodeId, nodePosition: nodePos);
-    }
-
-    // The offset is in a gap between children. Find the two children whose
-    // gap contains the offset and pick the nearer one.
-    RenderDocumentBlock? prev;
     RenderDocumentBlock? child = firstChild;
     while (child != null) {
       final childData = child.parentData as DocumentBlockParentData;
-      final childTop = childData.offset.dy;
-
-      if (prev != null && localOffset.dy < childTop) {
-        // The offset is in the gap between prev and child.
-        final prevData = prev.parentData as DocumentBlockParentData;
-        final prevBottom = prevData.offset.dy + prev.size.height;
-        final distToPrev = localOffset.dy - prevBottom;
-        final distToChild = childTop - localOffset.dy;
-
-        if (distToPrev <= distToChild) {
-          final clampedOffset = Offset(
-            localOffset.dx.clamp(0.0, prev.size.width),
-            prev.size.height - 1,
-          );
-          final nodePos = prev.getPositionAtOffset(clampedOffset);
-          return DocumentPosition(nodeId: prev.nodeId, nodePosition: nodePos);
-        } else {
-          final clampedOffset = Offset(
-            localOffset.dx.clamp(0.0, child.size.width),
-            0.0,
-          );
-          final nodePos = child.getPositionAtOffset(clampedOffset);
-          return DocumentPosition(nodeId: child.nodeId, nodePosition: nodePos);
-        }
+      final childRect = childData.offset & child.size;
+      final dist = _distanceToRect(localOffset, childRect);
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearest = child;
       }
-
-      prev = child;
       child = childAfter(child);
     }
 
-    // Fallback — should be unreachable with correct accounting above.
+    final nearestData = nearest!.parentData as DocumentBlockParentData;
     final clampedOffset = Offset(
-      localOffset.dx.clamp(0.0, lastChild!.size.width),
-      lastChild!.size.height - 1,
+      (localOffset.dx - nearestData.offset.dx).clamp(0.0, nearest.size.width),
+      (localOffset.dy - nearestData.offset.dy).clamp(0.0, nearest.size.height - 1),
     );
-    final nodePos = lastChild!.getPositionAtOffset(clampedOffset);
-    return DocumentPosition(nodeId: lastChild!.nodeId, nodePosition: nodePos);
+    final nodePos = nearest.getPositionAtOffset(clampedOffset);
+    return DocumentPosition(nodeId: nearest.nodeId, nodePosition: nodePos);
+  }
+
+  /// Returns the minimum squared Euclidean distance from [point] to [rect].
+  ///
+  /// The square root is intentionally omitted because this method is only used
+  /// for relative comparisons.
+  static double _distanceToRect(Offset point, Rect rect) {
+    final dx = (point.dx - point.dx.clamp(rect.left, rect.right)).abs();
+    final dy = (point.dy - point.dy.clamp(rect.top, rect.bottom)).abs();
+    return (dx * dx + dy * dy); // Skip sqrt — only comparing relative distances.
   }
 
   /// Returns the bounding [Rect], in this layout's local coordinates, for the

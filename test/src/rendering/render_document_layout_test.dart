@@ -23,6 +23,29 @@ RenderHorizontalRuleBlock _hrBlock(String nodeId) => RenderHorizontalRuleBlock(
       verticalPadding: 8.0,
     );
 
+/// Creates a [RenderImageBlock] with layout properties for alignment/float tests.
+///
+/// [requestedWidth] and [requestedHeight] set explicit dimensions.
+/// [blockAlignment] controls horizontal alignment within the layout.
+/// [textWrap] enables float behaviour when combined with [BlockAlignment.start]
+/// or [BlockAlignment.end].
+RenderImageBlock _imageBlock(
+  String nodeId, {
+  double? requestedWidth,
+  double? requestedHeight,
+  BlockAlignment blockAlignment = BlockAlignment.stretch,
+  bool textWrap = false,
+}) =>
+    RenderImageBlock(
+      nodeId: nodeId,
+      imageWidth: requestedWidth ?? 200,
+      imageHeight: requestedHeight ?? 100,
+      blockAlignment: blockAlignment,
+      requestedWidth: requestedWidth,
+      requestedHeight: requestedHeight,
+      textWrap: textWrap,
+    );
+
 /// Creates a [RenderDocumentLayout] with the given children and lays it out.
 RenderDocumentLayout _layout({
   required List<RenderDocumentBlock> children,
@@ -583,6 +606,388 @@ void main() {
       );
       final rects = layout.getRectsForSelection(sel);
       expect(rects, isEmpty);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Alignment layout
+  // ---------------------------------------------------------------------------
+
+  group('RenderDocumentLayout — alignment layout', () {
+    const maxWidth = 400.0;
+    const childWidth = 150.0;
+    const childHeight = 80.0;
+
+    test('center-aligned block is positioned at correct x-offset', () {
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: childWidth,
+        requestedHeight: childHeight,
+        blockAlignment: BlockAlignment.center,
+      );
+      _layout(children: [image], maxWidth: maxWidth, blockSpacing: 0.0);
+
+      final data = image.parentData as DocumentBlockParentData;
+      expect(data.offset.dx, closeTo((maxWidth - image.size.width) / 2, 0.5));
+    });
+
+    test('end-aligned block is positioned at correct x-offset', () {
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: childWidth,
+        requestedHeight: childHeight,
+        blockAlignment: BlockAlignment.end,
+      );
+      _layout(children: [image], maxWidth: maxWidth, blockSpacing: 0.0);
+
+      final data = image.parentData as DocumentBlockParentData;
+      expect(data.offset.dx, closeTo(maxWidth - image.size.width, 0.5));
+    });
+
+    test('start-aligned block (no textWrap) is positioned at x = 0', () {
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: childWidth,
+        requestedHeight: childHeight,
+        blockAlignment: BlockAlignment.start,
+      );
+      _layout(children: [image], maxWidth: maxWidth, blockSpacing: 0.0);
+
+      final data = image.parentData as DocumentBlockParentData;
+      expect(data.offset.dx, 0.0);
+    });
+
+    test('stretch block fills full width (existing behaviour preserved)', () {
+      final image = _imageBlock(
+        'img1',
+        blockAlignment: BlockAlignment.stretch,
+      );
+      _layout(children: [image], maxWidth: maxWidth, blockSpacing: 0.0);
+
+      expect(image.size.width, maxWidth);
+    });
+
+    test('aligned block (no textWrap) takes a full vertical row', () {
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: childWidth,
+        requestedHeight: childHeight,
+        blockAlignment: BlockAlignment.center,
+      );
+      final text = _textBlock('p1', 'Below');
+      _layout(
+        children: [image, text],
+        maxWidth: maxWidth,
+        blockSpacing: 0.0,
+      );
+
+      final imageData = image.parentData as DocumentBlockParentData;
+      final textData = text.parentData as DocumentBlockParentData;
+
+      // Text must start below the image.
+      expect(textData.offset.dy, greaterThanOrEqualTo(imageData.offset.dy + image.size.height));
+    });
+
+    test('isFloat is false for non-float blocks', () {
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: childWidth,
+        requestedHeight: childHeight,
+        blockAlignment: BlockAlignment.center,
+      );
+      _layout(children: [image], maxWidth: maxWidth, blockSpacing: 0.0);
+
+      final data = image.parentData as DocumentBlockParentData;
+      expect(data.isFloat, isFalse);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Float layout
+  // ---------------------------------------------------------------------------
+
+  group('RenderDocumentLayout — float layout', () {
+    const maxWidth = 400.0;
+    const floatWidth = 100.0;
+    const floatHeight = 80.0;
+
+    test('float start: image positioned at x = 0', () {
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: floatWidth,
+        requestedHeight: floatHeight,
+        blockAlignment: BlockAlignment.start,
+        textWrap: true,
+      );
+      final text = _textBlock('p1', 'Wrapped text beside float');
+      _layout(children: [image, text], maxWidth: maxWidth, blockSpacing: 0.0);
+
+      final imageData = image.parentData as DocumentBlockParentData;
+      expect(imageData.offset.dx, 0.0);
+      expect(imageData.isFloat, isTrue);
+    });
+
+    test('float start: adjacent text block has reduced width', () {
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: floatWidth,
+        requestedHeight: floatHeight,
+        blockAlignment: BlockAlignment.start,
+        textWrap: true,
+      );
+      final text = _textBlock('p1', 'Wrapped text beside float');
+      _layout(children: [image, text], maxWidth: maxWidth, blockSpacing: 0.0);
+
+      // Text width must be less than maxWidth (float occupies some of it).
+      expect(text.size.width, lessThan(maxWidth));
+      // Text width must be at most maxWidth - floatWidth - gap.
+      expect(text.size.width, lessThanOrEqualTo(maxWidth - floatWidth - 8.0 + 0.5));
+    });
+
+    test('float start: adjacent text block starts to the right of the float', () {
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: floatWidth,
+        requestedHeight: floatHeight,
+        blockAlignment: BlockAlignment.start,
+        textWrap: true,
+      );
+      final text = _textBlock('p1', 'Wrapped text beside float');
+      _layout(children: [image, text], maxWidth: maxWidth, blockSpacing: 0.0);
+
+      final textData = text.parentData as DocumentBlockParentData;
+      expect(textData.offset.dx, closeTo(floatWidth + 8.0, 0.5));
+    });
+
+    test('float end: image positioned at x = maxWidth - imageWidth', () {
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: floatWidth,
+        requestedHeight: floatHeight,
+        blockAlignment: BlockAlignment.end,
+        textWrap: true,
+      );
+      final text = _textBlock('p1', 'Wrapped text beside float');
+      _layout(children: [image, text], maxWidth: maxWidth, blockSpacing: 0.0);
+
+      final imageData = image.parentData as DocumentBlockParentData;
+      expect(imageData.offset.dx, closeTo(maxWidth - floatWidth, 0.5));
+      expect(imageData.isFloat, isTrue);
+    });
+
+    test('float end: adjacent text starts at x = 0 with reduced width', () {
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: floatWidth,
+        requestedHeight: floatHeight,
+        blockAlignment: BlockAlignment.end,
+        textWrap: true,
+      );
+      final text = _textBlock('p1', 'Wrapped text beside float');
+      _layout(children: [image, text], maxWidth: maxWidth, blockSpacing: 0.0);
+
+      final textData = text.parentData as DocumentBlockParentData;
+      expect(textData.offset.dx, 0.0);
+      expect(text.size.width, lessThan(maxWidth));
+    });
+
+    test('total layout height is at least the float height when no block is taller', () {
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: floatWidth,
+        requestedHeight: floatHeight,
+        blockAlignment: BlockAlignment.start,
+        textWrap: true,
+      );
+      // Use a very short text so the text block is shorter than the float.
+      final text = _textBlock('p1', 'Hi');
+      final layout = _layout(
+        children: [image, text],
+        maxWidth: maxWidth,
+        blockSpacing: 0.0,
+      );
+
+      // Layout height must not be less than the float bottom.
+      final imageData = image.parentData as DocumentBlockParentData;
+      final floatBottom = imageData.offset.dy + image.size.height;
+      expect(layout.size.height, greaterThanOrEqualTo(floatBottom));
+    });
+
+    test('block after text that clears the float bottom gets full width', () {
+      // The float is short (20 px), and the text wrapping beside it is taller
+      // (long paragraph).  A third block placed after that text should be past
+      // the float bottom and get the full width.
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: floatWidth,
+        requestedHeight: 20.0, // very short float
+        blockAlignment: BlockAlignment.start,
+        textWrap: true,
+      );
+      // Long text whose height will exceed the float height.
+      final wrappedText = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText(
+          'A much longer paragraph that will wrap over multiple lines to exceed the float height.',
+        ),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      final afterText = _textBlock('p2', 'After float');
+      final layout = _layout(
+        children: [image, wrappedText, afterText],
+        maxWidth: maxWidth,
+        blockSpacing: 0.0,
+      );
+
+      // afterText should be positioned below the float zone.
+      final imageData = image.parentData as DocumentBlockParentData;
+      final floatBottom = imageData.offset.dy + image.size.height;
+      final wrappedData = wrappedText.parentData as DocumentBlockParentData;
+      final wrappedBottom = wrappedData.offset.dy + wrappedText.size.height;
+
+      // If the wrapped text extends past the float, the next block gets full width.
+      if (wrappedBottom > floatBottom) {
+        expect(afterText.size.width, closeTo(maxWidth, 0.5));
+      }
+      // Layout should not crash.
+      expect(layout.size.height, greaterThan(0));
+    });
+
+    test('non-float aligned block clears the exclusion zone', () {
+      // Float on the left, then a stretch block: the stretch block is narrowed.
+      // After that, a center-aligned non-float block must get full-width treatment.
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: floatWidth,
+        requestedHeight: 200.0, // tall float
+        blockAlignment: BlockAlignment.start,
+        textWrap: true,
+      );
+      // Non-float, non-stretch block placed after the float.
+      final centeredImage = _imageBlock(
+        'img2',
+        requestedWidth: 60.0,
+        requestedHeight: 60.0,
+        blockAlignment: BlockAlignment.center,
+        textWrap: false, // NOT a float
+      );
+      _layout(
+        children: [image, centeredImage],
+        maxWidth: maxWidth,
+        blockSpacing: 0.0,
+      );
+
+      // The centred block is non-float and occupies a full vertical row.
+      // Its offset should be computed from the center of maxWidth.
+      final centeredData = centeredImage.parentData as DocumentBlockParentData;
+      expect(centeredData.isFloat, isFalse);
+      // x should be centred in the full maxWidth.
+      expect(centeredData.offset.dx, closeTo((maxWidth - centeredImage.size.width) / 2, 0.5));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Float hit testing
+  // ---------------------------------------------------------------------------
+
+  group('RenderDocumentLayout — float hit testing', () {
+    const maxWidth = 400.0;
+    const floatWidth = 100.0;
+    const floatHeight = 80.0;
+
+    test('hit testing routes to float when clicking within float bounds', () {
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: floatWidth,
+        requestedHeight: floatHeight,
+        blockAlignment: BlockAlignment.start,
+        textWrap: true,
+      );
+      final text = _textBlock('p1', 'Wrapped text beside float');
+      final layout = _layout(
+        children: [image, text],
+        maxWidth: maxWidth,
+        blockSpacing: 0.0,
+      );
+
+      final imageData = image.parentData as DocumentBlockParentData;
+      // Click in the centre of the float.
+      final hitPoint = imageData.offset + const Offset(floatWidth / 2, floatHeight / 2);
+      final pos = layout.getDocumentPositionAtOffset(hitPoint);
+
+      expect(pos, isNotNull);
+      expect(pos!.nodeId, 'img1');
+    });
+
+    test('hit testing routes to adjacent text when clicking within text bounds beside float', () {
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: floatWidth,
+        requestedHeight: floatHeight,
+        blockAlignment: BlockAlignment.start,
+        textWrap: true,
+      );
+      final text = _textBlock('p1', 'Wrapped text beside float');
+      final layout = _layout(
+        children: [image, text],
+        maxWidth: maxWidth,
+        blockSpacing: 0.0,
+      );
+
+      final textData = text.parentData as DocumentBlockParentData;
+      // Click somewhere inside the text block bounds.
+      final hitPoint = textData.offset + const Offset(5.0, 5.0);
+      final pos = layout.getDocumentPositionAtOffset(hitPoint);
+
+      expect(pos, isNotNull);
+      expect(pos!.nodeId, 'p1');
+    });
+
+    test('getDocumentPositionNearestToOffset returns nearest child when offset is in gap', () {
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: floatWidth,
+        requestedHeight: floatHeight,
+        blockAlignment: BlockAlignment.start,
+        textWrap: true,
+      );
+      final text = _textBlock('p1', 'Wrapped text beside float');
+      final layout = _layout(
+        children: [image, text],
+        maxWidth: maxWidth,
+        blockSpacing: 0.0,
+      );
+
+      // A point in the float-to-text gap (between float right edge and text
+      // left edge) should resolve to one of the two blocks.
+      final imageData = image.parentData as DocumentBlockParentData;
+      final gapX = imageData.offset.dx + floatWidth + 4.0; // inside the gap
+      final gapY = imageData.offset.dy + floatHeight / 2;
+      final pos = layout.getDocumentPositionNearestToOffset(Offset(gapX, gapY));
+
+      expect(['img1', 'p1'], contains(pos.nodeId));
+    });
+
+    test('getDocumentPositionNearestToOffset always returns a valid position', () {
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: floatWidth,
+        requestedHeight: floatHeight,
+        blockAlignment: BlockAlignment.end,
+        textWrap: true,
+      );
+      final text = _textBlock('p1', 'Text');
+      final layout = _layout(
+        children: [image, text],
+        maxWidth: maxWidth,
+        blockSpacing: 0.0,
+      );
+
+      // A point well below all content should still yield a valid position.
+      final pos = layout.getDocumentPositionNearestToOffset(
+        Offset(maxWidth / 2, layout.size.height + 500),
+      );
+      expect(pos.nodeId, isNotEmpty);
     });
   });
 }

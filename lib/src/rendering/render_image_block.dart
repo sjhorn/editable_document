@@ -302,6 +302,7 @@ class RenderImageBlock extends RenderDocumentBlock {
   @override
   void performLayout() {
     final maxW = constraints.maxWidth;
+    final minW = constraints.minWidth;
 
     // When requestedWidth/requestedHeight are set, they override the intrinsic
     // dimensions from imageWidth/imageHeight or the decoded image's pixel size.
@@ -309,32 +310,22 @@ class RenderImageBlock extends RenderDocumentBlock {
     final intrinsicH = _requestedHeight ?? _imageHeight;
 
     if (intrinsicW != null && intrinsicH != null) {
-      // Both dimensions are known — use them (scale down if needed).
-      final w = intrinsicW;
-      final h = intrinsicH;
-      if (w <= maxW) {
-        size = Size(w, h);
-      } else {
-        final scale = maxW / w;
-        size = Size(maxW, h * scale);
-      }
+      // Both dimensions are known — use them, scaling to fit constraints.
+      final w = intrinsicW.clamp(minW, maxW);
+      final scale = w / intrinsicW;
+      size = Size(w, intrinsicH * scale);
     } else if (_requestedWidth != null) {
       // Only width is requested — use it; pick 16:9 height as fallback.
-      final w = _requestedWidth!.clamp(0.0, maxW);
+      final w = _requestedWidth!.clamp(minW, maxW);
       size = Size(w, w / _kDefaultAspectRatio);
     } else if (_requestedHeight != null) {
       // Only height is requested — fill available width.
       size = Size(maxW, _requestedHeight!);
     } else if (_image != null) {
       // No explicit dimensions — derive from the decoded image's pixel size.
-      final w = _image!.width.toDouble();
-      final h = _image!.height.toDouble();
-      if (w <= maxW) {
-        size = Size(w, h);
-      } else {
-        final scale = maxW / w;
-        size = Size(maxW, h * scale);
-      }
+      final w = _image!.width.toDouble().clamp(minW, maxW);
+      final scale = w / _image!.width.toDouble();
+      size = Size(w, _image!.height.toDouble() * scale);
     } else {
       // No intrinsic size — fill width with a 16:9 placeholder.
       size = Size(maxW, maxW / _kDefaultAspectRatio);
