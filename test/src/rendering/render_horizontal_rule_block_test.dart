@@ -131,4 +131,55 @@ void main() {
       expect(block.size.height, greaterThan(before));
     });
   });
+
+  group('RenderHorizontalRuleBlock layout property defaults and setter', () {
+    test('blockAlignment defaults to BlockAlignment.stretch', () {
+      final block = RenderHorizontalRuleBlock(nodeId: 'hr-1');
+      expect(block.blockAlignment, BlockAlignment.stretch);
+    });
+
+    test('requestedWidth defaults to null (base class default)', () {
+      final block = RenderHorizontalRuleBlock(nodeId: 'hr-1');
+      expect(block.requestedWidth, isNull);
+    });
+
+    test('requestedHeight defaults to null (base class default)', () {
+      final block = RenderHorizontalRuleBlock(nodeId: 'hr-1');
+      expect(block.requestedHeight, isNull);
+    });
+
+    test('textWrap defaults to false (base class default)', () {
+      final block = RenderHorizontalRuleBlock(nodeId: 'hr-1');
+      expect(block.textWrap, isFalse);
+    });
+
+    test('blockAlignment setter roundtrip', () {
+      final block = RenderHorizontalRuleBlock(nodeId: 'hr-1');
+      block.blockAlignment = BlockAlignment.center;
+      expect(block.blockAlignment, BlockAlignment.center);
+    });
+
+    test('setting blockAlignment to same value is a no-op', () {
+      final block = RenderHorizontalRuleBlock(nodeId: 'hr-1');
+      block.blockAlignment = BlockAlignment.stretch;
+      expect(block.blockAlignment, BlockAlignment.stretch);
+    });
+
+    test('constructor accepts blockAlignment parameter', () {
+      final block = RenderHorizontalRuleBlock(
+        nodeId: 'hr-1',
+        blockAlignment: BlockAlignment.end,
+      );
+      expect(block.blockAlignment, BlockAlignment.end);
+    });
+
+    test('setting blockAlignment triggers layout', () {
+      final block = RenderHorizontalRuleBlock(nodeId: 'hr-1');
+      block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      // Change to a different value — should not throw.
+      block.blockAlignment = BlockAlignment.center;
+      block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      expect(block.blockAlignment, BlockAlignment.center);
+    });
+  });
 }

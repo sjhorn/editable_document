@@ -6,6 +6,7 @@ library;
 
 import 'package:flutter/rendering.dart';
 
+import '../model/block_alignment.dart';
 import '../model/document_selection.dart';
 import '../model/node_position.dart';
 import 'render_document_block.dart';
@@ -25,15 +26,19 @@ class RenderHorizontalRuleBlock extends RenderDocumentBlock {
   /// [color] defaults to a mid-grey.
   /// [thickness] defaults to `1.0`.
   /// [verticalPadding] defaults to `8.0`.
+  /// [blockAlignment] controls horizontal positioning within the available
+  /// layout width; defaults to [BlockAlignment.stretch].
   RenderHorizontalRuleBlock({
     required String nodeId,
     Color color = const Color(0xFFCCCCCC),
     double thickness = 1.0,
     double verticalPadding = 8.0,
+    BlockAlignment blockAlignment = BlockAlignment.stretch,
   })  : _nodeId = nodeId,
         _color = color,
         _thickness = thickness,
-        _verticalPadding = verticalPadding;
+        _verticalPadding = verticalPadding,
+        _blockAlignment = blockAlignment;
 
   // ---------------------------------------------------------------------------
   // Private state
@@ -44,6 +49,7 @@ class RenderHorizontalRuleBlock extends RenderDocumentBlock {
   double _thickness;
   double _verticalPadding;
   DocumentSelection? _nodeSelection;
+  BlockAlignment _blockAlignment;
 
   // ---------------------------------------------------------------------------
   // RenderDocumentBlock — nodeId
@@ -107,6 +113,21 @@ class RenderHorizontalRuleBlock extends RenderDocumentBlock {
   set verticalPadding(double value) {
     if (_verticalPadding == value) return;
     _verticalPadding = value;
+    markNeedsLayout();
+  }
+
+  /// The horizontal alignment of this block within the layout.
+  ///
+  /// Defaults to [BlockAlignment.stretch].  Changing this value schedules a
+  /// layout pass so the parent can reposition the block.
+  // ignore: diagnostic_describe_all_properties
+  @override
+  BlockAlignment get blockAlignment => _blockAlignment;
+
+  /// Sets the block alignment and schedules a layout pass.
+  set blockAlignment(BlockAlignment value) {
+    if (_blockAlignment == value) return;
+    _blockAlignment = value;
     markNeedsLayout();
   }
 
@@ -207,5 +228,10 @@ class RenderHorizontalRuleBlock extends RenderDocumentBlock {
     properties.add(ColorProperty('color', _color));
     properties.add(DoubleProperty('thickness', _thickness));
     properties.add(DoubleProperty('verticalPadding', _verticalPadding));
+    properties.add(EnumProperty<BlockAlignment>(
+      'blockAlignment',
+      _blockAlignment,
+      defaultValue: BlockAlignment.stretch,
+    ));
   }
 }

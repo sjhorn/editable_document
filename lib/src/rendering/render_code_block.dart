@@ -6,6 +6,7 @@ library;
 
 import 'package:flutter/rendering.dart';
 
+import '../model/block_alignment.dart';
 import '../model/node_position.dart';
 import 'render_text_block.dart';
 
@@ -26,6 +27,13 @@ class RenderCodeBlock extends RenderTextBlock {
   /// and replaced with `'monospace'`.
   /// [backgroundColor] defaults to a light grey.
   /// [padding] defaults to [_kCodeBlockPadding] (16 dp) on all sides.
+  /// [blockAlignment] controls horizontal positioning within the available
+  /// layout width; defaults to [BlockAlignment.stretch].
+  /// [requestedWidth] overrides the layout width when non-null; the text is
+  /// laid out within `requestedWidth - 2 * padding`.
+  /// [requestedHeight] overrides the block height when non-null.
+  /// [textWrap] controls whether subsequent blocks may wrap around this block;
+  /// defaults to `false`.
   RenderCodeBlock({
     required super.nodeId,
     required super.text,
@@ -35,8 +43,16 @@ class RenderCodeBlock extends RenderTextBlock {
     super.textDirection,
     super.textAlign,
     super.selectionColor,
+    BlockAlignment blockAlignment = BlockAlignment.stretch,
+    double? requestedWidth,
+    double? requestedHeight,
+    bool textWrap = false,
   })  : _backgroundColor = backgroundColor,
-        _padding = padding {
+        _padding = padding,
+        _blockAlignment = blockAlignment,
+        _requestedWidth = requestedWidth,
+        _requestedHeight = requestedHeight,
+        _textWrap = textWrap {
     // Override the text style to force monospace.
     final base = baseTextStyle ?? const TextStyle();
     super.textStyle = base.copyWith(fontFamily: 'monospace');
@@ -48,6 +64,10 @@ class RenderCodeBlock extends RenderTextBlock {
 
   Color _backgroundColor;
   double _padding;
+  BlockAlignment _blockAlignment;
+  double? _requestedWidth;
+  double? _requestedHeight;
+  bool _textWrap;
 
   // ---------------------------------------------------------------------------
   // Public properties — described in debugFillProperties below.
@@ -75,15 +95,90 @@ class RenderCodeBlock extends RenderTextBlock {
     markNeedsLayout();
   }
 
+  /// The horizontal alignment of this block within the layout.
+  ///
+  /// Defaults to [BlockAlignment.stretch].  Changing this value schedules a
+  /// layout pass so the parent can reposition the block.
+  // ignore: diagnostic_describe_all_properties
+  @override
+  BlockAlignment get blockAlignment => _blockAlignment;
+
+  /// Sets the block alignment and schedules a layout pass.
+  set blockAlignment(BlockAlignment value) {
+    if (_blockAlignment == value) return;
+    _blockAlignment = value;
+    markNeedsLayout();
+  }
+
+  /// The requested width of this block in logical pixels, or `null`.
+  ///
+  /// When non-null, [performLayout] uses this as the block width and derives
+  /// the text max-width as `requestedWidth - 2 * padding`.  The value is
+  /// clamped to the available constraints.  When `null`, the full
+  /// `constraints.maxWidth` is used as usual.
+  // ignore: diagnostic_describe_all_properties
+  @override
+  double? get requestedWidth => _requestedWidth;
+
+  /// Sets the requested width and schedules a layout pass.
+  set requestedWidth(double? value) {
+    if (_requestedWidth == value) return;
+    _requestedWidth = value;
+    markNeedsLayout();
+  }
+
+  /// The requested height of this block in logical pixels, or `null`.
+  ///
+  /// When non-null, [performLayout] uses this value as the block height
+  /// instead of the intrinsic text height plus padding.  When `null`, the
+  /// height is determined by the laid-out text.
+  // ignore: diagnostic_describe_all_properties
+  @override
+  double? get requestedHeight => _requestedHeight;
+
+  /// Sets the requested height and schedules a layout pass.
+  set requestedHeight(double? value) {
+    if (_requestedHeight == value) return;
+    _requestedHeight = value;
+    markNeedsLayout();
+  }
+
+  /// Whether subsequent blocks should wrap around this block.
+  ///
+  /// When `true` and [blockAlignment] is [BlockAlignment.start] or
+  /// [BlockAlignment.end], the document layout creates an exclusion zone so
+  /// adjacent blocks receive reduced-width constraints.
+  // ignore: diagnostic_describe_all_properties
+  @override
+  bool get textWrap => _textWrap;
+
+  /// Sets the text-wrap flag and schedules a layout pass.
+  set textWrap(bool value) {
+    if (_textWrap == value) return;
+    _textWrap = value;
+    markNeedsLayout();
+  }
+
   // ---------------------------------------------------------------------------
   // Layout
   // ---------------------------------------------------------------------------
 
   @override
   void performLayout() {
-    final textMaxWidth = (constraints.maxWidth - _padding * 2).clamp(0.0, double.infinity);
+    // When requestedWidth is set, use it as the block width (clamped to
+    // constraints).  Otherwise fill the available width.
+    final blockW = _requestedWidth != null
+        ? _requestedWidth!.clamp(0.0, constraints.maxWidth)
+        : constraints.maxWidth;
+
+    final textMaxWidth = (blockW - _padding * 2).clamp(0.0, double.infinity);
     layoutText(textMaxWidth);
-    size = Size(constraints.maxWidth, layoutTextHeight + _padding * 2);
+
+    // When requestedHeight is set, use it as the block height.  Otherwise
+    // derive the height from the laid-out text plus padding.
+    final blockH = _requestedHeight ?? (layoutTextHeight + _padding * 2);
+
+    size = Size(blockW, blockH);
   }
 
   // ---------------------------------------------------------------------------
@@ -133,5 +228,13 @@ class RenderCodeBlock extends RenderTextBlock {
     super.debugFillProperties(properties);
     properties.add(ColorProperty('backgroundColor', _backgroundColor));
     properties.add(DoubleProperty('padding', _padding));
+    properties.add(EnumProperty<BlockAlignment>(
+      'blockAlignment',
+      _blockAlignment,
+      defaultValue: BlockAlignment.stretch,
+    ));
+    properties.add(DoubleProperty('requestedWidth', _requestedWidth, defaultValue: null));
+    properties.add(DoubleProperty('requestedHeight', _requestedHeight, defaultValue: null));
+    properties.add(FlagProperty('textWrap', value: _textWrap, ifTrue: 'textWrap'));
   }
 }

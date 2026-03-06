@@ -240,4 +240,117 @@ void main() {
       expect(block.image, same(img));
     });
   });
+
+  group('RenderImageBlock layout property defaults and setters', () {
+    test('blockAlignment defaults to BlockAlignment.stretch', () {
+      final block = RenderImageBlock(nodeId: 'img-1');
+      expect(block.blockAlignment, BlockAlignment.stretch);
+    });
+
+    test('requestedWidth defaults to null', () {
+      final block = RenderImageBlock(nodeId: 'img-1');
+      expect(block.requestedWidth, isNull);
+    });
+
+    test('requestedHeight defaults to null', () {
+      final block = RenderImageBlock(nodeId: 'img-1');
+      expect(block.requestedHeight, isNull);
+    });
+
+    test('textWrap defaults to false', () {
+      final block = RenderImageBlock(nodeId: 'img-1');
+      expect(block.textWrap, isFalse);
+    });
+
+    test('blockAlignment setter roundtrip', () {
+      final block = RenderImageBlock(nodeId: 'img-1');
+      block.blockAlignment = BlockAlignment.center;
+      expect(block.blockAlignment, BlockAlignment.center);
+    });
+
+    test('requestedWidth setter roundtrip', () {
+      final block = RenderImageBlock(nodeId: 'img-1');
+      block.requestedWidth = 200.0;
+      expect(block.requestedWidth, 200.0);
+    });
+
+    test('requestedHeight setter roundtrip', () {
+      final block = RenderImageBlock(nodeId: 'img-1');
+      block.requestedHeight = 150.0;
+      expect(block.requestedHeight, 150.0);
+    });
+
+    test('textWrap setter roundtrip', () {
+      final block = RenderImageBlock(nodeId: 'img-1');
+      block.textWrap = true;
+      expect(block.textWrap, isTrue);
+    });
+
+    test('setting blockAlignment to same value is a no-op', () {
+      final block = RenderImageBlock(nodeId: 'img-1');
+      block.blockAlignment = BlockAlignment.stretch;
+      // Should not throw.
+      expect(block.blockAlignment, BlockAlignment.stretch);
+    });
+
+    test('requestedWidth overrides layout width', () {
+      final block = RenderImageBlock(
+        nodeId: 'img-1',
+        imageWidth: 400,
+        imageHeight: 200,
+        requestedWidth: 100,
+      );
+      block.layout(
+        const BoxConstraints(maxWidth: 600, maxHeight: double.infinity),
+        parentUsesSize: true,
+      );
+      expect(block.size.width, 100.0);
+    });
+
+    test('requestedHeight overrides layout height', () {
+      final block = RenderImageBlock(
+        nodeId: 'img-1',
+        imageWidth: 200,
+        imageHeight: 100,
+        requestedHeight: 50,
+      );
+      block.layout(
+        const BoxConstraints(maxWidth: 600, maxHeight: double.infinity),
+        parentUsesSize: true,
+      );
+      expect(block.size.height, 50.0);
+    });
+
+    test('constructor accepts blockAlignment parameter', () {
+      final block = RenderImageBlock(
+        nodeId: 'img-1',
+        blockAlignment: BlockAlignment.center,
+      );
+      expect(block.blockAlignment, BlockAlignment.center);
+    });
+
+    test('constructor accepts requestedWidth parameter', () {
+      final block = RenderImageBlock(
+        nodeId: 'img-1',
+        requestedWidth: 300.0,
+      );
+      expect(block.requestedWidth, 300.0);
+    });
+
+    test('constructor accepts requestedHeight parameter', () {
+      final block = RenderImageBlock(
+        nodeId: 'img-1',
+        requestedHeight: 150.0,
+      );
+      expect(block.requestedHeight, 150.0);
+    });
+
+    test('constructor accepts textWrap parameter', () {
+      final block = RenderImageBlock(
+        nodeId: 'img-1',
+        textWrap: true,
+      );
+      expect(block.textWrap, isTrue);
+    });
+  });
 }
