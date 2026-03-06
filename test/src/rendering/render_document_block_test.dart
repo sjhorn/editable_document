@@ -67,4 +67,30 @@ void main() {
       expect(rects, isNotEmpty);
     });
   });
+
+  group('RenderDocumentBlock layout property defaults', () {
+    // RenderHorizontalRuleBlock is the minimal concrete subclass used to
+    // exercise the virtual getter defaults declared on RenderDocumentBlock.
+    late RenderHorizontalRuleBlock block;
+
+    setUp(() {
+      block = RenderHorizontalRuleBlock(nodeId: 'hr-defaults');
+    });
+
+    test('blockAlignment defaults to BlockAlignment.stretch', () {
+      expect(block.blockAlignment, BlockAlignment.stretch);
+    });
+
+    test('requestedWidth defaults to null', () {
+      expect(block.requestedWidth, isNull);
+    });
+
+    test('requestedHeight defaults to null', () {
+      expect(block.requestedHeight, isNull);
+    });
+
+    test('textWrap defaults to false', () {
+      expect(block.textWrap, isFalse);
+    });
+  });
 }

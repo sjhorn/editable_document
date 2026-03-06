@@ -8,6 +8,7 @@ library;
 
 import 'package:flutter/rendering.dart';
 
+import '../model/block_alignment.dart';
 import '../model/document_selection.dart';
 import '../model/node_position.dart';
 
@@ -72,10 +73,40 @@ abstract class RenderDocumentBlock extends RenderBox {
   /// Must only be called after layout.
   List<Rect> getEndpointsForSelection(NodePosition base, NodePosition extent);
 
+  /// The horizontal alignment of this block within the layout.
+  ///
+  /// Text blocks default to [BlockAlignment.stretch] and fill the available
+  /// width.  Container blocks (image, code, blockquote, horizontal rule) may
+  /// override this to return the value set by the widget layer.
+  BlockAlignment get blockAlignment => BlockAlignment.stretch;
+
+  /// The requested width of this block in logical pixels, or `null`.
+  ///
+  /// When non-null, the document layout uses this value instead of the full
+  /// available width.  Text blocks return `null` by default (full width).
+  double? get requestedWidth => null;
+
+  /// The requested height of this block in logical pixels, or `null`.
+  ///
+  /// When non-null, the document layout uses this value to constrain the
+  /// block height.  Text blocks return `null` by default (intrinsic height).
+  double? get requestedHeight => null;
+
+  /// Whether subsequent blocks should wrap around this block.
+  ///
+  /// When `true` and [blockAlignment] is [BlockAlignment.start] or
+  /// [BlockAlignment.end], the document layout creates an exclusion zone
+  /// and adjacent blocks receive reduced-width constraints.
+  bool get textWrap => false;
+
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
     properties.add(StringProperty('nodeId', nodeId));
     properties.add(DiagnosticsProperty<DocumentSelection?>('nodeSelection', nodeSelection));
+    properties.add(EnumProperty<BlockAlignment>('blockAlignment', blockAlignment));
+    properties.add(DoubleProperty('requestedWidth', requestedWidth));
+    properties.add(DoubleProperty('requestedHeight', requestedHeight));
+    properties.add(DiagnosticsProperty<bool>('textWrap', textWrap));
   }
 }
