@@ -835,12 +835,9 @@ class RenderTextBlock extends RenderDocumentBlock {
     }
 
     // Below zone.
-    if (charIndex >= excl.besideEndIndex) {
-      final painter = excl.belowPainter;
+    if (charIndex >= excl.besideEndIndex && excl.belowPainter != null) {
+      final painter = excl.belowPainter!;
       final baseY = excl.aboveHeight + excl.besideHeight;
-      if (painter == null) {
-        return Rect.fromLTWH(0, baseY, 0, _textPainter.preferredLineHeight);
-      }
       final localIndex = charIndex - excl.besideEndIndex;
       final textPos = TextPosition(offset: localIndex, affinity: position.affinity);
       final caretOffset = painter.getOffsetForCaret(textPos, Rect.zero);
@@ -860,6 +857,8 @@ class RenderTextBlock extends RenderDocumentBlock {
     }
 
     // Beside zone — find which line pair contains this index.
+    // Also handles end-of-text when there is no below zone, since
+    // charIndex == besideEndIndex == lastLine.rightEndIndex (or leftEndIndex).
     for (final line in excl.lines) {
       final baseY = excl.aboveHeight + line.yOffset;
 

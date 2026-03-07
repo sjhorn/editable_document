@@ -735,6 +735,19 @@ void main() {
       expect(rect.height, greaterThan(0));
     });
 
+    test('caret rect for end-of-text position is not at x=0', () {
+      // Use short text so all of it fits in the beside zone (no below zone).
+      final block = _textBlockWithExclusion(
+        text: 'Short text.',
+        floatHeight: 200.0,
+      );
+      final endPos = const TextNodePosition(offset: 'Short text.'.length);
+      final rect = block.getLocalRectForPosition(endPos);
+      expect(rect.height, greaterThan(0));
+      // The caret should be at the end of the text, not at x=0.
+      expect(rect.left, greaterThan(0));
+    });
+
     test('getEndpointsForSelection returns rects with exclusion zone', () {
       final block = _textBlockWithExclusion();
       final rects = block.getEndpointsForSelection(
