@@ -17,6 +17,7 @@
 /// - Block alignment (start, center, end, stretch) for container blocks
 /// - Float-style text wrapping with textWrap property
 /// - BlockquoteNode with left accent border
+/// - Property panel for editing block alignment, text wrap, and sizing
 ///
 /// Run with: `flutter run -t example/main.dart`
 library;
@@ -887,17 +888,24 @@ class _DocumentDemoState extends State<DocumentDemo> {
       appBar: AppBar(
         title: const Text('EditableDocument Demo'),
       ),
-      body: Column(
+      body: Row(
         children: [
-          _buildToolbar(),
           Expanded(
-            child: GestureDetector(
-              onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-              behavior: HitTestBehavior.translucent,
-              child: _buildEditor(),
+            child: Column(
+              children: [
+                _buildToolbar(),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+                    behavior: HitTestBehavior.translucent,
+                    child: _buildEditor(),
+                  ),
+                ),
+                _buildStatusBar(),
+              ],
             ),
           ),
-          _buildStatusBar(),
+          _buildPropertyPanel(),
         ],
       ),
     );
@@ -1386,6 +1394,287 @@ class _DocumentDemoState extends State<DocumentDemo> {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Block property panel
+  // ---------------------------------------------------------------------------
+
+  /// Returns true if [node] is a container block that supports layout properties.
+  bool _isContainerBlock(DocumentNode? node) =>
+      node is ImageNode ||
+      node is CodeBlockNode ||
+      node is BlockquoteNode ||
+      node is HorizontalRuleNode;
+
+  /// Returns true if [node] supports width/height/textWrap properties.
+  bool _hasSizingProperties(DocumentNode? node) =>
+      node is ImageNode || node is CodeBlockNode || node is BlockquoteNode;
+
+  BlockAlignment _getBlockAlignment(DocumentNode node) {
+    if (node is ImageNode) return node.alignment;
+    if (node is CodeBlockNode) return node.alignment;
+    if (node is BlockquoteNode) return node.alignment;
+    if (node is HorizontalRuleNode) return node.alignment;
+    return BlockAlignment.stretch;
+  }
+
+  bool _getTextWrap(DocumentNode node) {
+    if (node is ImageNode) return node.textWrap;
+    if (node is CodeBlockNode) return node.textWrap;
+    if (node is BlockquoteNode) return node.textWrap;
+    return false;
+  }
+
+  double? _getWidth(DocumentNode node) {
+    if (node is ImageNode) return node.width;
+    if (node is CodeBlockNode) return node.width;
+    if (node is BlockquoteNode) return node.width;
+    return null;
+  }
+
+  double? _getHeight(DocumentNode node) {
+    if (node is ImageNode) return node.height;
+    if (node is CodeBlockNode) return node.height;
+    if (node is BlockquoteNode) return node.height;
+    return null;
+  }
+
+  void _updateBlockAlignment(DocumentNode node, BlockAlignment alignment) {
+    // When switching to stretch, clear width/height (stretch ignores them).
+    DocumentNode updated;
+    if (node is ImageNode) {
+      updated = alignment == BlockAlignment.stretch
+          ? ImageNode(
+              id: node.id,
+              imageUrl: node.imageUrl,
+              altText: node.altText,
+              width: null,
+              height: null,
+              alignment: alignment,
+              textWrap: node.textWrap,
+            )
+          : node.copyWith(alignment: alignment);
+    } else if (node is CodeBlockNode) {
+      updated = alignment == BlockAlignment.stretch
+          ? CodeBlockNode(
+              id: node.id,
+              text: node.text,
+              language: node.language,
+              width: null,
+              height: null,
+              alignment: alignment,
+              textWrap: node.textWrap,
+            )
+          : node.copyWith(alignment: alignment);
+    } else if (node is BlockquoteNode) {
+      updated = alignment == BlockAlignment.stretch
+          ? BlockquoteNode(
+              id: node.id,
+              text: node.text,
+              width: null,
+              height: null,
+              alignment: alignment,
+              textWrap: node.textWrap,
+            )
+          : node.copyWith(alignment: alignment);
+    } else if (node is HorizontalRuleNode) {
+      updated = node.copyWith(alignment: alignment);
+    } else {
+      return;
+    }
+    _editor.submit(ReplaceNodeRequest(nodeId: node.id, newNode: updated));
+  }
+
+  void _updateTextWrap(DocumentNode node, bool textWrap) {
+    DocumentNode updated;
+    if (node is ImageNode) {
+      updated = node.copyWith(textWrap: textWrap);
+    } else if (node is CodeBlockNode) {
+      updated = node.copyWith(textWrap: textWrap);
+    } else if (node is BlockquoteNode) {
+      updated = node.copyWith(textWrap: textWrap);
+    } else {
+      return;
+    }
+    _editor.submit(ReplaceNodeRequest(nodeId: node.id, newNode: updated));
+  }
+
+  void _updateWidth(DocumentNode node, double? width) {
+    // copyWith can't set nullable fields to null, so construct directly.
+    // If currently stretch-aligned and a width is set, switch to start
+    // (stretch ignores explicit dimensions).
+    final alignment = width != null && _getBlockAlignment(node) == BlockAlignment.stretch
+        ? BlockAlignment.start
+        : _getBlockAlignment(node);
+    DocumentNode updated;
+    if (node is ImageNode) {
+      updated = ImageNode(
+        id: node.id,
+        imageUrl: node.imageUrl,
+        altText: node.altText,
+        width: width,
+        height: node.height,
+        alignment: alignment,
+        textWrap: node.textWrap,
+      );
+    } else if (node is CodeBlockNode) {
+      updated = CodeBlockNode(
+        id: node.id,
+        text: node.text,
+        language: node.language,
+        width: width,
+        height: node.height,
+        alignment: alignment,
+        textWrap: node.textWrap,
+      );
+    } else if (node is BlockquoteNode) {
+      updated = BlockquoteNode(
+        id: node.id,
+        text: node.text,
+        width: width,
+        height: node.height,
+        alignment: alignment,
+        textWrap: node.textWrap,
+      );
+    } else {
+      return;
+    }
+    _editor.submit(ReplaceNodeRequest(nodeId: node.id, newNode: updated));
+  }
+
+  void _updateHeight(DocumentNode node, double? height) {
+    // copyWith can't set nullable fields to null, so construct directly.
+    // If currently stretch-aligned and a height is set, switch to start
+    // (stretch ignores explicit dimensions).
+    final alignment = height != null && _getBlockAlignment(node) == BlockAlignment.stretch
+        ? BlockAlignment.start
+        : _getBlockAlignment(node);
+    DocumentNode updated;
+    if (node is ImageNode) {
+      updated = ImageNode(
+        id: node.id,
+        imageUrl: node.imageUrl,
+        altText: node.altText,
+        width: node.width,
+        height: height,
+        alignment: alignment,
+        textWrap: node.textWrap,
+      );
+    } else if (node is CodeBlockNode) {
+      updated = CodeBlockNode(
+        id: node.id,
+        text: node.text,
+        language: node.language,
+        width: node.width,
+        height: height,
+        alignment: alignment,
+        textWrap: node.textWrap,
+      );
+    } else if (node is BlockquoteNode) {
+      updated = BlockquoteNode(
+        id: node.id,
+        text: node.text,
+        width: node.width,
+        height: height,
+        alignment: alignment,
+        textWrap: node.textWrap,
+      );
+    } else {
+      return;
+    }
+    _editor.submit(ReplaceNodeRequest(nodeId: node.id, newNode: updated));
+  }
+
+  Widget _buildPropertyPanel() {
+    final sel = _controller.selection;
+    final node = sel != null ? _document.nodeById(sel.extent.nodeId) : null;
+    if (!_isContainerBlock(node)) return const SizedBox.shrink();
+
+    final colorScheme = Theme.of(context).colorScheme;
+    final alignment = _getBlockAlignment(node!);
+    final hasSizing = _hasSizingProperties(node);
+
+    return Container(
+      width: 240,
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        border: Border(left: BorderSide(color: colorScheme.outlineVariant)),
+      ),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _currentBlockLabel(),
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            const SizedBox(height: 16),
+            // --- Alignment ---
+            Text('Alignment', style: Theme.of(context).textTheme.labelMedium),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                for (final entry in {
+                  BlockAlignment.start: Icons.align_horizontal_left,
+                  BlockAlignment.center: Icons.align_horizontal_center,
+                  BlockAlignment.end: Icons.align_horizontal_right,
+                  BlockAlignment.stretch: Icons.expand,
+                }.entries)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: IconButton(
+                      icon: Icon(entry.value, size: 20),
+                      isSelected: alignment == entry.key,
+                      style: IconButton.styleFrom(
+                        backgroundColor:
+                            alignment == entry.key ? colorScheme.primaryContainer : null,
+                        minimumSize: const Size(36, 36),
+                        padding: EdgeInsets.zero,
+                      ),
+                      tooltip: entry.key.name,
+                      onPressed: () => _updateBlockAlignment(node, entry.key),
+                    ),
+                  ),
+              ],
+            ),
+            if (hasSizing) ...[
+              const SizedBox(height: 16),
+              // --- Text Wrap ---
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Text Wrap', style: Theme.of(context).textTheme.labelMedium),
+                  Switch(
+                    value: _getTextWrap(node),
+                    onChanged: (value) => _updateTextWrap(node, value),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // --- Width ---
+              Text('Width', style: Theme.of(context).textTheme.labelMedium),
+              const SizedBox(height: 4),
+              _DimensionField(
+                key: ValueKey('${node.id}-w'),
+                value: _getWidth(node),
+                onChanged: (value) => _updateWidth(node, value),
+              ),
+              const SizedBox(height: 12),
+              // --- Height ---
+              Text('Height', style: Theme.of(context).textTheme.labelMedium),
+              const SizedBox(height: 4),
+              _DimensionField(
+                key: ValueKey('${node.id}-h'),
+                value: _getHeight(node),
+                onChanged: (value) => _updateHeight(node, value),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildEditor() {
     return DocumentScrollable(
       controller: _controller,
@@ -1517,5 +1806,93 @@ class _FormatToggle extends StatelessWidget {
     properties.add(StringProperty('tooltip', tooltip));
     properties.add(FlagProperty('isActive', value: isActive, ifTrue: 'active'));
     properties.add(ObjectFlagProperty<VoidCallback?>.has('onPressed', onPressed));
+  }
+}
+
+/// A text field for editing an optional dimension (width or height) value.
+///
+/// Shows "auto" as placeholder when [value] is null. Accepts numeric input
+/// and calls [onChanged] with the parsed value, or null to clear.
+class _DimensionField extends StatefulWidget {
+  const _DimensionField({super.key, required this.value, required this.onChanged});
+
+  final double? value;
+  final ValueChanged<double?> onChanged;
+
+  @override
+  State<_DimensionField> createState() => _DimensionFieldState();
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties.add(DoubleProperty('value', value));
+    properties.add(ObjectFlagProperty<ValueChanged<double?>>.has('onChanged', onChanged));
+  }
+}
+
+class _DimensionFieldState extends State<_DimensionField> {
+  late final TextEditingController _textController;
+  bool _isEditing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _textController = TextEditingController(
+      text: widget.value != null ? widget.value!.toStringAsFixed(0) : '',
+    );
+  }
+
+  @override
+  void didUpdateWidget(_DimensionField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Only sync from widget when not actively editing.
+    if (!_isEditing) {
+      final newText = widget.value != null ? widget.value!.toStringAsFixed(0) : '';
+      if (_textController.text != newText) {
+        _textController.text = newText;
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    super.dispose();
+  }
+
+  void _onChanged(String text) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) {
+      widget.onChanged(null);
+    } else {
+      final parsed = double.tryParse(trimmed);
+      if (parsed != null && parsed > 0) {
+        widget.onChanged(parsed);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 36,
+      child: Focus(
+        onFocusChange: (hasFocus) {
+          _isEditing = hasFocus;
+        },
+        child: TextField(
+          controller: _textController,
+          decoration: const InputDecoration(
+            hintText: 'auto',
+            isDense: true,
+            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            border: OutlineInputBorder(),
+          ),
+          keyboardType: TextInputType.number,
+          style: Theme.of(context).textTheme.bodySmall,
+          onChanged: _onChanged,
+        ),
+      ),
+    );
   }
 }
