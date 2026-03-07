@@ -15,7 +15,7 @@ import '../model/attribution.dart';
 import '../model/document_selection.dart';
 import '../model/node_position.dart';
 import 'render_document_block.dart';
-import 'render_document_layout.dart' show DocumentBlockParentData;
+import 'render_document_layout.dart' show DocumentBlockConstraints;
 
 // ---------------------------------------------------------------------------
 // _ExclusionLayout — result of multi-segment exclusion-zone text layout
@@ -436,9 +436,11 @@ class RenderTextBlock extends RenderDocumentBlock {
 
   @override
   void performLayout() {
-    Rect? exclusionRect;
-    if (parentData is DocumentBlockParentData) {
-      exclusionRect = (parentData as DocumentBlockParentData).exclusionRect;
+    final Rect? exclusionRect;
+    if (constraints is DocumentBlockConstraints) {
+      exclusionRect = (constraints as DocumentBlockConstraints).exclusionRect;
+    } else {
+      exclusionRect = null;
     }
 
     if (exclusionRect != null) {

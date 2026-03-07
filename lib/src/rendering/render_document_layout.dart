@@ -41,6 +41,56 @@ class DocumentBlockParentData extends ContainerBoxParentData<RenderDocumentBlock
 }
 
 // ---------------------------------------------------------------------------
+// DocumentBlockConstraints
+// ---------------------------------------------------------------------------
+
+/// [BoxConstraints] extended with an optional interior exclusion rectangle.
+///
+/// When a stretch block wraps beside a center-aligned float,
+/// [RenderDocumentLayout] passes the float's bounds (with gap) as
+/// [exclusionRect].  The child's [RenderBox.performLayout] can read this
+/// from `constraints` (via a type check) to flow text around the float.
+///
+/// Using a custom constraints subclass ensures that Flutter automatically
+/// re-runs `performLayout` on the child whenever the exclusion rect changes,
+/// because [operator ==] includes [exclusionRect] in its comparison.
+class DocumentBlockConstraints extends BoxConstraints {
+  /// Creates document-block constraints with an optional [exclusionRect].
+  const DocumentBlockConstraints({
+    super.minWidth = 0.0,
+    super.maxWidth = double.infinity,
+    super.minHeight = 0.0,
+    super.maxHeight = double.infinity,
+    this.exclusionRect,
+  });
+
+  /// The interior exclusion rectangle for center-float wrapping, or `null`.
+  ///
+  /// Describes the float's bounds (with gap) in the child's local coordinates.
+  final Rect? exclusionRect;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+    return other is DocumentBlockConstraints &&
+        super == other &&
+        exclusionRect == other.exclusionRect;
+  }
+
+  @override
+  int get hashCode => Object.hash(super.hashCode, exclusionRect);
+
+  @override
+  String toString() {
+    final base = super.toString();
+    if (exclusionRect == null) return base;
+    return '$base; exclusionRect=$exclusionRect';
+  }
+}
+
+// ---------------------------------------------------------------------------
 // _ExclusionZone
 // ---------------------------------------------------------------------------
 
@@ -258,7 +308,6 @@ class RenderDocumentLayout extends RenderBox
               alignment == BlockAlignment.end ||
               alignment == BlockAlignment.center);
       parentData.isFloat = isFloat;
-      final oldExclusionRect = parentData.exclusionRect;
       parentData.exclusionRect = null;
 
       if (childIndex > 0) {
@@ -299,14 +348,12 @@ class RenderDocumentLayout extends RenderBox
           }
         }
 
-        // If the exclusion rect changed (e.g. float resized), force re-layout
-        // even though constraints may be identical.
-        if (parentData.exclusionRect != oldExclusionRect) {
-          child.markNeedsLayout();
-        }
-
         child.layout(
-          BoxConstraints.tightFor(width: childMaxWidth),
+          DocumentBlockConstraints(
+            minWidth: childMaxWidth,
+            maxWidth: childMaxWidth,
+            exclusionRect: parentData.exclusionRect,
+          ),
           parentUsesSize: true,
         );
         parentData.offset = Offset(xOffset, yOffset);
