@@ -258,6 +258,7 @@ class RenderDocumentLayout extends RenderBox
               alignment == BlockAlignment.end ||
               alignment == BlockAlignment.center);
       parentData.isFloat = isFloat;
+      final oldExclusionRect = parentData.exclusionRect;
       parentData.exclusionRect = null;
 
       if (childIndex > 0) {
@@ -285,7 +286,7 @@ class RenderDocumentLayout extends RenderBox
             xOffset = 0.0;
             parentData.exclusionRect = Rect.fromLTRB(
               activeExclusion.floatLeft - _kFloatGap,
-              activeExclusion.top - yOffset,
+              max(0.0, activeExclusion.top - yOffset),
               activeExclusion.floatLeft + activeExclusion.width + _kFloatGap,
               activeExclusion.bottom - yOffset,
             );
@@ -296,6 +297,12 @@ class RenderDocumentLayout extends RenderBox
               xOffset = activeExclusion.width;
             }
           }
+        }
+
+        // If the exclusion rect changed (e.g. float resized), force re-layout
+        // even though constraints may be identical.
+        if (parentData.exclusionRect != oldExclusionRect) {
+          child.markNeedsLayout();
         }
 
         child.layout(

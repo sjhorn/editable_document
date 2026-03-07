@@ -1442,6 +1442,90 @@ void main() {
       expect(hr.size.width, closeTo(maxWidth, 0.5));
     });
 
+    test('center float: exclusionRect uses specified width and height', () {
+      // With blockSpacing = 0, exclusionRect should exactly match the float
+      // dimensions (plus gap).  With blockSpacing > 0, the top is clamped to
+      // 0 so the height reflects the actual overlap.
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: floatWidth,
+        requestedHeight: floatHeight,
+        blockAlignment: BlockAlignment.center,
+        textWrap: true,
+      );
+      final text = _textBlock('p1', 'Text beside center float');
+      _layout(children: [image, text], maxWidth: maxWidth, blockSpacing: 0.0);
+
+      final textData = text.parentData as DocumentBlockParentData;
+      final excl = textData.exclusionRect!;
+
+      // Width should be floatWidth + 2 * gap (8px each side).
+      expect(excl.width, closeTo(floatWidth + 16.0, 0.5));
+      // Height should match the float height exactly (no spacing offset).
+      expect(excl.height, closeTo(floatHeight, 0.5));
+      // Top should be 0 (float and text start at the same y).
+      expect(excl.top, 0.0);
+    });
+
+    test('center float: exclusionRect height accounts for blockSpacing', () {
+      // With non-zero blockSpacing, the text block starts below the float.
+      // The exclusionRect height should be the overlap, not the full float
+      // height — otherwise text wraps in two columns past the float bottom.
+      const spacing = 12.0;
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: floatWidth,
+        requestedHeight: floatHeight,
+        blockAlignment: BlockAlignment.center,
+        textWrap: true,
+      );
+      final text = _textBlock('p1', 'Text beside center float');
+      _layout(
+        children: [image, text],
+        maxWidth: maxWidth,
+        blockSpacing: spacing,
+      );
+
+      final textData = text.parentData as DocumentBlockParentData;
+      final excl = textData.exclusionRect!;
+
+      // exclusionRect.top must be >= 0 (clamped, not negative).
+      expect(excl.top, greaterThanOrEqualTo(0.0));
+      // exclusionRect height should be the overlap: floatHeight - spacing.
+      expect(excl.height, closeTo(floatHeight - spacing, 0.5));
+    });
+
+    test('center float: text reflows when float height changes', () {
+      const maxWidth = 400.0;
+      final image = _imageBlock(
+        'img',
+        requestedWidth: 100.0,
+        requestedHeight: 60.0,
+        blockAlignment: BlockAlignment.center,
+        textWrap: true,
+      );
+      final text = _textBlock('p1', 'Text beside center float reflow test');
+      final layout = _layout(children: [image, text], maxWidth: maxWidth, blockSpacing: 0.0);
+      final textData = text.parentData as DocumentBlockParentData;
+
+      // Record the initial exclusionRect and text height.
+      final initialRect = textData.exclusionRect;
+      expect(initialRect, isNotNull);
+      // Resize the float — change its height.
+      image.requestedHeight = 120.0;
+      layout.layout(const BoxConstraints(maxWidth: maxWidth), parentUsesSize: true);
+
+      // The exclusionRect should reflect the new height.
+      final updatedRect = textData.exclusionRect;
+      expect(updatedRect, isNotNull);
+      expect(updatedRect!.height, greaterThan(initialRect!.height));
+
+      // The text block should have reflowed — its height may differ.
+      // At minimum, verify the exclusionRect height doubled.
+      expect(updatedRect.height, 120.0);
+      expect(text.size.height, greaterThanOrEqualTo(120.0));
+    });
+
     test('center float: two consecutive center floats stack vertically', () {
       final image1 = _imageBlock(
         'img1',
