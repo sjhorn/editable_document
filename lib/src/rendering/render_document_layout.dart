@@ -260,10 +260,19 @@ class RenderDocumentLayout extends RenderBox
         double xOffset = 0.0;
 
         if (activeExclusion != null && yOffset < activeExclusion.bottom) {
-          // Narrow the block to avoid the exclusion zone.
-          childMaxWidth = preferredWidth - activeExclusion.width;
-          if (activeExclusion.side == BlockAlignment.start) {
-            xOffset = activeExclusion.width;
+          final narrowedWidth = max(0.0, preferredWidth - activeExclusion.width);
+          // If the block has an explicit requestedWidth that fits beside the
+          // float, wrap it alongside.  Otherwise the block wants full width —
+          // clear the exclusion and drop below the float.
+          if (child.requestedWidth != null && child.requestedWidth! <= narrowedWidth) {
+            childMaxWidth = narrowedWidth;
+            if (activeExclusion.side == BlockAlignment.start) {
+              xOffset = activeExclusion.width;
+            }
+          } else {
+            // Advance past the float so this block gets the full width.
+            yOffset = activeExclusion.bottom;
+            activeExclusion = null;
           }
         }
 
@@ -284,8 +293,9 @@ class RenderDocumentLayout extends RenderBox
         if (alignment == BlockAlignment.start) {
           xOffset = 0.0;
         } else {
-          // BlockAlignment.end
-          xOffset = preferredWidth - child.size.width;
+          // BlockAlignment.end — clamp to 0 so oversized blocks start at the
+          // left edge and expand the layout rightward.
+          xOffset = max(0.0, preferredWidth - child.size.width);
         }
 
         parentData.offset = Offset(xOffset, yOffset);
@@ -311,9 +321,11 @@ class RenderDocumentLayout extends RenderBox
           case BlockAlignment.start:
             xOffset = 0.0;
           case BlockAlignment.center:
-            xOffset = (preferredWidth - child.size.width) / 2;
+            // Clamp to 0 so oversized blocks start at the left edge.
+            xOffset = max(0.0, (preferredWidth - child.size.width) / 2);
           case BlockAlignment.end:
-            xOffset = preferredWidth - child.size.width;
+            // Clamp to 0 so oversized blocks start at the left edge.
+            xOffset = max(0.0, preferredWidth - child.size.width);
           case BlockAlignment.stretch:
             xOffset = 0.0; // Already handled above, but for completeness.
         }

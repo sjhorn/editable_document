@@ -727,7 +727,10 @@ void main() {
       expect(imageData.isFloat, isTrue);
     });
 
-    test('float start: adjacent text block has reduced width', () {
+    test('float start: adjacent stretch block without requestedWidth drops below float', () {
+      // A text block has no requestedWidth — it wants the full available width,
+      // so the new behaviour is to drop below the float rather than being
+      // squeezed into the narrow remainder beside it.
       final image = _imageBlock(
         'img1',
         requestedWidth: floatWidth,
@@ -735,16 +738,22 @@ void main() {
         blockAlignment: BlockAlignment.start,
         textWrap: true,
       );
-      final text = _textBlock('p1', 'Wrapped text beside float');
+      final text = _textBlock('p1', 'Text after float');
       _layout(children: [image, text], maxWidth: maxWidth, blockSpacing: 0.0);
 
-      // Text width must be less than maxWidth (float occupies some of it).
-      expect(text.size.width, lessThan(maxWidth));
-      // Text width must be at most maxWidth - floatWidth - gap.
-      expect(text.size.width, lessThanOrEqualTo(maxWidth - floatWidth - 8.0 + 0.5));
+      final imageData = image.parentData as DocumentBlockParentData;
+      final floatBottom = imageData.offset.dy + image.size.height;
+      final textData = text.parentData as DocumentBlockParentData;
+
+      // Text must start at or below the float bottom (dropped below, not beside).
+      expect(textData.offset.dy, greaterThanOrEqualTo(floatBottom));
+      // Text must span the full width.
+      expect(text.size.width, closeTo(maxWidth, 0.5));
     });
 
-    test('float start: adjacent text block starts to the right of the float', () {
+    test('float start: stretch block with requestedWidth starts to the right of the float', () {
+      // An image block with an explicit requestedWidth that fits beside the
+      // float should wrap alongside it.
       final image = _imageBlock(
         'img1',
         requestedWidth: floatWidth,
@@ -752,11 +761,17 @@ void main() {
         blockAlignment: BlockAlignment.start,
         textWrap: true,
       );
-      final text = _textBlock('p1', 'Wrapped text beside float');
-      _layout(children: [image, text], maxWidth: maxWidth, blockSpacing: 0.0);
+      // Small image with an explicit requestedWidth that fits in the remaining space.
+      final beside = _imageBlock(
+        'img2',
+        requestedWidth: 50.0,
+        requestedHeight: 40.0,
+        blockAlignment: BlockAlignment.stretch,
+      );
+      _layout(children: [image, beside], maxWidth: maxWidth, blockSpacing: 0.0);
 
-      final textData = text.parentData as DocumentBlockParentData;
-      expect(textData.offset.dx, closeTo(floatWidth + 8.0, 0.5));
+      final besideData = beside.parentData as DocumentBlockParentData;
+      expect(besideData.offset.dx, closeTo(floatWidth + 8.0, 0.5));
     });
 
     test('float end: image positioned at x = maxWidth - imageWidth', () {
@@ -775,7 +790,9 @@ void main() {
       expect(imageData.isFloat, isTrue);
     });
 
-    test('float end: adjacent text starts at x = 0 with reduced width', () {
+    test('float end: adjacent stretch block without requestedWidth drops below float', () {
+      // A text block has no requestedWidth — it drops below the end float
+      // and gets the full width rather than being squeezed beside it.
       final image = _imageBlock(
         'img1',
         requestedWidth: floatWidth,
@@ -783,12 +800,17 @@ void main() {
         blockAlignment: BlockAlignment.end,
         textWrap: true,
       );
-      final text = _textBlock('p1', 'Wrapped text beside float');
+      final text = _textBlock('p1', 'Text after float');
       _layout(children: [image, text], maxWidth: maxWidth, blockSpacing: 0.0);
 
+      final imageData = image.parentData as DocumentBlockParentData;
+      final floatBottom = imageData.offset.dy + image.size.height;
       final textData = text.parentData as DocumentBlockParentData;
-      expect(textData.offset.dx, 0.0);
-      expect(text.size.width, lessThan(maxWidth));
+
+      // Text must start at or below the float bottom.
+      expect(textData.offset.dy, greaterThanOrEqualTo(floatBottom));
+      // Text must span the full width.
+      expect(text.size.width, closeTo(maxWidth, 0.5));
     });
 
     test('total layout height is at least the float height when no block is taller', () {
@@ -850,6 +872,74 @@ void main() {
         expect(afterText.size.width, closeTo(maxWidth, 0.5));
       }
       // Layout should not crash.
+      expect(layout.size.height, greaterThan(0));
+    });
+
+    test('stretch block without requestedWidth clears exclusion and drops below float', () {
+      // A stretch block with no requestedWidth wants the full available width.
+      // It should NOT be squeezed beside the float — instead it should drop
+      // below the float bottom and be laid out at full width.
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: 100.0,
+        requestedHeight: 80.0,
+        blockAlignment: BlockAlignment.start,
+        textWrap: true,
+      );
+      // HR block is stretch with no requestedWidth — must clear the float.
+      final hr = _hrBlock('hr1');
+      final layout = _layout(
+        children: [image, hr],
+        maxWidth: maxWidth,
+        blockSpacing: 0.0,
+      );
+
+      final imageData = image.parentData as DocumentBlockParentData;
+      final floatBottom = imageData.offset.dy + image.size.height;
+      final hrData = hr.parentData as DocumentBlockParentData;
+
+      // HR must start at or below the float bottom (cleared, not beside).
+      expect(hrData.offset.dy, greaterThanOrEqualTo(floatBottom));
+      // HR must be full width.
+      expect(hr.size.width, closeTo(maxWidth, 0.5));
+      // Layout must be taller than just the float alone.
+      expect(layout.size.height, greaterThan(floatBottom));
+    });
+
+    test('stretch block with small requestedWidth wraps beside float', () {
+      // A stretch-aligned block with an explicit requestedWidth that fits
+      // beside the float should still wrap alongside it.
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: 100.0,
+        requestedHeight: 80.0,
+        blockAlignment: BlockAlignment.start,
+        textWrap: true,
+      );
+      // Image with stretch alignment and a requestedWidth that fits in the
+      // remaining space beside the float (maxWidth - floatWidth - gap = 292 px).
+      final smallBlock = _imageBlock(
+        'img2',
+        requestedWidth: 50.0,
+        requestedHeight: 30.0,
+        blockAlignment: BlockAlignment.stretch,
+        textWrap: false,
+      );
+      final layout = _layout(
+        children: [image, smallBlock],
+        maxWidth: maxWidth,
+        blockSpacing: 0.0,
+      );
+
+      final imageData = image.parentData as DocumentBlockParentData;
+      final floatBottom = imageData.offset.dy + image.size.height;
+      final smallData = smallBlock.parentData as DocumentBlockParentData;
+
+      // The small block should be beside the float (its y < float bottom).
+      expect(smallData.offset.dy, lessThan(floatBottom));
+      // Its x-offset should be pushed right to avoid the float.
+      expect(smallData.offset.dx, greaterThan(0.0));
+      // Layout should be taller than the small block alone.
       expect(layout.size.height, greaterThan(0));
     });
 
