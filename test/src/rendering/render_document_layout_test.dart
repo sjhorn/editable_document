@@ -977,6 +977,37 @@ void main() {
       expect(layout.size.height, greaterThan(0));
     });
 
+    test('two consecutive floats do not overlap — second starts below first', () {
+      // When two float blocks appear back-to-back the second must be placed
+      // below the first, not at the same y-offset.
+      final image1 = _imageBlock(
+        'img1',
+        requestedWidth: floatWidth,
+        requestedHeight: floatHeight,
+        blockAlignment: BlockAlignment.start,
+        textWrap: true,
+      );
+      final image2 = _imageBlock(
+        'img2',
+        requestedWidth: floatWidth,
+        requestedHeight: floatHeight,
+        blockAlignment: BlockAlignment.start,
+        textWrap: true,
+      );
+      _layout(children: [image1, image2], maxWidth: maxWidth, blockSpacing: 0.0);
+
+      final data1 = image1.parentData as DocumentBlockParentData;
+      final data2 = image2.parentData as DocumentBlockParentData;
+
+      // The second float must start at or after the bottom edge of the first.
+      final firstBottom = data1.offset.dy + image1.size.height;
+      expect(
+        data2.offset.dy,
+        greaterThanOrEqualTo(firstBottom),
+        reason: 'second float overlaps first float',
+      );
+    });
+
     test('non-float aligned block clears the exclusion zone', () {
       // Float on the left, then a stretch block: the stretch block is narrowed.
       // After that, a center-aligned non-float block must get full-width treatment.

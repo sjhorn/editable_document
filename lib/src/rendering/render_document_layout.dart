@@ -282,6 +282,14 @@ class RenderDocumentLayout extends RenderBox
         yOffset += child.size.height;
       } else if (isFloat) {
         // Case 3: Float — aligned block with text wrap enabled.
+
+        // If another float is still active, advance past it first so
+        // consecutive floats stack vertically rather than overlapping.
+        if (activeExclusion != null && yOffset < activeExclusion.bottom) {
+          yOffset = activeExclusion.bottom;
+          activeExclusion = null;
+        }
+
         final childWidth = child.requestedWidth ?? preferredWidth;
         final childConstraints = BoxConstraints(maxWidth: childWidth);
         child.layout(childConstraints, parentUsesSize: true);
