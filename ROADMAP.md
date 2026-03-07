@@ -347,6 +347,40 @@ All widgets in `lib/src/widgets/`. Tests in `test/src/widgets/` using `testWidge
 
 ---
 
+## Phase 10.5 — Block layout properties (alignment, text wrap, sizing)
+
+> **Commit messages:** `feat(model): add BlockAlignment enum`, `feat(rendering): implement alignment and float layout`, etc.
+
+Container blocks (image, code block, blockquote, horizontal rule) gain explicit width/height, horizontal alignment, and float-like text wrap-around. Text blocks (paragraph, list items) remain full-width.
+
+### 10.5.1 Model layer
+- [x] `BlockAlignment` enum — `start`, `center`, `end`, `stretch` (directional-aware; default `stretch`).
+- [x] `ImageNode` — add `BlockAlignment alignment`, `bool textWrap`.
+- [x] `CodeBlockNode` — add `double? width`, `double? height`, `BlockAlignment alignment`, `bool textWrap`.
+- [x] `HorizontalRuleNode` — add `BlockAlignment alignment`.
+- [x] `BlockquoteNode extends TextNode` — new node type with `width`, `height`, `alignment`, `textWrap`.
+- [x] Tests: default values, constructor, `copyWith`, equality for all new fields.
+
+### 10.5.2 Rendering layer
+- [x] `RenderDocumentBlock` — add virtual getters: `blockAlignment`, `requestedWidth`, `requestedHeight`, `textWrap` with sensible defaults.
+- [x] `RenderImageBlock`, `RenderCodeBlock`, `RenderHorizontalRuleBlock` — add stored fields + setters for layout properties; `performLayout` respects requested dimensions.
+- [x] `RenderBlockquoteBlock extends RenderTextBlock` — left accent border (3 dp + 8 dp padding), layout properties, geometry queries account for inset.
+- [x] `RenderDocumentLayout` — three-case layout algorithm: stretch (default), aligned (positioned, full row), float (exclusion zone with text wrap). Hit testing checks x-bounds for float scenarios.
+- [x] Tests: alignment positioning, float layout, float hit testing, exclusion zone clearing.
+
+### 10.5.3 Widget layer
+- [x] `ImageComponentViewModel`, `CodeBlockComponentViewModel`, `HorizontalRuleComponentViewModel` — add alignment / textWrap / width / height fields; wire through to render objects.
+- [x] `BlockquoteComponentBuilder` + `BlockquoteComponentViewModel` + widget — added to `defaultComponentBuilders`.
+- [x] Tests: view model equality, builder round-trips, layout property wiring.
+
+### 10.5.4 Services verification
+- [x] `DocumentImeSerializer` handles `BlockquoteNode` via existing `is TextNode` checks — no production changes needed; 9 verification tests added.
+
+### 10.5.5 Example app
+- [x] `example/main.dart` updated with Block Layout Properties section: center-aligned image, float image with text wrap, BlockquoteNode, end-aligned code block, center-aligned horizontal rule, blockquote insert button.
+
+---
+
 ## Phase 11 — Flutter framework contribution prep
 
 > **Commit message:** `chore: flutter contribution readiness — design doc, analysis alignment`
@@ -365,7 +399,7 @@ All widgets in `lib/src/widgets/`. Tests in `test/src/widgets/` using `testWidge
 
 > **Commit message:** `release: editable_document 1.0.0`
 
-- [ ] All phases 0–11 complete with all checkboxes ticked.
+- [ ] All phases 0–11 (including 10.5) complete with all checkboxes ticked.
 - [ ] Test coverage ≥ 90 % overall; 100 % on `services/`, `model/position`, `model/selection`.
 - [ ] Zero `flutter analyze` issues.
 - [ ] Zero `dart doc` warnings.
@@ -388,5 +422,6 @@ All widgets in `lib/src/widgets/`. Tests in `test/src/widgets/` using `testWidge
 | `0.6.0-dev` | 6–7 | Overlays + scrolling |
 | `0.7.0-dev` | 8 | Accessibility |
 | `0.8.0-dev` | 9–10 | Benchmarks + docs |
+| `0.8.1-dev` | 10.5 | Block layout properties |
 | `0.9.0-dev` | 11 | Flutter contribution prep |
 | `1.0.0` | 12 | Stable |
