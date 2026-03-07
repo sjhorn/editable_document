@@ -28,17 +28,27 @@ class RenderHorizontalRuleBlock extends RenderDocumentBlock {
   /// [verticalPadding] defaults to `8.0`.
   /// [blockAlignment] controls horizontal positioning within the available
   /// layout width; defaults to [BlockAlignment.stretch].
+  /// [requestedWidth] overrides the layout width when non-null.
+  /// [requestedHeight] overrides the layout height when non-null.
+  /// [textWrap] controls whether subsequent blocks may wrap around this block;
+  /// defaults to `false`.
   RenderHorizontalRuleBlock({
     required String nodeId,
     Color color = const Color(0xFFCCCCCC),
     double thickness = 1.0,
     double verticalPadding = 8.0,
     BlockAlignment blockAlignment = BlockAlignment.stretch,
+    double? requestedWidth,
+    double? requestedHeight,
+    bool textWrap = false,
   })  : _nodeId = nodeId,
         _color = color,
         _thickness = thickness,
         _verticalPadding = verticalPadding,
-        _blockAlignment = blockAlignment;
+        _blockAlignment = blockAlignment,
+        _requestedWidth = requestedWidth,
+        _requestedHeight = requestedHeight,
+        _textWrap = textWrap;
 
   // ---------------------------------------------------------------------------
   // Private state
@@ -50,6 +60,9 @@ class RenderHorizontalRuleBlock extends RenderDocumentBlock {
   double _verticalPadding;
   DocumentSelection? _nodeSelection;
   BlockAlignment _blockAlignment;
+  double? _requestedWidth;
+  double? _requestedHeight;
+  bool _textWrap;
 
   // ---------------------------------------------------------------------------
   // RenderDocumentBlock — nodeId
@@ -131,6 +144,54 @@ class RenderHorizontalRuleBlock extends RenderDocumentBlock {
     markNeedsLayout();
   }
 
+  /// The requested width of this block in logical pixels, or `null`.
+  ///
+  /// When non-null, [performLayout] uses this value as the block width instead
+  /// of [constraints.maxWidth].  When `null`, the block fills the available
+  /// width.
+  // ignore: diagnostic_describe_all_properties
+  @override
+  double? get requestedWidth => _requestedWidth;
+
+  /// Sets the requested width and schedules a layout pass.
+  set requestedWidth(double? value) {
+    if (_requestedWidth == value) return;
+    _requestedWidth = value;
+    markNeedsLayout();
+  }
+
+  /// The requested height of this block in logical pixels, or `null`.
+  ///
+  /// When non-null, [performLayout] uses this value as the block height instead
+  /// of [thickness] + 2 × [verticalPadding].  When `null`, the default height
+  /// formula applies.
+  // ignore: diagnostic_describe_all_properties
+  @override
+  double? get requestedHeight => _requestedHeight;
+
+  /// Sets the requested height and schedules a layout pass.
+  set requestedHeight(double? value) {
+    if (_requestedHeight == value) return;
+    _requestedHeight = value;
+    markNeedsLayout();
+  }
+
+  /// Whether subsequent blocks should wrap around this block.
+  ///
+  /// When `true` and [blockAlignment] is [BlockAlignment.start] or
+  /// [BlockAlignment.end], the document layout creates an exclusion zone so
+  /// adjacent blocks receive reduced-width constraints.
+  // ignore: diagnostic_describe_all_properties
+  @override
+  bool get textWrap => _textWrap;
+
+  /// Sets the text-wrap flag and schedules a layout pass.
+  set textWrap(bool value) {
+    if (_textWrap == value) return;
+    _textWrap = value;
+    markNeedsLayout();
+  }
+
   // ---------------------------------------------------------------------------
   // Intrinsic sizes
   // ---------------------------------------------------------------------------
@@ -147,7 +208,9 @@ class RenderHorizontalRuleBlock extends RenderDocumentBlock {
 
   @override
   void performLayout() {
-    size = Size(constraints.maxWidth, _thickness + 2 * _verticalPadding);
+    final w = _requestedWidth ?? constraints.maxWidth;
+    final h = _requestedHeight ?? (_thickness + 2 * _verticalPadding);
+    size = Size(w, h);
   }
 
   // ---------------------------------------------------------------------------
@@ -233,5 +296,8 @@ class RenderHorizontalRuleBlock extends RenderDocumentBlock {
       _blockAlignment,
       defaultValue: BlockAlignment.stretch,
     ));
+    properties.add(DoubleProperty('requestedWidth', _requestedWidth, defaultValue: null));
+    properties.add(DoubleProperty('requestedHeight', _requestedHeight, defaultValue: null));
+    properties.add(FlagProperty('textWrap', value: _textWrap, ifTrue: 'textWrap'));
   }
 }

@@ -813,6 +813,9 @@ class HorizontalRuleComponentViewModel extends ComponentViewModel {
   const HorizontalRuleComponentViewModel({
     required super.nodeId,
     this.alignment = BlockAlignment.stretch,
+    this.width,
+    this.height,
+    this.textWrap = false,
     super.nodeSelection,
     super.isSelected,
   });
@@ -822,18 +825,33 @@ class HorizontalRuleComponentViewModel extends ComponentViewModel {
   /// Defaults to [BlockAlignment.stretch].
   final BlockAlignment alignment;
 
+  /// Preferred display width in logical pixels, or `null` to fill available width.
+  final double? width;
+
+  /// Preferred display height in logical pixels, or `null` to use the default.
+  final double? height;
+
+  /// Whether surrounding text may wrap around this block.
+  ///
+  /// Defaults to `false`.
+  final bool textWrap;
+
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
     return other is HorizontalRuleComponentViewModel &&
         other.nodeId == nodeId &&
         other.alignment == alignment &&
+        other.width == width &&
+        other.height == height &&
+        other.textWrap == textWrap &&
         other.nodeSelection == nodeSelection &&
         other.isSelected == isSelected;
   }
 
   @override
-  int get hashCode => Object.hash(nodeId, alignment, nodeSelection, isSelected);
+  int get hashCode =>
+      Object.hash(nodeId, alignment, width, height, textWrap, nodeSelection, isSelected);
 }
 
 /// [ComponentBuilder] that handles [HorizontalRuleNode].
@@ -844,7 +862,13 @@ class HorizontalRuleComponentBuilder extends ComponentBuilder {
   @override
   ComponentViewModel? createViewModel(Document document, DocumentNode node) {
     if (node is! HorizontalRuleNode) return null;
-    return HorizontalRuleComponentViewModel(nodeId: node.id, alignment: node.alignment);
+    return HorizontalRuleComponentViewModel(
+      nodeId: node.id,
+      alignment: node.alignment,
+      width: node.width,
+      height: node.height,
+      textWrap: node.textWrap,
+    );
   }
 
   @override
@@ -865,6 +889,9 @@ class _HorizontalRuleBlockWidget extends LeafRenderObjectWidget {
     return RenderHorizontalRuleBlock(
       nodeId: viewModel.nodeId,
       blockAlignment: viewModel.alignment,
+      requestedWidth: viewModel.width,
+      requestedHeight: viewModel.height,
+      textWrap: viewModel.textWrap,
     );
   }
 
@@ -873,6 +900,9 @@ class _HorizontalRuleBlockWidget extends LeafRenderObjectWidget {
     renderObject
       ..nodeId = viewModel.nodeId
       ..blockAlignment = viewModel.alignment
+      ..requestedWidth = viewModel.width
+      ..requestedHeight = viewModel.height
+      ..textWrap = viewModel.textWrap
       ..nodeSelection = viewModel.nodeSelection;
   }
 

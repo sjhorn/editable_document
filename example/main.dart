@@ -78,6 +78,10 @@ class _DocumentDemoState extends State<DocumentDemo> {
   /// Vertical spacing between document blocks.
   double _blockSpacing = 0.0;
 
+  /// The node ID for which the floating property panel is shown, or `null`
+  /// when the panel is hidden.
+  String? _propertyPanelNodeId;
+
   /// Preset color swatches for text-color and background-color pickers.
   ///
   /// Keys are ARGB 32-bit integer values; values are display labels.
@@ -117,6 +121,14 @@ class _DocumentDemoState extends State<DocumentDemo> {
 
   void _onDocumentChanged() {
     _contextMenuController.remove();
+    // Auto-show/hide the property panel based on selection.
+    final sel = _controller.selection;
+    final node = sel != null ? _document.nodeById(sel.extent.nodeId) : null;
+    if (_isContainerBlock(node)) {
+      _propertyPanelNodeId = node!.id;
+    } else {
+      _propertyPanelNodeId = null;
+    }
     setState(() {});
   }
 
@@ -888,24 +900,19 @@ class _DocumentDemoState extends State<DocumentDemo> {
       appBar: AppBar(
         title: const Text('EditableDocument Demo'),
       ),
-      body: Row(
+      body: Column(
         children: [
+          _buildToolbar(),
           Expanded(
-            child: Column(
+            child: Stack(
+              clipBehavior: Clip.none,
               children: [
-                _buildToolbar(),
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-                    behavior: HitTestBehavior.translucent,
-                    child: _buildEditor(),
-                  ),
-                ),
-                _buildStatusBar(),
+                _buildEditor(),
+                _buildFloatingPropertyPanel(),
               ],
             ),
           ),
-          _buildPropertyPanel(),
+          _buildStatusBar(),
         ],
       ),
     );
@@ -1405,9 +1412,20 @@ class _DocumentDemoState extends State<DocumentDemo> {
       node is BlockquoteNode ||
       node is HorizontalRuleNode;
 
+  /// Dismisses the floating property panel.
+  void _dismissPropertyPanel() {
+    if (_propertyPanelNodeId == null) return;
+    setState(() {
+      _propertyPanelNodeId = null;
+    });
+  }
+
   /// Returns true if [node] supports width/height/textWrap properties.
   bool _hasSizingProperties(DocumentNode? node) =>
-      node is ImageNode || node is CodeBlockNode || node is BlockquoteNode;
+      node is ImageNode ||
+      node is CodeBlockNode ||
+      node is BlockquoteNode ||
+      node is HorizontalRuleNode;
 
   BlockAlignment _getBlockAlignment(DocumentNode node) {
     if (node is ImageNode) return node.alignment;
@@ -1421,6 +1439,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
     if (node is ImageNode) return node.textWrap;
     if (node is CodeBlockNode) return node.textWrap;
     if (node is BlockquoteNode) return node.textWrap;
+    if (node is HorizontalRuleNode) return node.textWrap;
     return false;
   }
 
@@ -1428,6 +1447,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
     if (node is ImageNode) return node.width;
     if (node is CodeBlockNode) return node.width;
     if (node is BlockquoteNode) return node.width;
+    if (node is HorizontalRuleNode) return node.width;
     return null;
   }
 
@@ -1435,6 +1455,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
     if (node is ImageNode) return node.height;
     if (node is CodeBlockNode) return node.height;
     if (node is BlockquoteNode) return node.height;
+    if (node is HorizontalRuleNode) return node.height;
     return null;
   }
 
@@ -1477,7 +1498,15 @@ class _DocumentDemoState extends State<DocumentDemo> {
             )
           : node.copyWith(alignment: alignment);
     } else if (node is HorizontalRuleNode) {
-      updated = node.copyWith(alignment: alignment);
+      updated = alignment == BlockAlignment.stretch
+          ? HorizontalRuleNode(
+              id: node.id,
+              width: null,
+              height: null,
+              alignment: alignment,
+              textWrap: node.textWrap,
+            )
+          : node.copyWith(alignment: alignment);
     } else {
       return;
     }
@@ -1491,6 +1520,8 @@ class _DocumentDemoState extends State<DocumentDemo> {
     } else if (node is CodeBlockNode) {
       updated = node.copyWith(textWrap: textWrap);
     } else if (node is BlockquoteNode) {
+      updated = node.copyWith(textWrap: textWrap);
+    } else if (node is HorizontalRuleNode) {
       updated = node.copyWith(textWrap: textWrap);
     } else {
       return;
@@ -1530,6 +1561,14 @@ class _DocumentDemoState extends State<DocumentDemo> {
       updated = BlockquoteNode(
         id: node.id,
         text: node.text,
+        width: width,
+        height: node.height,
+        alignment: alignment,
+        textWrap: node.textWrap,
+      );
+    } else if (node is HorizontalRuleNode) {
+      updated = HorizontalRuleNode(
+        id: node.id,
         width: width,
         height: node.height,
         alignment: alignment,
@@ -1578,98 +1617,129 @@ class _DocumentDemoState extends State<DocumentDemo> {
         alignment: alignment,
         textWrap: node.textWrap,
       );
+    } else if (node is HorizontalRuleNode) {
+      updated = HorizontalRuleNode(
+        id: node.id,
+        width: node.width,
+        height: height,
+        alignment: alignment,
+        textWrap: node.textWrap,
+      );
     } else {
       return;
     }
     _editor.submit(ReplaceNodeRequest(nodeId: node.id, newNode: updated));
   }
 
-  Widget _buildPropertyPanel() {
-    final sel = _controller.selection;
-    final node = sel != null ? _document.nodeById(sel.extent.nodeId) : null;
+  Widget _buildFloatingPropertyPanel() {
+    if (_propertyPanelNodeId == null) {
+      return const SizedBox.shrink();
+    }
+
+    final node = _document.nodeById(_propertyPanelNodeId!);
     if (!_isContainerBlock(node)) return const SizedBox.shrink();
 
     final colorScheme = Theme.of(context).colorScheme;
     final alignment = _getBlockAlignment(node!);
     final hasSizing = _hasSizingProperties(node);
+    const panelWidth = 220.0;
 
-    return Container(
-      width: 240,
-      decoration: BoxDecoration(
+    return Positioned(
+      right: 8,
+      top: 8,
+      child: Material(
+        elevation: 8,
+        borderRadius: BorderRadius.circular(8),
         color: colorScheme.surfaceContainerLow,
-        border: Border(left: BorderSide(color: colorScheme.outlineVariant)),
-      ),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              _currentBlockLabel(),
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
-            const SizedBox(height: 16),
-            // --- Alignment ---
-            Text('Alignment', style: Theme.of(context).textTheme.labelMedium),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                for (final entry in {
-                  BlockAlignment.start: Icons.align_horizontal_left,
-                  BlockAlignment.center: Icons.align_horizontal_center,
-                  BlockAlignment.end: Icons.align_horizontal_right,
-                  BlockAlignment.stretch: Icons.expand,
-                }.entries)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 4),
-                    child: IconButton(
-                      icon: Icon(entry.value, size: 20),
-                      isSelected: alignment == entry.key,
-                      style: IconButton.styleFrom(
-                        backgroundColor:
-                            alignment == entry.key ? colorScheme.primaryContainer : null,
-                        minimumSize: const Size(36, 36),
-                        padding: EdgeInsets.zero,
-                      ),
-                      tooltip: entry.key.name,
-                      onPressed: () => _updateBlockAlignment(node, entry.key),
+        child: Container(
+          width: panelWidth,
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _currentBlockLabel(),
+                      style: Theme.of(context).textTheme.titleSmall,
                     ),
                   ),
-              ],
-            ),
-            if (hasSizing) ...[
-              const SizedBox(height: 16),
-              // --- Text Wrap ---
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('Text Wrap', style: Theme.of(context).textTheme.labelMedium),
-                  Switch(
-                    value: _getTextWrap(node),
-                    onChanged: (value) => _updateTextWrap(node, value),
+                  SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: IconButton(
+                      icon: const Icon(Icons.close, size: 16),
+                      padding: EdgeInsets.zero,
+                      onPressed: _dismissPropertyPanel,
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
-              // --- Width ---
-              Text('Width', style: Theme.of(context).textTheme.labelMedium),
-              const SizedBox(height: 4),
-              _DimensionField(
-                key: ValueKey('${node.id}-w'),
-                value: _getWidth(node),
-                onChanged: (value) => _updateWidth(node, value),
+              // --- Alignment ---
+              Text('Alignment', style: Theme.of(context).textTheme.labelMedium),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  for (final entry in {
+                    BlockAlignment.start: Icons.align_horizontal_left,
+                    BlockAlignment.center: Icons.align_horizontal_center,
+                    BlockAlignment.end: Icons.align_horizontal_right,
+                    BlockAlignment.stretch: Icons.expand,
+                  }.entries)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: IconButton(
+                        icon: Icon(entry.value, size: 20),
+                        isSelected: alignment == entry.key,
+                        style: IconButton.styleFrom(
+                          backgroundColor:
+                              alignment == entry.key ? colorScheme.primaryContainer : null,
+                          minimumSize: const Size(36, 36),
+                          padding: EdgeInsets.zero,
+                        ),
+                        tooltip: entry.key.name,
+                        onPressed: () => _updateBlockAlignment(node, entry.key),
+                      ),
+                    ),
+                ],
               ),
-              const SizedBox(height: 12),
-              // --- Height ---
-              Text('Height', style: Theme.of(context).textTheme.labelMedium),
-              const SizedBox(height: 4),
-              _DimensionField(
-                key: ValueKey('${node.id}-h'),
-                value: _getHeight(node),
-                onChanged: (value) => _updateHeight(node, value),
-              ),
+              if (hasSizing) ...[
+                const SizedBox(height: 12),
+                // --- Text Wrap ---
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Text Wrap', style: Theme.of(context).textTheme.labelMedium),
+                    Switch(
+                      value: _getTextWrap(node),
+                      onChanged: (value) => _updateTextWrap(node, value),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                // --- Width ---
+                Text('Width', style: Theme.of(context).textTheme.labelMedium),
+                const SizedBox(height: 4),
+                _DimensionField(
+                  key: ValueKey('${node.id}-w'),
+                  value: _getWidth(node),
+                  onChanged: (value) => _updateWidth(node, value),
+                ),
+                const SizedBox(height: 8),
+                // --- Height ---
+                Text('Height', style: Theme.of(context).textTheme.labelMedium),
+                const SizedBox(height: 4),
+                _DimensionField(
+                  key: ValueKey('${node.id}-h'),
+                  value: _getHeight(node),
+                  onChanged: (value) => _updateHeight(node, value),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

@@ -182,4 +182,72 @@ void main() {
       expect(block.blockAlignment, BlockAlignment.center);
     });
   });
+
+  group('RenderHorizontalRuleBlock sizing properties', () {
+    test('requestedWidth overrides width in layout', () {
+      final block = RenderHorizontalRuleBlock(
+        nodeId: 'hr-1',
+        requestedWidth: 200,
+      );
+      block.layout(const BoxConstraints(maxWidth: 500), parentUsesSize: true);
+      expect(block.size.width, 200.0);
+    });
+
+    test('requestedHeight overrides height in layout', () {
+      final block = RenderHorizontalRuleBlock(
+        nodeId: 'hr-1',
+        requestedHeight: 50,
+      );
+      block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      expect(block.size.height, 50.0);
+    });
+
+    test('both requestedWidth and requestedHeight are used together', () {
+      final block = RenderHorizontalRuleBlock(
+        nodeId: 'hr-1',
+        requestedWidth: 300,
+        requestedHeight: 40,
+      );
+      block.layout(const BoxConstraints(maxWidth: 600), parentUsesSize: true);
+      expect(block.size.width, 300.0);
+      expect(block.size.height, 40.0);
+    });
+
+    test('requestedWidth setter roundtrip', () {
+      final block = RenderHorizontalRuleBlock(nodeId: 'hr-1');
+      block.requestedWidth = 250.0;
+      expect(block.requestedWidth, 250.0);
+    });
+
+    test('requestedHeight setter roundtrip', () {
+      final block = RenderHorizontalRuleBlock(nodeId: 'hr-1');
+      block.requestedHeight = 60.0;
+      expect(block.requestedHeight, 60.0);
+    });
+
+    test('textWrap setter roundtrip', () {
+      final block = RenderHorizontalRuleBlock(nodeId: 'hr-1');
+      expect(block.textWrap, isFalse);
+      block.textWrap = true;
+      expect(block.textWrap, isTrue);
+    });
+
+    test('constructor accepts requestedWidth, requestedHeight, and textWrap', () {
+      final block = RenderHorizontalRuleBlock(
+        nodeId: 'hr-1',
+        requestedWidth: 180.0,
+        requestedHeight: 24.0,
+        textWrap: true,
+      );
+      expect(block.requestedWidth, 180.0);
+      expect(block.requestedHeight, 24.0);
+      expect(block.textWrap, isTrue);
+    });
+
+    test('null requestedWidth falls back to constraints.maxWidth', () {
+      final block = RenderHorizontalRuleBlock(nodeId: 'hr-1');
+      block.layout(const BoxConstraints(maxWidth: 500), parentUsesSize: true);
+      expect(block.size.width, 500.0);
+    });
+  });
 }
