@@ -192,6 +192,12 @@ class RenderHorizontalRuleBlock extends RenderDocumentBlock {
     markNeedsLayout();
   }
 
+  /// Returns `true` when no explicit [requestedWidth] is set, indicating
+  /// this rule wants to fill the full available width and should clear any
+  /// active float exclusion zone.
+  @override
+  bool get clearsFloat => _requestedWidth == null;
+
   // ---------------------------------------------------------------------------
   // Intrinsic sizes
   // ---------------------------------------------------------------------------

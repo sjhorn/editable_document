@@ -250,4 +250,28 @@ void main() {
       expect(block.size.width, 500.0);
     });
   });
+
+  group('RenderHorizontalRuleBlock clearsFloat', () {
+    test('clearsFloat returns true when requestedWidth is null', () {
+      final block = RenderHorizontalRuleBlock(nodeId: 'hr-1');
+      expect(block.clearsFloat, isTrue);
+    });
+
+    test('clearsFloat returns false when requestedWidth is set', () {
+      final block = RenderHorizontalRuleBlock(
+        nodeId: 'hr-1',
+        requestedWidth: 200.0,
+      );
+      expect(block.clearsFloat, isFalse);
+    });
+
+    test('clearsFloat updates when requestedWidth is assigned', () {
+      final block = RenderHorizontalRuleBlock(nodeId: 'hr-1');
+      expect(block.clearsFloat, isTrue);
+      block.requestedWidth = 300.0;
+      expect(block.clearsFloat, isFalse);
+      block.requestedWidth = null;
+      expect(block.clearsFloat, isTrue);
+    });
+  });
 }

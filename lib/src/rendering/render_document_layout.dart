@@ -260,19 +260,16 @@ class RenderDocumentLayout extends RenderBox
         double xOffset = 0.0;
 
         if (activeExclusion != null && yOffset < activeExclusion.bottom) {
-          final narrowedWidth = max(0.0, preferredWidth - activeExclusion.width);
-          // If the block has an explicit requestedWidth that fits beside the
-          // float, wrap it alongside.  Otherwise the block wants full width —
-          // clear the exclusion and drop below the float.
-          if (child.requestedWidth != null && child.requestedWidth! <= narrowedWidth) {
-            childMaxWidth = narrowedWidth;
+          if (child.clearsFloat) {
+            // Block wants full width — advance past the float.
+            yOffset = activeExclusion.bottom;
+            activeExclusion = null;
+          } else {
+            // Narrow the block to fit beside the float.
+            childMaxWidth = max(0.0, preferredWidth - activeExclusion.width);
             if (activeExclusion.side == BlockAlignment.start) {
               xOffset = activeExclusion.width;
             }
-          } else {
-            // Advance past the float so this block gets the full width.
-            yOffset = activeExclusion.bottom;
-            activeExclusion = null;
           }
         }
 

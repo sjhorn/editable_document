@@ -99,6 +99,17 @@ abstract class RenderDocumentBlock extends RenderBox {
   /// and adjacent blocks receive reduced-width constraints.
   bool get textWrap => false;
 
+  /// Whether this block should clear active float exclusion zones.
+  ///
+  /// When `true` and [blockAlignment] is [BlockAlignment.stretch], the
+  /// document layout advances past any active float before laying out this
+  /// block at full width.  Defaults to `false`, meaning stretch blocks
+  /// narrow to fit beside floats.
+  ///
+  /// Override to `true` in block types that are full-width dividers
+  /// (e.g. horizontal rules without an explicit [requestedWidth]).
+  bool get clearsFloat => false;
+
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
@@ -108,5 +119,6 @@ abstract class RenderDocumentBlock extends RenderBox {
     properties.add(DoubleProperty('requestedWidth', requestedWidth));
     properties.add(DoubleProperty('requestedHeight', requestedHeight));
     properties.add(DiagnosticsProperty<bool>('textWrap', textWrap));
+    properties.add(DiagnosticsProperty<bool>('clearsFloat', clearsFloat));
   }
 }
