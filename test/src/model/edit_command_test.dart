@@ -1026,6 +1026,203 @@ void main() {
   });
 
   // =========================================================================
+  // InsertTextAtBinaryNodeCommand
+  // =========================================================================
+
+  group('InsertTextAtBinaryNodeCommand', () {
+    test('1. upstream insert appends to previous TextNode', () {
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('Hello')),
+        HorizontalRuleNode(id: 'hr'),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = InsertTextAtBinaryNodeCommand(
+        nodeId: 'hr',
+        nodePosition: BinaryNodePositionType.upstream,
+        text: AttributedText('X'),
+      );
+
+      final events = cmd.execute(ctx);
+
+      final p1 = doc.nodeById('p1') as TextNode;
+      expect(p1.text.text, 'HelloX');
+      expect(events, contains(isA<TextChanged>()));
+
+      final sel = ctx.controller.selection;
+      expect(sel, isNotNull);
+      expect(sel!.isCollapsed, isTrue);
+      expect(sel.extent.nodeId, 'p1');
+      expect((sel.extent.nodePosition as TextNodePosition).offset, 6);
+    });
+
+    test('2. upstream insert creates paragraph when previous is non-text', () {
+      final doc = MutableDocument([
+        HorizontalRuleNode(id: 'hr1'),
+        HorizontalRuleNode(id: 'hr2'),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = InsertTextAtBinaryNodeCommand(
+        nodeId: 'hr2',
+        nodePosition: BinaryNodePositionType.upstream,
+        text: AttributedText('X'),
+      );
+
+      final events = cmd.execute(ctx);
+
+      expect(doc.nodeCount, 3);
+      final inserted = doc.nodeAt(1) as ParagraphNode;
+      expect(inserted.text.text, 'X');
+      expect(events, contains(isA<NodeInserted>()));
+    });
+
+    test('3. upstream insert creates paragraph when binary node is first', () {
+      final doc = MutableDocument([
+        HorizontalRuleNode(id: 'hr'),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = InsertTextAtBinaryNodeCommand(
+        nodeId: 'hr',
+        nodePosition: BinaryNodePositionType.upstream,
+        text: AttributedText('X'),
+      );
+
+      final events = cmd.execute(ctx);
+
+      expect(doc.nodeCount, 2);
+      final inserted = doc.nodeAt(0) as ParagraphNode;
+      expect(inserted.text.text, 'X');
+      expect(events, contains(isA<NodeInserted>()));
+    });
+
+    test('4. downstream insert prepends to next TextNode', () {
+      final doc = MutableDocument([
+        HorizontalRuleNode(id: 'hr'),
+        ParagraphNode(id: 'p1', text: AttributedText('World')),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = InsertTextAtBinaryNodeCommand(
+        nodeId: 'hr',
+        nodePosition: BinaryNodePositionType.downstream,
+        text: AttributedText('X'),
+      );
+
+      final events = cmd.execute(ctx);
+
+      final p1 = doc.nodeById('p1') as TextNode;
+      expect(p1.text.text, 'XWorld');
+      expect(events, contains(isA<TextChanged>()));
+
+      final sel = ctx.controller.selection;
+      expect(sel, isNotNull);
+      expect(sel!.isCollapsed, isTrue);
+      expect(sel.extent.nodeId, 'p1');
+      expect((sel.extent.nodePosition as TextNodePosition).offset, 1);
+    });
+
+    test('5. downstream insert creates paragraph when next is non-text', () {
+      final doc = MutableDocument([
+        HorizontalRuleNode(id: 'hr1'),
+        HorizontalRuleNode(id: 'hr2'),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = InsertTextAtBinaryNodeCommand(
+        nodeId: 'hr1',
+        nodePosition: BinaryNodePositionType.downstream,
+        text: AttributedText('X'),
+      );
+
+      final events = cmd.execute(ctx);
+
+      expect(doc.nodeCount, 3);
+      final inserted = doc.nodeAt(1) as ParagraphNode;
+      expect(inserted.text.text, 'X');
+      expect(events, contains(isA<NodeInserted>()));
+    });
+
+    test('6. downstream insert creates paragraph when binary node is last', () {
+      final doc = MutableDocument([
+        HorizontalRuleNode(id: 'hr'),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = InsertTextAtBinaryNodeCommand(
+        nodeId: 'hr',
+        nodePosition: BinaryNodePositionType.downstream,
+        text: AttributedText('X'),
+      );
+
+      final events = cmd.execute(ctx);
+
+      expect(doc.nodeCount, 2);
+      final inserted = doc.nodeAt(1) as ParagraphNode;
+      expect(inserted.text.text, 'X');
+      expect(events, contains(isA<NodeInserted>()));
+    });
+
+    test('7. newline upstream creates empty paragraph before binary node', () {
+      final doc = MutableDocument([
+        HorizontalRuleNode(id: 'hr'),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = InsertTextAtBinaryNodeCommand(
+        nodeId: 'hr',
+        nodePosition: BinaryNodePositionType.upstream,
+        text: AttributedText('\n'),
+      );
+
+      final events = cmd.execute(ctx);
+
+      expect(doc.nodeCount, 2);
+      final inserted = doc.nodeAt(0) as ParagraphNode;
+      expect(inserted.text.text, '');
+      expect(events, contains(isA<NodeInserted>()));
+
+      final sel = ctx.controller.selection;
+      expect(sel, isNotNull);
+      expect(sel!.isCollapsed, isTrue);
+      expect(sel.extent.nodeId, inserted.id);
+      expect((sel.extent.nodePosition as TextNodePosition).offset, 0);
+    });
+
+    test('8. newline downstream creates empty paragraph after binary node', () {
+      final doc = MutableDocument([
+        HorizontalRuleNode(id: 'hr'),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = InsertTextAtBinaryNodeCommand(
+        nodeId: 'hr',
+        nodePosition: BinaryNodePositionType.downstream,
+        text: AttributedText('\n'),
+      );
+
+      final events = cmd.execute(ctx);
+
+      expect(doc.nodeCount, 2);
+      final inserted = doc.nodeAt(1) as ParagraphNode;
+      expect(inserted.text.text, '');
+      expect(events, contains(isA<NodeInserted>()));
+
+      final sel = ctx.controller.selection;
+      expect(sel, isNotNull);
+      expect(sel!.isCollapsed, isTrue);
+      expect(sel.extent.nodeId, inserted.id);
+      expect((sel.extent.nodePosition as TextNodePosition).offset, 0);
+    });
+
+    test('9. throws StateError for unknown nodeId', () {
+      final doc = MutableDocument([
+        HorizontalRuleNode(id: 'hr'),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = InsertTextAtBinaryNodeCommand(
+        nodeId: 'nope',
+        nodePosition: BinaryNodePositionType.downstream,
+        text: AttributedText('X'),
+      );
+      expect(() => cmd.execute(ctx), throwsStateError);
+    });
+  });
+
+  // =========================================================================
   // UnindentListItemCommand
   // =========================================================================
 

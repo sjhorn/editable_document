@@ -855,3 +855,178 @@ class ExitCodeBlockCommand extends EditCommand {
     ];
   }
 }
+
+// ---------------------------------------------------------------------------
+// InsertTextAtBinaryNodeCommand
+// ---------------------------------------------------------------------------
+
+/// Inserts text at a binary-position node by finding or creating an
+/// adjacent [ParagraphNode].
+///
+/// ### Behavior
+///
+/// | Caret position | Adjacent node exists? | Action |
+/// |---|---|---|
+/// | **Upstream** | Previous is [TextNode] | Append text to end of previous node |
+/// | **Upstream** | No previous [TextNode] | Create new [ParagraphNode] before binary node |
+/// | **Downstream** | Next is [TextNode] | Prepend text to start of next node |
+/// | **Downstream** | No next [TextNode] | Create new [ParagraphNode] after binary node |
+/// | Either, text is `'\n'` | — | Create empty [ParagraphNode] adjacent, move caret there |
+///
+/// Throws [StateError] when [nodeId] does not exist in the document.
+class InsertTextAtBinaryNodeCommand extends EditCommand {
+  /// Creates an [InsertTextAtBinaryNodeCommand].
+  const InsertTextAtBinaryNodeCommand({
+    required this.nodeId,
+    required this.nodePosition,
+    required this.text,
+  });
+
+  /// The id of the binary node at which the caret sits.
+  final String nodeId;
+
+  /// Which edge of the binary node the caret occupies.
+  final BinaryNodePositionType nodePosition;
+
+  /// The rich text to insert adjacent to the binary node.
+  final AttributedText text;
+
+  @override
+  List<DocumentChangeEvent> execute(EditContext context) {
+    final doc = context.document;
+    final node = doc.nodeById(nodeId);
+    if (node == null) {
+      throw StateError(
+        'InsertTextAtBinaryNodeCommand: no node with id "$nodeId".',
+      );
+    }
+
+    // Newline → always create an empty paragraph adjacent to the binary node.
+    if (text.text == '\n') {
+      return _handleNewline(context);
+    }
+
+    if (nodePosition == BinaryNodePositionType.upstream) {
+      return _handleUpstreamInsert(context);
+    } else {
+      return _handleDownstreamInsert(context);
+    }
+  }
+
+  List<DocumentChangeEvent> _handleNewline(EditContext context) {
+    final doc = context.document;
+    final newId = generateNodeId();
+    final paragraph = ParagraphNode(id: newId, text: AttributedText());
+
+    if (nodePosition == BinaryNodePositionType.upstream) {
+      // Insert empty paragraph before the binary node.
+      final insertIndex = doc.getNodeIndexById(nodeId);
+      doc.insertNode(insertIndex, paragraph);
+
+      context.controller.setSelection(
+        DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: newId,
+            nodePosition: const TextNodePosition(offset: 0),
+          ),
+        ),
+      );
+
+      return [NodeInserted(nodeId: newId, index: insertIndex)];
+    } else {
+      // Insert empty paragraph after the binary node.
+      final insertIndex = doc.getNodeIndexById(nodeId) + 1;
+      doc.insertNode(insertIndex, paragraph);
+
+      context.controller.setSelection(
+        DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: newId,
+            nodePosition: const TextNodePosition(offset: 0),
+          ),
+        ),
+      );
+
+      return [NodeInserted(nodeId: newId, index: insertIndex)];
+    }
+  }
+
+  List<DocumentChangeEvent> _handleUpstreamInsert(EditContext context) {
+    final doc = context.document;
+    final prevNode = doc.nodeBefore(nodeId);
+
+    if (prevNode is TextNode) {
+      // Append to end of previous text node.
+      final insertOffset = prevNode.text.length;
+      final newText = prevNode.text.insert(insertOffset, text);
+      doc.updateNode(prevNode.id, (n) => (n as TextNode).copyWith(text: newText));
+
+      context.controller.setSelection(
+        DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: prevNode.id,
+            nodePosition: TextNodePosition(offset: insertOffset + text.length),
+          ),
+        ),
+      );
+
+      return [TextChanged(nodeId: prevNode.id)];
+    } else {
+      // No previous TextNode — create paragraph before binary node.
+      final newId = generateNodeId();
+      final paragraph = ParagraphNode(id: newId, text: text);
+      final insertIndex = doc.getNodeIndexById(nodeId);
+      doc.insertNode(insertIndex, paragraph);
+
+      context.controller.setSelection(
+        DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: newId,
+            nodePosition: TextNodePosition(offset: text.length),
+          ),
+        ),
+      );
+
+      return [NodeInserted(nodeId: newId, index: insertIndex)];
+    }
+  }
+
+  List<DocumentChangeEvent> _handleDownstreamInsert(EditContext context) {
+    final doc = context.document;
+    final nextNode = doc.nodeAfter(nodeId);
+
+    if (nextNode is TextNode) {
+      // Prepend to start of next text node.
+      final newText = nextNode.text.insert(0, text);
+      doc.updateNode(nextNode.id, (n) => (n as TextNode).copyWith(text: newText));
+
+      context.controller.setSelection(
+        DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: nextNode.id,
+            nodePosition: TextNodePosition(offset: text.length),
+          ),
+        ),
+      );
+
+      return [TextChanged(nodeId: nextNode.id)];
+    } else {
+      // No next TextNode — create paragraph after binary node.
+      final newId = generateNodeId();
+      final paragraph = ParagraphNode(id: newId, text: text);
+      final insertIndex = doc.getNodeIndexById(nodeId) + 1;
+      doc.insertNode(insertIndex, paragraph);
+
+      context.controller.setSelection(
+        DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: newId,
+            nodePosition: TextNodePosition(offset: text.length),
+          ),
+        ),
+      );
+
+      return [NodeInserted(nodeId: newId, index: insertIndex)];
+    }
+  }
+}

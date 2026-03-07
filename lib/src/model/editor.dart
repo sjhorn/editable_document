@@ -166,6 +166,12 @@ class Editor {
         splitOffset: request.splitOffset,
         removeTrailingNewline: request.removeTrailingNewline,
       );
+    } else if (request is InsertTextAtBinaryNodeRequest) {
+      return InsertTextAtBinaryNodeCommand(
+        nodeId: request.nodeId,
+        nodePosition: request.nodePosition,
+        text: request.text,
+      );
     }
     throw ArgumentError('No command registered for request type ${request.runtimeType}.');
   }

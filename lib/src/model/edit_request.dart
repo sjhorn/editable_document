@@ -12,6 +12,7 @@ import 'attribution.dart';
 import 'attributed_text.dart';
 import 'document_node.dart';
 import 'document_selection.dart';
+import 'node_position.dart';
 import 'paragraph_node.dart';
 
 // ---------------------------------------------------------------------------
@@ -471,4 +472,55 @@ class ExitCodeBlockRequest extends EditRequest {
   @override
   String toString() => 'ExitCodeBlockRequest(nodeId: $nodeId, splitOffset: $splitOffset, '
       'removeTrailingNewline: $removeTrailingNewline)';
+}
+
+// ---------------------------------------------------------------------------
+// InsertTextAtBinaryNodeRequest
+// ---------------------------------------------------------------------------
+
+/// Request to insert text when the caret is at a binary-position node.
+///
+/// Binary nodes (e.g. [HorizontalRuleNode], [ImageNode]) cannot contain
+/// text. This request tells the [Editor] to find or create an adjacent
+/// [ParagraphNode] and insert [text] there.
+///
+/// The [nodePosition] indicates which edge of the binary node the caret
+/// occupies:
+///
+/// * [BinaryNodePositionType.upstream] — insert into (or create before)
+///   the previous node.
+/// * [BinaryNodePositionType.downstream] — insert into (or create after)
+///   the next node.
+class InsertTextAtBinaryNodeRequest extends EditRequest {
+  /// Creates an [InsertTextAtBinaryNodeRequest].
+  const InsertTextAtBinaryNodeRequest({
+    required this.nodeId,
+    required this.nodePosition,
+    required this.text,
+  });
+
+  /// The id of the binary node at which the caret sits.
+  final String nodeId;
+
+  /// Which edge of the binary node the caret occupies.
+  final BinaryNodePositionType nodePosition;
+
+  /// The rich text to insert adjacent to the binary node.
+  final AttributedText text;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is InsertTextAtBinaryNodeRequest &&
+        other.nodeId == nodeId &&
+        other.nodePosition == nodePosition &&
+        other.text == text;
+  }
+
+  @override
+  int get hashCode => Object.hash(nodeId, nodePosition, text);
+
+  @override
+  String toString() => 'InsertTextAtBinaryNodeRequest(nodeId: $nodeId, '
+      'nodePosition: $nodePosition, text: $text)';
 }
