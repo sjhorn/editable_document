@@ -204,7 +204,10 @@ class DocumentImeSerializer {
 
     // Resolve the target node — only Mode 1 (single TextNode) is actionable.
     final targetNodeId = _resolveTargetNodeId(document, selection);
-    if (targetNodeId == null) return const [];
+    if (targetNodeId == null) {
+      // Check if this is a collapsed selection at a binary node.
+      return _binaryNodeDeltaToRequests(deltas, document, selection);
+    }
 
     final requests = <EditRequest>[];
 
@@ -318,5 +321,43 @@ class DocumentImeSerializer {
         text: AttributedText(delta.replacementText),
       ),
     ];
+  }
+
+  /// Handles deltas when the selection is at a binary-position node.
+  ///
+  /// Only [TextEditingDeltaInsertion] deltas produce requests — an
+  /// [InsertTextAtBinaryNodeRequest] is emitted for each insertion.
+  /// Deletion and replacement deltas are silently ignored because binary
+  /// nodes contain no text to delete.
+  List<EditRequest> _binaryNodeDeltaToRequests(
+    List<TextEditingDelta> deltas,
+    Document document,
+    DocumentSelection selection,
+  ) {
+    // Must be a collapsed selection at a single binary node.
+    if (!selection.isCollapsed) return const [];
+    if (selection.base.nodeId != selection.extent.nodeId) return const [];
+
+    final node = document.nodeById(selection.base.nodeId);
+    if (node == null) return const [];
+    if (node is TextNode) return const [];
+
+    final nodePosition = selection.base.nodePosition;
+    if (nodePosition is! BinaryNodePosition) return const [];
+
+    final requests = <EditRequest>[];
+    for (final delta in deltas) {
+      if (delta is TextEditingDeltaInsertion) {
+        requests.add(
+          InsertTextAtBinaryNodeRequest(
+            nodeId: node.id,
+            nodePosition: nodePosition.type,
+            text: AttributedText(delta.textInserted),
+          ),
+        );
+      }
+      // Deletion/replacement at binary node → no-op (nothing to delete).
+    }
+    return requests;
   }
 }

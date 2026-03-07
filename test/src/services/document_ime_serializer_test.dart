@@ -675,8 +675,8 @@ void main() {
         expect(requests, isEmpty);
       });
 
-      test('non-text node selection in deltaToRequests returns empty list', () {
-        // ImageNode is not a TextNode — _resolveTargetNodeId returns null.
+      test('non-text node insertion in deltaToRequests produces InsertTextAtBinaryNodeRequest', () {
+        // ImageNode is not a TextNode — falls through to _binaryNodeDeltaToRequests.
         final imageNode = ImageNode(id: 'img1', imageUrl: 'https://example.com/img.png');
         final doc = Document([imageNode]);
         final selection = const DocumentSelection.collapsed(
@@ -691,6 +691,97 @@ void main() {
           textInserted: 'X',
           insertionOffset: 0,
           selection: TextSelection.collapsed(offset: 1),
+          composing: TextRange.empty,
+        );
+
+        final requests = serializer.deltaToRequests(
+          deltas: [delta],
+          document: doc,
+          selection: selection,
+        );
+
+        expect(requests, hasLength(1));
+        expect(requests.first, isA<InsertTextAtBinaryNodeRequest>());
+        final req = requests.first as InsertTextAtBinaryNodeRequest;
+        expect(req.nodeId, 'img1');
+        expect(req.nodePosition, BinaryNodePositionType.upstream);
+        expect(req.text.text, 'X');
+      });
+
+      test('insertion at downstream binary node position produces downstream request', () {
+        final imageNode = ImageNode(id: 'img1', imageUrl: 'https://example.com/img.png');
+        final doc = Document([imageNode]);
+        final selection = const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'img1',
+            nodePosition: BinaryNodePosition.downstream(),
+          ),
+        );
+
+        final delta = const TextEditingDeltaInsertion(
+          oldText: '\u200B',
+          textInserted: 'Y',
+          insertionOffset: 1,
+          selection: TextSelection.collapsed(offset: 2),
+          composing: TextRange.empty,
+        );
+
+        final requests = serializer.deltaToRequests(
+          deltas: [delta],
+          document: doc,
+          selection: selection,
+        );
+
+        expect(requests, hasLength(1));
+        final req = requests.first as InsertTextAtBinaryNodeRequest;
+        expect(req.nodePosition, BinaryNodePositionType.downstream);
+        expect(req.text.text, 'Y');
+      });
+
+      test('newline at binary node produces InsertTextAtBinaryNodeRequest', () {
+        final imageNode = ImageNode(id: 'img1', imageUrl: 'https://example.com/img.png');
+        final doc = Document([imageNode]);
+        final selection = const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'img1',
+            nodePosition: BinaryNodePosition.downstream(),
+          ),
+        );
+
+        final delta = const TextEditingDeltaInsertion(
+          oldText: '\u200B',
+          textInserted: '\n',
+          insertionOffset: 1,
+          selection: TextSelection.collapsed(offset: 2),
+          composing: TextRange.empty,
+        );
+
+        final requests = serializer.deltaToRequests(
+          deltas: [delta],
+          document: doc,
+          selection: selection,
+        );
+
+        expect(requests, hasLength(1));
+        expect(requests.first, isA<InsertTextAtBinaryNodeRequest>());
+        final req = requests.first as InsertTextAtBinaryNodeRequest;
+        expect(req.text.text, '\n');
+      });
+
+      test('deletion delta at binary node returns empty list', () {
+        final imageNode = ImageNode(id: 'img1', imageUrl: 'https://example.com/img.png');
+        final doc = Document([imageNode]);
+        final selection = const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'img1',
+            nodePosition: BinaryNodePosition.upstream(),
+          ),
+        );
+
+        final delta = const TextEditingDeltaDeletion(
+          oldText: '\u200B',
+          deletedRange: TextRange(start: 0, end: 1),
+          selection: TextSelection.collapsed(offset: 0),
           composing: TextRange.empty,
         );
 
