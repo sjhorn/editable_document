@@ -171,7 +171,25 @@ class _IosDocumentGestureControllerState extends State<IosDocumentGestureControl
     final pos = _positionForOffset(details.localPosition);
     if (pos == null) return;
 
-    widget.controller.setSelection(DocumentSelection.collapsed(position: pos));
+    // For non-text nodes (images, HRs), select the whole block so the
+    // highlight is visible and delete/backspace work immediately.
+    final node = widget.document.nodeById(pos.nodeId);
+    if (node is! TextNode) {
+      widget.controller.setSelection(
+        DocumentSelection(
+          base: DocumentPosition(
+            nodeId: pos.nodeId,
+            nodePosition: const BinaryNodePosition.upstream(),
+          ),
+          extent: DocumentPosition(
+            nodeId: pos.nodeId,
+            nodePosition: const BinaryNodePosition.downstream(),
+          ),
+        ),
+      );
+    } else {
+      widget.controller.setSelection(DocumentSelection.collapsed(position: pos));
+    }
   }
 
   void _onDoubleTapDown(TapDownDetails details) {
