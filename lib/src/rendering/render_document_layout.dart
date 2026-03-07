@@ -30,6 +30,14 @@ class DocumentBlockParentData extends ContainerBoxParentData<RenderDocumentBlock
   /// When `true`, the block occupies an exclusion zone and adjacent blocks
   /// may wrap beside it.  Set by [RenderDocumentLayout.performLayout].
   bool isFloat = false;
+
+  /// The interior exclusion rectangle for center-float wrapping, or `null`.
+  ///
+  /// When a stretch block wraps beside a center-aligned float, this rect
+  /// describes the float's bounds (with gap) in the child's local coordinates.
+  /// The child can use this to flow text around both sides of the float.
+  /// Set by [RenderDocumentLayout.performLayout].
+  Rect? exclusionRect;
 }
 
 // ---------------------------------------------------------------------------
@@ -44,12 +52,13 @@ class _ExclusionZone {
     required this.width,
     required this.top,
     required this.bottom,
+    this.floatLeft = 0.0,
   });
 
   /// Which side the float is on.
   final BlockAlignment side;
 
-  /// Width consumed by the float (including gap).
+  /// Width consumed by the float (including gap for start/end, raw for center).
   final double width;
 
   /// Top of the exclusion zone in layout coordinates.
@@ -57,6 +66,9 @@ class _ExclusionZone {
 
   /// Bottom of the exclusion zone in layout coordinates.
   final double bottom;
+
+  /// X offset of the float block in layout coordinates.
+  final double floatLeft;
 }
 
 // ---------------------------------------------------------------------------
@@ -241,9 +253,12 @@ class RenderDocumentLayout extends RenderBox
     while (child != null) {
       final parentData = child.parentData as DocumentBlockParentData;
       final alignment = child.blockAlignment;
-      final isFloat =
-          child.textWrap && (alignment == BlockAlignment.start || alignment == BlockAlignment.end);
+      final isFloat = child.textWrap &&
+          (alignment == BlockAlignment.start ||
+              alignment == BlockAlignment.end ||
+              alignment == BlockAlignment.center);
       parentData.isFloat = isFloat;
+      parentData.exclusionRect = null;
 
       if (childIndex > 0) {
         yOffset += _blockSpacing;
@@ -264,6 +279,16 @@ class RenderDocumentLayout extends RenderBox
             // Block wants full width — advance past the float.
             yOffset = activeExclusion.bottom;
             activeExclusion = null;
+          } else if (activeExclusion.side == BlockAlignment.center) {
+            // Full width, but pass the interior exclusion to the child.
+            childMaxWidth = preferredWidth;
+            xOffset = 0.0;
+            parentData.exclusionRect = Rect.fromLTRB(
+              activeExclusion.floatLeft - _kFloatGap,
+              activeExclusion.top - yOffset,
+              activeExclusion.floatLeft + activeExclusion.width + _kFloatGap,
+              activeExclusion.bottom - yOffset,
+            );
           } else {
             // Narrow the block to fit beside the float.
             childMaxWidth = max(0.0, preferredWidth - activeExclusion.width);
@@ -295,7 +320,9 @@ class RenderDocumentLayout extends RenderBox
         child.layout(childConstraints, parentUsesSize: true);
 
         final double xOffset;
-        if (alignment == BlockAlignment.start) {
+        if (alignment == BlockAlignment.center) {
+          xOffset = max(0.0, (preferredWidth - child.size.width) / 2);
+        } else if (alignment == BlockAlignment.start) {
           xOffset = 0.0;
         } else {
           // BlockAlignment.end — clamp to 0 so oversized blocks start at the
@@ -309,9 +336,11 @@ class RenderDocumentLayout extends RenderBox
         // Create exclusion zone so subsequent blocks wrap beside the float.
         activeExclusion = _ExclusionZone(
           side: alignment,
-          width: child.size.width + _kFloatGap,
+          width:
+              alignment == BlockAlignment.center ? child.size.width : child.size.width + _kFloatGap,
           top: yOffset,
           bottom: yOffset + child.size.height,
+          floatLeft: xOffset,
         );
 
         // Do not advance yOffset — next block wraps beside the float.
@@ -459,10 +488,14 @@ class RenderDocumentLayout extends RenderBox
   /// children.
   ///
   /// First attempts an exact hit via [getDocumentPositionAtOffset].  When that
-  /// misses, it finds the nearest child by Euclidean distance from [localOffset]
-  /// to each child's bounding rect, then delegates to that child's
-  /// [RenderDocumentBlock.getPositionAtOffset] with the offset clamped to the
-  /// child bounds.
+  /// misses, it finds the nearest child using Y-primary, X-secondary distance
+  /// from [localOffset] to each child's bounding rect, then delegates to that
+  /// child's [RenderDocumentBlock.getPositionAtOffset] with the offset clamped
+  /// to the child bounds.
+  ///
+  /// Y-primary ordering ensures that vertical arrow-key navigation always
+  /// reaches narrow, non-stretch blocks (e.g. center-aligned images) even
+  /// when the caret's X coordinate falls outside the block's horizontal bounds.
   DocumentPosition getDocumentPositionNearestToOffset(Offset localOffset) {
     if (firstChild == null) {
       // No children — should not occur in practice, but guard against it.
@@ -476,17 +509,21 @@ class RenderDocumentLayout extends RenderBox
     final exact = getDocumentPositionAtOffset(localOffset);
     if (exact != null) return exact;
 
-    // Find the nearest child by distance from offset to child rect.
+    // Find the nearest child using Y-primary, X-secondary distance.
     RenderDocumentBlock? nearest;
-    double nearestDist = double.infinity;
+    double nearestYDist = double.infinity;
+    double nearestXDist = double.infinity;
 
     RenderDocumentBlock? child = firstChild;
     while (child != null) {
       final childData = child.parentData as DocumentBlockParentData;
       final childRect = childData.offset & child.size;
-      final dist = _distanceToRect(localOffset, childRect);
-      if (dist < nearestDist) {
-        nearestDist = dist;
+      final yDist = _axisDistance(localOffset.dy, childRect.top, childRect.bottom);
+      final xDist = _axisDistance(localOffset.dx, childRect.left, childRect.right);
+
+      if (yDist < nearestYDist || (yDist == nearestYDist && xDist < nearestXDist)) {
+        nearestYDist = yDist;
+        nearestXDist = xDist;
         nearest = child;
       }
       child = childAfter(child);
@@ -501,14 +538,13 @@ class RenderDocumentLayout extends RenderBox
     return DocumentPosition(nodeId: nearest.nodeId, nodePosition: nodePos);
   }
 
-  /// Returns the minimum squared Euclidean distance from [point] to [rect].
+  /// Returns the absolute distance from [value] to the range [lo]..[hi].
   ///
-  /// The square root is intentionally omitted because this method is only used
-  /// for relative comparisons.
-  static double _distanceToRect(Offset point, Rect rect) {
-    final dx = (point.dx - point.dx.clamp(rect.left, rect.right)).abs();
-    final dy = (point.dy - point.dy.clamp(rect.top, rect.bottom)).abs();
-    return (dx * dx + dy * dy); // Skip sqrt — only comparing relative distances.
+  /// Returns 0 when [value] is inside the range.
+  static double _axisDistance(double value, double lo, double hi) {
+    if (value < lo) return lo - value;
+    if (value > hi) return value - hi;
+    return 0.0;
   }
 
   /// Returns the bounding [Rect], in this layout's local coordinates, for the

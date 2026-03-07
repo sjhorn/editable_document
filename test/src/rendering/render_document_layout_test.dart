@@ -297,6 +297,71 @@ void main() {
       // Should resolve to one of the two nodes.
       expect(['p1', 'p2'], contains(pos.nodeId));
     });
+
+    test('prefers vertically closer child over horizontally closer', () {
+      // Layout: full-width text at top, center-aligned image below.
+      // Probe at (50, imageTop+1) — inside the image's Y range but far left
+      // of its X range. The image should still win because it has Y-distance 0
+      // while the text block above has positive Y-distance.
+      const layoutWidth = 600.0;
+      const imgWidth = 200.0;
+      const imgHeight = 100.0;
+
+      final text = _textBlock('p1', 'Full width text');
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: imgWidth,
+        requestedHeight: imgHeight,
+        blockAlignment: BlockAlignment.center,
+      );
+      final layout = _layout(
+        children: [text, image],
+        maxWidth: layoutWidth,
+        blockSpacing: 0.0,
+      );
+
+      // The image is centered: its left edge is at (600-200)/2 = 200.
+      // Probe at x=50 (outside image X range) but inside image Y range.
+      final imageData = image.parentData as DocumentBlockParentData;
+      final probeY = imageData.offset.dy + imgHeight / 2;
+      final pos = layout.getDocumentPositionNearestToOffset(Offset(50, probeY));
+
+      expect(pos.nodeId, 'img1');
+    });
+
+    test('picks closer X when Y distance is equal', () {
+      // Two images at different X positions but identical Y-distance from
+      // the probe point. The one closer in X should win.
+      const layoutWidth = 600.0;
+
+      final left = _imageBlock(
+        'left',
+        requestedWidth: 100,
+        requestedHeight: 50,
+        blockAlignment: BlockAlignment.start,
+      );
+      final right = _imageBlock(
+        'right',
+        requestedWidth: 100,
+        requestedHeight: 50,
+        blockAlignment: BlockAlignment.end,
+      );
+      final layout = _layout(
+        children: [left, right],
+        maxWidth: layoutWidth,
+        blockSpacing: 10.0,
+      );
+
+      // Both blocks have equal Y-distance from a point in the gap.
+      final leftData = left.parentData as DocumentBlockParentData;
+      final gapY = leftData.offset.dy + 50 + 5; // midpoint of gap
+
+      // Probe near right edge — right block is closer in X.
+      final pos = layout.getDocumentPositionNearestToOffset(
+        Offset(layoutWidth - 10, gapY),
+      );
+      expect(pos.nodeId, 'right');
+    });
   });
 
   group('RenderDocumentLayout — getRectForDocumentPosition', () {
@@ -1264,6 +1329,141 @@ void main() {
         parentUsesSize: true,
       );
       expect(text.size.width, 500.0);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Center float layout
+  // ---------------------------------------------------------------------------
+
+  group('RenderDocumentLayout — center float layout', () {
+    const maxWidth = 400.0;
+    const floatWidth = 100.0;
+    const floatHeight = 80.0;
+
+    test('center float: image positioned at center x-offset', () {
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: floatWidth,
+        requestedHeight: floatHeight,
+        blockAlignment: BlockAlignment.center,
+        textWrap: true,
+      );
+      final text = _textBlock('p1', 'Text beside center float');
+      _layout(children: [image, text], maxWidth: maxWidth, blockSpacing: 0.0);
+
+      final imageData = image.parentData as DocumentBlockParentData;
+      expect(imageData.isFloat, isTrue);
+      // Centered: (400 - 100) / 2 = 150
+      expect(imageData.offset.dx, closeTo((maxWidth - floatWidth) / 2, 0.5));
+    });
+
+    test('center float: adjacent stretch block receives exclusionRect', () {
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: floatWidth,
+        requestedHeight: floatHeight,
+        blockAlignment: BlockAlignment.center,
+        textWrap: true,
+      );
+      final text = _textBlock('p1', 'Text beside center float');
+      _layout(children: [image, text], maxWidth: maxWidth, blockSpacing: 0.0);
+
+      final textData = text.parentData as DocumentBlockParentData;
+      // Stretch block beside a center float should get an exclusionRect.
+      expect(textData.exclusionRect, isNotNull);
+      // The exclusionRect left should be to the left of center.
+      expect(textData.exclusionRect!.left, greaterThan(0.0));
+      expect(textData.exclusionRect!.right, lessThan(maxWidth));
+      // The text block itself should still be full width.
+      expect(text.size.width, closeTo(maxWidth, 0.5));
+    });
+
+    test('center float: exclusionRect is null for blocks after float clears', () {
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: floatWidth,
+        requestedHeight: floatHeight,
+        blockAlignment: BlockAlignment.center,
+        textWrap: true,
+      );
+      // Very short text — will end before the float bottom.
+      final shortText = _textBlock('p1', 'Hi');
+      // Use an HR to clear the float.
+      final hr = _hrBlock('hr1');
+      final afterText = _textBlock('p2', 'After float');
+      _layout(
+        children: [image, shortText, hr, afterText],
+        maxWidth: maxWidth,
+        blockSpacing: 0.0,
+      );
+
+      final afterData = afterText.parentData as DocumentBlockParentData;
+      // After the HR clears the float, exclusionRect should be null.
+      expect(afterData.exclusionRect, isNull);
+    });
+
+    test('center float: yOffset not advanced after float', () {
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: floatWidth,
+        requestedHeight: floatHeight,
+        blockAlignment: BlockAlignment.center,
+        textWrap: true,
+      );
+      final text = _textBlock('p1', 'Beside the float');
+      _layout(children: [image, text], maxWidth: maxWidth, blockSpacing: 0.0);
+
+      final imageData = image.parentData as DocumentBlockParentData;
+      final textData = text.parentData as DocumentBlockParentData;
+
+      // Text should start at same y as the float (yOffset not advanced).
+      expect(textData.offset.dy, imageData.offset.dy);
+    });
+
+    test('center float: HR block clears float and drops below', () {
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: floatWidth,
+        requestedHeight: floatHeight,
+        blockAlignment: BlockAlignment.center,
+        textWrap: true,
+      );
+      final hr = _hrBlock('hr1');
+      _layout(children: [image, hr], maxWidth: maxWidth, blockSpacing: 0.0);
+
+      final imageData = image.parentData as DocumentBlockParentData;
+      final floatBottom = imageData.offset.dy + image.size.height;
+      final hrData = hr.parentData as DocumentBlockParentData;
+
+      // HR must start at or below the float bottom.
+      expect(hrData.offset.dy, greaterThanOrEqualTo(floatBottom));
+      // HR must be full width.
+      expect(hr.size.width, closeTo(maxWidth, 0.5));
+    });
+
+    test('center float: two consecutive center floats stack vertically', () {
+      final image1 = _imageBlock(
+        'img1',
+        requestedWidth: floatWidth,
+        requestedHeight: floatHeight,
+        blockAlignment: BlockAlignment.center,
+        textWrap: true,
+      );
+      final image2 = _imageBlock(
+        'img2',
+        requestedWidth: floatWidth,
+        requestedHeight: floatHeight,
+        blockAlignment: BlockAlignment.center,
+        textWrap: true,
+      );
+      _layout(children: [image1, image2], maxWidth: maxWidth, blockSpacing: 0.0);
+
+      final data1 = image1.parentData as DocumentBlockParentData;
+      final data2 = image2.parentData as DocumentBlockParentData;
+      final firstBottom = data1.offset.dy + image1.size.height;
+
+      expect(data2.offset.dy, greaterThanOrEqualTo(firstBottom));
     });
   });
 }

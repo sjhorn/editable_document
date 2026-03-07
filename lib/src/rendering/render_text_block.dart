@@ -4,6 +4,7 @@
 /// implementation used for paragraph, list-item, and code-block nodes.
 library;
 
+import 'dart:math' show max;
 import 'dart:ui' as ui show BoxHeightStyle;
 
 import 'package:flutter/foundation.dart';
@@ -14,6 +15,122 @@ import '../model/attribution.dart';
 import '../model/document_selection.dart';
 import '../model/node_position.dart';
 import 'render_document_block.dart';
+import 'render_document_layout.dart' show DocumentBlockParentData;
+
+// ---------------------------------------------------------------------------
+// _ExclusionLayout — result of multi-segment exclusion-zone text layout
+// ---------------------------------------------------------------------------
+
+/// Holds the results of laying out text around a center-float exclusion zone.
+///
+/// Text is split into three zones:
+/// - **above**: the text before the exclusion rectangle's top edge.
+/// - **beside**: Z-pattern dual-column text alongside the exclusion rect.
+/// - **below**: the remaining text after the exclusion rectangle's bottom.
+class _ExclusionLayout {
+  /// Creates an [_ExclusionLayout] with all computed zones.
+  _ExclusionLayout({
+    required this.abovePainter,
+    required this.aboveEndIndex,
+    required this.lines,
+    required this.besideEndIndex,
+    required this.belowPainter,
+    required this.aboveHeight,
+    required this.besideHeight,
+    required this.belowHeight,
+    required this.exclusionRect,
+    required this.leftWidth,
+    required this.rightWidth,
+  });
+
+  /// [TextPainter] for text above the exclusion zone, or `null` if none.
+  final TextPainter? abovePainter;
+
+  /// The character index where the above zone ends (exclusive).
+  final int aboveEndIndex;
+
+  /// The line pairs for the beside zone (left and right columns per line).
+  final List<_LinePair> lines;
+
+  /// The character index where the beside zone ends (exclusive).
+  final int besideEndIndex;
+
+  /// [TextPainter] for text below the exclusion zone, or `null` if none.
+  final TextPainter? belowPainter;
+
+  /// Total height of the above zone.
+  final double aboveHeight;
+
+  /// Total height of the beside zone (may be padded to match exclusion height).
+  final double besideHeight;
+
+  /// Total height of the below zone.
+  final double belowHeight;
+
+  /// The exclusion rectangle in child-local coordinates.
+  final Rect exclusionRect;
+
+  /// Width available for the left column beside the float.
+  final double leftWidth;
+
+  /// Width available for the right column beside the float.
+  final double rightWidth;
+
+  /// Total height of this block.
+  double get totalHeight => aboveHeight + besideHeight + belowHeight;
+
+  /// Releases all [TextPainter] resources.
+  void dispose() {
+    abovePainter?.dispose();
+    for (final line in lines) {
+      line.leftPainter.dispose();
+      line.rightPainter.dispose();
+    }
+    belowPainter?.dispose();
+  }
+}
+
+/// A pair of [TextPainter]s representing one visual line in the beside zone.
+///
+/// Each beside-zone line consists of a left column segment and a right column
+/// segment, laid out at [leftWidth] and [rightWidth] respectively.
+class _LinePair {
+  /// Creates a [_LinePair] describing one row of the Z-pattern beside zone.
+  _LinePair({
+    required this.leftPainter,
+    required this.rightPainter,
+    required this.leftStartIndex,
+    required this.leftEndIndex,
+    required this.rightStartIndex,
+    required this.rightEndIndex,
+    required this.lineHeight,
+    required this.yOffset,
+  });
+
+  /// [TextPainter] for the left column segment of this line.
+  final TextPainter leftPainter;
+
+  /// [TextPainter] for the right column segment of this line.
+  final TextPainter rightPainter;
+
+  /// Character start index (into original text) of the left segment.
+  final int leftStartIndex;
+
+  /// Character end index (exclusive, into original text) of the left segment.
+  final int leftEndIndex;
+
+  /// Character start index (into original text) of the right segment.
+  final int rightStartIndex;
+
+  /// Character end index (exclusive, into original text) of the right segment.
+  final int rightEndIndex;
+
+  /// Height of this line pair.
+  final double lineHeight;
+
+  /// Y offset from the top of the beside zone.
+  final double yOffset;
+}
 
 /// A [RenderDocumentBlock] that renders [AttributedText] using a [TextPainter].
 ///
@@ -77,6 +194,10 @@ class RenderTextBlock extends RenderDocumentBlock {
   DocumentSelection? _nodeSelection;
 
   final TextPainter _textPainter;
+
+  /// Cached result of the most recent exclusion-zone layout pass, or `null`
+  /// when no exclusion rect is active.
+  _ExclusionLayout? _exclusionLayout;
 
   // ---------------------------------------------------------------------------
   // RenderDocumentBlock — nodeId
@@ -315,8 +436,218 @@ class RenderTextBlock extends RenderDocumentBlock {
 
   @override
   void performLayout() {
-    _layoutText(constraints.maxWidth);
-    size = Size(constraints.maxWidth, _textPainter.height);
+    Rect? exclusionRect;
+    if (parentData is DocumentBlockParentData) {
+      exclusionRect = (parentData as DocumentBlockParentData).exclusionRect;
+    }
+
+    if (exclusionRect != null) {
+      _performExclusionLayout(constraints.maxWidth, exclusionRect);
+    } else {
+      _exclusionLayout?.dispose();
+      _exclusionLayout = null;
+      _layoutText(constraints.maxWidth);
+      size = Size(constraints.maxWidth, _textPainter.height);
+    }
+  }
+
+  /// Performs multi-segment layout when [exclusionRect] is set.
+  ///
+  /// Splits the text into above/beside/below zones and computes a
+  /// [_ExclusionLayout] used for painting and hit testing.
+  void _performExclusionLayout(double maxWidth, Rect exclusionRect) {
+    _exclusionLayout?.dispose();
+    _exclusionLayout = null;
+
+    final rawText = _text.text;
+    final textLength = rawText.length;
+
+    // Left and right column widths beside the float.
+    final leftWidth = max(0.0, exclusionRect.left);
+    final rightWidth = max(0.0, maxWidth - exclusionRect.right);
+
+    // -------------------------------------------------------------------------
+    // Zone 1: Above — text before the exclusion top.
+    // -------------------------------------------------------------------------
+    TextPainter? abovePainter;
+    int aboveEndIndex = 0;
+    double aboveHeight = 0.0;
+
+    if (exclusionRect.top > 0 && textLength > 0) {
+      // Lay out all text at full width to find the line boundary at exclusionRect.top.
+      final tempFull = TextPainter(
+        text: _buildTextSpan(),
+        textDirection: _textDirection,
+        textAlign: _textAlign,
+      )..layout(maxWidth: maxWidth);
+
+      // Find the character at exactly the exclusion top.
+      final posAtTop = tempFull.getPositionForOffset(Offset(0, exclusionRect.top));
+      // Get the line boundary to snap to a full line.
+      final lineBound = tempFull.getLineBoundary(posAtTop);
+
+      // aboveEndIndex is where the line starts at or just after exclusion top.
+      // If exclusionRect.top is inside a line, we take the line's start
+      // so that entire line goes into the above zone.
+      aboveEndIndex = lineBound.start;
+
+      // If the hit position is on the first line, use the end of that line
+      // as the above boundary so we don't leave a zero-height above zone.
+      if (aboveEndIndex == 0 && lineBound.end > 0) {
+        // The exclusion starts in the middle of the first line — treat
+        // aboveEndIndex as 0 (no above zone), and let beside start from 0.
+        aboveEndIndex = 0;
+      }
+
+      tempFull.dispose();
+
+      if (aboveEndIndex > 0) {
+        abovePainter = TextPainter(
+          text: _buildTextSpanForRange(0, aboveEndIndex),
+          textDirection: _textDirection,
+          textAlign: _textAlign,
+        )..layout(maxWidth: maxWidth);
+        aboveHeight = abovePainter.height;
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // Zone 2: Beside — Z-pattern dual-column layout.
+    // -------------------------------------------------------------------------
+    final lines = <_LinePair>[];
+    int currentIndex = aboveEndIndex;
+    double besideAccumHeight = 0.0;
+
+    while (currentIndex < textLength) {
+      // Stop if we've filled the beside zone height.
+      if (besideAccumHeight >= exclusionRect.height) break;
+
+      // Build left column line.
+      final leftStartIndex = currentIndex;
+      int leftEndIndex = currentIndex;
+      double lineHeight = 0.0;
+
+      if (leftWidth > 0 && currentIndex < textLength) {
+        final tempLeft = TextPainter(
+          text: _buildTextSpanForRange(currentIndex, textLength),
+          textDirection: _textDirection,
+          textAlign: _textAlign,
+        )..layout(maxWidth: leftWidth);
+
+        final leftBound = tempLeft.getLineBoundary(const TextPosition(offset: 0));
+        final leftLineMetrics = tempLeft.computeLineMetrics();
+        final leftLineHeight = leftLineMetrics.isNotEmpty
+            ? leftLineMetrics.first.height
+            : tempLeft.preferredLineHeight;
+
+        leftEndIndex = currentIndex + leftBound.end;
+        lineHeight = leftLineHeight;
+        tempLeft.dispose();
+      }
+
+      // Build right column line (starting from where left ended).
+      final rightStartIndex = leftEndIndex;
+      int rightEndIndex = leftEndIndex;
+
+      if (rightWidth > 0 && rightStartIndex < textLength) {
+        final tempRight = TextPainter(
+          text: _buildTextSpanForRange(rightStartIndex, textLength),
+          textDirection: _textDirection,
+          textAlign: _textAlign,
+        )..layout(maxWidth: rightWidth);
+
+        final rightBound = tempRight.getLineBoundary(const TextPosition(offset: 0));
+        final rightLineMetrics = tempRight.computeLineMetrics();
+        final rightLineHeight = rightLineMetrics.isNotEmpty
+            ? rightLineMetrics.first.height
+            : tempRight.preferredLineHeight;
+
+        rightEndIndex = rightStartIndex + rightBound.end;
+        if (rightLineHeight > lineHeight) {
+          lineHeight = rightLineHeight;
+        }
+        tempRight.dispose();
+      }
+
+      if (lineHeight == 0.0) {
+        // Fall back to a small positive height.
+        lineHeight = 16.0;
+      }
+
+      // Build the painting painters for this line pair.
+      final leftPainter = TextPainter(
+        text: _buildTextSpanForRange(leftStartIndex, leftEndIndex),
+        textDirection: _textDirection,
+        textAlign: _textAlign,
+      )..layout(maxWidth: leftWidth > 0 ? leftWidth : maxWidth);
+
+      final rightPainter = TextPainter(
+        text: _buildTextSpanForRange(rightStartIndex, rightEndIndex),
+        textDirection: _textDirection,
+        textAlign: _textAlign,
+      )..layout(maxWidth: rightWidth > 0 ? rightWidth : maxWidth);
+
+      lines.add(
+        _LinePair(
+          leftPainter: leftPainter,
+          rightPainter: rightPainter,
+          leftStartIndex: leftStartIndex,
+          leftEndIndex: leftEndIndex,
+          rightStartIndex: rightStartIndex,
+          rightEndIndex: rightEndIndex,
+          lineHeight: lineHeight,
+          yOffset: besideAccumHeight,
+        ),
+      );
+
+      besideAccumHeight += lineHeight;
+
+      // Advance past all text consumed in this line pair.
+      final nextIndex = max(leftEndIndex, rightEndIndex);
+      if (nextIndex <= currentIndex) {
+        // No progress — avoid infinite loop.
+        break;
+      }
+      currentIndex = nextIndex;
+    }
+
+    // Beside zone height is at least the exclusion rect height.
+    final besideHeight = max(besideAccumHeight, exclusionRect.height);
+    final besideEndIndex = currentIndex;
+
+    // -------------------------------------------------------------------------
+    // Zone 3: Below — remaining text at full width.
+    // -------------------------------------------------------------------------
+    TextPainter? belowPainter;
+    double belowHeight = 0.0;
+
+    if (besideEndIndex < textLength) {
+      belowPainter = TextPainter(
+        text: _buildTextSpanForRange(besideEndIndex, textLength),
+        textDirection: _textDirection,
+        textAlign: _textAlign,
+      )..layout(maxWidth: maxWidth);
+      belowHeight = belowPainter.height;
+    }
+
+    _exclusionLayout = _ExclusionLayout(
+      abovePainter: abovePainter,
+      aboveEndIndex: aboveEndIndex,
+      lines: lines,
+      besideEndIndex: besideEndIndex,
+      belowPainter: belowPainter,
+      aboveHeight: aboveHeight,
+      besideHeight: besideHeight,
+      belowHeight: belowHeight,
+      exclusionRect: exclusionRect,
+      leftWidth: leftWidth,
+      rightWidth: rightWidth,
+    );
+
+    // Also lay out the primary painter so baseline queries and subclass helpers
+    // remain valid.
+    _layoutText(maxWidth);
+    size = Size(maxWidth, _exclusionLayout!.totalHeight);
   }
 
   /// Returns the distance from the top of this block to the text baseline.
@@ -387,7 +718,36 @@ class RenderTextBlock extends RenderDocumentBlock {
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    // Paint selection highlights behind the text.
+    final excl = _exclusionLayout;
+    if (excl != null) {
+      // Paint selection highlights behind the text.
+      if (_nodeSelection != null) {
+        _paintSelectionHighlight(context.canvas, offset);
+      }
+      // Above zone.
+      if (excl.abovePainter != null) {
+        excl.abovePainter!.paint(context.canvas, offset);
+      }
+      // Beside zone — Z-pattern lines.
+      for (final line in excl.lines) {
+        final lineOffset = Offset(0, excl.aboveHeight + line.yOffset);
+        if (excl.leftWidth > 0) {
+          line.leftPainter.paint(context.canvas, offset + lineOffset);
+        }
+        if (excl.rightWidth > 0) {
+          final rightOffset = Offset(excl.exclusionRect.right, excl.aboveHeight + line.yOffset);
+          line.rightPainter.paint(context.canvas, offset + rightOffset);
+        }
+      }
+      // Below zone.
+      if (excl.belowPainter != null) {
+        final belowOffset = Offset(0, excl.aboveHeight + excl.besideHeight);
+        excl.belowPainter!.paint(context.canvas, offset + belowOffset);
+      }
+      return;
+    }
+
+    // Standard single-painter path.
     if (_nodeSelection != null) {
       _paintSelectionHighlight(context.canvas, offset);
     }
@@ -417,6 +777,12 @@ class RenderTextBlock extends RenderDocumentBlock {
   Rect getLocalRectForPosition(NodePosition position) {
     assert(position is TextNodePosition, 'RenderTextBlock expects TextNodePosition');
     final tp = position as TextNodePosition;
+
+    final excl = _exclusionLayout;
+    if (excl != null) {
+      return _getLocalRectForPositionExclusion(tp, excl);
+    }
+
     final textPosition = TextPosition(offset: tp.offset, affinity: tp.affinity);
     final caretOffset = _textPainter.getOffsetForCaret(textPosition, Rect.zero);
 
@@ -439,8 +805,202 @@ class RenderTextBlock extends RenderDocumentBlock {
     return Rect.fromLTWH(caretOffset.dx, caretOffset.dy, 0, _textPainter.preferredLineHeight);
   }
 
+  /// Returns the caret rect for [position] when [_exclusionLayout] is active.
+  Rect _getLocalRectForPositionExclusion(TextNodePosition position, _ExclusionLayout excl) {
+    final charIndex = position.offset;
+
+    // Above zone.
+    if (charIndex < excl.aboveEndIndex) {
+      final painter = excl.abovePainter;
+      if (painter == null) {
+        return Rect.fromLTWH(0, 0, 0, _textPainter.preferredLineHeight);
+      }
+      final textPos = TextPosition(offset: charIndex, affinity: position.affinity);
+      final caretOffset = painter.getOffsetForCaret(textPos, Rect.zero);
+      final textLength = excl.aboveEndIndex;
+      if (textLength > 0) {
+        final start = charIndex >= textLength ? textLength - 1 : charIndex;
+        final boxes = painter.getBoxesForSelection(
+          TextSelection(baseOffset: start, extentOffset: start + 1),
+          boxHeightStyle: ui.BoxHeightStyle.max,
+        );
+        if (boxes.isNotEmpty) {
+          final box = boxes.first.toRect();
+          return Rect.fromLTWH(caretOffset.dx, box.top, 0, box.height);
+        }
+      }
+      return Rect.fromLTWH(caretOffset.dx, caretOffset.dy, 0, painter.preferredLineHeight);
+    }
+
+    // Below zone.
+    if (charIndex >= excl.besideEndIndex) {
+      final painter = excl.belowPainter;
+      final baseY = excl.aboveHeight + excl.besideHeight;
+      if (painter == null) {
+        return Rect.fromLTWH(0, baseY, 0, _textPainter.preferredLineHeight);
+      }
+      final localIndex = charIndex - excl.besideEndIndex;
+      final textPos = TextPosition(offset: localIndex, affinity: position.affinity);
+      final caretOffset = painter.getOffsetForCaret(textPos, Rect.zero);
+      final belowLength = _text.text.length - excl.besideEndIndex;
+      if (belowLength > 0) {
+        final start = localIndex >= belowLength ? belowLength - 1 : localIndex;
+        final boxes = painter.getBoxesForSelection(
+          TextSelection(baseOffset: start, extentOffset: start + 1),
+          boxHeightStyle: ui.BoxHeightStyle.max,
+        );
+        if (boxes.isNotEmpty) {
+          final box = boxes.first.toRect();
+          return Rect.fromLTWH(caretOffset.dx, baseY + box.top, 0, box.height);
+        }
+      }
+      return Rect.fromLTWH(caretOffset.dx, baseY + caretOffset.dy, 0, painter.preferredLineHeight);
+    }
+
+    // Beside zone — find which line pair contains this index.
+    for (final line in excl.lines) {
+      final baseY = excl.aboveHeight + line.yOffset;
+
+      // Check left column.
+      if (charIndex >= line.leftStartIndex && charIndex <= line.leftEndIndex) {
+        final localIndex = charIndex - line.leftStartIndex;
+        final painter = line.leftPainter;
+        final textPos = TextPosition(offset: localIndex, affinity: position.affinity);
+        final caretOffset = painter.getOffsetForCaret(textPos, Rect.zero);
+        final lineLen = line.leftEndIndex - line.leftStartIndex;
+        if (lineLen > 0) {
+          final start = localIndex >= lineLen ? lineLen - 1 : localIndex;
+          final boxes = painter.getBoxesForSelection(
+            TextSelection(baseOffset: start, extentOffset: start + 1),
+            boxHeightStyle: ui.BoxHeightStyle.max,
+          );
+          if (boxes.isNotEmpty) {
+            final box = boxes.first.toRect();
+            return Rect.fromLTWH(caretOffset.dx, baseY + box.top, 0, box.height);
+          }
+        }
+        return Rect.fromLTWH(
+            caretOffset.dx, baseY + caretOffset.dy, 0, painter.preferredLineHeight);
+      }
+
+      // Check right column.
+      if (charIndex >= line.rightStartIndex && charIndex <= line.rightEndIndex) {
+        final localIndex = charIndex - line.rightStartIndex;
+        final painter = line.rightPainter;
+        final rightBaseX = excl.exclusionRect.right;
+        final textPos = TextPosition(offset: localIndex, affinity: position.affinity);
+        final caretOffset = painter.getOffsetForCaret(textPos, Rect.zero);
+        final lineLen = line.rightEndIndex - line.rightStartIndex;
+        if (lineLen > 0) {
+          final start = localIndex >= lineLen ? lineLen - 1 : localIndex;
+          final boxes = painter.getBoxesForSelection(
+            TextSelection(baseOffset: start, extentOffset: start + 1),
+            boxHeightStyle: ui.BoxHeightStyle.max,
+          );
+          if (boxes.isNotEmpty) {
+            final box = boxes.first.toRect();
+            return Rect.fromLTWH(rightBaseX + caretOffset.dx, baseY + box.top, 0, box.height);
+          }
+        }
+        return Rect.fromLTWH(
+          rightBaseX + caretOffset.dx,
+          baseY + caretOffset.dy,
+          0,
+          painter.preferredLineHeight,
+        );
+      }
+    }
+
+    // Fallback — return a rect at the beginning of the block.
+    return Rect.fromLTWH(0, 0, 0, _textPainter.preferredLineHeight);
+  }
+
   @override
   NodePosition getPositionAtOffset(Offset localOffset) {
+    final excl = _exclusionLayout;
+    if (excl != null) {
+      final y = localOffset.dy;
+      final x = localOffset.dx;
+
+      // Above zone.
+      if (y < excl.aboveHeight) {
+        if (excl.abovePainter != null) {
+          final tp = excl.abovePainter!.getPositionForOffset(localOffset);
+          return TextNodePosition(
+            offset: tp.offset.clamp(0, excl.aboveEndIndex),
+            affinity: tp.affinity,
+          );
+        }
+        return const TextNodePosition(offset: 0);
+      }
+
+      // Below zone.
+      if (y >= excl.aboveHeight + excl.besideHeight) {
+        if (excl.belowPainter != null) {
+          final belowOffset = Offset(x, y - excl.aboveHeight - excl.besideHeight);
+          final tp = excl.belowPainter!.getPositionForOffset(belowOffset);
+          return TextNodePosition(
+            offset: (excl.besideEndIndex + tp.offset).clamp(0, _text.text.length),
+            affinity: tp.affinity,
+          );
+        }
+        return TextNodePosition(offset: _text.text.length);
+      }
+
+      // Beside zone — find which line pair contains y.
+      final besideY = y - excl.aboveHeight;
+      _LinePair? hitLine;
+      for (final line in excl.lines) {
+        if (besideY >= line.yOffset && besideY < line.yOffset + line.lineHeight) {
+          hitLine = line;
+          break;
+        }
+      }
+      hitLine ??= excl.lines.isNotEmpty ? excl.lines.last : null;
+
+      if (hitLine == null) {
+        return TextNodePosition(offset: excl.aboveEndIndex);
+      }
+
+      final lineLocalY = besideY - hitLine.yOffset;
+
+      // Determine which column based on x.
+      if (x < excl.exclusionRect.left) {
+        // Left column.
+        if (excl.leftWidth > 0) {
+          final tp = hitLine.leftPainter.getPositionForOffset(Offset(x, lineLocalY));
+          final idx = (hitLine.leftStartIndex + tp.offset).clamp(
+            hitLine.leftStartIndex,
+            hitLine.leftEndIndex,
+          );
+          return TextNodePosition(offset: idx, affinity: tp.affinity);
+        }
+        return TextNodePosition(offset: hitLine.leftStartIndex);
+      } else if (x >= excl.exclusionRect.right) {
+        // Right column.
+        if (excl.rightWidth > 0) {
+          final rightX = x - excl.exclusionRect.right;
+          final tp = hitLine.rightPainter.getPositionForOffset(Offset(rightX, lineLocalY));
+          final idx = (hitLine.rightStartIndex + tp.offset).clamp(
+            hitLine.rightStartIndex,
+            hitLine.rightEndIndex,
+          );
+          return TextNodePosition(offset: idx, affinity: tp.affinity);
+        }
+        return TextNodePosition(offset: hitLine.rightEndIndex);
+      } else {
+        // Inside the exclusion rect — snap to nearest column edge.
+        final distToLeft = x - excl.exclusionRect.left;
+        final distToRight = excl.exclusionRect.right - x;
+        if (distToLeft <= distToRight && excl.leftWidth > 0) {
+          return TextNodePosition(offset: hitLine.leftEndIndex);
+        } else if (excl.rightWidth > 0) {
+          return TextNodePosition(offset: hitLine.rightStartIndex);
+        }
+        return TextNodePosition(offset: hitLine.leftStartIndex);
+      }
+    }
+
     final tp = _textPainter.getPositionForOffset(localOffset);
     return TextNodePosition(offset: tp.offset, affinity: tp.affinity);
   }
@@ -466,19 +1026,148 @@ class RenderTextBlock extends RenderDocumentBlock {
 
     if (b.offset == e.offset) return const [];
 
-    final start = b.offset < e.offset ? b.offset : e.offset;
-    final end = b.offset < e.offset ? e.offset : b.offset;
+    final selStart = b.offset < e.offset ? b.offset : e.offset;
+    final selEnd = b.offset < e.offset ? e.offset : b.offset;
+
+    final excl = _exclusionLayout;
+    if (excl != null) {
+      return _getEndpointsForSelectionExclusion(selStart, selEnd, excl);
+    }
 
     final boxes = _textPainter.getBoxesForSelection(
-      TextSelection(baseOffset: start, extentOffset: end),
+      TextSelection(baseOffset: selStart, extentOffset: selEnd),
       boxHeightStyle: ui.BoxHeightStyle.max,
     );
     return boxes.map((box) => box.toRect()).toList();
   }
 
+  /// Collects selection rects across all zones when [_exclusionLayout] is active.
+  List<Rect> _getEndpointsForSelectionExclusion(
+    int selStart,
+    int selEnd,
+    _ExclusionLayout excl,
+  ) {
+    final rects = <Rect>[];
+
+    // Above zone.
+    if (excl.abovePainter != null && selStart < excl.aboveEndIndex) {
+      final zoneStart = selStart.clamp(0, excl.aboveEndIndex);
+      final zoneEnd = selEnd.clamp(0, excl.aboveEndIndex);
+      if (zoneStart < zoneEnd) {
+        final boxes = excl.abovePainter!.getBoxesForSelection(
+          TextSelection(baseOffset: zoneStart, extentOffset: zoneEnd),
+          boxHeightStyle: ui.BoxHeightStyle.max,
+        );
+        rects.addAll(boxes.map((box) => box.toRect()));
+      }
+    }
+
+    // Beside zone.
+    for (final line in excl.lines) {
+      final baseY = excl.aboveHeight + line.yOffset;
+
+      // Left column.
+      if (excl.leftWidth > 0 && selStart < line.leftEndIndex && selEnd > line.leftStartIndex) {
+        final zoneStart =
+            (selStart - line.leftStartIndex).clamp(0, line.leftEndIndex - line.leftStartIndex);
+        final zoneEnd =
+            (selEnd - line.leftStartIndex).clamp(0, line.leftEndIndex - line.leftStartIndex);
+        if (zoneStart < zoneEnd) {
+          final boxes = line.leftPainter.getBoxesForSelection(
+            TextSelection(baseOffset: zoneStart, extentOffset: zoneEnd),
+            boxHeightStyle: ui.BoxHeightStyle.max,
+          );
+          rects.addAll(boxes.map((box) => box.toRect().shift(Offset(0, baseY))));
+        }
+      }
+
+      // Right column.
+      if (excl.rightWidth > 0 && selStart < line.rightEndIndex && selEnd > line.rightStartIndex) {
+        final zoneStart =
+            (selStart - line.rightStartIndex).clamp(0, line.rightEndIndex - line.rightStartIndex);
+        final zoneEnd =
+            (selEnd - line.rightStartIndex).clamp(0, line.rightEndIndex - line.rightStartIndex);
+        if (zoneStart < zoneEnd) {
+          final boxes = line.rightPainter.getBoxesForSelection(
+            TextSelection(baseOffset: zoneStart, extentOffset: zoneEnd),
+            boxHeightStyle: ui.BoxHeightStyle.max,
+          );
+          rects.addAll(
+            boxes.map((box) => box.toRect().shift(Offset(excl.exclusionRect.right, baseY))),
+          );
+        }
+      }
+    }
+
+    // Below zone.
+    if (excl.belowPainter != null && selEnd > excl.besideEndIndex) {
+      final baseY = excl.aboveHeight + excl.besideHeight;
+      final zoneStart = (selStart - excl.besideEndIndex).clamp(
+        0,
+        _text.text.length - excl.besideEndIndex,
+      );
+      final zoneEnd = (selEnd - excl.besideEndIndex).clamp(
+        0,
+        _text.text.length - excl.besideEndIndex,
+      );
+      if (zoneStart < zoneEnd) {
+        final boxes = excl.belowPainter!.getBoxesForSelection(
+          TextSelection(baseOffset: zoneStart, extentOffset: zoneEnd),
+          boxHeightStyle: ui.BoxHeightStyle.max,
+        );
+        rects.addAll(boxes.map((box) => box.toRect().shift(Offset(0, baseY))));
+      }
+    }
+
+    return rects;
+  }
+
   // ---------------------------------------------------------------------------
   // Attribution → TextSpan
   // ---------------------------------------------------------------------------
+
+  /// Builds a [TextSpan] for the character range [start]..[end) (exclusive),
+  /// preserving any attributions that overlap the range.
+  ///
+  /// Used by the exclusion-zone layout to create per-zone painters.
+  TextSpan _buildTextSpanForRange(int start, int end) {
+    final rawText = _text.text;
+    if (start >= end || start >= rawText.length) {
+      return TextSpan(text: '', style: _textStyle);
+    }
+    final clampedEnd = end.clamp(0, rawText.length);
+    if (clampedEnd <= start) {
+      return TextSpan(text: '', style: _textStyle);
+    }
+    final substring = rawText.substring(start, clampedEnd);
+
+    final spans = _text.getAttributionSpansInRange(start, clampedEnd - 1).toList();
+    if (spans.isEmpty) {
+      return TextSpan(text: substring, style: _textStyle);
+    }
+
+    // Collect all boundary offsets relative to the substring.
+    final boundaries = <int>{0, substring.length};
+    for (final span in spans) {
+      final relStart = (span.start - start).clamp(0, substring.length);
+      final relEnd = (span.end + 1 - start).clamp(0, substring.length);
+      boundaries.add(relStart);
+      boundaries.add(relEnd);
+    }
+    final sortedBoundaries = boundaries.toList()..sort();
+
+    final children = <InlineSpan>[];
+    for (var i = 0; i < sortedBoundaries.length - 1; i++) {
+      final s = sortedBoundaries[i];
+      final e = sortedBoundaries[i + 1];
+      if (s >= substring.length) break;
+      final activeAttributions = _text.getAttributionsAt(s + start);
+      final style = _buildStyleForAttributions(activeAttributions);
+      children.add(TextSpan(text: substring.substring(s, e), style: style));
+    }
+
+    return TextSpan(style: _textStyle, children: children);
+  }
 
   /// Converts [_text] and its attributions into an [InlineSpan] tree suitable
   /// for [TextPainter].

@@ -624,4 +624,127 @@ void main() {
       expect(rect.height, greaterThan(0));
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Exclusion zone text wrapping (center float)
+  // ---------------------------------------------------------------------------
+
+  group('RenderTextBlock exclusion zone layout', () {
+    // Helper that creates a layout with a center float + text, returning the
+    // text block whose parentData will have exclusionRect set.
+    RenderTextBlock _textBlockWithExclusion({
+      String text = 'The quick brown fox jumps over the lazy dog and '
+          'continues running across the wide open field where many animals '
+          'roam freely beneath the clear blue sky on a warm summer day.',
+      double maxWidth = 400.0,
+      double floatWidth = 100.0,
+      double floatHeight = 80.0,
+    }) {
+      final image = RenderImageBlock(
+        nodeId: 'img1',
+        imageWidth: floatWidth,
+        imageHeight: floatHeight,
+        blockAlignment: BlockAlignment.center,
+        requestedWidth: floatWidth,
+        requestedHeight: floatHeight,
+        textWrap: true,
+      );
+      final textBlock = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText(text),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      final layout = RenderDocumentLayout(blockSpacing: 0.0);
+      layout.add(image);
+      layout.add(textBlock);
+      layout.layout(BoxConstraints(maxWidth: maxWidth), parentUsesSize: true);
+      return textBlock;
+    }
+
+    test('text block beside center float has exclusionRect set', () {
+      final block = _textBlockWithExclusion();
+      final data = block.parentData as DocumentBlockParentData;
+      expect(data.exclusionRect, isNotNull);
+    });
+
+    test('text block has positive height with exclusion zone', () {
+      final block = _textBlockWithExclusion();
+      expect(block.size.height, greaterThan(0));
+    });
+
+    test('block height is at least the exclusion rect height', () {
+      final block = _textBlockWithExclusion();
+      final data = block.parentData as DocumentBlockParentData;
+      // With enough text, the block should be at least as tall as the
+      // exclusion zone.
+      expect(block.size.height, greaterThanOrEqualTo(data.exclusionRect!.height));
+    });
+
+    test('text block width is full maxWidth with center float', () {
+      const maxWidth = 400.0;
+      final block = _textBlockWithExclusion(maxWidth: maxWidth);
+      expect(block.size.width, closeTo(maxWidth, 0.5));
+    });
+
+    test('hit test at left of exclusion zone returns valid text position', () {
+      final block = _textBlockWithExclusion();
+      final data = block.parentData as DocumentBlockParentData;
+      final exclusion = data.exclusionRect!;
+
+      // Click in the left column area, vertically in the middle of exclusion.
+      final midY = (exclusion.top + exclusion.bottom) / 2;
+      final pos = block.getPositionAtOffset(Offset(10.0, midY));
+      expect(pos, isA<TextNodePosition>());
+    });
+
+    test('hit test at right of exclusion zone returns valid text position', () {
+      final block = _textBlockWithExclusion();
+      final data = block.parentData as DocumentBlockParentData;
+      final exclusion = data.exclusionRect!;
+
+      // Click in the right column area, vertically in the middle of exclusion.
+      final midY = (exclusion.top + exclusion.bottom) / 2;
+      final pos = block.getPositionAtOffset(Offset(exclusion.right + 10.0, midY));
+      expect(pos, isA<TextNodePosition>());
+    });
+
+    test('hit test above exclusion zone returns valid text position', () {
+      // If there is text above the exclusion (when exclusion.top > 0).
+      final block = _textBlockWithExclusion();
+      final pos = block.getPositionAtOffset(const Offset(10.0, 2.0));
+      expect(pos, isA<TextNodePosition>());
+    });
+
+    test('hit test below exclusion zone returns valid text position', () {
+      final block = _textBlockWithExclusion();
+      final data = block.parentData as DocumentBlockParentData;
+      final exclusion = data.exclusionRect!;
+
+      // Click below the exclusion zone.
+      if (block.size.height > exclusion.bottom + 5.0) {
+        final pos = block.getPositionAtOffset(Offset(10.0, exclusion.bottom + 5.0));
+        expect(pos, isA<TextNodePosition>());
+      }
+    });
+
+    test('caret rect for position 0 has valid height', () {
+      final block = _textBlockWithExclusion();
+      final rect = block.getLocalRectForPosition(
+        const TextNodePosition(offset: 0),
+      );
+      expect(rect.height, greaterThan(0));
+    });
+
+    test('getEndpointsForSelection returns rects with exclusion zone', () {
+      final block = _textBlockWithExclusion();
+      final rects = block.getEndpointsForSelection(
+        const TextNodePosition(offset: 0),
+        const TextNodePosition(offset: 10),
+      );
+      expect(rects, isNotEmpty);
+      for (final r in rects) {
+        expect(r.height, greaterThan(0));
+      }
+    });
+  });
 }
