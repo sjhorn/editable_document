@@ -119,6 +119,84 @@ void main() {
       expect(block.size.width, 400.0);
       expect(block.size.height, closeTo(400.0 * 9.0 / 16.0, 1.0));
     });
+
+    test('only requestedWidth + image loaded → height uses image aspect ratio', () async {
+      // Image is 300×200, aspect ratio height/width = 200/300 ≈ 0.6667.
+      final img = await _createTestImage(300, 200);
+      addTearDown(img.dispose);
+
+      final block = RenderImageBlock(
+        nodeId: 'img-1',
+        image: img,
+        requestedWidth: 150,
+      );
+      block.layout(
+        const BoxConstraints(maxWidth: 600, maxHeight: double.infinity),
+        parentUsesSize: true,
+      );
+
+      expect(block.size.width, 150.0);
+      // Expected height: 150 * (200 / 300) = 100.
+      expect(block.size.height, closeTo(100.0, 0.1));
+    });
+
+    test('only requestedHeight + image loaded → width uses image aspect ratio', () async {
+      // Image is 400×200, aspect ratio width/height = 400/200 = 2.0.
+      final img = await _createTestImage(400, 200);
+      addTearDown(img.dispose);
+
+      final block = RenderImageBlock(
+        nodeId: 'img-1',
+        image: img,
+        requestedHeight: 100,
+      );
+      block.layout(
+        const BoxConstraints(maxWidth: 800, maxHeight: double.infinity),
+        parentUsesSize: true,
+      );
+
+      // Expected width: 100 * (400 / 200) = 200, well within 800px constraint.
+      expect(block.size.width, closeTo(200.0, 0.1));
+      expect(block.size.height, 100.0);
+    });
+
+    test('only imageWidth + image loaded → height uses image aspect ratio', () async {
+      // Image is 300×200. Setting imageWidth=150, height should be 100.
+      final img = await _createTestImage(300, 200);
+      addTearDown(img.dispose);
+
+      final block = RenderImageBlock(
+        nodeId: 'img-1',
+        image: img,
+        imageWidth: 150,
+      );
+      block.layout(
+        const BoxConstraints(maxWidth: 600, maxHeight: double.infinity),
+        parentUsesSize: true,
+      );
+
+      expect(block.size.width, 150.0);
+      expect(block.size.height, closeTo(100.0, 0.1));
+    });
+
+    test('only imageHeight + image loaded → width uses image aspect ratio', () async {
+      // Image is 400×200. Setting imageHeight=100, width should be 200.
+      final img = await _createTestImage(400, 200);
+      addTearDown(img.dispose);
+
+      final block = RenderImageBlock(
+        nodeId: 'img-1',
+        image: img,
+        imageHeight: 100,
+      );
+      block.layout(
+        const BoxConstraints(maxWidth: 800, maxHeight: double.infinity),
+        parentUsesSize: true,
+      );
+
+      expect(block.size.width, closeTo(200.0, 0.1));
+      expect(block.size.height, 100.0);
+    });
   });
 
   group('RenderImageBlock hit testing', () {

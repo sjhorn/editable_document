@@ -36,6 +36,14 @@ const double _kCaretInset = 2.0;
 ///   constraints, the block is exactly [imageWidth] × [imageHeight].
 /// - When the image is wider than the available space, it is scaled down
 ///   uniformly to fit, preserving the aspect ratio.
+/// - When only [requestedWidth] is set and an [image] is available, the height
+///   is derived from the image's natural aspect ratio
+///   (`width * image.height / image.width`).  When no image is available the
+///   height falls back to a 16:9 ratio.
+/// - When only [requestedHeight] is set and an [image] is available, the width
+///   is derived from the image's natural aspect ratio
+///   (`height * image.width / image.height`), clamped to constraints.  When no
+///   image is available the block fills the available width.
 /// - When no dimensions are provided but an [image] is set, the image's
 ///   intrinsic pixel dimensions are used (with the same scaling logic).
 /// - When no dimensions are provided and no image is set, the block fills
@@ -299,6 +307,21 @@ class RenderImageBlock extends RenderDocumentBlock {
   // Layout
   // ---------------------------------------------------------------------------
 
+  /// Computes the size of this block from the available [constraints].
+  ///
+  /// Resolution order (using the effective width = [requestedWidth] ??
+  /// [imageWidth] and effective height = [requestedHeight] ?? [imageHeight]):
+  ///
+  /// 1. Both dimensions known — scale uniformly to fit [constraints].
+  /// 2. Only width known — use that width (clamped); derive height from the
+  ///    decoded [image]'s natural aspect ratio when available, or fall back
+  ///    to 16:9.
+  /// 3. Only height known — derive width from the decoded [image]'s natural
+  ///    aspect ratio when available (clamped to [constraints]), or fall back
+  ///    to filling the available width.
+  /// 4. Neither dimension set but [image] available — use the image's pixel
+  ///    dimensions (scaled to fit [constraints]).
+  /// 5. No information — fill the available width with a 16:9 placeholder.
   @override
   void performLayout() {
     final maxW = constraints.maxWidth;
@@ -314,13 +337,26 @@ class RenderImageBlock extends RenderDocumentBlock {
       final w = intrinsicW.clamp(minW, maxW);
       final scale = w / intrinsicW;
       size = Size(w, intrinsicH * scale);
-    } else if (_requestedWidth != null) {
-      // Only width is requested — use it; pick 16:9 height as fallback.
-      final w = _requestedWidth!.clamp(minW, maxW);
-      size = Size(w, w / _kDefaultAspectRatio);
-    } else if (_requestedHeight != null) {
-      // Only height is requested — fill available width.
-      size = Size(maxW, _requestedHeight!);
+    } else if (intrinsicW != null) {
+      // Only width is known.  Use the image's natural aspect ratio when
+      // available; otherwise fall back to 16:9.
+      final w = intrinsicW.clamp(minW, maxW);
+      if (_image != null) {
+        final imageAspect = _image!.height.toDouble() / _image!.width.toDouble();
+        size = Size(w, w * imageAspect);
+      } else {
+        size = Size(w, w / _kDefaultAspectRatio);
+      }
+    } else if (intrinsicH != null) {
+      // Only height is known.  Use the image's natural aspect ratio when
+      // available (clamped to constraints); otherwise fill the available width.
+      if (_image != null) {
+        final imageAspect = _image!.width.toDouble() / _image!.height.toDouble();
+        final w = (intrinsicH * imageAspect).clamp(minW, maxW);
+        size = Size(w, intrinsicH);
+      } else {
+        size = Size(maxW, intrinsicH);
+      }
     } else if (_image != null) {
       // No explicit dimensions — derive from the decoded image's pixel size.
       final w = _image!.width.toDouble().clamp(minW, maxW);
