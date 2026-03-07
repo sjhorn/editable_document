@@ -5,6 +5,8 @@
 /// queries used by the selection and caret systems.
 library;
 
+import 'dart:math';
+
 import 'package:flutter/rendering.dart';
 
 import '../model/block_alignment.dart';
@@ -120,17 +122,31 @@ class RenderDocumentLayout extends RenderBox
     with
         ContainerRenderObjectMixin<RenderDocumentBlock, DocumentBlockParentData>,
         RenderBoxContainerDefaultsMixin<RenderDocumentBlock, DocumentBlockParentData> {
-  /// Creates a [RenderDocumentLayout] with optional [blockSpacing].
+  /// Creates a [RenderDocumentLayout] with optional [blockSpacing] and [viewportWidth].
   ///
   /// [blockSpacing] is the vertical gap in logical pixels inserted between
   /// consecutive children.  Defaults to `12.0`.
-  RenderDocumentLayout({double blockSpacing = 12.0}) : _blockSpacing = blockSpacing;
+  ///
+  /// [viewportWidth] overrides the constraint width used to lay out and size
+  /// each block.  When `null` (the default), the layout uses
+  /// `constraints.maxWidth`.  Supply a fixed value (e.g. the viewport pixel
+  /// width) when the layout is inside an infinite-width scroll view so that
+  /// blocks size to the visible area rather than to infinity.
+  RenderDocumentLayout({double blockSpacing = 12.0, double? viewportWidth})
+      : _blockSpacing = blockSpacing,
+        _viewportWidth = viewportWidth;
 
   // ---------------------------------------------------------------------------
   // blockSpacing
   // ---------------------------------------------------------------------------
 
   double _blockSpacing;
+
+  // ---------------------------------------------------------------------------
+  // viewportWidth
+  // ---------------------------------------------------------------------------
+
+  double? _viewportWidth;
 
   /// The vertical gap in logical pixels between consecutive block children.
   ///
@@ -141,6 +157,22 @@ class RenderDocumentLayout extends RenderBox
   set blockSpacing(double value) {
     if (_blockSpacing == value) return;
     _blockSpacing = value;
+    markNeedsLayout();
+  }
+
+  /// The explicit viewport width used for block layout, or `null` to derive
+  /// the width from `constraints.maxWidth`.
+  ///
+  /// Set this to the physical viewport width when the document is placed inside
+  /// a horizontal scroll view that passes an unbounded `maxWidth` constraint.
+  /// Blocks will be laid out at this width instead of infinity, and the
+  /// layout's own width will be `max(viewportWidth, widestChildRight)`.
+  double? get viewportWidth => _viewportWidth;
+
+  /// Sets [viewportWidth] and schedules a layout pass when the value changes.
+  set viewportWidth(double? value) {
+    if (_viewportWidth == value) return;
+    _viewportWidth = value;
     markNeedsLayout();
   }
 
@@ -199,8 +231,10 @@ class RenderDocumentLayout extends RenderBox
   @override
   void performLayout() {
     final maxW = constraints.maxWidth;
+    final preferredWidth = _viewportWidth ?? maxW;
     var yOffset = 0.0;
     var childIndex = 0;
+    var widestChild = 0.0;
     _ExclusionZone? activeExclusion;
     RenderDocumentBlock? child = firstChild;
 
@@ -222,12 +256,12 @@ class RenderDocumentLayout extends RenderBox
 
       if (alignment == BlockAlignment.stretch) {
         // Case 1: Stretch — fill width, but account for any active exclusion zone.
-        double childMaxWidth = maxW;
+        double childMaxWidth = preferredWidth;
         double xOffset = 0.0;
 
         if (activeExclusion != null && yOffset < activeExclusion.bottom) {
           // Narrow the block to avoid the exclusion zone.
-          childMaxWidth = maxW - activeExclusion.width;
+          childMaxWidth = preferredWidth - activeExclusion.width;
           if (activeExclusion.side == BlockAlignment.start) {
             xOffset = activeExclusion.width;
           }
@@ -238,13 +272,12 @@ class RenderDocumentLayout extends RenderBox
           parentUsesSize: true,
         );
         parentData.offset = Offset(xOffset, yOffset);
+        widestChild = max(widestChild, parentData.offset.dx + child.size.width);
         yOffset += child.size.height;
       } else if (isFloat) {
         // Case 3: Float — aligned block with text wrap enabled.
-        final childWidth = child.requestedWidth ?? maxW;
-        final childConstraints = BoxConstraints(
-          maxWidth: childWidth.clamp(0.0, maxW),
-        );
+        final childWidth = child.requestedWidth ?? preferredWidth;
+        final childConstraints = BoxConstraints(maxWidth: childWidth);
         child.layout(childConstraints, parentUsesSize: true);
 
         final double xOffset;
@@ -252,10 +285,11 @@ class RenderDocumentLayout extends RenderBox
           xOffset = 0.0;
         } else {
           // BlockAlignment.end
-          xOffset = maxW - child.size.width;
+          xOffset = preferredWidth - child.size.width;
         }
 
         parentData.offset = Offset(xOffset, yOffset);
+        widestChild = max(widestChild, parentData.offset.dx + child.size.width);
 
         // Create exclusion zone so subsequent blocks wrap beside the float.
         activeExclusion = _ExclusionZone(
@@ -268,10 +302,8 @@ class RenderDocumentLayout extends RenderBox
         // Do not advance yOffset — next block wraps beside the float.
       } else {
         // Case 2: Aligned, no text wrap — block takes a full vertical row.
-        final childWidth = child.requestedWidth ?? maxW;
-        final childConstraints = BoxConstraints(
-          maxWidth: childWidth.clamp(0.0, maxW),
-        );
+        final childWidth = child.requestedWidth ?? preferredWidth;
+        final childConstraints = BoxConstraints(maxWidth: childWidth);
         child.layout(childConstraints, parentUsesSize: true);
 
         final double xOffset;
@@ -279,14 +311,15 @@ class RenderDocumentLayout extends RenderBox
           case BlockAlignment.start:
             xOffset = 0.0;
           case BlockAlignment.center:
-            xOffset = (maxW - child.size.width) / 2;
+            xOffset = (preferredWidth - child.size.width) / 2;
           case BlockAlignment.end:
-            xOffset = maxW - child.size.width;
+            xOffset = preferredWidth - child.size.width;
           case BlockAlignment.stretch:
             xOffset = 0.0; // Already handled above, but for completeness.
         }
 
         parentData.offset = Offset(xOffset, yOffset);
+        widestChild = max(widestChild, parentData.offset.dx + child.size.width);
         yOffset += child.size.height;
       }
 
@@ -299,7 +332,7 @@ class RenderDocumentLayout extends RenderBox
       yOffset = activeExclusion.bottom;
     }
 
-    size = Size(maxW, yOffset);
+    size = Size(max(preferredWidth, widestChild), yOffset);
   }
 
   // ---------------------------------------------------------------------------
@@ -590,8 +623,8 @@ class RenderDocumentLayout extends RenderBox
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
-    properties.add(DoubleProperty('blockSpacing', _blockSpacing));
     properties.add(DoubleProperty('blockSpacing', blockSpacing));
+    properties.add(DoubleProperty('viewportWidth', viewportWidth, defaultValue: null));
   }
 }
 

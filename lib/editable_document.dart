@@ -55,6 +55,7 @@ export 'src/widgets/drag_handle_auto_scroller.dart';
 export 'src/widgets/document_field.dart';
 export 'src/widgets/document_layout.dart';
 export 'src/widgets/document_scrollable.dart';
+export 'src/widgets/document_viewport_scope.dart';
 export 'src/widgets/document_selection_overlay.dart';
 export 'src/widgets/document_semantics_scope.dart';
 export 'src/widgets/editable_document.dart';

@@ -990,4 +990,125 @@ void main() {
       expect(pos.nodeId, isNotEmpty);
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // viewportWidth
+  // ---------------------------------------------------------------------------
+
+  group('RenderDocumentLayout — viewportWidth', () {
+    test('stretch block uses viewportWidth instead of constraints.maxWidth', () {
+      // viewportWidth=300 but constraints.maxWidth=infinity (horizontal scroll)
+      final text = _textBlock('p1', 'Hello');
+      final layout = RenderDocumentLayout(viewportWidth: 300.0);
+      layout.add(text);
+      layout.layout(
+        const BoxConstraints(maxWidth: double.infinity),
+        parentUsesSize: true,
+      );
+
+      // Stretch block should be 300px wide (viewportWidth), not infinite
+      expect(text.size.width, 300.0);
+    });
+
+    test('aligned block wider than viewportWidth is NOT clamped', () {
+      // Image with requestedWidth=600, viewportWidth=400
+      // Should NOT be clamped to 400 — it should stay 600
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: 600.0,
+        requestedHeight: 100.0,
+        blockAlignment: BlockAlignment.center,
+      );
+      final layout = RenderDocumentLayout(viewportWidth: 400.0);
+      layout.add(image);
+      layout.layout(
+        const BoxConstraints(maxWidth: double.infinity),
+        parentUsesSize: true,
+      );
+
+      expect(image.size.width, 600.0);
+    });
+
+    test('layout width equals max of viewportWidth and widest child', () {
+      // viewportWidth=400, image width=600 → layout width should be 600
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: 600.0,
+        requestedHeight: 100.0,
+        blockAlignment: BlockAlignment.start,
+      );
+      final layout = RenderDocumentLayout(viewportWidth: 400.0);
+      layout.add(image);
+      layout.layout(
+        const BoxConstraints(maxWidth: double.infinity),
+        parentUsesSize: true,
+      );
+
+      expect(layout.size.width, 600.0);
+    });
+
+    test('layout width equals viewportWidth when no child is wider', () {
+      // viewportWidth=400, text fills 400 → layout width = 400
+      final text = _textBlock('p1', 'Hello');
+      final layout = RenderDocumentLayout(viewportWidth: 400.0);
+      layout.add(text);
+      layout.layout(
+        const BoxConstraints(maxWidth: double.infinity),
+        parentUsesSize: true,
+      );
+
+      expect(layout.size.width, 400.0);
+    });
+
+    test('null viewportWidth falls back to constraints.maxWidth', () {
+      // No viewportWidth set — should behave like before
+      final text = _textBlock('p1', 'Hello');
+      final layout = RenderDocumentLayout();
+      layout.add(text);
+      layout.layout(
+        const BoxConstraints(maxWidth: 500.0),
+        parentUsesSize: true,
+      );
+
+      expect(text.size.width, 500.0);
+      expect(layout.size.width, 500.0);
+    });
+
+    test('center-aligned block centers relative to viewportWidth', () {
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: 200.0,
+        requestedHeight: 100.0,
+        blockAlignment: BlockAlignment.center,
+      );
+      final layout = RenderDocumentLayout(viewportWidth: 400.0);
+      layout.add(image);
+      layout.layout(
+        const BoxConstraints(maxWidth: double.infinity),
+        parentUsesSize: true,
+      );
+
+      final data = image.parentData as DocumentBlockParentData;
+      // Should be centered in viewportWidth (400), not constraints
+      expect(data.offset.dx, closeTo((400.0 - 200.0) / 2, 0.5));
+    });
+
+    test('viewportWidth setter triggers relayout', () {
+      final text = _textBlock('p1', 'Hello');
+      final layout = RenderDocumentLayout(viewportWidth: 300.0);
+      layout.add(text);
+      layout.layout(
+        const BoxConstraints(maxWidth: double.infinity),
+        parentUsesSize: true,
+      );
+      expect(text.size.width, 300.0);
+
+      layout.viewportWidth = 500.0;
+      layout.layout(
+        const BoxConstraints(maxWidth: double.infinity),
+        parentUsesSize: true,
+      );
+      expect(text.size.width, 500.0);
+    });
+  });
 }

@@ -13,6 +13,9 @@ import 'package:flutter/scheduler.dart';
 import '../model/document_editing_controller.dart';
 import '../model/document_position.dart';
 import 'document_layout.dart';
+import 'document_viewport_scope.dart';
+
+export 'document_viewport_scope.dart';
 
 // ---------------------------------------------------------------------------
 // DocumentScrollable
@@ -150,6 +153,9 @@ class DocumentScrollableState extends State<DocumentScrollable> {
   /// The internal [ScrollController] created when no external one is provided.
   ScrollController? _internalScrollController;
 
+  /// The internal [ScrollController] for horizontal scrolling.
+  ScrollController? _horizontalScrollController;
+
   /// Guard: `true` while a post-frame show-caret callback is pending.
   bool _showCaretOnScreenScheduled = false;
 
@@ -163,6 +169,7 @@ class DocumentScrollableState extends State<DocumentScrollable> {
     if (widget.scrollController == null) {
       _internalScrollController = ScrollController();
     }
+    _horizontalScrollController = ScrollController();
     widget.controller.addListener(_onControllerChanged);
   }
 
@@ -195,6 +202,8 @@ class DocumentScrollableState extends State<DocumentScrollable> {
     // Only dispose controllers we own.
     _internalScrollController?.dispose();
     _internalScrollController = null;
+    _horizontalScrollController?.dispose();
+    _horizontalScrollController = null;
     super.dispose();
   }
 
@@ -231,48 +240,59 @@ class DocumentScrollableState extends State<DocumentScrollable> {
     // Inflate by scroll padding.
     final paddedRect = widget.scrollPadding.inflateRect(caretRect);
 
-    final sc = effectiveScrollController;
-    if (!sc.hasClients) return;
+    // --- Vertical scrolling ---
+    _scrollAxisIntoView(
+      controller: effectiveScrollController,
+      paddedMin: paddedRect.top,
+      paddedMax: paddedRect.bottom,
+      animate: animate,
+    );
 
-    final viewportDimension = sc.position.viewportDimension;
-    final currentOffset = sc.offset;
-    final maxOffset = sc.position.maxScrollExtent;
+    // --- Horizontal scrolling ---
+    final hsc = _horizontalScrollController;
+    if (hsc != null) {
+      _scrollAxisIntoView(
+        controller: hsc,
+        paddedMin: paddedRect.left,
+        paddedMax: paddedRect.right,
+        animate: animate,
+      );
+    }
+  }
+
+  /// Scrolls a single [controller] so that the range [paddedMin]..[paddedMax]
+  /// is fully visible within that controller's viewport.
+  void _scrollAxisIntoView({
+    required ScrollController controller,
+    required double paddedMin,
+    required double paddedMax,
+    required bool animate,
+  }) {
+    if (!controller.hasClients) return;
+
+    final viewportDimension = controller.position.viewportDimension;
+    final currentOffset = controller.offset;
+    final maxOffset = controller.position.maxScrollExtent;
 
     double targetOffset;
-    if (widget.scrollDirection == Axis.vertical) {
-      // Compute the scroll offset needed so paddedRect is fully in view.
-      if (paddedRect.bottom > currentOffset + viewportDimension) {
-        // Caret is below the viewport: scroll down.
-        targetOffset = paddedRect.bottom - viewportDimension;
-      } else if (paddedRect.top < currentOffset) {
-        // Caret is above the viewport: scroll up.
-        targetOffset = paddedRect.top;
-      } else {
-        // Already in view.
-        return;
-      }
+    if (paddedMax > currentOffset + viewportDimension) {
+      targetOffset = paddedMax - viewportDimension;
+    } else if (paddedMin < currentOffset) {
+      targetOffset = paddedMin;
     } else {
-      // Horizontal scrolling.
-      if (paddedRect.right > currentOffset + viewportDimension) {
-        targetOffset = paddedRect.right - viewportDimension;
-      } else if (paddedRect.left < currentOffset) {
-        targetOffset = paddedRect.left;
-      } else {
-        return;
-      }
+      return; // Already in view.
     }
 
-    // Clamp to valid scroll range.
     targetOffset = targetOffset.clamp(0.0, maxOffset);
 
     if (animate) {
-      sc.animateTo(
+      controller.animateTo(
         targetOffset,
         duration: const Duration(milliseconds: 100),
         curve: Curves.fastOutSlowIn,
       );
     } else {
-      sc.jumpTo(targetOffset);
+      controller.jumpTo(targetOffset);
     }
   }
 
@@ -310,11 +330,23 @@ class DocumentScrollableState extends State<DocumentScrollable> {
   @override
   Widget build(BuildContext context) {
     return _DocumentScrollableScope(
-      child: SingleChildScrollView(
-        controller: effectiveScrollController,
-        scrollDirection: widget.scrollDirection,
-        physics: widget.physics,
-        child: widget.child,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final vpWidth = constraints.maxWidth;
+          return SingleChildScrollView(
+            controller: effectiveScrollController,
+            scrollDirection: widget.scrollDirection,
+            physics: widget.physics,
+            child: SingleChildScrollView(
+              controller: _horizontalScrollController,
+              scrollDirection: Axis.horizontal,
+              child: DocumentViewportScope(
+                viewportWidth: vpWidth,
+                child: widget.child,
+              ),
+            ),
+          );
+        },
       ),
     );
   }

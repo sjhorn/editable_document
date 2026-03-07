@@ -31,6 +31,7 @@ import '../rendering/render_document_layout.dart';
 import '../rendering/render_text_block.dart';
 import 'component_builder.dart';
 import 'document_semantics_scope.dart';
+import 'document_viewport_scope.dart';
 
 // ---------------------------------------------------------------------------
 // DocumentLayout
@@ -284,11 +285,13 @@ class DocumentLayoutState extends State<DocumentLayout> {
   @override
   Widget build(BuildContext context) {
     final scope = DocumentSemanticsScope.maybeOf(context);
+    final viewportWidth = DocumentViewportScope.maybeOf(context);
     return _DocumentLayoutRenderWidget(
       key: _renderWidgetKey,
       blockSpacing: widget.blockSpacing,
       isFocused: scope?.isFocused ?? false,
       isReadOnly: scope?.isReadOnly ?? false,
+      viewportWidth: viewportWidth,
       children: _buildChildren(),
     );
   }
@@ -309,6 +312,7 @@ class _DocumentLayoutRenderWidget extends MultiChildRenderObjectWidget {
     required this.blockSpacing,
     required this.isFocused,
     required this.isReadOnly,
+    this.viewportWidth,
     super.children,
   });
 
@@ -324,17 +328,26 @@ class _DocumentLayoutRenderWidget extends MultiChildRenderObjectWidget {
   /// Propagated to every [RenderTextBlock] child via [updateRenderObject].
   final bool isReadOnly;
 
+  /// The visible viewport width in logical pixels, or `null` when unconstrained.
+  ///
+  /// Forwarded to [RenderDocumentLayout.viewportWidth] so that stretch blocks
+  /// fill the visible area rather than sizing to infinity when placed inside a
+  /// horizontal [SingleChildScrollView].
+  final double? viewportWidth;
+
   @override
   DocumentLayoutElement createElement() => DocumentLayoutElement(this);
 
   @override
   RenderDocumentLayout createRenderObject(BuildContext context) {
-    return RenderDocumentLayout(blockSpacing: blockSpacing);
+    return RenderDocumentLayout(blockSpacing: blockSpacing, viewportWidth: viewportWidth);
   }
 
   @override
   void updateRenderObject(BuildContext context, RenderDocumentLayout renderObject) {
-    renderObject.blockSpacing = blockSpacing;
+    renderObject
+      ..blockSpacing = blockSpacing
+      ..viewportWidth = viewportWidth;
   }
 
   @override
@@ -343,6 +356,7 @@ class _DocumentLayoutRenderWidget extends MultiChildRenderObjectWidget {
     properties.add(DoubleProperty('blockSpacing', blockSpacing));
     properties.add(FlagProperty('isFocused', value: isFocused, ifTrue: 'focused'));
     properties.add(FlagProperty('isReadOnly', value: isReadOnly, ifTrue: 'readOnly'));
+    properties.add(DoubleProperty('viewportWidth', viewportWidth, defaultValue: null));
   }
 }
 

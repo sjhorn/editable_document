@@ -93,7 +93,9 @@ void main() {
         ),
       );
 
-      expect(find.byType(SingleChildScrollView), findsOneWidget);
+      // DocumentScrollable now uses two nested SingleChildScrollViews:
+      // the outer (primary) one and an inner horizontal one.
+      expect(find.byType(SingleChildScrollView), findsAtLeastNWidgets(1));
     });
 
     testWidgets('renders child widget', (tester) async {
@@ -285,9 +287,13 @@ void main() {
         ),
       );
 
-      final scrollView = tester.widget<SingleChildScrollView>(
-        find.byType(SingleChildScrollView),
-      );
+      // The outer (primary) scroll view is the first SingleChildScrollView
+      // in the tree; it carries the widget.scrollDirection value.
+      final scrollView = tester
+          .widgetList<SingleChildScrollView>(
+            find.byType(SingleChildScrollView),
+          )
+          .first;
       expect(scrollView.scrollDirection, Axis.vertical);
     });
 
@@ -312,9 +318,13 @@ void main() {
         ),
       );
 
-      final scrollView = tester.widget<SingleChildScrollView>(
-        find.byType(SingleChildScrollView),
-      );
+      // The outer (primary) scroll view is the first SingleChildScrollView
+      // in the tree; it carries the widget.scrollDirection value.
+      final scrollView = tester
+          .widgetList<SingleChildScrollView>(
+            find.byType(SingleChildScrollView),
+          )
+          .first;
       expect(scrollView.scrollDirection, Axis.horizontal);
     });
 
@@ -342,9 +352,13 @@ void main() {
         ),
       );
 
-      final scrollView = tester.widget<SingleChildScrollView>(
-        find.byType(SingleChildScrollView),
-      );
+      // The outer (primary) scroll view is the first SingleChildScrollView
+      // in the tree; it carries the widget.physics value.
+      final scrollView = tester
+          .widgetList<SingleChildScrollView>(
+            find.byType(SingleChildScrollView),
+          )
+          .first;
       expect(scrollView.physics, isA<BouncingScrollPhysics>());
     });
   });
