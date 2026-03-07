@@ -633,6 +633,8 @@ class _RawImageBlockWidget extends LeafRenderObjectWidget {
       altText: viewModel.altText,
       image: image,
       blockAlignment: viewModel.alignment,
+      requestedWidth: viewModel.imageWidth,
+      requestedHeight: viewModel.imageHeight,
       textWrap: viewModel.textWrap,
     );
   }
@@ -646,6 +648,8 @@ class _RawImageBlockWidget extends LeafRenderObjectWidget {
       ..altText = viewModel.altText
       ..image = image
       ..blockAlignment = viewModel.alignment
+      ..requestedWidth = viewModel.imageWidth
+      ..requestedHeight = viewModel.imageHeight
       ..textWrap = viewModel.textWrap
       ..nodeSelection = viewModel.nodeSelection;
   }
