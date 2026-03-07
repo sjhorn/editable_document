@@ -14,6 +14,9 @@
 /// - Undo/redo via UndoableEditor
 /// - Clipboard (Cmd/Ctrl+C/X/V/A) and right-click context menu
 /// - JSON save/load round-trip with full attribution serialization
+/// - Block alignment (start, center, end, stretch) for container blocks
+/// - Float-style text wrapping with textWrap property
+/// - BlockquoteNode with left accent border
 ///
 /// Run with: `flutter run -t example/main.dart`
 library;
@@ -356,6 +359,69 @@ class _DocumentDemoState extends State<DocumentDemo> {
         ),
         blockType: ParagraphBlockType.blockquote,
       ),
+      // --- Block Layout Properties section ---
+      ParagraphNode(
+        id: 'h2-layout',
+        text: AttributedText('Block Layout Properties'),
+        blockType: ParagraphBlockType.header2,
+      ),
+      ParagraphNode(
+        id: 'layout-intro',
+        text: AttributedText(
+          'Container blocks support horizontal alignment and text wrapping. '
+          'Images, code blocks, blockquotes, and horizontal rules can be '
+          'aligned start, center, end, or stretch.',
+        ),
+      ),
+      // Center-aligned image.
+      ImageNode(
+        id: 'img-center',
+        imageUrl: 'https://picsum.photos/300/150',
+        altText: 'Center-aligned image',
+        width: 300,
+        height: 150,
+        alignment: BlockAlignment.center,
+      ),
+      // Float image with adjacent text wrap.
+      ImageNode(
+        id: 'img-float',
+        imageUrl: 'https://picsum.photos/200/120',
+        altText: 'Floated image with text wrap',
+        width: 200,
+        height: 120,
+        alignment: BlockAlignment.start,
+        textWrap: true,
+      ),
+      ParagraphNode(
+        id: 'float-text',
+        text: AttributedText(
+          'This paragraph wraps beside the floated image. When textWrap is '
+          'true and alignment is start or end, subsequent blocks receive '
+          'reduced-width constraints and flow beside the image. Once the '
+          'text extends past the image, the next block gets full width.',
+        ),
+      ),
+      // BlockquoteNode — dedicated type with left accent border.
+      BlockquoteNode(
+        id: 'bq-1',
+        text: AttributedText(
+          'The new BlockquoteNode renders with a left accent border and '
+          'supports container layout properties like alignment and textWrap.',
+        ),
+      ),
+      // End-aligned code block with explicit width.
+      CodeBlockNode(
+        id: 'code-aligned',
+        text: AttributedText('print("end-aligned!")'),
+        language: 'dart',
+        width: 250,
+        alignment: BlockAlignment.end,
+      ),
+      // Center-aligned horizontal rule.
+      HorizontalRuleNode(
+        id: 'rule-center',
+        alignment: BlockAlignment.center,
+      ),
     ]);
   }
 
@@ -439,6 +505,8 @@ class _DocumentDemoState extends State<DocumentDemo> {
       }
     } else if (node is ListItemNode) {
       return node.type == ListItemType.ordered ? 'Ordered list' : 'Bullet list';
+    } else if (node is BlockquoteNode) {
+      return 'Blockquote';
     } else if (node is CodeBlockNode) {
       return 'Code block';
     } else if (node is HorizontalRuleNode) {
@@ -1270,6 +1338,11 @@ class _DocumentDemoState extends State<DocumentDemo> {
       offset: const Offset(0, 36),
       onSelected: (value) {
         switch (value) {
+          case 'blockquote':
+            _insertNode(BlockquoteNode(
+              id: _newId(),
+              text: AttributedText(''),
+            ));
           case 'code':
             _insertNode(CodeBlockNode(
               id: _newId(),
@@ -1287,6 +1360,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
         }
       },
       itemBuilder: (context) => const [
+        PopupMenuItem(value: 'blockquote', child: Text('Blockquote')),
         PopupMenuItem(value: 'code', child: Text('Code block')),
         PopupMenuItem(value: 'hr', child: Text('Horizontal rule')),
         PopupMenuItem(value: 'image', child: Text('Image')),
