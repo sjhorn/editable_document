@@ -461,6 +461,14 @@ class _DocumentDemoState extends State<DocumentDemo> {
           'set a width, choose an alignment, and enable text wrap.',
         ),
       ),
+      CodeBlockNode(
+        id: 'code-beside-float',
+        text: AttributedText(
+          '// Code blocks also wrap beside floats\n'
+          'final greeting = "hello";',
+        ),
+        language: 'dart',
+      ),
       // Center-aligned horizontal rule.
       HorizontalRuleNode(
         id: 'rule-center',
