@@ -394,6 +394,16 @@ class _DocumentDemoState extends State<DocumentDemo> {
         width: 300,
         height: 150,
         alignment: BlockAlignment.center,
+        textWrap: true,
+      ),
+      ParagraphNode(
+        id: 'float-text2',
+        text: AttributedText(
+          'This paragraph wraps beside the floated image. When textWrap is '
+          'true and alignment is start or end, subsequent blocks receive '
+          'reduced-width constraints and flow beside the image. Once the '
+          'text extends past the image, the next block gets full width.',
+        ),
       ),
       // Float image with adjacent text wrap.
       ImageNode(
@@ -1631,6 +1641,52 @@ class _DocumentDemoState extends State<DocumentDemo> {
     _editor.submit(ReplaceNodeRequest(nodeId: node.id, newNode: updated));
   }
 
+  void _updateImageUrl(DocumentNode node, String url) {
+    if (node is! ImageNode) return;
+    final updated = ImageNode(
+      id: node.id,
+      imageUrl: url,
+      altText: node.altText,
+      width: node.width,
+      height: node.height,
+      alignment: node.alignment,
+      textWrap: node.textWrap,
+    );
+    _editor.submit(ReplaceNodeRequest(nodeId: node.id, newNode: updated));
+  }
+
+  Future<void> _pickImageFile(DocumentNode node) async {
+    if (node is! ImageNode) return;
+    final controller = TextEditingController();
+    final path = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Open Image File'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            hintText: '/path/to/image.png',
+            labelText: 'File path',
+          ),
+          autofocus: true,
+          onSubmitted: (value) => Navigator.of(context).pop(value),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(controller.text),
+            child: const Text('Open'),
+          ),
+        ],
+      ),
+    );
+    if (path == null || path.trim().isEmpty) return;
+    _updateImageUrl(node, path.trim());
+  }
+
   Widget _buildFloatingPropertyPanel() {
     if (_propertyPanelNodeId == null) {
       return const SizedBox.shrink();
@@ -1737,6 +1793,26 @@ class _DocumentDemoState extends State<DocumentDemo> {
                   value: _getHeight(node),
                   onChanged: (value) => _updateHeight(node, value),
                 ),
+                if (node is ImageNode) ...[
+                  const SizedBox(height: 12),
+                  Text('Image URL', style: Theme.of(context).textTheme.labelMedium),
+                  const SizedBox(height: 4),
+                  _UrlField(
+                    key: ValueKey('${node.id}-url'),
+                    value: node.imageUrl,
+                    onChanged: (url) => _updateImageUrl(node, url),
+                  ),
+                  const SizedBox(height: 4),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 32,
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.folder_open, size: 16),
+                      label: const Text('Choose File'),
+                      onPressed: () => _pickImageFile(node),
+                    ),
+                  ),
+                ],
               ],
             ],
           ),
@@ -1961,6 +2037,71 @@ class _DimensionFieldState extends State<_DimensionField> {
           keyboardType: TextInputType.number,
           style: Theme.of(context).textTheme.bodySmall,
           onChanged: _onChanged,
+        ),
+      ),
+    );
+  }
+}
+
+class _UrlField extends StatefulWidget {
+  const _UrlField({super.key, required this.value, required this.onChanged});
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  @override
+  State<_UrlField> createState() => _UrlFieldState();
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties.add(StringProperty('value', value));
+    properties.add(ObjectFlagProperty<ValueChanged<String>>.has('onChanged', onChanged));
+  }
+}
+
+class _UrlFieldState extends State<_UrlField> {
+  late final TextEditingController _textController;
+  bool _isEditing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _textController = TextEditingController(text: widget.value);
+  }
+
+  @override
+  void didUpdateWidget(_UrlField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_isEditing && widget.value != oldWidget.value) {
+      _textController.text = widget.value;
+    }
+  }
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 36,
+      child: Focus(
+        onFocusChange: (hasFocus) => _isEditing = hasFocus,
+        child: TextField(
+          controller: _textController,
+          decoration: const InputDecoration(
+            hintText: 'https://...',
+            isDense: true,
+            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            border: OutlineInputBorder(),
+          ),
+          style: Theme.of(context).textTheme.bodySmall,
+          onSubmitted: (text) {
+            final trimmed = text.trim();
+            if (trimmed.isNotEmpty) widget.onChanged(trimmed);
+          },
         ),
       ),
     );
