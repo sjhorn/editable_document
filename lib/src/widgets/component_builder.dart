@@ -21,6 +21,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
+import '_image_provider_stub.dart' if (dart.library.io) '_image_provider_io.dart';
 import '../model/attributed_text.dart';
 import '../model/block_alignment.dart';
 import '../model/blockquote_node.dart';
@@ -572,7 +573,15 @@ class _ImageBlockWidgetState extends State<_ImageBlockWidget> {
   }
 
   void _resolveImage() {
-    final provider = NetworkImage(widget.viewModel.imageUrl);
+    final url = widget.viewModel.imageUrl;
+    final ImageProvider provider;
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      provider = NetworkImage(url);
+    } else {
+      final fileProvider = createFileImageProvider(url);
+      if (fileProvider == null) return; // web — no local file support
+      provider = fileProvider;
+    }
     final newStream = provider.resolve(createLocalImageConfiguration(context));
     if (newStream.key != _imageStream?.key) {
       _imageStream?.removeListener(_listener);
