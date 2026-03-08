@@ -107,7 +107,8 @@ class RenderListItemBlock extends RenderTextBlock {
   void performLayout() {
     // Layout the text in the remaining width after the marker area.
     final textMaxWidth = (constraints.maxWidth - _textIndentOffset).clamp(0.0, double.infinity);
-    layoutText(textMaxWidth);
+    final excl = exclusionRectForLayout(horizontalInset: _textIndentOffset);
+    layoutText(textMaxWidth, exclusionRect: excl);
     size = Size(constraints.maxWidth, layoutTextHeight);
   }
 

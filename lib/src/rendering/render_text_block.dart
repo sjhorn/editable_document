@@ -436,21 +436,9 @@ class RenderTextBlock extends RenderDocumentBlock {
 
   @override
   void performLayout() {
-    final Rect? exclusionRect;
-    if (constraints is DocumentBlockConstraints) {
-      exclusionRect = (constraints as DocumentBlockConstraints).exclusionRect;
-    } else {
-      exclusionRect = null;
-    }
-
-    if (exclusionRect != null) {
-      _performExclusionLayout(constraints.maxWidth, exclusionRect);
-    } else {
-      _exclusionLayout?.dispose();
-      _exclusionLayout = null;
-      _layoutText(constraints.maxWidth);
-      size = Size(constraints.maxWidth, _textPainter.height);
-    }
+    final excl = exclusionRectForLayout();
+    layoutText(constraints.maxWidth, exclusionRect: excl);
+    size = Size(constraints.maxWidth, layoutTextHeight);
   }
 
   /// Performs multi-segment layout when [exclusionRect] is set.
@@ -649,7 +637,6 @@ class RenderTextBlock extends RenderDocumentBlock {
     // Also lay out the primary painter so baseline queries and subclass helpers
     // remain valid.
     _layoutText(maxWidth);
-    size = Size(maxWidth, _exclusionLayout!.totalHeight);
   }
 
   /// Returns the distance from the top of this block to the text baseline.
@@ -686,23 +673,56 @@ class RenderTextBlock extends RenderDocumentBlock {
   // Protected helpers for subclasses
   // ---------------------------------------------------------------------------
 
+  /// Returns the [exclusionRect] from [DocumentBlockConstraints], adjusted
+  /// by [horizontalInset] and [verticalInset] for subclasses that indent
+  /// their text content (e.g. blockquote border, code-block padding, list
+  /// marker gutter).
+  ///
+  /// Returns `null` when the constraints carry no exclusion rect.
+  @protected
+  Rect? exclusionRectForLayout({
+    double horizontalInset = 0.0,
+    double verticalInset = 0.0,
+  }) {
+    if (constraints is! DocumentBlockConstraints) return null;
+    final raw = (constraints as DocumentBlockConstraints).exclusionRect;
+    if (raw == null) return null;
+    if (horizontalInset == 0.0 && verticalInset == 0.0) return raw;
+    return raw.translate(-horizontalInset, -verticalInset);
+  }
+
   /// Lays out the internal [TextPainter] with [textMaxWidth] as the maximum
   /// line width.
+  ///
+  /// When [exclusionRect] is provided, the text is split into above/beside/
+  /// below zones around the exclusion (center-float dual-column wrapping).
   ///
   /// Subclasses that override [performLayout] to apply inset constraints
   /// (such as [RenderListItemBlock] and [RenderCodeBlock]) call this method
   /// to perform text layout without replicating the span-building logic.
   /// After calling this, [layoutTextHeight] is valid.
   @protected
-  void layoutText(double textMaxWidth) => _layoutText(textMaxWidth);
+  void layoutText(double textMaxWidth, {Rect? exclusionRect}) {
+    if (exclusionRect != null) {
+      _performExclusionLayout(textMaxWidth, exclusionRect);
+    } else {
+      _exclusionLayout?.dispose();
+      _exclusionLayout = null;
+      _layoutText(textMaxWidth);
+    }
+  }
 
   /// The height of the text content after the most recent [layoutText] or
   /// [performLayout] call.
   ///
+  /// When exclusion-zone layout is active, returns the total height of the
+  /// above + beside + below zones. Otherwise returns the single-painter
+  /// text height.
+  ///
   /// Only valid after layout. Subclasses use this to compute [size].
   @protected
   // ignore: diagnostic_describe_all_properties
-  double get layoutTextHeight => _textPainter.height;
+  double get layoutTextHeight => _exclusionLayout?.totalHeight ?? _textPainter.height;
 
   void _layoutText(double maxWidth) {
     final span = _buildTextSpan();

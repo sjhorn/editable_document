@@ -125,7 +125,8 @@ class RenderParagraphBlock extends RenderTextBlock {
     if (_blockType == ParagraphBlockType.blockquote) {
       final textMaxWidth =
           (constraints.maxWidth - _kBlockquoteLeftInset).clamp(0.0, double.infinity);
-      layoutText(textMaxWidth);
+      final excl = exclusionRectForLayout(horizontalInset: _kBlockquoteLeftInset);
+      layoutText(textMaxWidth, exclusionRect: excl);
       size = Size(constraints.maxWidth, layoutTextHeight);
     } else {
       super.performLayout();

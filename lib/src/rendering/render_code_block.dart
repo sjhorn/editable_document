@@ -172,7 +172,11 @@ class RenderCodeBlock extends RenderTextBlock {
         : constraints.maxWidth;
 
     final textMaxWidth = (blockW - _padding * 2).clamp(0.0, double.infinity);
-    layoutText(textMaxWidth);
+    final excl = exclusionRectForLayout(
+      horizontalInset: _padding,
+      verticalInset: _padding,
+    );
+    layoutText(textMaxWidth, exclusionRect: excl);
 
     // When requestedHeight is set, use it as the block height.  Otherwise
     // derive the height from the laid-out text plus padding.

@@ -180,7 +180,8 @@ class RenderBlockquoteBlock extends RenderTextBlock {
         ? _requestedWidth!.clamp(0.0, constraints.maxWidth)
         : constraints.maxWidth;
     final textMaxWidth = (availableWidth - _kBorderInset).clamp(0.0, double.infinity);
-    layoutText(textMaxWidth);
+    final excl = exclusionRectForLayout(horizontalInset: _kBorderInset);
+    layoutText(textMaxWidth, exclusionRect: excl);
     final blockWidth = _requestedWidth != null ? availableWidth : constraints.maxWidth;
     final blockHeight = _requestedHeight ?? layoutTextHeight;
     size = Size(blockWidth, blockHeight);
