@@ -400,34 +400,101 @@ class RenderDocumentLayout extends RenderBox
         // Do not advance yOffset — next block wraps beside the float.
       } else {
         // Case 2: Aligned, no text wrap — block takes a full vertical row.
-        // Aligned blocks cannot wrap beside floats, so advance past any
-        // active exclusion zone to prevent overlapping.
-        if (activeExclusion != null && yOffset < activeExclusion.bottom) {
-          yOffset = activeExclusion.bottom;
-          activeExclusion = null;
+        // When there is an active start/end exclusion zone, check whether
+        // the block fits beside the float.  If it fits, position it there
+        // respecting its alignment within the available space.  If it doesn't
+        // fit, advance past the float as before.
+        if (activeExclusion != null &&
+            yOffset < activeExclusion.bottom &&
+            (activeExclusion.side == BlockAlignment.start ||
+                activeExclusion.side == BlockAlignment.end)) {
+          final availableWidth = preferredWidth - activeExclusion.width;
+          final childWidth = child.requestedWidth ?? preferredWidth;
+
+          if (childWidth <= availableWidth) {
+            // Block fits beside the float — lay it out and position it within
+            // the available space, respecting the block's alignment.
+            child.layout(BoxConstraints(maxWidth: childWidth), parentUsesSize: true);
+
+            final double xOffset;
+            if (activeExclusion.side == BlockAlignment.start) {
+              // Float is on the start (left) side; available space is to the right.
+              final availableLeft = activeExclusion.width;
+              xOffset = switch (alignment) {
+                BlockAlignment.start => availableLeft,
+                BlockAlignment.center =>
+                  availableLeft + max(0.0, (availableWidth - child.size.width) / 2),
+                BlockAlignment.end =>
+                  max(availableLeft, availableLeft + availableWidth - child.size.width),
+                BlockAlignment.stretch => availableLeft,
+              };
+            } else {
+              // Float is on the end (right) side; available space is to the left.
+              xOffset = switch (alignment) {
+                BlockAlignment.start => 0.0,
+                BlockAlignment.center => max(0.0, (availableWidth - child.size.width) / 2),
+                BlockAlignment.end => max(0.0, availableWidth - child.size.width),
+                BlockAlignment.stretch => 0.0,
+              };
+            }
+
+            parentData.offset = Offset(max(0.0, xOffset), yOffset);
+            widestChild = max(widestChild, parentData.offset.dx + child.size.width);
+            yOffset += child.size.height;
+          } else {
+            // Block is too wide to fit beside the float — clear it.
+            yOffset = activeExclusion.bottom;
+            activeExclusion = null;
+
+            final childConstraints = BoxConstraints(maxWidth: childWidth);
+            child.layout(childConstraints, parentUsesSize: true);
+
+            final double xOffset;
+            switch (alignment) {
+              case BlockAlignment.start:
+                xOffset = 0.0;
+              case BlockAlignment.center:
+                xOffset = max(0.0, (preferredWidth - child.size.width) / 2);
+              case BlockAlignment.end:
+                xOffset = max(0.0, preferredWidth - child.size.width);
+              case BlockAlignment.stretch:
+                xOffset = 0.0;
+            }
+
+            parentData.offset = Offset(xOffset, yOffset);
+            widestChild = max(widestChild, parentData.offset.dx + child.size.width);
+            yOffset += child.size.height;
+          }
+        } else {
+          // No active start/end exclusion (or a center exclusion) — clear any
+          // remaining exclusion and lay out normally.
+          if (activeExclusion != null && yOffset < activeExclusion.bottom) {
+            yOffset = activeExclusion.bottom;
+            activeExclusion = null;
+          }
+
+          final childWidth = child.requestedWidth ?? preferredWidth;
+          final childConstraints = BoxConstraints(maxWidth: childWidth);
+          child.layout(childConstraints, parentUsesSize: true);
+
+          final double xOffset;
+          switch (alignment) {
+            case BlockAlignment.start:
+              xOffset = 0.0;
+            case BlockAlignment.center:
+              // Clamp to 0 so oversized blocks start at the left edge.
+              xOffset = max(0.0, (preferredWidth - child.size.width) / 2);
+            case BlockAlignment.end:
+              // Clamp to 0 so oversized blocks start at the left edge.
+              xOffset = max(0.0, preferredWidth - child.size.width);
+            case BlockAlignment.stretch:
+              xOffset = 0.0; // Already handled above, but for completeness.
+          }
+
+          parentData.offset = Offset(xOffset, yOffset);
+          widestChild = max(widestChild, parentData.offset.dx + child.size.width);
+          yOffset += child.size.height;
         }
-
-        final childWidth = child.requestedWidth ?? preferredWidth;
-        final childConstraints = BoxConstraints(maxWidth: childWidth);
-        child.layout(childConstraints, parentUsesSize: true);
-
-        final double xOffset;
-        switch (alignment) {
-          case BlockAlignment.start:
-            xOffset = 0.0;
-          case BlockAlignment.center:
-            // Clamp to 0 so oversized blocks start at the left edge.
-            xOffset = max(0.0, (preferredWidth - child.size.width) / 2);
-          case BlockAlignment.end:
-            // Clamp to 0 so oversized blocks start at the left edge.
-            xOffset = max(0.0, preferredWidth - child.size.width);
-          case BlockAlignment.stretch:
-            xOffset = 0.0; // Already handled above, but for completeness.
-        }
-
-        parentData.offset = Offset(xOffset, yOffset);
-        widestChild = max(widestChild, parentData.offset.dx + child.size.width);
-        yOffset += child.size.height;
       }
 
       childIndex++;

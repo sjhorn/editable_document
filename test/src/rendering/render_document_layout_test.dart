@@ -1073,17 +1073,20 @@ void main() {
       );
     });
 
-    test('non-float aligned block clears the exclusion zone', () {
+    test('non-float aligned block wraps beside float when it fits', () {
       // Float on the left, then a non-float center-aligned block.
-      // The aligned block must advance past the float to avoid overlapping.
+      // The aligned block fits in the available space beside the float, so it
+      // should wrap there rather than drop below.
       final image = _imageBlock(
         'img1',
-        requestedWidth: floatWidth,
+        requestedWidth: floatWidth, // 100
         requestedHeight: 200.0, // tall float
         blockAlignment: BlockAlignment.start,
         textWrap: true,
       );
       // Non-float, non-stretch block placed after the float.
+      // 60 px fits comfortably beside a 100 px float in a 400 px layout
+      // (available = 400 - 108 = 292 px).
       final centeredImage = _imageBlock(
         'img2',
         requestedWidth: 60.0,
@@ -1100,24 +1103,37 @@ void main() {
       final imageData = image.parentData as DocumentBlockParentData;
       final centeredData = centeredImage.parentData as DocumentBlockParentData;
       expect(centeredData.isFloat, isFalse);
-      // The aligned block must clear the float — its top must be at or below
-      // the float's bottom edge.
+
+      // The aligned block fits beside the float — it must NOT drop below.
       final floatBottom = imageData.offset.dy + image.size.height;
-      expect(centeredData.offset.dy, greaterThanOrEqualTo(floatBottom));
-      // x should be centred in the full maxWidth.
-      expect(centeredData.offset.dx, closeTo((maxWidth - centeredImage.size.width) / 2, 0.5));
+      expect(
+        centeredData.offset.dy,
+        lessThan(floatBottom),
+        reason: 'block that fits beside float should wrap there, not clear it',
+      );
+      // Center-aligned within the available space to the right of the float:
+      // availableLeft = 100 + 8 = 108, availableWidth = 292, blockWidth = 60
+      // expectedX = 108 + (292 - 60) / 2 = 108 + 116 = 224
+      const floatGap = 8.0;
+      final availableLeft = floatWidth + floatGap;
+      final availableWidth = maxWidth - availableLeft;
+      final expectedX = availableLeft + (availableWidth - 60.0) / 2;
+      expect(centeredData.offset.dx, closeTo(expectedX, 0.5));
     });
 
-    test('end-aligned block clears end float', () {
-      // An end-aligned float followed by an end-aligned non-float block.
-      // The non-float must advance past the float to avoid overlapping.
+    test('end-aligned block wraps beside end float when it fits', () {
+      // An end-aligned float followed by an end-aligned non-float block whose
+      // requestedWidth fits in the available space beside the float.
+      // The block should wrap there rather than drop below.
       final image = _imageBlock(
         'img1',
-        requestedWidth: floatWidth,
+        requestedWidth: floatWidth, // 100
         requestedHeight: 200.0,
         blockAlignment: BlockAlignment.end,
         textWrap: true,
       );
+      // 250 px fits beside a 100 px end float in a 400 px layout
+      // (available = 400 - 108 = 292 px).
       final codeBlock = RenderCodeBlock(
         nodeId: 'code1',
         text: AttributedText('print("hello")'),
@@ -1133,7 +1149,20 @@ void main() {
       final imageData = image.parentData as DocumentBlockParentData;
       final codeData = codeBlock.parentData as DocumentBlockParentData;
       final floatBottom = imageData.offset.dy + image.size.height;
-      expect(codeData.offset.dy, greaterThanOrEqualTo(floatBottom));
+
+      // Block fits beside float — must NOT drop below.
+      expect(
+        codeData.offset.dy,
+        lessThan(floatBottom),
+        reason: 'block that fits beside end float should wrap there, not clear it',
+      );
+      // End-aligned within available space to the left of the end float:
+      // availableWidth = 400 - 108 = 292, blockWidth = 250
+      // expectedX = max(0, 292 - 250) = 42
+      const floatGap = 8.0;
+      final availableWidth = maxWidth - (floatWidth + floatGap);
+      final expectedX = (availableWidth - 250.0).clamp(0.0, double.infinity);
+      expect(codeData.offset.dx, closeTo(expectedX, 0.5));
     });
 
     test('center-aligned HR clears end float', () {
@@ -1161,6 +1190,196 @@ void main() {
       final hrData = hrCentered.parentData as DocumentBlockParentData;
       final floatBottom = imageData.offset.dy + image.size.height;
       expect(hrData.offset.dy, greaterThanOrEqualTo(floatBottom));
+    });
+
+    test('float start: aligned start block wraps beside float when it fits', () {
+      // A start-aligned code block whose requestedWidth fits in the space
+      // beside a start float should wrap there, not drop below.
+      const codeWidth = 150.0; // fits beside 100 px float in 400 px layout
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: floatWidth, // 100
+        requestedHeight: floatHeight, // 80
+        blockAlignment: BlockAlignment.start,
+        textWrap: true,
+      );
+      final codeBlock = RenderCodeBlock(
+        nodeId: 'code1',
+        text: AttributedText('x = 1'),
+        blockAlignment: BlockAlignment.start,
+        requestedWidth: codeWidth,
+        requestedHeight: 40.0,
+      );
+      _layout(children: [image, codeBlock], maxWidth: maxWidth, blockSpacing: 0.0);
+
+      final imageData = image.parentData as DocumentBlockParentData;
+      final codeData = codeBlock.parentData as DocumentBlockParentData;
+      final floatBottom = imageData.offset.dy + image.size.height;
+
+      // Code block must start beside the float (y < float bottom).
+      expect(
+        codeData.offset.dy,
+        lessThan(floatBottom),
+        reason: 'start-aligned block should wrap beside float, not drop below',
+      );
+      // Code block x must be to the right of the float (floatWidth + gap).
+      expect(
+        codeData.offset.dx,
+        greaterThanOrEqualTo(floatWidth),
+        reason: 'start-aligned block should be positioned after the float',
+      );
+    });
+
+    test('float start: aligned end block wraps beside float when it fits', () {
+      // An end-aligned code block that fits beside a start float should wrap
+      // there and be pushed to the right within the available space.
+      const codeWidth = 150.0;
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: floatWidth,
+        requestedHeight: floatHeight,
+        blockAlignment: BlockAlignment.start,
+        textWrap: true,
+      );
+      final codeBlock = RenderCodeBlock(
+        nodeId: 'code1',
+        text: AttributedText('x = 1'),
+        blockAlignment: BlockAlignment.end,
+        requestedWidth: codeWidth,
+        requestedHeight: 40.0,
+      );
+      _layout(children: [image, codeBlock], maxWidth: maxWidth, blockSpacing: 0.0);
+
+      final imageData = image.parentData as DocumentBlockParentData;
+      final codeData = codeBlock.parentData as DocumentBlockParentData;
+      final floatBottom = imageData.offset.dy + image.size.height;
+
+      // Code block must start beside the float (y < float bottom).
+      expect(
+        codeData.offset.dy,
+        lessThan(floatBottom),
+        reason: 'end-aligned block should wrap beside start float, not drop below',
+      );
+      // Code block should be at the end of the available space beside float.
+      // Available space: floatWidth+gap .. maxWidth, so end x = maxWidth - codeWidth.
+      expect(
+        codeData.offset.dx,
+        closeTo(maxWidth - codeWidth, 0.5),
+        reason: 'end-aligned block should be right-aligned within available space',
+      );
+    });
+
+    test('float start: aligned center block wraps beside float when it fits', () {
+      // A center-aligned code block that fits beside a start float should wrap
+      // there and be centred within the available space beside the float.
+      const codeWidth = 100.0;
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: floatWidth,
+        requestedHeight: floatHeight,
+        blockAlignment: BlockAlignment.start,
+        textWrap: true,
+      );
+      final codeBlock = RenderCodeBlock(
+        nodeId: 'code1',
+        text: AttributedText('x = 1'),
+        blockAlignment: BlockAlignment.center,
+        requestedWidth: codeWidth,
+        requestedHeight: 40.0,
+      );
+      _layout(children: [image, codeBlock], maxWidth: maxWidth, blockSpacing: 0.0);
+
+      final imageData = image.parentData as DocumentBlockParentData;
+      final codeData = codeBlock.parentData as DocumentBlockParentData;
+      final floatBottom = imageData.offset.dy + image.size.height;
+
+      // Code block must start beside the float (y < float bottom).
+      expect(
+        codeData.offset.dy,
+        lessThan(floatBottom),
+        reason: 'center-aligned block should wrap beside start float, not drop below',
+      );
+      // Centred within available space: [floatWidth+gap .. maxWidth].
+      // _kFloatGap is 8.0 (the gap added to float exclusion zones).
+      const floatGap = 8.0;
+      final availableLeft = floatWidth + floatGap;
+      final availableWidth = maxWidth - availableLeft;
+      final expectedX = availableLeft + (availableWidth - codeWidth) / 2;
+      expect(
+        codeData.offset.dx,
+        closeTo(expectedX, 0.5),
+        reason: 'center-aligned block should be centred in available space beside float',
+      );
+    });
+
+    test('float end: aligned block wraps beside float when it fits', () {
+      // A start-aligned code block that fits beside an end float should wrap
+      // there at x=0.
+      const codeWidth = 150.0;
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: floatWidth,
+        requestedHeight: floatHeight,
+        blockAlignment: BlockAlignment.end,
+        textWrap: true,
+      );
+      final codeBlock = RenderCodeBlock(
+        nodeId: 'code1',
+        text: AttributedText('x = 1'),
+        blockAlignment: BlockAlignment.start,
+        requestedWidth: codeWidth,
+        requestedHeight: 40.0,
+      );
+      _layout(children: [image, codeBlock], maxWidth: maxWidth, blockSpacing: 0.0);
+
+      final imageData = image.parentData as DocumentBlockParentData;
+      final codeData = codeBlock.parentData as DocumentBlockParentData;
+      final floatBottom = imageData.offset.dy + image.size.height;
+
+      // Code block must start beside the float (y < float bottom).
+      expect(
+        codeData.offset.dy,
+        lessThan(floatBottom),
+        reason: 'start-aligned block should wrap beside end float, not drop below',
+      );
+      // Float is on the end side, so available space starts at x=0.
+      expect(
+        codeData.offset.dx,
+        closeTo(0.0, 0.5),
+        reason: 'start-aligned block beside end float should be at x=0',
+      );
+    });
+
+    test('aligned block clears float when it does not fit', () {
+      // A code block whose requestedWidth is wider than the available space
+      // beside the float must clear the float and drop below it.
+      const codeWidth = 350.0; // too wide to fit beside 100 px float (avail = 292)
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: floatWidth,
+        requestedHeight: floatHeight,
+        blockAlignment: BlockAlignment.start,
+        textWrap: true,
+      );
+      final codeBlock = RenderCodeBlock(
+        nodeId: 'code1',
+        text: AttributedText('x = 1'),
+        blockAlignment: BlockAlignment.start,
+        requestedWidth: codeWidth,
+        requestedHeight: 40.0,
+      );
+      _layout(children: [image, codeBlock], maxWidth: maxWidth, blockSpacing: 0.0);
+
+      final imageData = image.parentData as DocumentBlockParentData;
+      final codeData = codeBlock.parentData as DocumentBlockParentData;
+      final floatBottom = imageData.offset.dy + image.size.height;
+
+      // Code block must clear the float (y >= float bottom).
+      expect(
+        codeData.offset.dy,
+        greaterThanOrEqualTo(floatBottom),
+        reason: 'block too wide to fit beside float should clear it',
+      );
     });
   });
 
