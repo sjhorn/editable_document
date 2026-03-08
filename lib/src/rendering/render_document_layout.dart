@@ -400,6 +400,13 @@ class RenderDocumentLayout extends RenderBox
         // Do not advance yOffset — next block wraps beside the float.
       } else {
         // Case 2: Aligned, no text wrap — block takes a full vertical row.
+        // Aligned blocks cannot wrap beside floats, so advance past any
+        // active exclusion zone to prevent overlapping.
+        if (activeExclusion != null && yOffset < activeExclusion.bottom) {
+          yOffset = activeExclusion.bottom;
+          activeExclusion = null;
+        }
+
         final childWidth = child.requestedWidth ?? preferredWidth;
         final childConstraints = BoxConstraints(maxWidth: childWidth);
         child.layout(childConstraints, parentUsesSize: true);

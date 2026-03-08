@@ -1074,8 +1074,8 @@ void main() {
     });
 
     test('non-float aligned block clears the exclusion zone', () {
-      // Float on the left, then a stretch block: the stretch block is narrowed.
-      // After that, a center-aligned non-float block must get full-width treatment.
+      // Float on the left, then a non-float center-aligned block.
+      // The aligned block must advance past the float to avoid overlapping.
       final image = _imageBlock(
         'img1',
         requestedWidth: floatWidth,
@@ -1097,12 +1097,70 @@ void main() {
         blockSpacing: 0.0,
       );
 
-      // The centred block is non-float and occupies a full vertical row.
-      // Its offset should be computed from the center of maxWidth.
+      final imageData = image.parentData as DocumentBlockParentData;
       final centeredData = centeredImage.parentData as DocumentBlockParentData;
       expect(centeredData.isFloat, isFalse);
+      // The aligned block must clear the float — its top must be at or below
+      // the float's bottom edge.
+      final floatBottom = imageData.offset.dy + image.size.height;
+      expect(centeredData.offset.dy, greaterThanOrEqualTo(floatBottom));
       // x should be centred in the full maxWidth.
       expect(centeredData.offset.dx, closeTo((maxWidth - centeredImage.size.width) / 2, 0.5));
+    });
+
+    test('end-aligned block clears end float', () {
+      // An end-aligned float followed by an end-aligned non-float block.
+      // The non-float must advance past the float to avoid overlapping.
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: floatWidth,
+        requestedHeight: 200.0,
+        blockAlignment: BlockAlignment.end,
+        textWrap: true,
+      );
+      final codeBlock = RenderCodeBlock(
+        nodeId: 'code1',
+        text: AttributedText('print("hello")'),
+        blockAlignment: BlockAlignment.end,
+        requestedWidth: 250.0,
+      );
+      _layout(
+        children: [image, codeBlock],
+        maxWidth: maxWidth,
+        blockSpacing: 0.0,
+      );
+
+      final imageData = image.parentData as DocumentBlockParentData;
+      final codeData = codeBlock.parentData as DocumentBlockParentData;
+      final floatBottom = imageData.offset.dy + image.size.height;
+      expect(codeData.offset.dy, greaterThanOrEqualTo(floatBottom));
+    });
+
+    test('center-aligned HR clears end float', () {
+      // An end-aligned float followed by a center-aligned HR.
+      // The HR must advance past the float to avoid overlapping.
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: floatWidth,
+        requestedHeight: 200.0,
+        blockAlignment: BlockAlignment.end,
+        textWrap: true,
+      );
+      // HR defaults to stretch (which clears), so use a non-stretch HR.
+      final hrCentered = RenderHorizontalRuleBlock(
+        nodeId: 'hr1',
+        blockAlignment: BlockAlignment.center,
+      );
+      _layout(
+        children: [image, hrCentered],
+        maxWidth: maxWidth,
+        blockSpacing: 0.0,
+      );
+
+      final imageData = image.parentData as DocumentBlockParentData;
+      final hrData = hrCentered.parentData as DocumentBlockParentData;
+      final floatBottom = imageData.offset.dy + image.size.height;
+      expect(hrData.offset.dy, greaterThanOrEqualTo(floatBottom));
     });
   });
 
