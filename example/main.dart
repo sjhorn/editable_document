@@ -405,13 +405,13 @@ class _DocumentDemoState extends State<DocumentDemo> {
           'text extends past the image, the next block gets full width.',
         ),
       ),
-      // Float image with adjacent text wrap.
+      // Float image with adjacent text wrap — tall enough for multiple blocks.
       ImageNode(
         id: 'img-float',
-        imageUrl: 'https://picsum.photos/200/120',
+        imageUrl: 'https://picsum.photos/200/250',
         altText: 'Floated image with text wrap',
         width: 200,
-        height: 120,
+        height: 250,
         alignment: BlockAlignment.start,
         textWrap: true,
       ),
@@ -420,9 +420,16 @@ class _DocumentDemoState extends State<DocumentDemo> {
         text: AttributedText(
           'This paragraph wraps beside the floated image. When textWrap is '
           'true and alignment is start or end, subsequent blocks receive '
-          'reduced-width constraints and flow beside the image. Once the '
-          'text extends past the image, the next block gets full width.',
+          'reduced-width constraints and flow beside the image.',
         ),
+      ),
+      CodeBlockNode(
+        id: 'code-beside-image',
+        text: AttributedText(
+          '// Code blocks also wrap\n'
+          'final x = 42;',
+        ),
+        language: 'dart',
       ),
       // BlockquoteNode — dedicated type with left accent border.
       BlockquoteNode(
@@ -460,14 +467,6 @@ class _DocumentDemoState extends State<DocumentDemo> {
           'participate in text wrapping just like images and blockquotes — '
           'set a width, choose an alignment, and enable text wrap.',
         ),
-      ),
-      CodeBlockNode(
-        id: 'code-beside-float',
-        text: AttributedText(
-          '// Code blocks also wrap beside floats\n'
-          'final greeting = "hello";',
-        ),
-        language: 'dart',
       ),
       // Center-aligned horizontal rule.
       HorizontalRuleNode(
