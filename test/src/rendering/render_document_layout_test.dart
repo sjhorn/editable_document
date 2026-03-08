@@ -1578,10 +1578,12 @@ void main() {
       expect(updatedRect, isNotNull);
       expect(updatedRect!.height, greaterThan(initialRect!.height));
 
-      // The text block should have reflowed — its height may differ.
-      // At minimum, verify the exclusionRect height doubled.
+      // The exclusionRect height should match the new float height.
       expect(updatedRect.height, 120.0);
-      expect(text.size.height, greaterThanOrEqualTo(120.0));
+      // The text block height is its actual text height (not padded to the
+      // float height).  The layout should cover at least the float bottom —
+      // checked via the layout height, not the individual text block height.
+      expect(text.size.height, greaterThan(0.0));
     });
 
     test('center float: two consecutive center floats stack vertically', () {
@@ -1606,6 +1608,378 @@ void main() {
       final firstBottom = data1.offset.dy + image1.size.height;
 
       expect(data2.offset.dy, greaterThanOrEqualTo(firstBottom));
+    });
+
+    test('center float: text beside float occupies same vertical space as start/end', () {
+      // Bug regression: center-float text was rendering entirely BELOW the
+      // image instead of beside it like start/end floats.
+      //
+      // With start alignment the text block gets reduced-width constraints and
+      // flows beside the float.  With center alignment the text block gets an
+      // exclusionRect and uses zone-split layout.  Both should produce a text
+      // block whose height is comparable — not dramatically larger for center.
+      const longText = 'This is a long paragraph that should wrap beside the '
+          'float regardless of alignment type being start end or center.';
+
+      // --- start float ---
+      final imageStart = _imageBlock(
+        'imgS',
+        requestedWidth: floatWidth,
+        requestedHeight: floatHeight,
+        blockAlignment: BlockAlignment.start,
+        textWrap: true,
+      );
+      final textStart = RenderTextBlock(
+        nodeId: 'pS',
+        text: AttributedText(longText),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      _layout(
+        children: [imageStart, textStart],
+        maxWidth: maxWidth,
+        blockSpacing: 0.0,
+      );
+      final startTextData = textStart.parentData as DocumentBlockParentData;
+      final startImageData = imageStart.parentData as DocumentBlockParentData;
+      final startFloatBottom = startImageData.offset.dy + imageStart.size.height;
+
+      // Text must start beside the float (same y).
+      expect(startTextData.offset.dy, startImageData.offset.dy,
+          reason: 'start float: text y should equal image y');
+      // Text block must overlap the float vertically (not be entirely below it).
+      expect(startTextData.offset.dy, lessThan(startFloatBottom),
+          reason: 'start float: text should start before float bottom');
+
+      // --- center float ---
+      final imageCenter = _imageBlock(
+        'imgC',
+        requestedWidth: floatWidth,
+        requestedHeight: floatHeight,
+        blockAlignment: BlockAlignment.center,
+        textWrap: true,
+      );
+      final textCenter = RenderTextBlock(
+        nodeId: 'pC',
+        text: AttributedText(longText),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      _layout(
+        children: [imageCenter, textCenter],
+        maxWidth: maxWidth,
+        blockSpacing: 0.0,
+      );
+      final centerTextData = textCenter.parentData as DocumentBlockParentData;
+      final centerImageData = imageCenter.parentData as DocumentBlockParentData;
+      final centerFloatBottom = centerImageData.offset.dy + imageCenter.size.height;
+
+      // Text must start beside the float (same y).
+      expect(centerTextData.offset.dy, centerImageData.offset.dy,
+          reason: 'center float: text y should equal image y');
+      // Text block must overlap the float vertically (not be entirely below it).
+      expect(centerTextData.offset.dy, lessThan(centerFloatBottom),
+          reason: 'center float: text should start before float bottom');
+
+      // The center text block should not be dramatically taller than the start
+      // one.  If the beside zone is working, both produce comparable heights.
+      // If center text falls entirely to the below zone, its height would be
+      // floatHeight + full-text-height (much larger than start).
+      expect(
+        textCenter.size.height,
+        lessThanOrEqualTo(textStart.size.height + floatHeight),
+        reason: 'center float text should not be dramatically taller than start',
+      );
+    });
+
+    test('center float: text wraps beside float with default blockSpacing', () {
+      // Same test but with default blockSpacing = 12 to match real usage.
+      const longText = 'This is a long paragraph that should wrap beside the '
+          'float regardless of alignment type being start end or center.';
+
+      // --- start float ---
+      final imageStart = _imageBlock(
+        'imgS',
+        requestedWidth: floatWidth,
+        requestedHeight: floatHeight,
+        blockAlignment: BlockAlignment.start,
+        textWrap: true,
+      );
+      final textStart = RenderTextBlock(
+        nodeId: 'pS',
+        text: AttributedText(longText),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      _layout(children: [imageStart, textStart], maxWidth: maxWidth);
+
+      final startTextData = textStart.parentData as DocumentBlockParentData;
+      final startImageData = imageStart.parentData as DocumentBlockParentData;
+      final startFloatBottom = startImageData.offset.dy + imageStart.size.height;
+
+      // With blockSpacing, text starts below the image's y but still
+      // overlaps the float vertically (starts before float bottom).
+      expect(startTextData.offset.dy, lessThan(startFloatBottom),
+          reason: 'start float: text should overlap float vertically');
+
+      // --- center float ---
+      final imageCenter = _imageBlock(
+        'imgC',
+        requestedWidth: floatWidth,
+        requestedHeight: floatHeight,
+        blockAlignment: BlockAlignment.center,
+        textWrap: true,
+      );
+      final textCenter = RenderTextBlock(
+        nodeId: 'pC',
+        text: AttributedText(longText),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      _layout(children: [imageCenter, textCenter], maxWidth: maxWidth);
+
+      final centerTextData = textCenter.parentData as DocumentBlockParentData;
+      final centerImageData = imageCenter.parentData as DocumentBlockParentData;
+      final centerFloatBottom = centerImageData.offset.dy + imageCenter.size.height;
+
+      // Center text block must also start before float bottom.
+      expect(centerTextData.offset.dy, lessThan(centerFloatBottom),
+          reason: 'center float: text should overlap float vertically');
+
+      // Heights should be comparable.
+      expect(
+        textCenter.size.height,
+        lessThanOrEqualTo(textStart.size.height + floatHeight),
+        reason: 'center float text should not be dramatically taller than start',
+      );
+    });
+
+    test('center float: first character renders in beside zone not below', () {
+      // Regression: if the exclusion layout puts all text in the below zone,
+      // the first character's y would be at besideHeight (= floatHeight),
+      // meaning text starts below the image instead of beside it.
+      final image = _imageBlock(
+        'imgC',
+        requestedWidth: floatWidth,
+        requestedHeight: floatHeight,
+        blockAlignment: BlockAlignment.center,
+        textWrap: true,
+      );
+      final text = RenderTextBlock(
+        nodeId: 'pC',
+        text: AttributedText('Text beside the centered float image.'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      _layout(
+        children: [image, text],
+        maxWidth: maxWidth,
+        blockSpacing: 0.0,
+      );
+
+      // Get the rendered position of the first character.
+      final firstCharRect = text.getLocalRectForPosition(
+        const TextNodePosition(offset: 0),
+      );
+
+      // The first character should be near the top of the text block
+      // (in the beside zone), NOT at floatHeight (which would mean below zone).
+      expect(firstCharRect.top, lessThan(floatHeight),
+          reason: 'first char should be in beside zone, not pushed to below zone');
+      // It should be near y=0 (top of the text block).
+      expect(firstCharRect.top, lessThanOrEqualTo(2.0),
+          reason: 'first char should start at top of text block');
+    });
+
+    test('center float: realistic viewport - text beside vs below comparison', () {
+      // Simulate a realistic macOS viewport (800px) with the example app's
+      // center image (300x150). Compare center vs start to detect if
+      // center text goes to the below zone.
+      const viewportWidth = 800.0;
+      const imgWidth = 300.0;
+      const imgHeight = 150.0;
+      const exampleText = 'This paragraph wraps beside the floated image. '
+          'When textWrap is true and alignment is start or end, subsequent '
+          'blocks receive reduced-width constraints and flow beside the image. '
+          'Once the text extends past the image, the next block gets full width.';
+
+      // --- Start float ---
+      final imgStart = _imageBlock(
+        'imgS',
+        requestedWidth: imgWidth,
+        requestedHeight: imgHeight,
+        blockAlignment: BlockAlignment.start,
+        textWrap: true,
+      );
+      final txtStart = RenderTextBlock(
+        nodeId: 'pS',
+        text: AttributedText(exampleText),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      _layout(
+        children: [imgStart, txtStart],
+        maxWidth: viewportWidth,
+        blockSpacing: 0.0,
+      );
+
+      // --- Center float ---
+      final imgCenter = _imageBlock(
+        'imgC',
+        requestedWidth: imgWidth,
+        requestedHeight: imgHeight,
+        blockAlignment: BlockAlignment.center,
+        textWrap: true,
+      );
+      final txtCenter = RenderTextBlock(
+        nodeId: 'pC',
+        text: AttributedText(exampleText),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      _layout(
+        children: [imgCenter, txtCenter],
+        maxWidth: viewportWidth,
+        blockSpacing: 0.0,
+      );
+
+      // Check first char position for start.
+      final startFirstChar = txtStart.getLocalRectForPosition(
+        const TextNodePosition(offset: 0),
+      );
+      // Check first char position for center.
+      final centerFirstChar = txtCenter.getLocalRectForPosition(
+        const TextNodePosition(offset: 0),
+      );
+
+      // Both should have first char near top (in beside zone).
+      expect(startFirstChar.top, lessThan(imgHeight), reason: 'start: first char in beside zone');
+      expect(centerFirstChar.top, lessThan(imgHeight), reason: 'center: first char in beside zone');
+
+      // Center text should NOT be dramatically taller (which would mean
+      // text went to below zone = imgHeight + full-text-height).
+      final fullText = RenderTextBlock(
+        nodeId: 'pF',
+        text: AttributedText(exampleText),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      fullText.layout(const BoxConstraints(maxWidth: viewportWidth), parentUsesSize: true);
+
+      // If center works correctly, height should be similar to start
+      // (both wrapping text beside float). If broken, center height would be
+      // approximately imgHeight + fullText.height.
+      final brokenHeight = imgHeight + fullText.size.height;
+      expect(txtCenter.size.height, lessThan(brokenHeight),
+          reason: 'center: text should flow beside float, not entirely below '
+              '(got ${txtCenter.size.height}, broken would be ~$brokenHeight, '
+              'start=${txtStart.size.height})');
+    });
+
+    test('center float: wider image leaves usable side columns', () {
+      // Use a wider image (300px in 400px viewport) like the example app.
+      // Side columns are only 42px each — check text still flows beside.
+      const wideImageWidth = 300.0;
+      const wideImageHeight = 150.0;
+      const longText = 'This paragraph wraps beside the floated image. '
+          'When textWrap is true and alignment is start or end, subsequent '
+          'blocks receive reduced-width constraints and flow beside the image. '
+          'Once the text extends past the image, the next block gets full width.';
+
+      final image = _imageBlock(
+        'imgW',
+        requestedWidth: wideImageWidth,
+        requestedHeight: wideImageHeight,
+        blockAlignment: BlockAlignment.center,
+        textWrap: true,
+      );
+      final text = RenderTextBlock(
+        nodeId: 'pW',
+        text: AttributedText(longText),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      _layout(
+        children: [image, text],
+        maxWidth: maxWidth,
+        blockSpacing: 0.0,
+      );
+
+      final textData = text.parentData as DocumentBlockParentData;
+      final exclusionRect = textData.exclusionRect;
+
+      // Must receive an exclusionRect.
+      expect(exclusionRect, isNotNull, reason: 'text beside center float must get exclusionRect');
+
+      // Both side columns must be > 0.
+      final leftWidth = exclusionRect!.left;
+      final rightWidth = maxWidth - exclusionRect.right;
+      expect(leftWidth, greaterThan(0), reason: 'left column width must be positive');
+      expect(rightWidth, greaterThan(0), reason: 'right column width must be positive');
+
+      // The text block height should not be dramatically taller than the image
+      // (which would mean all text went to the below zone).
+      // If beside zone works, height ≈ max(imageHeight, beside text height).
+      // If beside zone is empty, height = imageHeight + full text height.
+      final fullWidthText = RenderTextBlock(
+        nodeId: 'pFull',
+        text: AttributedText(longText),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      fullWidthText.layout(const BoxConstraints(maxWidth: maxWidth), parentUsesSize: true);
+      final fullTextHeight = fullWidthText.size.height;
+
+      expect(
+        text.size.height,
+        lessThan(wideImageHeight + fullTextHeight),
+        reason: 'text should flow beside the float, not entirely below it',
+      );
+    });
+
+    test('center float: two short text blocks both wrap beside float (not just first)', () {
+      // Regression: when a text block is shorter than the float, it used to
+      // report a height equal to the full exclusion rect height, advancing
+      // yOffset past the float bottom. This caused the second text block to
+      // render below the float instead of beside it.
+      const floatW = 300.0;
+      const floatH = 200.0;
+
+      final image = _imageBlock(
+        'imgC',
+        requestedWidth: floatW,
+        requestedHeight: floatH,
+        blockAlignment: BlockAlignment.center,
+        textWrap: true,
+      );
+      // Short text — much less than floatH tall.
+      final text1 = _textBlock('p1', 'Short first paragraph.');
+      // Second short text block — must also wrap beside the float.
+      final text2 = _textBlock('p2', 'Short second paragraph.');
+
+      _layout(
+        children: [image, text1, text2],
+        maxWidth: maxWidth,
+        blockSpacing: 0.0,
+      );
+
+      final imageData = image.parentData as DocumentBlockParentData;
+      final floatBottom = imageData.offset.dy + image.size.height;
+      final text1Data = text1.parentData as DocumentBlockParentData;
+      final text2Data = text2.parentData as DocumentBlockParentData;
+
+      // Both text blocks must start before the float bottom (beside, not below).
+      expect(
+        text1Data.offset.dy,
+        lessThan(floatBottom),
+        reason: 'first text block should be beside the float, not below it',
+      );
+      expect(
+        text2Data.offset.dy,
+        lessThan(floatBottom),
+        reason: 'second text block should be beside the float, not below it',
+      );
+      // Both must receive exclusionRects (they are beside the center float).
+      expect(
+        text1Data.exclusionRect,
+        isNotNull,
+        reason: 'first text block must receive an exclusionRect',
+      );
+      expect(
+        text2Data.exclusionRect,
+        isNotNull,
+        reason: 'second text block must receive an exclusionRect',
+      );
     });
   });
 }

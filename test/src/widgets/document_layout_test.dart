@@ -475,6 +475,182 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   });
+
+  // -------------------------------------------------------------------------
+  // Center float text wrapping
+  // -------------------------------------------------------------------------
+
+  group('DocumentLayout — center float text wrapping', () {
+    testWidgets(
+      'center float text wraps beside image with DocumentScrollable',
+      (tester) async {
+        // Test the full stack including DocumentScrollable (which adds
+        // horizontal SingleChildScrollView and viewportWidth scope).
+        final doc = _docWith([
+          ImageNode(
+            id: 'img1',
+            imageUrl: 'https://example.com/img.png',
+            altText: 'Test',
+            width: 200,
+            height: 120,
+            alignment: BlockAlignment.center,
+            textWrap: true,
+          ),
+          ParagraphNode(
+            id: 'p1',
+            text: AttributedText(
+              'This paragraph should wrap beside the float image. '
+              'It contains enough text to span multiple lines easily.',
+            ),
+          ),
+        ]);
+        final controller = _controller(doc);
+        final layoutKey = GlobalKey<DocumentLayoutState>();
+        final focusNode = FocusNode();
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: 600,
+                height: 400,
+                child: DocumentScrollable(
+                  controller: controller,
+                  layoutKey: layoutKey,
+                  child: DocumentLayout(
+                    key: layoutKey,
+                    document: doc,
+                    controller: controller,
+                    componentBuilders: defaultComponentBuilders,
+                    blockSpacing: 0.0,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        final layoutState = layoutKey.currentState!;
+        final textBlock = layoutState.componentForNode('p1') as RenderTextBlock;
+        final textData = textBlock.parentData as DocumentBlockParentData;
+        final imgBlock = layoutState.componentForNode('img1')!;
+
+        // Text block must have an exclusion rect for center float.
+        expect(textData.exclusionRect, isNotNull,
+            reason: 'text should receive exclusionRect from center float');
+
+        // First char must be in beside zone, not below the image.
+        final firstCharRect = textBlock.getLocalRectForPosition(
+          const TextNodePosition(offset: 0),
+        );
+        expect(firstCharRect.top, lessThan(imgBlock.size.height),
+            reason: 'first char at y=${firstCharRect.top} should be in '
+                'beside zone, not below float height=${imgBlock.size.height}');
+
+        focusNode.dispose();
+      },
+    );
+
+    testWidgets(
+      'text wraps beside center float after alignment change from start',
+      (tester) async {
+        // Start with a start-aligned float image + paragraph after it.
+        final doc = _docWith([
+          ImageNode(
+            id: 'img1',
+            imageUrl: 'https://example.com/img.png',
+            altText: 'Test',
+            width: 200,
+            height: 120,
+            alignment: BlockAlignment.start,
+            textWrap: true,
+          ),
+          ParagraphNode(
+            id: 'p1',
+            text: AttributedText(
+              'This paragraph should wrap beside the float image. '
+              'It contains enough text to span multiple lines.',
+            ),
+          ),
+        ]);
+        final controller = _controller(doc);
+        final layoutKey = GlobalKey<DocumentLayoutState>();
+
+        await tester.pumpWidget(
+          _buildLayout(
+            DocumentLayout(
+              key: layoutKey,
+              document: doc,
+              controller: controller,
+              componentBuilders: defaultComponentBuilders,
+              blockSpacing: 0.0,
+            ),
+            width: 600,
+          ),
+        );
+
+        // Get the text block's render object and its position with start float.
+        final layoutState = layoutKey.currentState!;
+        final textBlockStart = layoutState.componentForNode('p1') as RenderTextBlock;
+        final textDataStart = textBlockStart.parentData as DocumentBlockParentData;
+        final imgStart = layoutState.componentForNode('img1')!;
+        final imgDataStart = imgStart.parentData as DocumentBlockParentData;
+
+        // With start float, text starts at same y and is pushed right.
+        expect(textDataStart.offset.dy, imgDataStart.offset.dy,
+            reason: 'start: text should start at same y as float');
+        expect(textDataStart.offset.dx, greaterThan(0),
+            reason: 'start: text should be pushed right');
+
+        // --- Change alignment to center ---
+        final editor = UndoableEditor(
+          editContext: EditContext(document: doc, controller: controller),
+        );
+        editor.submit(ReplaceNodeRequest(
+          nodeId: 'img1',
+          newNode: ImageNode(
+            id: 'img1',
+            imageUrl: 'https://example.com/img.png',
+            altText: 'Test',
+            width: 200,
+            height: 120,
+            alignment: BlockAlignment.center,
+            textWrap: true,
+          ),
+        ));
+        await tester.pump();
+
+        // Re-fetch render objects after rebuild.
+        final textBlockCenter = layoutState.componentForNode('p1') as RenderTextBlock;
+        final textDataCenter = textBlockCenter.parentData as DocumentBlockParentData;
+        final imgCenter = layoutState.componentForNode('img1')!;
+        final imgDataCenter = imgCenter.parentData as DocumentBlockParentData;
+
+        // With center float, text block should still start at same y as float.
+        expect(textDataCenter.offset.dy, imgDataCenter.offset.dy,
+            reason: 'center: text should start at same y as float');
+
+        // Text block should receive an exclusion rect (center float path).
+        expect(textDataCenter.exclusionRect, isNotNull,
+            reason: 'center: text should receive exclusionRect');
+
+        // First character should be in the beside zone (y < floatHeight).
+        final firstCharRect = textBlockCenter.getLocalRectForPosition(
+          const TextNodePosition(offset: 0),
+        );
+        expect(firstCharRect.top, lessThan(imgCenter.size.height),
+            reason: 'center: first char y=${firstCharRect.top} should be '
+                'less than float height=${imgCenter.size.height}');
+
+        // Text block height should not be image height + full text height
+        // (which would mean text went entirely to below zone).
+        final fullWidthTextHeight = textBlockStart.size.height;
+        expect(
+            textBlockCenter.size.height, lessThan(imgCenter.size.height + fullWidthTextHeight + 1),
+            reason: 'center: text block should not be image+fullText tall');
+      },
+    );
+  });
 }
 
 // ---------------------------------------------------------------------------

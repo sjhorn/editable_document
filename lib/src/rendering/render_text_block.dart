@@ -601,8 +601,12 @@ class RenderTextBlock extends RenderDocumentBlock {
       currentIndex = nextIndex;
     }
 
-    // Beside zone height is at least the exclusion rect height.
-    final besideHeight = max(besideAccumHeight, exclusionRect.height);
+    // Beside zone height is the accumulated text height only.  Do NOT pad it
+    // up to exclusionRect.height: doing so would cause the parent layout to
+    // advance yOffset past the float bottom for short text blocks, which
+    // clears the active exclusion and prevents subsequent blocks from wrapping
+    // beside the same float.
+    final besideHeight = besideAccumHeight;
     final besideEndIndex = currentIndex;
 
     // -------------------------------------------------------------------------
