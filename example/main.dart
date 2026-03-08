@@ -440,6 +440,27 @@ class _DocumentDemoState extends State<DocumentDemo> {
         width: 250,
         alignment: BlockAlignment.end,
       ),
+      // Floated code block with text wrapping.
+      CodeBlockNode(
+        id: 'code-float',
+        text: AttributedText(
+          'void main() {\n'
+          '  runApp(MyApp());\n'
+          '}',
+        ),
+        language: 'dart',
+        width: 250,
+        alignment: BlockAlignment.start,
+        textWrap: true,
+      ),
+      ParagraphNode(
+        id: 'code-float-text',
+        text: AttributedText(
+          'This paragraph wraps beside the floated code block. Code blocks '
+          'participate in text wrapping just like images and blockquotes — '
+          'set a width, choose an alignment, and enable text wrap.',
+        ),
+      ),
       // Center-aligned horizontal rule.
       HorizontalRuleNode(
         id: 'rule-center',
