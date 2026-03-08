@@ -333,16 +333,23 @@ class DocumentScrollableState extends State<DocumentScrollable> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final vpWidth = constraints.maxWidth;
-          return SingleChildScrollView(
+          return Scrollbar(
             controller: effectiveScrollController,
-            scrollDirection: widget.scrollDirection,
-            physics: widget.physics,
             child: SingleChildScrollView(
-              controller: _horizontalScrollController,
-              scrollDirection: Axis.horizontal,
-              child: DocumentViewportScope(
-                viewportWidth: vpWidth,
-                child: widget.child,
+              controller: effectiveScrollController,
+              scrollDirection: widget.scrollDirection,
+              physics: widget.physics,
+              child: Scrollbar(
+                controller: _horizontalScrollController,
+                notificationPredicate: (notification) => notification.depth == 0,
+                child: SingleChildScrollView(
+                  controller: _horizontalScrollController,
+                  scrollDirection: Axis.horizontal,
+                  child: DocumentViewportScope(
+                    viewportWidth: vpWidth,
+                    child: widget.child,
+                  ),
+                ),
               ),
             ),
           );
