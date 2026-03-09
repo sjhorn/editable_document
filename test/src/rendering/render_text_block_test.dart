@@ -315,6 +315,154 @@ void main() {
     });
   });
 
+  // ---------------------------------------------------------------------------
+  // getLineBoundary — exclusion zone (center float)
+  // ---------------------------------------------------------------------------
+
+  group('RenderTextBlock getLineBoundary with exclusion zone', () {
+    // Helper that mirrors the one in the exclusion-zone layout group: builds
+    // a RenderDocumentLayout with a center-float image and a text block, then
+    // returns the laid-out text block so that _exclusionLayout is populated.
+    RenderTextBlock _textBlockWithExclusionForLineBoundary({
+      String text = 'The quick brown fox jumps over the lazy dog and '
+          'continues running across the wide open field where many animals '
+          'roam freely beneath the clear blue sky on a warm summer day.',
+      double maxWidth = 400.0,
+      double floatWidth = 100.0,
+      double floatHeight = 80.0,
+    }) {
+      final image = RenderImageBlock(
+        nodeId: 'img1',
+        imageWidth: floatWidth,
+        imageHeight: floatHeight,
+        blockAlignment: BlockAlignment.center,
+        requestedWidth: floatWidth,
+        requestedHeight: floatHeight,
+        textWrap: true,
+      );
+      final textBlock = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText(text),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      final layout = RenderDocumentLayout(blockSpacing: 0.0);
+      layout.add(image);
+      layout.add(textBlock);
+      layout.layout(BoxConstraints(maxWidth: maxWidth), parentUsesSize: true);
+      return textBlock;
+    }
+
+    test('getLineBoundary for offset 0 stays within above or beside zone', () {
+      final block = _textBlockWithExclusionForLineBoundary();
+      final range = block.getLineBoundary(const TextNodePosition(offset: 0));
+
+      // The range must be valid and the start must be 0.
+      expect(range.isValid, isTrue);
+      expect(range.start, 0);
+      // Critically: the range must NOT span the entire text, because with an
+      // exclusion zone the visual boundary is much shorter than the full text.
+      expect(range.end, lessThan(block.text.text.length));
+    });
+
+    test('getLineBoundary does not bleed across exclusion zone boundaries', () {
+      final block = _textBlockWithExclusionForLineBoundary();
+
+      // Get the range for offset 0 (in above zone or first beside-zone line).
+      final range0 = block.getLineBoundary(const TextNodePosition(offset: 0));
+
+      // Query a position at the start of the next visual unit.
+      final nextRange = block.getLineBoundary(TextNodePosition(offset: range0.end));
+
+      // The next range must start where the previous one ended (non-overlapping).
+      expect(nextRange.start, greaterThanOrEqualTo(range0.end));
+    });
+
+    test('getLineBoundary for a beside-zone offset returns column-local range', () {
+      final block = _textBlockWithExclusionForLineBoundary(
+        // Use text that forces above + beside layout so we can probe a
+        // position that is clearly in the beside zone.
+        text: 'AAAA AAAA AAAA AAAA AAAA AAAA AAAA AAAA AAAA AAAA '
+            'BBBB BBBB BBBB BBBB BBBB BBBB BBBB BBBB BBBB BBBB '
+            'CCCC CCCC CCCC CCCC CCCC CCCC CCCC CCCC CCCC CCCC',
+      );
+
+      // Probe various offsets and assert they all return non-spanning ranges.
+      final textLen = block.text.text.length;
+      for (var offset = 0; offset < textLen; offset += 5) {
+        final range = block.getLineBoundary(TextNodePosition(offset: offset));
+        expect(range.isValid, isTrue, reason: 'range at offset $offset must be valid');
+        // The range must not span the entire text (that would mean exclusion
+        // zone was ignored and the full-width painter was used).
+        expect(
+          range.end - range.start,
+          lessThan(textLen),
+          reason: 'range at offset $offset must not span the entire text',
+        );
+      }
+    });
+
+    test('getLineBoundary for below-zone offset returns range within below zone', () {
+      final block = _textBlockWithExclusionForLineBoundary(
+        floatHeight: 40.0,
+        // Long text so there is definitely a below zone.
+        text: 'AAAA AAAA AAAA AAAA AAAA AAAA AAAA AAAA AAAA AAAA '
+            'BBBB BBBB BBBB BBBB BBBB BBBB BBBB BBBB BBBB BBBB '
+            'CCCC CCCC CCCC CCCC CCCC CCCC CCCC CCCC CCCC CCCC '
+            'DDDD DDDD DDDD DDDD DDDD DDDD DDDD DDDD DDDD DDDD',
+      );
+
+      final textLen = block.text.text.length;
+      // Use the last character as a probe that is guaranteed to be in the
+      // below zone (assuming enough text).
+      final lastOffset = textLen - 1;
+      final range = block.getLineBoundary(TextNodePosition(offset: lastOffset));
+
+      expect(range.isValid, isTrue);
+      // The range must contain lastOffset.
+      expect(range.start, lessThanOrEqualTo(lastOffset));
+      expect(range.end, greaterThanOrEqualTo(lastOffset));
+      // And must not span the entire text.
+      expect(range.end - range.start, lessThan(textLen));
+    });
+
+    test('beside-zone line boundary is narrower than full-width line boundary', () {
+      // This test specifically checks that a position in the beside zone returns
+      // a range that matches the NARROW column width, not the FULL-WIDTH painter.
+      //
+      // With maxWidth=400 and floatWidth=200 (center-aligned at 100..300), the
+      // left column is 100px wide and the right column is 100px wide.
+      // At fontSize 16 a 400px-wide painter fits ~20 chars on the first line,
+      // but a 100px-wide painter fits only ~6 chars on the first line.
+      // The returned range for a beside-zone position must match the narrow
+      // column (~6 chars), not the full-width line (~20 chars).
+      const text = 'AAAAAAAAA BBBBBBBBB CCCCCCCCC DDDDDDDDD EEEEEEEEE '
+          'FFFFFFFFF GGGGGGGGG HHHHHHHHH IIIIIIIII JJJJJJJJJ';
+      final block = _textBlockWithExclusionForLineBoundary(
+        text: text,
+        maxWidth: 400.0,
+        floatWidth: 200.0, // large center float; left=100, right=100
+        floatHeight: 120.0,
+      );
+
+      // Query offset 0: this is in the beside zone (the float starts at the
+      // top of the text block since exclusionRect.top == 0 when the image is
+      // laid out directly above without extra spacing).
+      final range0 = block.getLineBoundary(const TextNodePosition(offset: 0));
+      expect(range0.isValid, isTrue);
+
+      // At 400px width the full-width painter gives end=20 for line 0.
+      // At 100px column width the painter gives end≤10.
+      // We assert the returned range is shorter than what the full-width
+      // painter would return (20), proving the exclusion zone was consulted.
+      expect(
+        range0.end - range0.start,
+        lessThan(20),
+        reason: 'Line boundary for a 100 px beside-zone column must be shorter than '
+            'what the full-width (400 px) painter returns (~20 chars).',
+      );
+    });
+  });
+
   group('RenderTextBlock baseline computation', () {
     // getDryBaseline is callable without an active PipelineOwner, making
     // these tests straightforward unit tests.

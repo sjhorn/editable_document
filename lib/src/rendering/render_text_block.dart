@@ -1032,11 +1032,74 @@ class RenderTextBlock extends RenderDocumentBlock {
 
   /// Returns the [TextRange] spanning the visual line that contains [position].
   ///
-  /// Delegates to [TextPainter.getLineBoundary] which uses the laid-out text
-  /// metrics, so this render object must be laid out before calling this
-  /// method.
+  /// When an exclusion zone is active, the text is laid out in three zones
+  /// (above, beside, below).  Each zone uses its own [TextPainter] with a
+  /// different width, so the visual line boundaries differ from those of the
+  /// full-width [_textPainter].  This method consults the active
+  /// [_ExclusionLayout] to return the correct visual boundary for the zone
+  /// that contains [position.offset]:
+  ///
+  /// - **Above zone** — delegates to `abovePainter.getLineBoundary` with a
+  ///   local offset, then shifts the result to global indices.
+  /// - **Beside zone** — returns the column's start/end index range directly
+  ///   from the [_LinePair] (no painter query needed because each column
+  ///   already stores its exact character range).
+  /// - **Below zone** — delegates to `belowPainter.getLineBoundary` with a
+  ///   local offset, then shifts the result to global indices.
+  ///
+  /// Falls back to `_textPainter.getLineBoundary` when no exclusion zone is
+  /// active or when the offset does not fall into any known zone.
   TextRange getLineBoundary(TextNodePosition position) {
-    final tp = TextPosition(offset: position.offset, affinity: position.affinity);
+    final offset = position.offset;
+    final excl = _exclusionLayout;
+
+    if (excl != null) {
+      // ------------------------------------------------------------------
+      // Above zone: [0, aboveEndIndex)
+      // ------------------------------------------------------------------
+      if (excl.abovePainter != null && offset < excl.aboveEndIndex) {
+        final localPos = TextPosition(offset: offset, affinity: position.affinity);
+        final localRange = excl.abovePainter!.getLineBoundary(localPos);
+        // The above painter covers [0, aboveEndIndex) with local indices that
+        // equal global indices (the painter starts from char 0).
+        return localRange;
+      }
+
+      // ------------------------------------------------------------------
+      // Beside zone: check each _LinePair
+      // ------------------------------------------------------------------
+      for (final line in excl.lines) {
+        // Left column: [leftStartIndex, leftEndIndex)
+        if (line.leftStartIndex < line.leftEndIndex &&
+            offset >= line.leftStartIndex &&
+            offset < line.leftEndIndex) {
+          return TextRange(start: line.leftStartIndex, end: line.leftEndIndex);
+        }
+        // Right column: [rightStartIndex, rightEndIndex)
+        if (line.rightStartIndex < line.rightEndIndex &&
+            offset >= line.rightStartIndex &&
+            offset < line.rightEndIndex) {
+          return TextRange(start: line.rightStartIndex, end: line.rightEndIndex);
+        }
+      }
+
+      // ------------------------------------------------------------------
+      // Below zone: [besideEndIndex, textLength)
+      // ------------------------------------------------------------------
+      if (excl.belowPainter != null && offset >= excl.besideEndIndex) {
+        final localOffset = offset - excl.besideEndIndex;
+        final localPos = TextPosition(offset: localOffset, affinity: position.affinity);
+        final localRange = excl.belowPainter!.getLineBoundary(localPos);
+        // Shift local indices back to global indices.
+        return TextRange(
+          start: localRange.start + excl.besideEndIndex,
+          end: localRange.end + excl.besideEndIndex,
+        );
+      }
+    }
+
+    // Fallback: no exclusion zone, or offset didn't match any zone.
+    final tp = TextPosition(offset: offset, affinity: position.affinity);
     return _textPainter.getLineBoundary(tp);
   }
 
