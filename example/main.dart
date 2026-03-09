@@ -1841,39 +1841,37 @@ class _DocumentDemoState extends State<DocumentDemo> {
     return DocumentScrollable(
       controller: _controller,
       layoutKey: _layoutKey,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: DocumentMouseInteractor(
-          controller: _controller,
-          layoutKey: _layoutKey,
-          document: _document,
-          focusNode: _focusNode,
-          onSecondaryTapDown: _showContextMenu,
-          child: Stack(
-            children: [
-              DocumentSelectionOverlay(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: DocumentMouseInteractor(
+        controller: _controller,
+        layoutKey: _layoutKey,
+        document: _document,
+        focusNode: _focusNode,
+        onSecondaryTapDown: _showContextMenu,
+        child: Stack(
+          children: [
+            DocumentSelectionOverlay(
+              controller: _controller,
+              layoutKey: _layoutKey,
+              startHandleLayerLink: _startHandleLayerLink,
+              endHandleLayerLink: _endHandleLayerLink,
+              showCaret: false,
+              child: EditableDocument(
+                controller: _controller,
+                focusNode: _focusNode,
+                layoutKey: _layoutKey,
+                autofocus: true,
+                editor: _editor,
+                blockSpacing: _blockSpacing,
+              ),
+            ),
+            Positioned.fill(
+              child: CaretDocumentOverlay(
                 controller: _controller,
                 layoutKey: _layoutKey,
-                startHandleLayerLink: _startHandleLayerLink,
-                endHandleLayerLink: _endHandleLayerLink,
-                showCaret: false,
-                child: EditableDocument(
-                  controller: _controller,
-                  focusNode: _focusNode,
-                  layoutKey: _layoutKey,
-                  autofocus: true,
-                  editor: _editor,
-                  blockSpacing: _blockSpacing,
-                ),
               ),
-              Positioned.fill(
-                child: CaretDocumentOverlay(
-                  controller: _controller,
-                  layoutKey: _layoutKey,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
