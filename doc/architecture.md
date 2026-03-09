@@ -84,7 +84,15 @@ DocumentNode (abstract, Diagnosticable)
   |     +-- CodeBlockNode          # language (optional)
   |
   +-- ImageNode                    # imageUrl, altText, width, height
+  +-- BlockquoteNode               # text (AttributedText), layout properties
   +-- HorizontalRuleNode           # no additional fields
+
+HasBlockLayout (abstract interface class)   # lib/src/model/block_layout.dart
+  |-- alignment: BlockAlignment
+  |-- textWrap: bool
+  |-- width: double?
+  |-- height: double?
+  # implemented by: ImageNode, CodeBlockNode, BlockquoteNode, HorizontalRuleNode
 
 AttributedText                     # immutable: text (String) + List<SpanMarker>
   |
@@ -172,7 +180,17 @@ RenderDocumentBlock (abstract RenderBox)
   |     +-- RenderCodeBlock        # monospace font, background fill
   |
   +-- RenderImageBlock             # placeholder box with aspect ratio
+  +-- RenderBlockquoteBlock        # quoted text with left border
   +-- RenderHorizontalRuleBlock    # fixed-height hairline rule
+
+BlockLayoutMixin (mixin on RenderDocumentBlock)  # lib/src/rendering/block_layout_mixin.dart
+  |-- blockAlignment: BlockAlignment  (storage + setter)
+  |-- requestedWidth: double?         (storage + setter)
+  |-- requestedHeight: double?        (storage + setter)
+  |-- textWrap: bool                  (storage + setter)
+  |-- initBlockLayout(...)            (constructor helper, no markNeedsLayout)
+  |-- debugFillBlockLayoutProperties  (diagnostic helper)
+  # used by: RenderImageBlock, RenderCodeBlock, RenderBlockquoteBlock, RenderHorizontalRuleBlock
 
 RenderDocumentLayout extends RenderBox
     with ContainerRenderObjectMixin<RenderDocumentBlock, DocumentBlockParentData>
@@ -244,9 +262,19 @@ ComponentViewModel (abstract)
   |-- nodeId, nodeSelection, isSelected
   +-- ParagraphComponentViewModel   # text, blockType, textStyle
   +-- ListItemComponentViewModel    # text, type, indent, ordinalIndex, textStyle
-  +-- ImageComponentViewModel       # imageUrl, altText, imageWidth, imageHeight
-  +-- CodeBlockComponentViewModel   # text, textStyle, language
-  +-- HorizontalRuleComponentViewModel
+  +-- ImageComponentViewModel       # imageUrl, altText, imageWidth, imageHeight  implements HasLayoutFields
+  +-- CodeBlockComponentViewModel   # text, textStyle, language                  implements HasLayoutFields
+  +-- BlockquoteComponentViewModel  # text, textStyle                            implements HasLayoutFields
+  +-- HorizontalRuleComponentViewModel                                           # implements HasLayoutFields
+
+HasLayoutFields (abstract interface class)   # in lib/src/widgets/component_builder.dart
+  |-- blockAlignment: BlockAlignment
+  |-- requestedWidth: double?
+  |-- requestedHeight: double?
+  |-- textWrap: bool
+  # implemented by: ImageComponentViewModel, CodeBlockComponentViewModel,
+  #   BlockquoteComponentViewModel, HorizontalRuleComponentViewModel
+  # enables shared _updateBlockLayout(BlockLayoutMixin, HasLayoutFields) helper
 
 ComponentContext                    # document, selection, stylesheet
 ComponentBuilder (abstract)

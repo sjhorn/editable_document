@@ -342,9 +342,14 @@ DocumentNode (abstract)
   +-- TextNode (abstract)        # adds AttributedText text field
   |     +-- ParagraphNode        # blockType: body / h1–h3 / blockquote
   |     +-- ListItemNode         # type: ordered | unordered; indent; ordinalIndex
-  |     +-- CodeBlockNode        # language (optional)
-  +-- ImageNode                  # imageUrl, altText, width, height
-  +-- HorizontalRuleNode         # no additional fields
+  |     +-- CodeBlockNode        # language (optional)              implements HasBlockLayout
+  +-- ImageNode                  # imageUrl, altText, width, height  implements HasBlockLayout
+  +-- BlockquoteNode             # text (AttributedText)             implements HasBlockLayout
+  +-- HorizontalRuleNode         # no additional fields              implements HasBlockLayout
+
+HasBlockLayout (abstract interface class)   # lib/src/model/block_layout.dart
+  # alignment: BlockAlignment, textWrap: bool, width: double?, height: double?
+  # uniform polymorphic access to container-block layout properties
 ```
 
 All `DocumentNode` subclasses are immutable. Mutations produce new instances
@@ -460,9 +465,15 @@ text layout. Specialized subclasses:
 |-------|-----------|-----------------|
 | `RenderParagraphBlock` | `ParagraphNode` | Scales font for h1/h2/h3 |
 | `RenderListItemBlock` | `ListItemNode` | Bullet/number gutter + indentation |
-| `RenderCodeBlock` | `CodeBlockNode` | Monospace font, background fill |
-| `RenderImageBlock` | `ImageNode` | Placeholder with aspect ratio |
-| `RenderHorizontalRuleBlock` | `HorizontalRuleNode` | Fixed-height hairline |
+| `RenderCodeBlock` | `CodeBlockNode` | Monospace font, background fill; uses `BlockLayoutMixin` |
+| `RenderImageBlock` | `ImageNode` | Placeholder with aspect ratio; uses `BlockLayoutMixin` |
+| `RenderBlockquoteBlock` | `BlockquoteNode` | Quoted text with left border; uses `BlockLayoutMixin` |
+| `RenderHorizontalRuleBlock` | `HorizontalRuleNode` | Fixed-height hairline; uses `BlockLayoutMixin` |
+
+`BlockLayoutMixin` (`mixin on RenderDocumentBlock`, `lib/src/rendering/block_layout_mixin.dart`)
+provides the four shared fields — `blockAlignment`, `requestedWidth`, `requestedHeight`,
+`textWrap` — with lazy setters that call `markNeedsLayout` only on value change, eliminating
+duplicated boilerplate across the four container render objects.
 
 #### RenderDocumentLayout
 
@@ -622,9 +633,19 @@ defaultComponentBuilders = [
   ListItemComponentBuilder,      // ListItemNode
   ImageComponentBuilder,         // ImageNode
   CodeBlockComponentBuilder,     // CodeBlockNode
+  BlockquoteComponentBuilder,    // BlockquoteNode
   HorizontalRuleComponentBuilder,// HorizontalRuleNode
 ]
 ```
+
+`HasLayoutFields` (`abstract interface class`, `lib/src/widgets/component_builder.dart`)
+is implemented by `ImageComponentViewModel`, `CodeBlockComponentViewModel`,
+`BlockquoteComponentViewModel`, and `HorizontalRuleComponentViewModel`. It
+declares the four block layout fields (`blockAlignment`, `requestedWidth`,
+`requestedHeight`, `textWrap`) so that a single private `_updateBlockLayout`
+helper can wire any `HasLayoutFields` view model to any `BlockLayoutMixin`
+render object inside `updateRenderObject`, rather than duplicating the same
+four property assignments across four widget classes.
 
 Prepend custom builders to override specific node types:
 

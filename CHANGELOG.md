@@ -1,5 +1,13 @@
 ## 0.8.0-dev (Phases 9-10)
 
+### Block layout property deduplication
+- `HasBlockLayout` interface (model) for polymorphic access to container block
+  layout properties (alignment, textWrap, width, height).
+- `BlockLayoutMixin` (rendering) eliminates duplicated field/setter boilerplate
+  across 4 container render objects.
+- `HasLayoutFields` interface (widgets) with shared `_updateBlockLayout` helper
+  for view model → render object property wiring.
+
 ### Performance benchmarks (Phase 9)
 - Micro-benchmarks for document model operations (`insertNode`, `deleteNode`,
   `AttributedText.applyAttribution`) at various document sizes.
