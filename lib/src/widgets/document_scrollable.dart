@@ -50,7 +50,7 @@ class DocumentScrollable extends StatefulWidget {
   ///
   /// [controller] and [layoutKey] are required. [child] is the document
   /// content to scroll. [scrollController], [scrollPadding], [scrollDirection],
-  /// and [physics] are optional with sensible defaults.
+  /// [physics], and [contentPadding] are optional with sensible defaults.
   const DocumentScrollable({
     super.key,
     required this.controller,
@@ -60,6 +60,7 @@ class DocumentScrollable extends StatefulWidget {
     this.scrollPadding = const EdgeInsets.all(20.0),
     this.scrollDirection = Axis.vertical,
     this.physics,
+    this.contentPadding = EdgeInsets.zero,
   });
 
   /// The document editing controller whose selection changes trigger
@@ -105,6 +106,17 @@ class DocumentScrollable extends StatefulWidget {
   /// When `null`, platform-default physics are used.
   final ScrollPhysics? physics;
 
+  /// Padding applied inside the scroll area around [child].
+  ///
+  /// When non-zero, the padding is subtracted from the raw viewport width
+  /// before it is stored in [DocumentViewportScope.viewportWidth]. This
+  /// prevents the inner content from being reported as wider than the visible
+  /// area, which would otherwise cause an unwanted permanent horizontal
+  /// scrollbar.
+  ///
+  /// Defaults to [EdgeInsets.zero].
+  final EdgeInsets contentPadding;
+
   /// Returns `true` when a [DocumentScrollable] ancestor is present in the
   /// widget tree above [context].
   ///
@@ -134,6 +146,10 @@ class DocumentScrollable extends StatefulWidget {
     properties.add(EnumProperty<Axis>('scrollDirection', scrollDirection));
     properties.add(
       DiagnosticsProperty<ScrollPhysics?>('physics', physics, defaultValue: null),
+    );
+    properties.add(
+      DiagnosticsProperty<EdgeInsets>('contentPadding', contentPadding,
+          defaultValue: EdgeInsets.zero),
     );
   }
 }
@@ -333,6 +349,10 @@ class DocumentScrollableState extends State<DocumentScrollable> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final vpWidth = constraints.maxWidth;
+          final contentWidth = vpWidth - widget.contentPadding.horizontal;
+          final innerChild = widget.contentPadding == EdgeInsets.zero
+              ? widget.child
+              : Padding(padding: widget.contentPadding, child: widget.child);
           return Scrollbar(
             controller: effectiveScrollController,
             child: SingleChildScrollView(
@@ -346,8 +366,8 @@ class DocumentScrollableState extends State<DocumentScrollable> {
                   controller: _horizontalScrollController,
                   scrollDirection: Axis.horizontal,
                   child: DocumentViewportScope(
-                    viewportWidth: vpWidth,
-                    child: widget.child,
+                    viewportWidth: contentWidth,
+                    child: innerChild,
                   ),
                 ),
               ),

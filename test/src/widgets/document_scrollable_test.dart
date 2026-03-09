@@ -791,6 +791,159 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
+  // contentPadding
+  // -------------------------------------------------------------------------
+
+  group('DocumentScrollable — contentPadding', () {
+    testWidgets('defaults to EdgeInsets.zero', (tester) async {
+      final doc = _makeDocument();
+      final controller = _makeController(doc);
+      addTearDown(controller.dispose);
+
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+
+      await tester.pumpWidget(
+        _wrap(
+          DocumentScrollable(
+            controller: controller,
+            layoutKey: layoutKey,
+            child: DocumentLayout(
+              key: layoutKey,
+              document: doc,
+              controller: controller,
+              componentBuilders: defaultComponentBuilders,
+            ),
+          ),
+        ),
+      );
+
+      final scrollable = tester.widget<DocumentScrollable>(
+        find.byType(DocumentScrollable),
+      );
+      expect(scrollable.contentPadding, EdgeInsets.zero);
+    });
+
+    testWidgets('DocumentViewportScope receives vpWidth minus contentPadding.horizontal',
+        (tester) async {
+      final doc = _makeDocument();
+      final controller = _makeController(doc);
+      addTearDown(controller.dispose);
+
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+      const hPad = 16.0;
+      const viewportWidth = 600.0;
+
+      await tester.pumpWidget(
+        _wrap(
+          DocumentScrollable(
+            controller: controller,
+            layoutKey: layoutKey,
+            contentPadding: const EdgeInsets.symmetric(horizontal: hPad),
+            child: DocumentLayout(
+              key: layoutKey,
+              document: doc,
+              controller: controller,
+              componentBuilders: defaultComponentBuilders,
+            ),
+          ),
+          width: viewportWidth,
+        ),
+      );
+
+      // Find the DocumentViewportScope widget and read its viewportWidth.
+      final scopeWidget = tester.widget<DocumentViewportScope>(
+        find.byType(DocumentViewportScope),
+      );
+      // The scope should use viewportWidth - horizontal padding (16 * 2 = 32).
+      expect(scopeWidget.viewportWidth, viewportWidth - hPad * 2);
+    });
+
+    testWidgets('Padding widget appears in tree when contentPadding is non-zero', (tester) async {
+      final doc = _makeDocument();
+      final controller = _makeController(doc);
+      addTearDown(controller.dispose);
+
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+
+      await tester.pumpWidget(
+        _wrap(
+          DocumentScrollable(
+            controller: controller,
+            layoutKey: layoutKey,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+            child: DocumentLayout(
+              key: layoutKey,
+              document: doc,
+              controller: controller,
+              componentBuilders: defaultComponentBuilders,
+            ),
+          ),
+        ),
+      );
+
+      // A Padding widget should be present inside DocumentScrollable.
+      expect(find.byType(Padding), findsWidgets);
+    });
+
+    testWidgets('no extra Padding widget when contentPadding is EdgeInsets.zero', (tester) async {
+      final doc = _makeDocument();
+      final controller = _makeController(doc);
+      addTearDown(controller.dispose);
+
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+
+      await tester.pumpWidget(
+        _wrap(
+          DocumentScrollable(
+            controller: controller,
+            layoutKey: layoutKey,
+            // Default contentPadding: EdgeInsets.zero
+            child: DocumentLayout(
+              key: layoutKey,
+              document: doc,
+              controller: controller,
+              componentBuilders: defaultComponentBuilders,
+            ),
+          ),
+        ),
+      );
+
+      // No Padding widget should appear when contentPadding is zero.
+      expect(find.byType(Padding), findsNothing);
+    });
+
+    testWidgets('contentPadding is included in debugFillProperties', (tester) async {
+      final doc = _makeDocument();
+      final controller = _makeController(doc);
+      addTearDown(controller.dispose);
+
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+      const padding = EdgeInsets.symmetric(horizontal: 24);
+
+      await tester.pumpWidget(
+        _wrap(
+          DocumentScrollable(
+            controller: controller,
+            layoutKey: layoutKey,
+            contentPadding: padding,
+            child: DocumentLayout(
+              key: layoutKey,
+              document: doc,
+              controller: controller,
+              componentBuilders: defaultComponentBuilders,
+            ),
+          ),
+        ),
+      );
+
+      final element = tester.element(find.byType(DocumentScrollable));
+      final diagnostics = element.widget.toDiagnosticsNode().getProperties();
+      final names = diagnostics.map((d) => d.name).toList();
+      expect(names, contains('contentPadding'));
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // debugFillProperties
   // -------------------------------------------------------------------------
 
