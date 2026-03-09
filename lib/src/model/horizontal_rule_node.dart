@@ -7,6 +7,7 @@ library;
 import 'package:flutter/foundation.dart';
 
 import 'block_alignment.dart';
+import 'block_layout.dart';
 import 'document_node.dart';
 
 /// A [DocumentNode] representing a horizontal rule (thematic break).
@@ -36,7 +37,7 @@ import 'document_node.dart';
 ///   textWrap: false,
 /// );
 /// ```
-class HorizontalRuleNode extends DocumentNode {
+class HorizontalRuleNode extends DocumentNode implements HasBlockLayout {
   /// Creates a [HorizontalRuleNode] with the given [id], optional [metadata],
   /// optional [alignment], optional [width], optional [height], and optional
   /// [textWrap].

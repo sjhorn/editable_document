@@ -1444,11 +1444,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
   // ---------------------------------------------------------------------------
 
   /// Returns true if [node] is a container block that supports layout properties.
-  bool _isContainerBlock(DocumentNode? node) =>
-      node is ImageNode ||
-      node is CodeBlockNode ||
-      node is BlockquoteNode ||
-      node is HorizontalRuleNode;
+  bool _isContainerBlock(DocumentNode? node) => node is HasBlockLayout;
 
   /// Dismisses the floating property panel.
   void _dismissPropertyPanel() {
@@ -1459,42 +1455,34 @@ class _DocumentDemoState extends State<DocumentDemo> {
   }
 
   /// Returns true if [node] supports width/height/textWrap properties.
-  bool _hasSizingProperties(DocumentNode? node) =>
-      node is ImageNode ||
-      node is CodeBlockNode ||
-      node is BlockquoteNode ||
-      node is HorizontalRuleNode;
+  bool _hasSizingProperties(DocumentNode? node) => node is HasBlockLayout;
 
   BlockAlignment _getBlockAlignment(DocumentNode node) {
-    if (node is ImageNode) return node.alignment;
-    if (node is CodeBlockNode) return node.alignment;
-    if (node is BlockquoteNode) return node.alignment;
-    if (node is HorizontalRuleNode) return node.alignment;
-    return BlockAlignment.stretch;
+    return switch (node) {
+      HasBlockLayout(:final alignment) => alignment,
+      _ => BlockAlignment.stretch,
+    };
   }
 
   bool _getTextWrap(DocumentNode node) {
-    if (node is ImageNode) return node.textWrap;
-    if (node is CodeBlockNode) return node.textWrap;
-    if (node is BlockquoteNode) return node.textWrap;
-    if (node is HorizontalRuleNode) return node.textWrap;
-    return false;
+    return switch (node) {
+      HasBlockLayout(:final textWrap) => textWrap,
+      _ => false,
+    };
   }
 
   double? _getWidth(DocumentNode node) {
-    if (node is ImageNode) return node.width;
-    if (node is CodeBlockNode) return node.width;
-    if (node is BlockquoteNode) return node.width;
-    if (node is HorizontalRuleNode) return node.width;
-    return null;
+    return switch (node) {
+      HasBlockLayout(:final width) => width,
+      _ => null,
+    };
   }
 
   double? _getHeight(DocumentNode node) {
-    if (node is ImageNode) return node.height;
-    if (node is CodeBlockNode) return node.height;
-    if (node is BlockquoteNode) return node.height;
-    if (node is HorizontalRuleNode) return node.height;
-    return null;
+    return switch (node) {
+      HasBlockLayout(:final height) => height,
+      _ => null,
+    };
   }
 
   void _updateBlockAlignment(DocumentNode node, BlockAlignment alignment) {

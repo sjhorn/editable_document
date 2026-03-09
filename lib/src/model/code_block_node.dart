@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 
 import 'attributed_text.dart';
 import 'block_alignment.dart';
+import 'block_layout.dart';
 import 'text_node.dart';
 
 /// A [TextNode] representing a fenced code block.
@@ -31,7 +32,7 @@ import 'text_node.dart';
 ///   alignment: BlockAlignment.center,
 /// );
 /// ```
-class CodeBlockNode extends TextNode {
+class CodeBlockNode extends TextNode implements HasBlockLayout {
   /// Creates a [CodeBlockNode] with optional [text], [language], sizing, and
   /// layout fields.
   ///

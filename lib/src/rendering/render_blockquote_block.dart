@@ -8,6 +8,7 @@ import 'package:flutter/rendering.dart';
 
 import '../model/block_alignment.dart';
 import '../model/node_position.dart';
+import 'block_layout_mixin.dart';
 import 'render_text_block.dart';
 
 /// Width of the left accent border in logical pixels.
@@ -43,7 +44,7 @@ const double _kBorderInset = _kBorderWidth + _kBorderPadding;
 ///   borderColor: const Color(0xFF2196F3),
 /// );
 /// ```
-class RenderBlockquoteBlock extends RenderTextBlock {
+class RenderBlockquoteBlock extends RenderTextBlock with BlockLayoutMixin {
   /// Creates a [RenderBlockquoteBlock].
   ///
   /// [nodeId] must match the corresponding [DocumentNode.id].
@@ -72,21 +73,20 @@ class RenderBlockquoteBlock extends RenderTextBlock {
     double? requestedWidth,
     double? requestedHeight,
     bool textWrap = false,
-  })  : _borderColor = borderColor,
-        _blockAlignment = blockAlignment,
-        _requestedWidth = requestedWidth,
-        _requestedHeight = requestedHeight,
-        _textWrap = textWrap;
+  }) : _borderColor = borderColor {
+    initBlockLayout(
+      blockAlignment: blockAlignment,
+      requestedWidth: requestedWidth,
+      requestedHeight: requestedHeight,
+      textWrap: textWrap,
+    );
+  }
 
   // ---------------------------------------------------------------------------
   // Private state
   // ---------------------------------------------------------------------------
 
   Color _borderColor;
-  BlockAlignment _blockAlignment;
-  double? _requestedWidth;
-  double? _requestedHeight;
-  bool _textWrap;
 
   // ---------------------------------------------------------------------------
   // Public properties — described in debugFillProperties below.
@@ -106,84 +106,20 @@ class RenderBlockquoteBlock extends RenderTextBlock {
     markNeedsPaint();
   }
 
-  /// The horizontal alignment of this block within the layout.
-  ///
-  /// Defaults to [BlockAlignment.stretch].  Changing this value schedules a
-  /// layout pass so the parent can reposition the block.
-  // ignore: diagnostic_describe_all_properties
-  @override
-  BlockAlignment get blockAlignment => _blockAlignment;
-
-  /// Sets the block alignment and schedules a layout pass.
-  set blockAlignment(BlockAlignment value) {
-    if (_blockAlignment == value) return;
-    _blockAlignment = value;
-    markNeedsLayout();
-  }
-
-  /// The requested width of this block in logical pixels, or `null`.
-  ///
-  /// When non-null, [performLayout] uses this as the block width (clamped to
-  /// the available constraints) and derives the text max-width as
-  /// `requestedWidth - _kBorderInset`.  When `null`, the full
-  /// `constraints.maxWidth` is used.
-  // ignore: diagnostic_describe_all_properties
-  @override
-  double? get requestedWidth => _requestedWidth;
-
-  /// Sets the requested width and schedules a layout pass.
-  set requestedWidth(double? value) {
-    if (_requestedWidth == value) return;
-    _requestedWidth = value;
-    markNeedsLayout();
-  }
-
-  /// The requested height of this block in logical pixels, or `null`.
-  ///
-  /// When non-null, [performLayout] uses this value as the block height
-  /// instead of the intrinsic text height.  When `null`, the height is
-  /// determined by the laid-out text.
-  // ignore: diagnostic_describe_all_properties
-  @override
-  double? get requestedHeight => _requestedHeight;
-
-  /// Sets the requested height and schedules a layout pass.
-  set requestedHeight(double? value) {
-    if (_requestedHeight == value) return;
-    _requestedHeight = value;
-    markNeedsLayout();
-  }
-
-  /// Whether subsequent blocks should wrap around this block.
-  ///
-  /// When `true` and [blockAlignment] is [BlockAlignment.start] or
-  /// [BlockAlignment.end], the document layout creates an exclusion zone so
-  /// adjacent blocks receive reduced-width constraints.
-  // ignore: diagnostic_describe_all_properties
-  @override
-  bool get textWrap => _textWrap;
-
-  /// Sets the text-wrap flag and schedules a layout pass.
-  set textWrap(bool value) {
-    if (_textWrap == value) return;
-    _textWrap = value;
-    markNeedsLayout();
-  }
-
   // ---------------------------------------------------------------------------
   // Layout
   // ---------------------------------------------------------------------------
 
   @override
   void performLayout() {
-    final availableWidth = _requestedWidth != null
-        ? _requestedWidth!.clamp(0.0, constraints.maxWidth)
+    final availableWidth = requestedWidth != null
+        ? requestedWidth!.clamp(0.0, constraints.maxWidth)
         : constraints.maxWidth;
     final textMaxWidth = (availableWidth - _kBorderInset).clamp(0.0, double.infinity);
     final excl = exclusionRectForLayout(horizontalInset: _kBorderInset);
     layoutText(textMaxWidth, exclusionRect: excl);
-    final blockWidth = _requestedWidth != null ? availableWidth : constraints.maxWidth;
-    final blockHeight = _requestedHeight ?? layoutTextHeight;
+    final blockWidth = requestedWidth != null ? availableWidth : constraints.maxWidth;
+    final blockHeight = requestedHeight ?? layoutTextHeight;
     size = Size(blockWidth, blockHeight);
   }
 
@@ -247,13 +183,6 @@ class RenderBlockquoteBlock extends RenderTextBlock {
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
     properties.add(ColorProperty('borderColor', _borderColor));
-    properties.add(EnumProperty<BlockAlignment>(
-      'blockAlignment',
-      _blockAlignment,
-      defaultValue: BlockAlignment.stretch,
-    ));
-    properties.add(DoubleProperty('requestedWidth', _requestedWidth, defaultValue: null));
-    properties.add(DoubleProperty('requestedHeight', _requestedHeight, defaultValue: null));
-    properties.add(FlagProperty('textWrap', value: _textWrap, ifTrue: 'textWrap'));
+    debugFillBlockLayoutProperties(properties);
   }
 }

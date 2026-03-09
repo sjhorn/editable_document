@@ -7,6 +7,7 @@ library;
 import 'package:flutter/foundation.dart';
 
 import 'block_alignment.dart';
+import 'block_layout.dart';
 import 'document_node.dart';
 
 /// A [DocumentNode] representing a block-level image.
@@ -31,7 +32,7 @@ import 'document_node.dart';
 ///   textWrap: false,
 /// );
 /// ```
-class ImageNode extends DocumentNode {
+class ImageNode extends DocumentNode implements HasBlockLayout {
   /// Creates an [ImageNode] with a required [imageUrl] and optional fields.
   ///
   /// [alignment] defaults to [BlockAlignment.stretch] (full-width).

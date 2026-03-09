@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 
 import 'attributed_text.dart';
 import 'block_alignment.dart';
+import 'block_layout.dart';
 import 'text_node.dart';
 
 /// A [TextNode] representing a blockquote.
@@ -28,7 +29,7 @@ import 'text_node.dart';
 ///   alignment: BlockAlignment.center,
 /// );
 /// ```
-class BlockquoteNode extends TextNode {
+class BlockquoteNode extends TextNode implements HasBlockLayout {
   /// Creates a [BlockquoteNode] with optional layout properties.
   ///
   /// [alignment] defaults to [BlockAlignment.stretch].

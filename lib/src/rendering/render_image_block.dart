@@ -13,6 +13,7 @@ import 'package:flutter/rendering.dart';
 import '../model/block_alignment.dart';
 import '../model/document_selection.dart';
 import '../model/node_position.dart';
+import 'block_layout_mixin.dart';
 import 'render_document_block.dart';
 
 /// Default aspect ratio used when no [imageWidth]/[imageHeight] is known and
@@ -68,7 +69,7 @@ const double _kCaretInset = 2.0;
 /// default label `'Image'` when [altText] is `null`. The node is also marked
 /// [SemanticsConfiguration.isImage] so assistive technologies recognise it as
 /// an image element.
-class RenderImageBlock extends RenderDocumentBlock {
+class RenderImageBlock extends RenderDocumentBlock with BlockLayoutMixin {
   /// Creates a [RenderImageBlock].
   ///
   /// [imageWidth] and [imageHeight] are the intrinsic dimensions of the image
@@ -105,11 +106,14 @@ class RenderImageBlock extends RenderDocumentBlock {
         _imageHeight = imageHeight,
         _image = image,
         _placeholderColor = placeholderColor,
-        _altText = altText,
-        _blockAlignment = blockAlignment,
-        _requestedWidth = requestedWidth,
-        _requestedHeight = requestedHeight,
-        _textWrap = textWrap;
+        _altText = altText {
+    initBlockLayout(
+      blockAlignment: blockAlignment,
+      requestedWidth: requestedWidth,
+      requestedHeight: requestedHeight,
+      textWrap: textWrap,
+    );
+  }
 
   // ---------------------------------------------------------------------------
   // Private state
@@ -122,10 +126,6 @@ class RenderImageBlock extends RenderDocumentBlock {
   Color _placeholderColor;
   String? _altText;
   DocumentSelection? _nodeSelection;
-  BlockAlignment _blockAlignment;
-  double? _requestedWidth;
-  double? _requestedHeight;
-  bool _textWrap;
 
   // ---------------------------------------------------------------------------
   // RenderDocumentBlock — nodeId
@@ -239,70 +239,6 @@ class RenderImageBlock extends RenderDocumentBlock {
     markNeedsSemanticsUpdate();
   }
 
-  /// The horizontal alignment of this block within the layout.
-  ///
-  /// Defaults to [BlockAlignment.stretch].  Changing this value schedules a
-  /// layout pass so the parent can reposition the block.
-  // ignore: diagnostic_describe_all_properties
-  @override
-  BlockAlignment get blockAlignment => _blockAlignment;
-
-  /// Sets the block alignment and schedules a layout pass.
-  set blockAlignment(BlockAlignment value) {
-    if (_blockAlignment == value) return;
-    _blockAlignment = value;
-    markNeedsLayout();
-  }
-
-  /// The requested width of this block in logical pixels, or `null`.
-  ///
-  /// When non-null, [performLayout] uses this value as the intrinsic width
-  /// instead of [imageWidth] or the decoded [image]'s pixel width.  The value
-  /// is still clamped to the layout constraints.  When `null`, the existing
-  /// size-from-image logic applies.
-  // ignore: diagnostic_describe_all_properties
-  @override
-  double? get requestedWidth => _requestedWidth;
-
-  /// Sets the requested width and schedules a layout pass.
-  set requestedWidth(double? value) {
-    if (_requestedWidth == value) return;
-    _requestedWidth = value;
-    markNeedsLayout();
-  }
-
-  /// The requested height of this block in logical pixels, or `null`.
-  ///
-  /// When non-null, [performLayout] uses this value as the intrinsic height
-  /// instead of the value derived from the image or aspect ratio.  When `null`,
-  /// the existing size-from-image logic applies.
-  // ignore: diagnostic_describe_all_properties
-  @override
-  double? get requestedHeight => _requestedHeight;
-
-  /// Sets the requested height and schedules a layout pass.
-  set requestedHeight(double? value) {
-    if (_requestedHeight == value) return;
-    _requestedHeight = value;
-    markNeedsLayout();
-  }
-
-  /// Whether subsequent blocks should wrap around this block.
-  ///
-  /// When `true` and [blockAlignment] is [BlockAlignment.start] or
-  /// [BlockAlignment.end], the document layout creates an exclusion zone so
-  /// adjacent blocks receive reduced-width constraints.
-  // ignore: diagnostic_describe_all_properties
-  @override
-  bool get textWrap => _textWrap;
-
-  /// Sets the text-wrap flag and schedules a layout pass.
-  set textWrap(bool value) {
-    if (_textWrap == value) return;
-    _textWrap = value;
-    markNeedsLayout();
-  }
-
   // ---------------------------------------------------------------------------
   // Layout
   // ---------------------------------------------------------------------------
@@ -329,8 +265,8 @@ class RenderImageBlock extends RenderDocumentBlock {
 
     // When requestedWidth/requestedHeight are set, they override the intrinsic
     // dimensions from imageWidth/imageHeight or the decoded image's pixel size.
-    final intrinsicW = _requestedWidth ?? _imageWidth;
-    final intrinsicH = _requestedHeight ?? _imageHeight;
+    final intrinsicW = requestedWidth ?? _imageWidth;
+    final intrinsicH = requestedHeight ?? _imageHeight;
 
     if (intrinsicW != null && intrinsicH != null) {
       // Both dimensions are known — use them, scaling to fit constraints.
@@ -455,13 +391,6 @@ class RenderImageBlock extends RenderDocumentBlock {
     properties.add(ColorProperty('placeholderColor', _placeholderColor));
     properties.add(StringProperty('altText', _altText, defaultValue: null));
     properties.add(DiagnosticsProperty<ui.Image?>('image', _image, defaultValue: null));
-    properties.add(EnumProperty<BlockAlignment>(
-      'blockAlignment',
-      _blockAlignment,
-      defaultValue: BlockAlignment.stretch,
-    ));
-    properties.add(DoubleProperty('requestedWidth', _requestedWidth, defaultValue: null));
-    properties.add(DoubleProperty('requestedHeight', _requestedHeight, defaultValue: null));
-    properties.add(FlagProperty('textWrap', value: _textWrap, ifTrue: 'textWrap'));
+    debugFillBlockLayoutProperties(properties);
   }
 }

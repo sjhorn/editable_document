@@ -33,6 +33,7 @@ import '../model/horizontal_rule_node.dart';
 import '../model/image_node.dart';
 import '../model/list_item_node.dart';
 import '../model/paragraph_node.dart';
+import '../rendering/block_layout_mixin.dart';
 import '../rendering/render_blockquote_block.dart';
 import '../rendering/render_code_block.dart';
 import '../rendering/render_horizontal_rule_block.dart';
@@ -160,6 +161,39 @@ ComponentViewModel? resolveViewModel(
     if (vm != null) return vm;
   }
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// HasLayoutFields — view model interface for block layout properties
+// ---------------------------------------------------------------------------
+
+/// Interface for component view models with block layout fields.
+///
+/// Container block view models — [ImageComponentViewModel],
+/// [CodeBlockComponentViewModel], [BlockquoteComponentViewModel], and
+/// [HorizontalRuleComponentViewModel] — all implement this interface,
+/// enabling the shared [_updateBlockLayout] helper.
+abstract interface class HasLayoutFields {
+  /// The horizontal alignment within the layout.
+  BlockAlignment get alignment;
+
+  /// Whether subsequent blocks should wrap around this block.
+  bool get textWrap;
+
+  /// Preferred display width in logical pixels, or `null`.
+  double? get width;
+
+  /// Preferred display height in logical pixels, or `null`.
+  double? get height;
+}
+
+/// Updates block layout properties on a render object from a view model.
+void _updateBlockLayout(BlockLayoutMixin renderObject, HasLayoutFields vm) {
+  renderObject
+    ..blockAlignment = vm.alignment
+    ..requestedWidth = vm.width
+    ..requestedHeight = vm.height
+    ..textWrap = vm.textWrap;
 }
 
 // ---------------------------------------------------------------------------
@@ -436,7 +470,7 @@ class _ListItemBlockWidget extends LeafRenderObjectWidget {
 // ===========================================================================
 
 /// [ComponentViewModel] for [ImageNode].
-class ImageComponentViewModel extends ComponentViewModel {
+class ImageComponentViewModel extends ComponentViewModel implements HasLayoutFields {
   /// Creates an [ImageComponentViewModel].
   const ImageComponentViewModel({
     required super.nodeId,
@@ -471,6 +505,12 @@ class ImageComponentViewModel extends ComponentViewModel {
   ///
   /// Defaults to `false`.
   final bool textWrap;
+
+  @override
+  double? get width => imageWidth;
+
+  @override
+  double? get height => imageHeight;
 
   @override
   bool operator ==(Object other) {
@@ -656,11 +696,8 @@ class _RawImageBlockWidget extends LeafRenderObjectWidget {
       ..imageHeight = viewModel.imageHeight
       ..altText = viewModel.altText
       ..image = image
-      ..blockAlignment = viewModel.alignment
-      ..requestedWidth = viewModel.imageWidth
-      ..requestedHeight = viewModel.imageHeight
-      ..textWrap = viewModel.textWrap
       ..nodeSelection = viewModel.nodeSelection;
+    _updateBlockLayout(renderObject, viewModel);
   }
 
   @override
@@ -676,7 +713,7 @@ class _RawImageBlockWidget extends LeafRenderObjectWidget {
 // ===========================================================================
 
 /// [ComponentViewModel] for [CodeBlockNode].
-class CodeBlockComponentViewModel extends ComponentViewModel {
+class CodeBlockComponentViewModel extends ComponentViewModel implements HasLayoutFields {
   /// Creates a [CodeBlockComponentViewModel].
   const CodeBlockComponentViewModel({
     required super.nodeId,
@@ -798,11 +835,8 @@ class _CodeBlockWidget extends LeafRenderObjectWidget {
     renderObject
       ..nodeId = viewModel.nodeId
       ..text = viewModel.text
-      ..blockAlignment = viewModel.alignment
-      ..requestedWidth = viewModel.width
-      ..requestedHeight = viewModel.height
-      ..textWrap = viewModel.textWrap
       ..nodeSelection = viewModel.nodeSelection;
+    _updateBlockLayout(renderObject, viewModel);
   }
 
   @override
@@ -817,7 +851,7 @@ class _CodeBlockWidget extends LeafRenderObjectWidget {
 // ===========================================================================
 
 /// [ComponentViewModel] for [HorizontalRuleNode].
-class HorizontalRuleComponentViewModel extends ComponentViewModel {
+class HorizontalRuleComponentViewModel extends ComponentViewModel implements HasLayoutFields {
   /// Creates a [HorizontalRuleComponentViewModel].
   const HorizontalRuleComponentViewModel({
     required super.nodeId,
@@ -908,11 +942,8 @@ class _HorizontalRuleBlockWidget extends LeafRenderObjectWidget {
   void updateRenderObject(BuildContext context, RenderHorizontalRuleBlock renderObject) {
     renderObject
       ..nodeId = viewModel.nodeId
-      ..blockAlignment = viewModel.alignment
-      ..requestedWidth = viewModel.width
-      ..requestedHeight = viewModel.height
-      ..textWrap = viewModel.textWrap
       ..nodeSelection = viewModel.nodeSelection;
+    _updateBlockLayout(renderObject, viewModel);
   }
 
   @override
@@ -929,7 +960,7 @@ class _HorizontalRuleBlockWidget extends LeafRenderObjectWidget {
 // ===========================================================================
 
 /// [ComponentViewModel] for [BlockquoteNode].
-class BlockquoteComponentViewModel extends ComponentViewModel {
+class BlockquoteComponentViewModel extends ComponentViewModel implements HasLayoutFields {
   /// Creates a [BlockquoteComponentViewModel].
   const BlockquoteComponentViewModel({
     required super.nodeId,
@@ -1045,11 +1076,8 @@ class _BlockquoteBlockWidget extends LeafRenderObjectWidget {
       ..nodeId = viewModel.nodeId
       ..text = viewModel.text
       ..textStyle = DefaultTextStyle.of(context).style.merge(viewModel.textStyle)
-      ..blockAlignment = viewModel.alignment
-      ..requestedWidth = viewModel.width
-      ..requestedHeight = viewModel.height
-      ..textWrap = viewModel.textWrap
       ..nodeSelection = viewModel.nodeSelection;
+    _updateBlockLayout(renderObject, viewModel);
   }
 
   @override
