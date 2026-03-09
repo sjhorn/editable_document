@@ -61,6 +61,78 @@ RenderDocumentLayout _layout({
 }
 
 // ---------------------------------------------------------------------------
+// Recording helpers for paint-order tests
+// ---------------------------------------------------------------------------
+
+/// A minimal [PaintingContext] that delegates [paintChild] to the child's
+/// own [paint] method.  This is sufficient to trigger the recording overrides
+/// on [_RecordingImageBlock] and [_RecordingTextBlock] without needing a full
+/// Flutter rendering pipeline.
+///
+/// The recording blocks do NOT call super.paint(), so [canvas] is never
+/// accessed and [RendererBinding] is never touched.
+class _RecordingPaintingContext extends PaintingContext {
+  _RecordingPaintingContext() : super(_FakeContainerLayer(), Rect.largest);
+
+  @override
+  void paintChild(RenderObject child, Offset offset) {
+    child.paint(this, offset);
+  }
+}
+
+/// Fake [ContainerLayer] used to construct the [_RecordingPaintingContext].
+class _FakeContainerLayer extends ContainerLayer {}
+
+/// A [RenderImageBlock] that appends its [nodeId] to [paintOrder] when painted.
+class _RecordingImageBlock extends RenderImageBlock {
+  _RecordingImageBlock(
+    String nodeId, {
+    required List<String> paintOrder,
+    double requestedWidth = 100,
+    double requestedHeight = 80,
+    super.blockAlignment,
+    super.textWrap,
+  })  : _paintOrder = paintOrder,
+        super(
+          nodeId: nodeId,
+          imageWidth: requestedWidth,
+          imageHeight: requestedHeight,
+          requestedWidth: requestedWidth,
+          requestedHeight: requestedHeight,
+        );
+
+  final List<String> _paintOrder;
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    _paintOrder.add(nodeId);
+    // Do NOT call super — avoids TextPainter / image asset requirements.
+  }
+}
+
+/// A [RenderTextBlock] that appends its [nodeId] to [paintOrder] when painted.
+class _RecordingTextBlock extends RenderTextBlock {
+  _RecordingTextBlock(
+    String nodeId, {
+    required List<String> paintOrder,
+    required String text,
+  })  : _paintOrder = paintOrder,
+        super(
+          nodeId: nodeId,
+          text: AttributedText(text),
+          textStyle: const TextStyle(fontSize: 16),
+        );
+
+  final List<String> _paintOrder;
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    _paintOrder.add(nodeId);
+    // Do NOT call super — avoids TextPainter layout requirements in headless tests.
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -2199,6 +2271,123 @@ void main() {
         isNotNull,
         reason: 'second text block must receive an exclusionRect',
       );
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Paint order: floats must be painted after non-floats
+  // -------------------------------------------------------------------------
+
+  group('RenderDocumentLayout — paint order', () {
+    test('float child is painted after non-float stretch child', () {
+      // Arrange: a center-aligned float (image) followed by a stretch text block
+      // that wraps beside it.  With the old defaultPaint() behaviour the text
+      // block (child index 1, later in document order) is painted LAST, so its
+      // opaque background obscures the float.  After the fix the float must
+      // always be painted in the second pass (on top).
+      const maxWidth = 400.0;
+      final paintOrder = <String>[];
+
+      final image = _RecordingImageBlock(
+        'img',
+        paintOrder: paintOrder,
+        requestedWidth: 150,
+        requestedHeight: 120,
+        blockAlignment: BlockAlignment.center,
+        textWrap: true,
+      );
+      final text = _RecordingTextBlock(
+        'p1',
+        paintOrder: paintOrder,
+        text: 'wrap text',
+      );
+
+      final layout = RenderDocumentLayout(blockSpacing: 0.0);
+      layout.add(image);
+      layout.add(text);
+      layout.layout(const BoxConstraints(maxWidth: maxWidth), parentUsesSize: true);
+
+      // Confirm the image is indeed flagged as a float after layout.
+      final imageData = image.parentData as DocumentBlockParentData;
+      expect(imageData.isFloat, isTrue, reason: 'image should be a float');
+
+      // Paint into a recording context so the children's paint() callbacks fire.
+      final paintingContext = _RecordingPaintingContext();
+      layout.paint(paintingContext, Offset.zero);
+
+      // The float ('img') must appear AFTER the non-float ('p1') in paintOrder.
+      expect(paintOrder, contains('p1'));
+      expect(paintOrder, contains('img'));
+      final p1Index = paintOrder.indexOf('p1');
+      final imgIndex = paintOrder.indexOf('img');
+      expect(
+        imgIndex,
+        greaterThan(p1Index),
+        reason: 'float (img) must be painted after non-float (p1) so it renders on top',
+      );
+    });
+
+    test('non-float document order is preserved within each pass', () {
+      // Three stretch blocks: p1, p2, p3.  No floats.  Paint order must match
+      // document order exactly: p1, p2, p3.
+      final paintOrder = <String>[];
+
+      final p1 = _RecordingTextBlock('p1', paintOrder: paintOrder, text: 'first');
+      final p2 = _RecordingTextBlock('p2', paintOrder: paintOrder, text: 'second');
+      final p3 = _RecordingTextBlock('p3', paintOrder: paintOrder, text: 'third');
+
+      final layout = RenderDocumentLayout(blockSpacing: 4.0);
+      layout.add(p1);
+      layout.add(p2);
+      layout.add(p3);
+      layout.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+
+      final paintingContext = _RecordingPaintingContext();
+      layout.paint(paintingContext, Offset.zero);
+
+      expect(paintOrder, equals(['p1', 'p2', 'p3']));
+    });
+
+    test('multiple floats are painted after all non-floats', () {
+      // Layout: float1 (start), float2 (end), then a stretch text block.
+      // After the fix: text is painted first, then float1 and float2 (in
+      // document order) on top.
+      final paintOrder = <String>[];
+
+      final float1 = _RecordingImageBlock(
+        'float1',
+        paintOrder: paintOrder,
+        requestedWidth: 100,
+        requestedHeight: 80,
+        blockAlignment: BlockAlignment.start,
+        textWrap: true,
+      );
+      final float2 = _RecordingImageBlock(
+        'float2',
+        paintOrder: paintOrder,
+        requestedWidth: 100,
+        requestedHeight: 80,
+        blockAlignment: BlockAlignment.end,
+        textWrap: true,
+      );
+      final text = _RecordingTextBlock('p1', paintOrder: paintOrder, text: 'wrap text');
+
+      final layout = RenderDocumentLayout(blockSpacing: 0.0);
+      layout.add(float1);
+      layout.add(float2);
+      layout.add(text);
+      layout.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+
+      final paintingContext = _RecordingPaintingContext();
+      layout.paint(paintingContext, Offset.zero);
+
+      // Non-float (p1) must come before both floats.
+      final p1Idx = paintOrder.indexOf('p1');
+      final f1Idx = paintOrder.indexOf('float1');
+      final f2Idx = paintOrder.indexOf('float2');
+      expect(p1Idx, greaterThanOrEqualTo(0));
+      expect(f1Idx, greaterThan(p1Idx), reason: 'float1 must be painted after p1');
+      expect(f2Idx, greaterThan(p1Idx), reason: 'float2 must be painted after p1');
     });
   });
 }

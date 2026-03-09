@@ -547,9 +547,38 @@ class RenderDocumentLayout extends RenderBox
   // Paint
   // ---------------------------------------------------------------------------
 
+  /// Paints children in two passes so that float blocks always render on top
+  /// of any adjacent non-float (wrapping) blocks.
+  ///
+  /// **Pass 1** — non-float children ([DocumentBlockParentData.isFloat] is
+  /// `false`) are painted in document order.  This includes stretch blocks
+  /// that may wrap beside a float and have an opaque background.
+  ///
+  /// **Pass 2** — float children ([DocumentBlockParentData.isFloat] is `true`)
+  /// are painted in document order, on top of the pass-1 content.  This
+  /// ensures that a floated image (or any other float block) is never obscured
+  /// by the background of a later wrapping block.
   @override
   void paint(PaintingContext context, Offset offset) {
-    defaultPaint(context, offset);
+    // Pass 1: non-float children.
+    RenderDocumentBlock? child = firstChild;
+    while (child != null) {
+      final parentData = child.parentData as DocumentBlockParentData;
+      if (!parentData.isFloat) {
+        context.paintChild(child, offset + parentData.offset);
+      }
+      child = childAfter(child);
+    }
+
+    // Pass 2: float children (painted on top).
+    child = firstChild;
+    while (child != null) {
+      final parentData = child.parentData as DocumentBlockParentData;
+      if (parentData.isFloat) {
+        context.paintChild(child, offset + parentData.offset);
+      }
+      child = childAfter(child);
+    }
   }
 
   // ---------------------------------------------------------------------------
