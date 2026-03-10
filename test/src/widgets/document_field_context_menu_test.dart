@@ -55,8 +55,14 @@ DocumentEditingController _makeController({String text = 'Hello world'}) {
 }
 
 /// Wraps [child] in [MaterialApp] + [Scaffold] for a full widget environment.
+///
+/// Uses [InkRipple] instead of the default [InkSparkle] to avoid the
+/// `shaders/ink_sparkle.frag` asset decode error in the test environment.
 Widget _wrap(Widget child) {
-  return MaterialApp(home: Scaffold(body: child));
+  return MaterialApp(
+    theme: ThemeData(splashFactory: InkRipple.splashFactory),
+    home: Scaffold(body: child),
+  );
 }
 
 /// Simulates a right-click (secondary tap) at [position].
