@@ -10,7 +10,7 @@
 /// - [ComponentBuilder] — abstract factory that converts a [DocumentNode] into
 ///   a [ComponentViewModel] and a [ComponentViewModel] into a [Widget].
 ///
-/// The six default builders are available via [defaultComponentBuilders].
+/// The seven default builders are available via [defaultComponentBuilders].
 /// Use [resolveViewModel] to try builders in order and return the first
 /// non-null result.
 library;
@@ -34,6 +34,7 @@ import '../model/horizontal_rule_node.dart';
 import '../model/image_node.dart';
 import '../model/list_item_node.dart';
 import '../model/paragraph_node.dart';
+import '../model/table_node.dart';
 import '../rendering/block_layout_mixin.dart';
 import '../rendering/render_blockquote_block.dart';
 import '../rendering/render_code_block.dart';
@@ -41,6 +42,7 @@ import '../rendering/render_horizontal_rule_block.dart';
 import '../rendering/render_image_block.dart';
 import '../rendering/render_list_item_block.dart';
 import '../rendering/render_paragraph_block.dart';
+import '../rendering/render_table_block.dart';
 
 // ---------------------------------------------------------------------------
 // ComponentViewModel
@@ -210,6 +212,7 @@ void _updateBlockLayout(BlockLayoutMixin renderObject, HasLayoutFields vm) {
 /// 4. [CodeBlockComponentBuilder]
 /// 5. [BlockquoteComponentBuilder]
 /// 6. [HorizontalRuleComponentBuilder]
+/// 7. [TableComponentBuilder]
 ///
 /// Prepend custom builders to override defaults for specific node types.
 const List<ComponentBuilder> defaultComponentBuilders = [
@@ -219,6 +222,7 @@ const List<ComponentBuilder> defaultComponentBuilders = [
   CodeBlockComponentBuilder(),
   BlockquoteComponentBuilder(),
   HorizontalRuleComponentBuilder(),
+  TableComponentBuilder(),
 ];
 
 // ===========================================================================
@@ -1086,4 +1090,271 @@ class _BlockquoteBlockWidget extends LeafRenderObjectWidget {
     super.debugFillProperties(properties);
     properties.add(DiagnosticsProperty<BlockquoteComponentViewModel>('viewModel', viewModel));
   }
+}
+
+// ===========================================================================
+// TableComponentBuilder
+// ===========================================================================
+
+/// [ComponentViewModel] for [TableNode].
+///
+/// Holds the full cell grid, dimension counts, per-column width hints, and
+/// block layout properties forwarded from the source [TableNode]. The widget
+/// layer uses this to create and update a [RenderTableBlock].
+class TableComponentViewModel extends ComponentViewModel implements HasLayoutFields {
+  /// Creates a [TableComponentViewModel].
+  ///
+  /// [nodeId] uniquely identifies the source [TableNode].
+  /// [rowCount] and [columnCount] define the grid dimensions.
+  /// [cells] is the [rowCount] × [columnCount] grid of [AttributedText] values.
+  /// [columnWidths] optionally specifies per-column widths; `null` entries mean
+  ///   that column is auto-sized. When the list itself is `null`, all columns
+  ///   are auto-sized.
+  /// [textStyle] is the base [TextStyle] applied before attributions.
+  /// [cellPadding] is the horizontal and vertical padding inside each cell.
+  /// [borderWidth] is the stroke width of the grid lines.
+  /// [borderColor] is the color of the grid lines.
+  /// [alignment] is the horizontal alignment within the layout.
+  /// [textWrap] controls how surrounding text interacts with this block.
+  /// [requestedWidth] and [requestedHeight] are optional explicit dimensions.
+  TableComponentViewModel({
+    required super.nodeId,
+    required this.rowCount,
+    required this.columnCount,
+    required this.cells,
+    this.columnWidths,
+    this.textStyle,
+    this.cellPadding = 8.0,
+    this.borderWidth = 1.0,
+    this.borderColor = const Color(0xFFCCCCCC),
+    this.alignment = BlockAlignment.stretch,
+    this.textWrap = TextWrapMode.none,
+    this.requestedWidth,
+    this.requestedHeight,
+    super.nodeSelection,
+    super.isSelected,
+  });
+
+  /// Number of rows in the table.
+  final int rowCount;
+
+  /// Number of columns in the table.
+  final int columnCount;
+
+  /// The 2-D grid of [AttributedText] cells.
+  ///
+  /// Outer list has [rowCount] entries; each inner list has [columnCount]
+  /// entries. The grid is not modifiable after construction.
+  final List<List<AttributedText>> cells;
+
+  /// Optional per-column width hints in logical pixels.
+  ///
+  /// When non-null, the list has exactly [columnCount] entries. A `null` entry
+  /// means the corresponding column is auto-sized. When the list itself is
+  /// `null`, all columns are auto-sized.
+  final List<double?>? columnWidths;
+
+  /// The base [TextStyle] applied to all cell text before attributions.
+  ///
+  /// When `null`, the ambient [DefaultTextStyle] is used.
+  final TextStyle? textStyle;
+
+  /// Horizontal and vertical padding inside each cell in logical pixels.
+  ///
+  /// Defaults to `8.0`.
+  final double cellPadding;
+
+  /// Stroke width of the grid lines in logical pixels.
+  ///
+  /// Defaults to `1.0`.
+  final double borderWidth;
+
+  /// Color of the grid lines.
+  ///
+  /// Defaults to `Color(0xFFCCCCCC)` (light grey).
+  final Color borderColor;
+
+  /// The horizontal alignment of this table within the layout.
+  ///
+  /// Defaults to [BlockAlignment.stretch].
+  @override
+  final BlockAlignment alignment;
+
+  /// How surrounding text interacts with this table.
+  ///
+  /// Defaults to [TextWrapMode.none].
+  @override
+  final TextWrapMode textWrap;
+
+  /// Preferred display width in logical pixels, or `null` to fill available width.
+  final double? requestedWidth;
+
+  /// Preferred display height in logical pixels, or `null` to use intrinsic height.
+  final double? requestedHeight;
+
+  @override
+  double? get width => requestedWidth;
+
+  @override
+  double? get height => requestedHeight;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! TableComponentViewModel) return false;
+    if (other.nodeId != nodeId ||
+        other.rowCount != rowCount ||
+        other.columnCount != columnCount ||
+        other.textStyle != textStyle ||
+        other.cellPadding != cellPadding ||
+        other.borderWidth != borderWidth ||
+        other.borderColor != borderColor ||
+        other.alignment != alignment ||
+        other.textWrap != textWrap ||
+        other.requestedWidth != requestedWidth ||
+        other.requestedHeight != requestedHeight ||
+        other.nodeSelection != nodeSelection ||
+        other.isSelected != isSelected) {
+      return false;
+    }
+    // Compare columnWidths.
+    if (!_listEquals(other.columnWidths, columnWidths)) return false;
+    // Compare cells row by row.
+    if (other.cells.length != cells.length) return false;
+    for (int r = 0; r < rowCount; r++) {
+      if (other.cells[r].length != cells[r].length) return false;
+      for (int c = 0; c < columnCount; c++) {
+        if (other.cells[r][c] != cells[r][c]) return false;
+      }
+    }
+    return true;
+  }
+
+  @override
+  int get hashCode {
+    final cellHashes = <int>[];
+    for (final row in cells) {
+      for (final cell in row) {
+        cellHashes.add(cell.hashCode);
+      }
+    }
+    return Object.hash(
+      nodeId,
+      rowCount,
+      columnCount,
+      Object.hashAll(cellHashes),
+      Object.hashAll(columnWidths ?? const <double?>[]),
+      textStyle,
+      cellPadding,
+      borderWidth,
+      borderColor,
+      alignment,
+      textWrap,
+      requestedWidth,
+      requestedHeight,
+      nodeSelection,
+      isSelected,
+    );
+  }
+}
+
+/// [ComponentBuilder] that handles [TableNode].
+///
+/// Creates a [TableComponentViewModel] from a [TableNode] and returns a
+/// [_TableBlockWidget] that drives a [RenderTableBlock].
+class TableComponentBuilder extends ComponentBuilder {
+  /// Creates a const [TableComponentBuilder].
+  const TableComponentBuilder();
+
+  @override
+  ComponentViewModel? createViewModel(Document document, DocumentNode node) {
+    if (node is! TableNode) return null;
+    // Reconstruct the cells grid from the public cellAt accessor.
+    final cells = List.generate(
+      node.rowCount,
+      (r) => List.generate(node.columnCount, (c) => node.cellAt(r, c)),
+    );
+    return TableComponentViewModel(
+      nodeId: node.id,
+      rowCount: node.rowCount,
+      columnCount: node.columnCount,
+      cells: cells,
+      columnWidths: node.columnWidths,
+      alignment: node.alignment,
+      textWrap: node.textWrap,
+      requestedWidth: node.width,
+      requestedHeight: node.height,
+    );
+  }
+
+  @override
+  Widget? createComponent(ComponentViewModel viewModel, ComponentContext context) {
+    if (viewModel is! TableComponentViewModel) return null;
+    return _TableBlockWidget(viewModel: viewModel);
+  }
+}
+
+/// [LeafRenderObjectWidget] that wraps [RenderTableBlock].
+class _TableBlockWidget extends LeafRenderObjectWidget {
+  const _TableBlockWidget({required this.viewModel});
+
+  final TableComponentViewModel viewModel;
+
+  @override
+  RenderTableBlock createRenderObject(BuildContext context) {
+    final textStyle = DefaultTextStyle.of(context).style.merge(viewModel.textStyle);
+    return RenderTableBlock(
+      nodeId: viewModel.nodeId,
+      rowCount: viewModel.rowCount,
+      columnCount: viewModel.columnCount,
+      cells: viewModel.cells,
+      textStyle: textStyle,
+      columnWidths: viewModel.columnWidths,
+      cellPadding: viewModel.cellPadding,
+      borderWidth: viewModel.borderWidth,
+      borderColor: viewModel.borderColor,
+      blockAlignment: viewModel.alignment,
+      requestedWidth: viewModel.requestedWidth,
+      requestedHeight: viewModel.requestedHeight,
+      textWrap: viewModel.textWrap,
+    );
+  }
+
+  @override
+  void updateRenderObject(BuildContext context, RenderTableBlock renderObject) {
+    final textStyle = DefaultTextStyle.of(context).style.merge(viewModel.textStyle);
+    renderObject
+      ..nodeId = viewModel.nodeId
+      ..rowCount = viewModel.rowCount
+      ..columnCount = viewModel.columnCount
+      ..cells = viewModel.cells
+      ..textStyle = textStyle
+      ..columnWidths = viewModel.columnWidths
+      ..cellPadding = viewModel.cellPadding
+      ..borderWidth = viewModel.borderWidth
+      ..borderColor = viewModel.borderColor
+      ..nodeSelection = viewModel.nodeSelection;
+    _updateBlockLayout(renderObject, viewModel);
+  }
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties.add(DiagnosticsProperty<TableComponentViewModel>('viewModel', viewModel));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Private helper
+// ---------------------------------------------------------------------------
+
+/// Null-safe shallow equality for nullable lists.
+bool _listEquals<T>(List<T>? a, List<T>? b) {
+  if (identical(a, b)) return true;
+  if (a == null || b == null) return false;
+  if (a.length != b.length) return false;
+  for (int i = 0; i < a.length; i++) {
+    if (a[i] != b[i]) return false;
+  }
+  return true;
 }

@@ -829,14 +829,15 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('defaultComponentBuilders', () {
-    test('list contains all six default builders', () {
-      expect(defaultComponentBuilders, hasLength(6));
+    test('list contains all seven default builders', () {
+      expect(defaultComponentBuilders, hasLength(7));
       expect(defaultComponentBuilders[0], isA<ParagraphComponentBuilder>());
       expect(defaultComponentBuilders[1], isA<ListItemComponentBuilder>());
       expect(defaultComponentBuilders[2], isA<ImageComponentBuilder>());
       expect(defaultComponentBuilders[3], isA<CodeBlockComponentBuilder>());
       expect(defaultComponentBuilders[4], isA<BlockquoteComponentBuilder>());
       expect(defaultComponentBuilders[5], isA<HorizontalRuleComponentBuilder>());
+      expect(defaultComponentBuilders[6], isA<TableComponentBuilder>());
     });
 
     test('defaultComponentBuilders includes BlockquoteComponentBuilder', () {
