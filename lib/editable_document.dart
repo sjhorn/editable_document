@@ -43,6 +43,7 @@ export 'src/rendering/render_image_block.dart';
 export 'src/rendering/render_blockquote_block.dart';
 export 'src/rendering/render_code_block.dart';
 export 'src/rendering/render_horizontal_rule_block.dart';
+export 'src/rendering/render_table_block.dart';
 export 'src/rendering/render_document_layout.dart';
 export 'src/rendering/document_caret_painter.dart';
 export 'src/rendering/render_document_caret.dart';
