@@ -306,7 +306,13 @@ class RenderDocumentLayout extends RenderBox
     var yOffset = 0.0;
     var childIndex = 0;
     var widestChild = 0.0;
-    _ExclusionZone? activeExclusion;
+
+    // Independent exclusion zones for start (left) and end (right) floats.
+    // A center float reuses [_centerExclusion] for interior-exclusion wrapping.
+    _ExclusionZone? startExclusion;
+    _ExclusionZone? endExclusion;
+    _ExclusionZone? centerExclusion;
+
     RenderDocumentBlock? child = firstChild;
 
     while (child != null) {
@@ -325,38 +331,51 @@ class RenderDocumentLayout extends RenderBox
         yOffset += _blockSpacing;
       }
 
-      // Check if the active exclusion zone has been cleared (we're past its bottom).
-      if (activeExclusion != null && yOffset >= activeExclusion.bottom) {
-        activeExclusion = null;
+      // Clear each exclusion zone independently when yOffset passes its bottom.
+      if (startExclusion != null && yOffset >= startExclusion.bottom) {
+        startExclusion = null;
+      }
+      if (endExclusion != null && yOffset >= endExclusion.bottom) {
+        endExclusion = null;
+      }
+      if (centerExclusion != null && yOffset >= centerExclusion.bottom) {
+        centerExclusion = null;
       }
 
+      // Determine whether any exclusion is active at the current yOffset.
+      final hasStart = startExclusion != null && yOffset < startExclusion.bottom;
+      final hasEnd = endExclusion != null && yOffset < endExclusion.bottom;
+      final hasCenter = centerExclusion != null && yOffset < centerExclusion.bottom;
+
       if (alignment == BlockAlignment.stretch) {
-        // Case 1: Stretch — fill width, but account for any active exclusion zone.
+        // Case 1: Stretch — fill width, but account for active exclusion zones.
         double childMaxWidth = preferredWidth;
         double xOffset = 0.0;
 
-        if (activeExclusion != null && yOffset < activeExclusion.bottom) {
-          if (child.clearsFloat) {
-            // Block wants full width — advance past the float.
-            yOffset = activeExclusion.bottom;
-            activeExclusion = null;
-          } else if (activeExclusion.side == BlockAlignment.center) {
-            // Full width, but pass the interior exclusion to the child.
-            childMaxWidth = preferredWidth;
-            xOffset = 0.0;
-            parentData.exclusionRect = Rect.fromLTRB(
-              activeExclusion.floatLeft - _kFloatGap,
-              max(0.0, activeExclusion.top - yOffset),
-              activeExclusion.floatLeft + activeExclusion.width + _kFloatGap,
-              activeExclusion.bottom - yOffset,
-            );
-          } else {
-            // Narrow the block to fit beside the float.
-            childMaxWidth = max(0.0, preferredWidth - activeExclusion.width);
-            if (activeExclusion.side == BlockAlignment.start) {
-              xOffset = activeExclusion.width;
-            }
-          }
+        if (child.clearsFloat && (hasStart || hasEnd || hasCenter)) {
+          // Block wants full width — advance past all active floats.
+          final clearBottom = _maxExclusionBottom(startExclusion, endExclusion, centerExclusion);
+          yOffset = clearBottom;
+          startExclusion = null;
+          endExclusion = null;
+          centerExclusion = null;
+        } else if (hasCenter) {
+          // Full width, but pass the interior exclusion to the child.
+          final ce = centerExclusion; // non-null: hasCenter guarantees this
+          childMaxWidth = preferredWidth;
+          xOffset = 0.0;
+          parentData.exclusionRect = Rect.fromLTRB(
+            ce.floatLeft - _kFloatGap,
+            max(0.0, ce.top - yOffset),
+            ce.floatLeft + ce.width + _kFloatGap,
+            ce.bottom - yOffset,
+          );
+        } else if (hasStart || hasEnd) {
+          // Narrow the block to fit beside start and/or end floats.
+          final startWidth = hasStart ? startExclusion.width : 0.0;
+          final endWidth = hasEnd ? endExclusion.width : 0.0;
+          childMaxWidth = max(0.0, preferredWidth - startWidth - endWidth);
+          xOffset = startWidth;
         }
 
         child.layout(
@@ -373,11 +392,22 @@ class RenderDocumentLayout extends RenderBox
       } else if (isFloat) {
         // Case 3: Float — aligned block with text wrap enabled.
 
-        // If another float is still active, advance past it first so
-        // consecutive floats stack vertically rather than overlapping.
-        if (activeExclusion != null && yOffset < activeExclusion.bottom) {
-          yOffset = activeExclusion.bottom;
-          activeExclusion = null;
+        // If the same side's exclusion is still active, advance past it so
+        // consecutive same-side floats stack vertically rather than overlapping.
+        // For opposite-side floats, allow concurrent placement.
+        if (alignment == BlockAlignment.start && hasStart) {
+          yOffset = startExclusion.bottom; // non-null: hasStart guarantees this
+          startExclusion = null;
+        } else if (alignment == BlockAlignment.end && hasEnd) {
+          yOffset = endExclusion.bottom; // non-null: hasEnd guarantees this
+          endExclusion = null;
+        } else if (alignment == BlockAlignment.center && (hasStart || hasEnd || hasCenter)) {
+          // Center floats clear all active exclusions.
+          final clearBottom = _maxExclusionBottom(startExclusion, endExclusion, centerExclusion);
+          yOffset = clearBottom;
+          startExclusion = null;
+          endExclusion = null;
+          centerExclusion = null;
         }
 
         final childWidth = child.requestedWidth ?? preferredWidth;
@@ -402,7 +432,7 @@ class RenderDocumentLayout extends RenderBox
         // behindText and inFrontOfText position like floats but don't create
         // exclusions, so subsequent blocks overlay/underlay with no wrapping.
         if (wrapMode == TextWrapMode.wrap) {
-          activeExclusion = _ExclusionZone(
+          final zone = _ExclusionZone(
             side: alignment,
             width: alignment == BlockAlignment.center
                 ? child.size.width
@@ -411,6 +441,13 @@ class RenderDocumentLayout extends RenderBox
             bottom: yOffset + child.size.height,
             floatLeft: xOffset,
           );
+          if (alignment == BlockAlignment.start) {
+            startExclusion = zone;
+          } else if (alignment == BlockAlignment.end) {
+            endExclusion = zone;
+          } else {
+            centerExclusion = zone;
+          }
         }
 
         // Do not advance yOffset — next block wraps beside the float.
@@ -420,48 +457,82 @@ class RenderDocumentLayout extends RenderBox
         // the block fits beside the float.  If it fits, position it there
         // respecting its alignment within the available space.  If it doesn't
         // fit, advance past the float as before.
-        if (activeExclusion != null &&
-            yOffset < activeExclusion.bottom &&
-            (activeExclusion.side == BlockAlignment.start ||
-                activeExclusion.side == BlockAlignment.end)) {
-          final availableWidth = preferredWidth - activeExclusion.width;
-          final childWidth = child.requestedWidth ?? preferredWidth;
+        if ((hasStart || hasEnd) && !hasCenter) {
+          // Use the single active exclusion for "fits beside float" logic.
+          // When both are active, defer to full-clearing behaviour below.
+          final singleExclusion =
+              hasStart && !hasEnd ? startExclusion : (!hasStart && hasEnd ? endExclusion : null);
 
-          if (childWidth <= availableWidth) {
-            // Block fits beside the float — lay it out and position it within
-            // the available space, respecting the block's alignment.
-            child.layout(BoxConstraints(maxWidth: childWidth), parentUsesSize: true);
+          if (singleExclusion != null) {
+            final availableWidth = preferredWidth - singleExclusion.width;
+            final childWidth = child.requestedWidth ?? preferredWidth;
 
-            final double xOffset;
-            if (activeExclusion.side == BlockAlignment.start) {
-              // Float is on the start (left) side; available space is to the right.
-              final availableLeft = activeExclusion.width;
-              xOffset = switch (alignment) {
-                BlockAlignment.start => availableLeft,
-                BlockAlignment.center =>
-                  availableLeft + max(0.0, (availableWidth - child.size.width) / 2),
-                BlockAlignment.end =>
-                  max(availableLeft, availableLeft + availableWidth - child.size.width),
-                BlockAlignment.stretch => availableLeft,
-              };
+            if (childWidth <= availableWidth) {
+              // Block fits beside the float — lay it out and position it within
+              // the available space, respecting the block's alignment.
+              child.layout(BoxConstraints(maxWidth: childWidth), parentUsesSize: true);
+
+              final double xOffset;
+              if (singleExclusion.side == BlockAlignment.start) {
+                // Float is on the start (left) side; available space is to the right.
+                final availableLeft = singleExclusion.width;
+                xOffset = switch (alignment) {
+                  BlockAlignment.start => availableLeft,
+                  BlockAlignment.center =>
+                    availableLeft + max(0.0, (availableWidth - child.size.width) / 2),
+                  BlockAlignment.end =>
+                    max(availableLeft, availableLeft + availableWidth - child.size.width),
+                  BlockAlignment.stretch => availableLeft,
+                };
+              } else {
+                // Float is on the end (right) side; available space is to the left.
+                xOffset = switch (alignment) {
+                  BlockAlignment.start => 0.0,
+                  BlockAlignment.center => max(0.0, (availableWidth - child.size.width) / 2),
+                  BlockAlignment.end => max(0.0, availableWidth - child.size.width),
+                  BlockAlignment.stretch => 0.0,
+                };
+              }
+
+              parentData.offset = Offset(max(0.0, xOffset), yOffset);
+              widestChild = max(widestChild, parentData.offset.dx + child.size.width);
+              yOffset += child.size.height;
             } else {
-              // Float is on the end (right) side; available space is to the left.
-              xOffset = switch (alignment) {
-                BlockAlignment.start => 0.0,
-                BlockAlignment.center => max(0.0, (availableWidth - child.size.width) / 2),
-                BlockAlignment.end => max(0.0, availableWidth - child.size.width),
-                BlockAlignment.stretch => 0.0,
-              };
+              // Block is too wide to fit beside the float — clear it.
+              yOffset = singleExclusion.bottom;
+              if (singleExclusion.side == BlockAlignment.start) {
+                startExclusion = null;
+              } else {
+                endExclusion = null;
+              }
+
+              final childConstraints = BoxConstraints(maxWidth: childWidth);
+              child.layout(childConstraints, parentUsesSize: true);
+
+              final double xOffset;
+              switch (alignment) {
+                case BlockAlignment.start:
+                  xOffset = 0.0;
+                case BlockAlignment.center:
+                  xOffset = max(0.0, (preferredWidth - child.size.width) / 2);
+                case BlockAlignment.end:
+                  xOffset = max(0.0, preferredWidth - child.size.width);
+                case BlockAlignment.stretch:
+                  xOffset = 0.0;
+              }
+
+              parentData.offset = Offset(xOffset, yOffset);
+              widestChild = max(widestChild, parentData.offset.dx + child.size.width);
+              yOffset += child.size.height;
             }
-
-            parentData.offset = Offset(max(0.0, xOffset), yOffset);
-            widestChild = max(widestChild, parentData.offset.dx + child.size.width);
-            yOffset += child.size.height;
           } else {
-            // Block is too wide to fit beside the float — clear it.
-            yOffset = activeExclusion.bottom;
-            activeExclusion = null;
+            // Both start and end are active — clear all exclusions.
+            final clearBottom = _maxExclusionBottom(startExclusion, endExclusion, null);
+            yOffset = clearBottom;
+            startExclusion = null;
+            endExclusion = null;
 
+            final childWidth = child.requestedWidth ?? preferredWidth;
             final childConstraints = BoxConstraints(maxWidth: childWidth);
             child.layout(childConstraints, parentUsesSize: true);
 
@@ -484,9 +555,9 @@ class RenderDocumentLayout extends RenderBox
         } else {
           // No active start/end exclusion (or a center exclusion) — clear any
           // remaining exclusion and lay out normally.
-          if (activeExclusion != null && yOffset < activeExclusion.bottom) {
-            yOffset = activeExclusion.bottom;
-            activeExclusion = null;
+          if (hasCenter) {
+            yOffset = centerExclusion.bottom;
+            centerExclusion = null;
           }
 
           final childWidth = child.requestedWidth ?? preferredWidth;
@@ -517,12 +588,27 @@ class RenderDocumentLayout extends RenderBox
       child = childAfter(child);
     }
 
-    // If there is still an active exclusion, ensure total height accounts for it.
-    if (activeExclusion != null && activeExclusion.bottom > yOffset) {
-      yOffset = activeExclusion.bottom;
+    // If there are still active exclusions, ensure total height accounts for them.
+    final finalExclusionBottom = _maxExclusionBottom(startExclusion, endExclusion, centerExclusion);
+    if (finalExclusionBottom > yOffset) {
+      yOffset = finalExclusionBottom;
     }
 
     size = Size(max(preferredWidth, widestChild), yOffset);
+  }
+
+  /// Returns the maximum [_ExclusionZone.bottom] among the given exclusion
+  /// zones, or `0.0` if all are `null`.
+  static double _maxExclusionBottom(
+    _ExclusionZone? a,
+    _ExclusionZone? b,
+    _ExclusionZone? c,
+  ) {
+    var bottom = 0.0;
+    if (a != null) bottom = max(bottom, a.bottom);
+    if (b != null) bottom = max(bottom, b.bottom);
+    if (c != null) bottom = max(bottom, c.bottom);
+    return bottom;
   }
 
   // ---------------------------------------------------------------------------
