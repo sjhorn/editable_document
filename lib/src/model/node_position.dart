@@ -4,7 +4,8 @@ import 'dart:ui' show TextAffinity;
 ///
 /// Each node type defines its own position representation.
 /// [TextNodePosition] is used for text-based nodes; [BinaryNodePosition]
-/// is used for non-text nodes like images and horizontal rules.
+/// is used for non-text nodes like images and horizontal rules;
+/// [TableCellPosition] is used for [TableNode] cells.
 abstract class NodePosition {}
 
 /// A position within a text-based [DocumentNode], identified by a
@@ -100,4 +101,75 @@ class BinaryNodePosition implements NodePosition {
 
   @override
   String toString() => 'BinaryNodePosition(${type.name})';
+}
+
+/// A position within a [TableNode] cell, identified by [row], [col],
+/// character [offset] within the cell's [AttributedText], and [affinity].
+///
+/// [TableCellPosition] is the [NodePosition] type used when the cursor or
+/// selection endpoint resides inside a table cell. The [row] and [col] indices
+/// identify the target cell; [offset] and [affinity] identify the caret
+/// position within that cell's text content, following the same semantics as
+/// [TextNodePosition].
+///
+/// Example:
+/// ```dart
+/// const pos = TableCellPosition(row: 1, col: 2, offset: 4);
+/// final upstream = pos.copyWith(affinity: TextAffinity.upstream);
+/// ```
+class TableCellPosition implements NodePosition {
+  /// Creates a [TableCellPosition] at the given [row], [col], and [offset].
+  ///
+  /// [affinity] defaults to [TextAffinity.downstream] when not specified.
+  const TableCellPosition({
+    required this.row,
+    required this.col,
+    required this.offset,
+    this.affinity = TextAffinity.downstream,
+  });
+
+  /// Zero-based row index within the table.
+  final int row;
+
+  /// Zero-based column index within the table.
+  final int col;
+
+  /// Character offset within the cell's text content.
+  final int offset;
+
+  /// Whether this position is associated with the character before or after
+  /// [offset] when the offset falls on a line break within the cell.
+  final TextAffinity affinity;
+
+  /// Returns a copy of this position with the given fields replaced.
+  TableCellPosition copyWith({
+    int? row,
+    int? col,
+    int? offset,
+    TextAffinity? affinity,
+  }) {
+    return TableCellPosition(
+      row: row ?? this.row,
+      col: col ?? this.col,
+      offset: offset ?? this.offset,
+      affinity: affinity ?? this.affinity,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is TableCellPosition &&
+        other.row == row &&
+        other.col == col &&
+        other.offset == offset &&
+        other.affinity == affinity;
+  }
+
+  @override
+  int get hashCode => Object.hash(row, col, offset, affinity);
+
+  @override
+  String toString() =>
+      'TableCellPosition(row: $row, col: $col, offset: $offset, affinity: $affinity)';
 }
