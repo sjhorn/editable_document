@@ -13,6 +13,7 @@ import 'package:flutter/rendering.dart';
 import '../model/block_alignment.dart';
 import '../model/document_selection.dart';
 import '../model/node_position.dart';
+import '../model/text_wrap_mode.dart';
 import 'block_layout_mixin.dart';
 import 'render_document_block.dart';
 
@@ -88,8 +89,8 @@ class RenderImageBlock extends RenderDocumentBlock with BlockLayoutMixin {
   /// when non-null the block is sized to this width (clamped to constraints).
   /// [requestedHeight] overrides the intrinsic image height for layout purposes;
   /// when non-null the block is sized to this height.
-  /// [textWrap] controls whether subsequent blocks may wrap around this block;
-  /// defaults to `false`.
+  /// [textWrap] controls how surrounding text interacts with this block;
+  /// defaults to [TextWrapMode.none].
   RenderImageBlock({
     required String nodeId,
     double? imageWidth,
@@ -100,7 +101,7 @@ class RenderImageBlock extends RenderDocumentBlock with BlockLayoutMixin {
     BlockAlignment blockAlignment = BlockAlignment.stretch,
     double? requestedWidth,
     double? requestedHeight,
-    bool textWrap = false,
+    TextWrapMode textWrap = TextWrapMode.none,
   })  : _nodeId = nodeId,
         _imageWidth = imageWidth,
         _imageHeight = imageHeight,

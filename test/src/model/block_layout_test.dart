@@ -11,7 +11,7 @@ void main() {
       expect(node, isA<HasBlockLayout>());
       final layout = node as HasBlockLayout;
       expect(layout.alignment, BlockAlignment.stretch);
-      expect(layout.textWrap, false);
+      expect(layout.textWrap, TextWrapMode.none);
       expect(layout.width, isNull);
       expect(layout.height, isNull);
     });
@@ -21,7 +21,7 @@ void main() {
       expect(node, isA<HasBlockLayout>());
       final layout = node as HasBlockLayout;
       expect(layout.alignment, BlockAlignment.stretch);
-      expect(layout.textWrap, false);
+      expect(layout.textWrap, TextWrapMode.none);
       expect(layout.width, isNull);
       expect(layout.height, isNull);
     });
@@ -31,7 +31,7 @@ void main() {
       expect(node, isA<HasBlockLayout>());
       final layout = node as HasBlockLayout;
       expect(layout.alignment, BlockAlignment.stretch);
-      expect(layout.textWrap, false);
+      expect(layout.textWrap, TextWrapMode.none);
       expect(layout.width, isNull);
       expect(layout.height, isNull);
     });
@@ -41,7 +41,7 @@ void main() {
       expect(node, isA<HasBlockLayout>());
       final layout = node as HasBlockLayout;
       expect(layout.alignment, BlockAlignment.stretch);
-      expect(layout.textWrap, false);
+      expect(layout.textWrap, TextWrapMode.none);
       expect(layout.width, isNull);
       expect(layout.height, isNull);
     });
@@ -63,13 +63,13 @@ void main() {
         width: 200.0,
         height: 100.0,
         alignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final layout = node as HasBlockLayout;
       expect(layout.width, 200.0);
       expect(layout.height, 100.0);
       expect(layout.alignment, BlockAlignment.center);
-      expect(layout.textWrap, true);
+      expect(layout.textWrap, TextWrapMode.wrap);
     });
   });
 }

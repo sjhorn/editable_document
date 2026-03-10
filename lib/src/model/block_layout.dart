@@ -5,6 +5,7 @@
 library;
 
 import 'block_alignment.dart';
+import 'text_wrap_mode.dart';
 
 /// Interface for document nodes that support block-level layout properties.
 ///
@@ -23,8 +24,8 @@ abstract interface class HasBlockLayout {
   /// How the block is horizontally aligned within the available layout width.
   BlockAlignment get alignment;
 
-  /// Whether surrounding text may flow around this block.
-  bool get textWrap;
+  /// How surrounding text interacts with this block.
+  TextWrapMode get textWrap;
 
   /// Preferred display width in logical pixels, or `null` for default sizing.
   double? get width;

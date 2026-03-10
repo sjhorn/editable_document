@@ -10,6 +10,7 @@ import 'attributed_text.dart';
 import 'block_alignment.dart';
 import 'block_layout.dart';
 import 'text_node.dart';
+import 'text_wrap_mode.dart';
 
 /// A [TextNode] representing a fenced code block.
 ///
@@ -20,8 +21,8 @@ import 'text_node.dart';
 ///
 /// The [width] and [height] fields constrain the rendered block to a fixed
 /// size. The [alignment] field positions the block within available layout
-/// width. The [textWrap] field controls whether surrounding text may flow
-/// around the code block.
+/// width. The [textWrap] field controls how surrounding text interacts with
+/// this code block.
 ///
 /// ```dart
 /// final snippet = CodeBlockNode(
@@ -37,7 +38,7 @@ class CodeBlockNode extends TextNode implements HasBlockLayout {
   /// layout fields.
   ///
   /// [alignment] defaults to [BlockAlignment.stretch].
-  /// [textWrap] defaults to `false`.
+  /// [textWrap] defaults to [TextWrapMode.none].
   /// [width] and [height] default to `null` (use available / intrinsic size).
   CodeBlockNode({
     required super.id,
@@ -46,7 +47,7 @@ class CodeBlockNode extends TextNode implements HasBlockLayout {
     this.width,
     this.height,
     this.alignment = BlockAlignment.stretch,
-    this.textWrap = false,
+    this.textWrap = TextWrapMode.none,
     super.metadata,
   });
 
@@ -68,11 +69,11 @@ class CodeBlockNode extends TextNode implements HasBlockLayout {
   /// layout width.
   final BlockAlignment alignment;
 
-  /// Whether surrounding text may flow around this code block.
+  /// How surrounding text interacts with this code block.
   ///
-  /// When `true` the rendering layer is expected to apply text-wrap layout.
-  /// Defaults to `false`.
-  final bool textWrap;
+  /// Defaults to [TextWrapMode.none], which causes the block to occupy a full
+  /// vertical row. Use [TextWrapMode.wrap] to enable float-like layout.
+  final TextWrapMode textWrap;
 
   @override
   CodeBlockNode copyWith({
@@ -82,7 +83,7 @@ class CodeBlockNode extends TextNode implements HasBlockLayout {
     double? width,
     double? height,
     BlockAlignment? alignment,
-    bool? textWrap,
+    TextWrapMode? textWrap,
     Map<String, dynamic>? metadata,
   }) {
     return CodeBlockNode(
@@ -133,7 +134,9 @@ class CodeBlockNode extends TextNode implements HasBlockLayout {
     properties.add(
       EnumProperty<BlockAlignment>('alignment', alignment, defaultValue: BlockAlignment.stretch),
     );
-    properties.add(DiagnosticsProperty<bool>('textWrap', textWrap, defaultValue: false));
+    properties.add(
+      EnumProperty<TextWrapMode>('textWrap', textWrap, defaultValue: TextWrapMode.none),
+    );
   }
 
   @override

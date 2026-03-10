@@ -8,6 +8,7 @@ import 'package:editable_document/src/model/list_item_node.dart';
 import 'package:editable_document/src/model/image_node.dart';
 import 'package:editable_document/src/model/code_block_node.dart';
 import 'package:editable_document/src/model/horizontal_rule_node.dart';
+import 'package:editable_document/src/model/text_wrap_mode.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -430,9 +431,9 @@ void main() {
       expect(node.alignment, BlockAlignment.stretch);
     });
 
-    test('default textWrap is false', () {
+    test('default textWrap is TextWrapMode.none', () {
       final node = ImageNode(id: 'img1', imageUrl: 'https://example.com/img.png');
-      expect(node.textWrap, isFalse);
+      expect(node.textWrap, TextWrapMode.none);
     });
 
     test('custom alignment and textWrap set in constructor', () {
@@ -440,10 +441,10 @@ void main() {
         id: 'img1',
         imageUrl: 'https://example.com/img.png',
         alignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       expect(node.alignment, BlockAlignment.center);
-      expect(node.textWrap, isTrue);
+      expect(node.textWrap, TextWrapMode.wrap);
     });
 
     test('copyWith replaces alignment', () {
@@ -461,10 +462,10 @@ void main() {
       final node = ImageNode(
         id: 'img1',
         imageUrl: 'https://example.com/img.png',
-        textWrap: false,
+        textWrap: TextWrapMode.none,
       );
-      final copy = node.copyWith(textWrap: true);
-      expect(copy.textWrap, isTrue);
+      final copy = node.copyWith(textWrap: TextWrapMode.wrap);
+      expect(copy.textWrap, TextWrapMode.wrap);
     });
 
     test('copyWith preserves alignment and textWrap when not specified', () {
@@ -472,11 +473,11 @@ void main() {
         id: 'img1',
         imageUrl: 'https://example.com/img.png',
         alignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final copy = node.copyWith(id: 'img2');
       expect(copy.alignment, BlockAlignment.center);
-      expect(copy.textWrap, isTrue);
+      expect(copy.textWrap, TextWrapMode.wrap);
     });
 
     test('equality includes alignment', () {
@@ -503,17 +504,17 @@ void main() {
       final a = ImageNode(
         id: 'img1',
         imageUrl: 'https://example.com/img.png',
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final b = ImageNode(
         id: 'img1',
         imageUrl: 'https://example.com/img.png',
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final c = ImageNode(
         id: 'img1',
         imageUrl: 'https://example.com/img.png',
-        textWrap: false,
+        textWrap: TextWrapMode.none,
       );
       expect(a, equals(b));
       expect(a, isNot(equals(c)));
@@ -524,11 +525,11 @@ void main() {
         id: 'img1',
         imageUrl: 'https://example.com/img.png',
         alignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final str = node.toString();
       expect(str, contains('center'));
-      expect(str, contains('true'));
+      expect(str, contains('wrap'));
     });
   });
 
@@ -547,9 +548,9 @@ void main() {
       expect(node.alignment, BlockAlignment.stretch);
     });
 
-    test('default textWrap is false', () {
+    test('default textWrap is TextWrapMode.none', () {
       final node = CodeBlockNode(id: 'cb1');
-      expect(node.textWrap, isFalse);
+      expect(node.textWrap, TextWrapMode.none);
     });
 
     test('custom values set in constructor', () {
@@ -558,12 +559,12 @@ void main() {
         width: 640.0,
         height: 480.0,
         alignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       expect(node.width, 640.0);
       expect(node.height, 480.0);
       expect(node.alignment, BlockAlignment.center);
-      expect(node.textWrap, isTrue);
+      expect(node.textWrap, TextWrapMode.wrap);
     });
 
     test('copyWith replaces width and height', () {
@@ -581,9 +582,9 @@ void main() {
     });
 
     test('copyWith replaces textWrap', () {
-      final node = CodeBlockNode(id: 'cb1', textWrap: false);
-      final copy = node.copyWith(textWrap: true);
-      expect(copy.textWrap, isTrue);
+      final node = CodeBlockNode(id: 'cb1', textWrap: TextWrapMode.none);
+      final copy = node.copyWith(textWrap: TextWrapMode.wrap);
+      expect(copy.textWrap, TextWrapMode.wrap);
     });
 
     test('copyWith preserves all new fields when not specified', () {
@@ -592,13 +593,13 @@ void main() {
         width: 320.0,
         height: 240.0,
         alignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final copy = node.copyWith(id: 'cb2');
       expect(copy.width, 320.0);
       expect(copy.height, 240.0);
       expect(copy.alignment, BlockAlignment.center);
-      expect(copy.textWrap, isTrue);
+      expect(copy.textWrap, TextWrapMode.wrap);
     });
 
     test('equality includes width and height', () {
@@ -618,9 +619,9 @@ void main() {
     });
 
     test('equality includes textWrap', () {
-      final a = CodeBlockNode(id: 'cb1', textWrap: true);
-      final b = CodeBlockNode(id: 'cb1', textWrap: true);
-      final c = CodeBlockNode(id: 'cb1', textWrap: false);
+      final a = CodeBlockNode(id: 'cb1', textWrap: TextWrapMode.wrap);
+      final b = CodeBlockNode(id: 'cb1', textWrap: TextWrapMode.wrap);
+      final c = CodeBlockNode(id: 'cb1', textWrap: TextWrapMode.none);
       expect(a, equals(b));
       expect(a, isNot(equals(c)));
     });
@@ -631,13 +632,13 @@ void main() {
         width: 640.0,
         height: 480.0,
         alignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final str = node.toString();
       expect(str, contains('640.0'));
       expect(str, contains('480.0'));
       expect(str, contains('center'));
-      expect(str, contains('true'));
+      expect(str, contains('wrap'));
     });
   });
 

@@ -24,6 +24,7 @@ import 'package:flutter/scheduler.dart';
 import '_image_provider_stub.dart' if (dart.library.io) '_image_provider_io.dart';
 import '../model/attributed_text.dart';
 import '../model/block_alignment.dart';
+import '../model/text_wrap_mode.dart';
 import '../model/blockquote_node.dart';
 import '../model/code_block_node.dart';
 import '../model/document.dart';
@@ -177,8 +178,8 @@ abstract interface class HasLayoutFields {
   /// The horizontal alignment within the layout.
   BlockAlignment get alignment;
 
-  /// Whether subsequent blocks should wrap around this block.
-  bool get textWrap;
+  /// How surrounding text interacts with this block.
+  TextWrapMode get textWrap;
 
   /// Preferred display width in logical pixels, or `null`.
   double? get width;
@@ -479,7 +480,7 @@ class ImageComponentViewModel extends ComponentViewModel implements HasLayoutFie
     this.imageWidth,
     this.imageHeight,
     this.alignment = BlockAlignment.stretch,
-    this.textWrap = false,
+    this.textWrap = TextWrapMode.none,
     super.nodeSelection,
     super.isSelected,
   });
@@ -501,10 +502,10 @@ class ImageComponentViewModel extends ComponentViewModel implements HasLayoutFie
   /// Defaults to [BlockAlignment.stretch].
   final BlockAlignment alignment;
 
-  /// Whether subsequent blocks should wrap around this image.
+  /// How surrounding text interacts with this image.
   ///
-  /// Defaults to `false`.
-  final bool textWrap;
+  /// Defaults to [TextWrapMode.none].
+  final TextWrapMode textWrap;
 
   @override
   double? get width => imageWidth;
@@ -723,7 +724,7 @@ class CodeBlockComponentViewModel extends ComponentViewModel implements HasLayou
     this.width,
     this.height,
     this.alignment = BlockAlignment.stretch,
-    this.textWrap = false,
+    this.textWrap = TextWrapMode.none,
     super.nodeSelection,
     super.isSelected,
   });
@@ -748,10 +749,10 @@ class CodeBlockComponentViewModel extends ComponentViewModel implements HasLayou
   /// Defaults to [BlockAlignment.stretch].
   final BlockAlignment alignment;
 
-  /// Whether subsequent blocks should wrap around this code block.
+  /// How surrounding text interacts with this code block.
   ///
-  /// Defaults to `false`.
-  final bool textWrap;
+  /// Defaults to [TextWrapMode.none].
+  final TextWrapMode textWrap;
 
   @override
   bool operator ==(Object other) {
@@ -858,7 +859,7 @@ class HorizontalRuleComponentViewModel extends ComponentViewModel implements Has
     this.alignment = BlockAlignment.stretch,
     this.width,
     this.height,
-    this.textWrap = false,
+    this.textWrap = TextWrapMode.none,
     super.nodeSelection,
     super.isSelected,
   });
@@ -874,10 +875,10 @@ class HorizontalRuleComponentViewModel extends ComponentViewModel implements Has
   /// Preferred display height in logical pixels, or `null` to use the default.
   final double? height;
 
-  /// Whether surrounding text may wrap around this block.
+  /// How surrounding text interacts with this block.
   ///
-  /// Defaults to `false`.
-  final bool textWrap;
+  /// Defaults to [TextWrapMode.none].
+  final TextWrapMode textWrap;
 
   @override
   bool operator ==(Object other) {
@@ -969,7 +970,7 @@ class BlockquoteComponentViewModel extends ComponentViewModel implements HasLayo
     this.width,
     this.height,
     this.alignment = BlockAlignment.stretch,
-    this.textWrap = false,
+    this.textWrap = TextWrapMode.none,
     super.nodeSelection,
     super.isSelected,
   });
@@ -991,10 +992,10 @@ class BlockquoteComponentViewModel extends ComponentViewModel implements HasLayo
   /// Defaults to [BlockAlignment.stretch].
   final BlockAlignment alignment;
 
-  /// Whether subsequent blocks should wrap around this blockquote.
+  /// How surrounding text interacts with this blockquote.
   ///
-  /// Defaults to `false`.
-  final bool textWrap;
+  /// Defaults to [TextWrapMode.none].
+  final TextWrapMode textWrap;
 
   @override
   bool operator ==(Object other) {

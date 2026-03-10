@@ -9,6 +9,7 @@ import 'package:flutter/rendering.dart';
 import '../model/block_alignment.dart';
 import '../model/document_selection.dart';
 import '../model/node_position.dart';
+import '../model/text_wrap_mode.dart';
 import 'block_layout_mixin.dart';
 import 'render_document_block.dart';
 
@@ -31,8 +32,8 @@ class RenderHorizontalRuleBlock extends RenderDocumentBlock with BlockLayoutMixi
   /// layout width; defaults to [BlockAlignment.stretch].
   /// [requestedWidth] overrides the layout width when non-null.
   /// [requestedHeight] overrides the layout height when non-null.
-  /// [textWrap] controls whether subsequent blocks may wrap around this block;
-  /// defaults to `false`.
+  /// [textWrap] controls how surrounding text interacts with this block;
+  /// defaults to [TextWrapMode.none].
   RenderHorizontalRuleBlock({
     required String nodeId,
     Color color = const Color(0xFFCCCCCC),
@@ -41,7 +42,7 @@ class RenderHorizontalRuleBlock extends RenderDocumentBlock with BlockLayoutMixi
     BlockAlignment blockAlignment = BlockAlignment.stretch,
     double? requestedWidth,
     double? requestedHeight,
-    bool textWrap = false,
+    TextWrapMode textWrap = TextWrapMode.none,
   })  : _nodeId = nodeId,
         _color = color,
         _thickness = thickness,

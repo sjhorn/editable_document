@@ -338,7 +338,7 @@ void main() {
         blockAlignment: BlockAlignment.center,
         requestedWidth: floatWidth,
         requestedHeight: floatHeight,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final textBlock = RenderTextBlock(
         nodeId: 'p1',
@@ -795,7 +795,7 @@ void main() {
         blockAlignment: BlockAlignment.center,
         requestedWidth: floatWidth,
         requestedHeight: floatHeight,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final textBlock = RenderTextBlock(
         nodeId: 'p1',

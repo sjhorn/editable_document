@@ -335,9 +335,9 @@ void main() {
       expect(block.requestedHeight, isNull);
     });
 
-    test('textWrap defaults to false', () {
+    test('textWrap defaults to TextWrapMode.none', () {
       final block = RenderImageBlock(nodeId: 'img-1');
-      expect(block.textWrap, isFalse);
+      expect(block.textWrap, TextWrapMode.none);
     });
 
     test('blockAlignment setter roundtrip', () {
@@ -360,8 +360,8 @@ void main() {
 
     test('textWrap setter roundtrip', () {
       final block = RenderImageBlock(nodeId: 'img-1');
-      block.textWrap = true;
-      expect(block.textWrap, isTrue);
+      block.textWrap = TextWrapMode.wrap;
+      expect(block.textWrap, TextWrapMode.wrap);
     });
 
     test('setting blockAlignment to same value is a no-op', () {
@@ -426,9 +426,9 @@ void main() {
     test('constructor accepts textWrap parameter', () {
       final block = RenderImageBlock(
         nodeId: 'img-1',
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
-      expect(block.textWrap, isTrue);
+      expect(block.textWrap, TextWrapMode.wrap);
     });
   });
 }

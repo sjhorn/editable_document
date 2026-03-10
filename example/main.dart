@@ -364,13 +364,12 @@ class _DocumentDemoState extends State<DocumentDemo> {
         imageUrl: 'https://picsum.photos/600/200',
         altText: 'Placeholder image demonstrating ImageNode support',
       ),
-      ParagraphNode(
+      BlockquoteNode(
         id: 'quote-1',
         text: AttributedText(
           'EditableDocument is to block documents what EditableText '
           'is to single-field text.',
         ),
-        blockType: ParagraphBlockType.blockquote,
       ),
       // --- Block Layout Properties section ---
       ParagraphNode(
@@ -394,7 +393,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
         width: 300,
         height: 150,
         alignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       ),
       ParagraphNode(
         id: 'float-text2',
@@ -413,7 +412,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
         width: 200,
         height: 250,
         alignment: BlockAlignment.start,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       ),
       ParagraphNode(
         id: 'float-text',
@@ -458,7 +457,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
         language: 'dart',
         width: 250,
         alignment: BlockAlignment.start,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       ),
       ParagraphNode(
         id: 'code-float-text',
@@ -523,15 +522,45 @@ class _DocumentDemoState extends State<DocumentDemo> {
   // Block type changes
   // ---------------------------------------------------------------------------
 
-  void _changeBlockType(ParagraphBlockType blockType) {
+  void _changeBlockType(String value) {
     final sel = _controller.selection;
     if (sel == null) return;
     final node = _document.nodeById(sel.extent.nodeId);
-    if (node is! ParagraphNode) return;
-    _editor.submit(ChangeBlockTypeRequest(
-      nodeId: node.id,
-      newBlockType: blockType,
-    ));
+
+    if (value == 'blockquote') {
+      // Convert ParagraphNode → BlockquoteNode.
+      if (node is ParagraphNode) {
+        _editor.submit(ReplaceNodeRequest(
+          nodeId: node.id,
+          newNode: BlockquoteNode(id: node.id, text: node.text),
+        ));
+      }
+      // If already a BlockquoteNode, nothing to do.
+      return;
+    }
+
+    // Non-blockquote type selected.
+    final blockType = ParagraphBlockType.values.firstWhere(
+      (bt) => bt.name == value,
+      orElse: () => ParagraphBlockType.paragraph,
+    );
+
+    if (node is BlockquoteNode) {
+      // Convert BlockquoteNode → ParagraphNode with the chosen block type.
+      _editor.submit(ReplaceNodeRequest(
+        nodeId: node.id,
+        newNode: ParagraphNode(
+          id: node.id,
+          text: node.text,
+          blockType: blockType,
+        ),
+      ));
+    } else if (node is ParagraphNode) {
+      _editor.submit(ChangeBlockTypeRequest(
+        nodeId: node.id,
+        newBlockType: blockType,
+      ));
+    }
   }
 
   /// Returns the current block type name for the selected node.
@@ -962,6 +991,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
     final hasCursor = sel != null;
     final selectedNode = sel != null ? _document.nodeById(sel.extent.nodeId) : null;
     final isOnParagraph = selectedNode is ParagraphNode;
+    final isOnBlockquote = selectedNode is BlockquoteNode;
     final colorScheme = Theme.of(context).colorScheme;
 
     const iconSize = 18.0;
@@ -1024,7 +1054,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
                 ),
                 divider(),
                 // --- Block type dropdown ---
-                _buildBlockTypeDropdown(isOnParagraph, selectedNode),
+                _buildBlockTypeDropdown(isOnParagraph || isOnBlockquote, selectedNode),
                 const SizedBox(width: 8),
                 divider(),
                 // --- Inline formatting ---
@@ -1345,7 +1375,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
     );
   }
 
-  Widget _buildBlockTypeDropdown(bool isOnParagraph, DocumentNode? selectedNode) {
+  Widget _buildBlockTypeDropdown(bool isOnTextBlock, DocumentNode? selectedNode) {
     final current = _currentBlockTypeValue(selectedNode);
     return SizedBox(
       width: 140,
@@ -1365,14 +1395,10 @@ class _DocumentDemoState extends State<DocumentDemo> {
           DropdownMenuItem(value: 'header3', child: Text('Heading 3')),
           DropdownMenuItem(value: 'blockquote', child: Text('Blockquote')),
         ],
-        onChanged: isOnParagraph
+        onChanged: isOnTextBlock
             ? (value) {
                 if (value == null) return;
-                final blockType = ParagraphBlockType.values.firstWhere(
-                  (bt) => bt.name == value,
-                  orElse: () => ParagraphBlockType.paragraph,
-                );
-                _changeBlockType(blockType);
+                _changeBlockType(value);
               }
             : null,
       ),
@@ -1381,6 +1407,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
 
   String? _currentBlockTypeValue(DocumentNode? node) {
     if (node is ParagraphNode) return node.blockType.name;
+    if (node is BlockquoteNode) return 'blockquote';
     return null;
   }
 
@@ -1464,10 +1491,10 @@ class _DocumentDemoState extends State<DocumentDemo> {
     };
   }
 
-  bool _getTextWrap(DocumentNode node) {
+  TextWrapMode _getTextWrap(DocumentNode node) {
     return switch (node) {
       HasBlockLayout(:final textWrap) => textWrap,
-      _ => false,
+      _ => TextWrapMode.none,
     };
   }
 
@@ -1539,7 +1566,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
     _editor.submit(ReplaceNodeRequest(nodeId: node.id, newNode: updated));
   }
 
-  void _updateTextWrap(DocumentNode node, bool textWrap) {
+  void _updateTextWrap(DocumentNode node, TextWrapMode textWrap) {
     DocumentNode updated;
     if (node is ImageNode) {
       updated = node.copyWith(textWrap: textWrap);
@@ -1764,7 +1791,12 @@ class _DocumentDemoState extends State<DocumentDemo> {
                     Padding(
                       padding: const EdgeInsets.only(right: 4),
                       child: IconButton(
-                        icon: Icon(entry.value, size: 20),
+                        icon: entry.key == BlockAlignment.stretch
+                            ? const RotatedBox(
+                                quarterTurns: 1,
+                                child: Icon(Icons.expand, size: 20),
+                              )
+                            : Icon(entry.value, size: 20),
                         isSelected: alignment == entry.key,
                         style: IconButton.styleFrom(
                           backgroundColor:
@@ -1781,14 +1813,32 @@ class _DocumentDemoState extends State<DocumentDemo> {
               if (hasSizing) ...[
                 const SizedBox(height: 12),
                 // --- Text Wrap ---
+                Text('Text Wrap', style: Theme.of(context).textTheme.labelMedium),
+                const SizedBox(height: 8),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Text Wrap', style: Theme.of(context).textTheme.labelMedium),
-                    Switch(
-                      value: _getTextWrap(node),
-                      onChanged: (value) => _updateTextWrap(node, value),
-                    ),
+                    for (final entry in {
+                      TextWrapMode.none: Icons.close,
+                      TextWrapMode.wrap: Icons.wrap_text,
+                      TextWrapMode.behindText: Icons.flip_to_back,
+                      TextWrapMode.inFrontOfText: Icons.flip_to_front,
+                    }.entries)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 4),
+                        child: IconButton(
+                          icon: Icon(entry.value, size: 20),
+                          isSelected: _getTextWrap(node) == entry.key,
+                          style: IconButton.styleFrom(
+                            backgroundColor: _getTextWrap(node) == entry.key
+                                ? colorScheme.primaryContainer
+                                : null,
+                            minimumSize: const Size(36, 36),
+                            padding: EdgeInsets.zero,
+                          ),
+                          tooltip: entry.key.name,
+                          onPressed: () => _updateTextWrap(node, entry.key),
+                        ),
+                      ),
                   ],
                 ),
                 const SizedBox(height: 8),

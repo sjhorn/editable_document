@@ -494,7 +494,7 @@ void main() {
             width: 200,
             height: 120,
             alignment: BlockAlignment.center,
-            textWrap: true,
+            textWrap: TextWrapMode.wrap,
           ),
           ParagraphNode(
             id: 'p1',
@@ -563,7 +563,7 @@ void main() {
             width: 200,
             height: 120,
             alignment: BlockAlignment.start,
-            textWrap: true,
+            textWrap: TextWrapMode.wrap,
           ),
           ParagraphNode(
             id: 'p1',
@@ -615,7 +615,7 @@ void main() {
             width: 200,
             height: 120,
             alignment: BlockAlignment.center,
-            textWrap: true,
+            textWrap: TextWrapMode.wrap,
           ),
         ));
         await tester.pump();

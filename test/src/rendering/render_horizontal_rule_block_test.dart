@@ -148,9 +148,9 @@ void main() {
       expect(block.requestedHeight, isNull);
     });
 
-    test('textWrap defaults to false (base class default)', () {
+    test('textWrap defaults to TextWrapMode.none (base class default)', () {
       final block = RenderHorizontalRuleBlock(nodeId: 'hr-1');
-      expect(block.textWrap, isFalse);
+      expect(block.textWrap, TextWrapMode.none);
     });
 
     test('blockAlignment setter roundtrip', () {
@@ -227,9 +227,9 @@ void main() {
 
     test('textWrap setter roundtrip', () {
       final block = RenderHorizontalRuleBlock(nodeId: 'hr-1');
-      expect(block.textWrap, isFalse);
-      block.textWrap = true;
-      expect(block.textWrap, isTrue);
+      expect(block.textWrap, TextWrapMode.none);
+      block.textWrap = TextWrapMode.wrap;
+      expect(block.textWrap, TextWrapMode.wrap);
     });
 
     test('constructor accepts requestedWidth, requestedHeight, and textWrap', () {
@@ -237,11 +237,11 @@ void main() {
         nodeId: 'hr-1',
         requestedWidth: 180.0,
         requestedHeight: 24.0,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       expect(block.requestedWidth, 180.0);
       expect(block.requestedHeight, 24.0);
-      expect(block.textWrap, isTrue);
+      expect(block.textWrap, TextWrapMode.wrap);
     });
 
     test('null requestedWidth falls back to constraints.maxWidth', () {

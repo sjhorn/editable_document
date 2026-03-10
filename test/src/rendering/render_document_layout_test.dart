@@ -27,14 +27,14 @@ RenderHorizontalRuleBlock _hrBlock(String nodeId) => RenderHorizontalRuleBlock(
 ///
 /// [requestedWidth] and [requestedHeight] set explicit dimensions.
 /// [blockAlignment] controls horizontal alignment within the layout.
-/// [textWrap] enables float behaviour when combined with [BlockAlignment.start]
-/// or [BlockAlignment.end].
+/// [textWrap] controls how surrounding blocks interact with this block when
+/// floated.
 RenderImageBlock _imageBlock(
   String nodeId, {
   double? requestedWidth,
   double? requestedHeight,
   BlockAlignment blockAlignment = BlockAlignment.stretch,
-  bool textWrap = false,
+  TextWrapMode textWrap = TextWrapMode.none,
 }) =>
     RenderImageBlock(
       nodeId: nodeId,
@@ -854,7 +854,7 @@ void main() {
         requestedWidth: floatWidth,
         requestedHeight: floatHeight,
         blockAlignment: BlockAlignment.start,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final text = _textBlock('p1', 'Wrapped text beside float');
       _layout(children: [image, text], maxWidth: maxWidth, blockSpacing: 0.0);
@@ -872,7 +872,7 @@ void main() {
         requestedWidth: floatWidth,
         requestedHeight: floatHeight,
         blockAlignment: BlockAlignment.start,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final text = _textBlock('p1', 'Text beside float');
       _layout(children: [image, text], maxWidth: maxWidth, blockSpacing: 0.0);
@@ -897,7 +897,7 @@ void main() {
         requestedWidth: floatWidth,
         requestedHeight: floatHeight,
         blockAlignment: BlockAlignment.start,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       // Small image with an explicit requestedWidth that fits in the remaining space.
       final beside = _imageBlock(
@@ -918,7 +918,7 @@ void main() {
         requestedWidth: floatWidth,
         requestedHeight: floatHeight,
         blockAlignment: BlockAlignment.end,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final text = _textBlock('p1', 'Wrapped text beside float');
       _layout(children: [image, text], maxWidth: maxWidth, blockSpacing: 0.0);
@@ -936,7 +936,7 @@ void main() {
         requestedWidth: floatWidth,
         requestedHeight: floatHeight,
         blockAlignment: BlockAlignment.end,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final text = _textBlock('p1', 'Text beside float');
       _layout(children: [image, text], maxWidth: maxWidth, blockSpacing: 0.0);
@@ -959,7 +959,7 @@ void main() {
         requestedWidth: floatWidth,
         requestedHeight: floatHeight,
         blockAlignment: BlockAlignment.start,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       // Use a very short text so the text block is shorter than the float.
       final text = _textBlock('p1', 'Hi');
@@ -984,7 +984,7 @@ void main() {
         requestedWidth: floatWidth,
         requestedHeight: 20.0, // very short float
         blockAlignment: BlockAlignment.start,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       // Long text whose height will exceed the float height.
       final wrappedText = RenderTextBlock(
@@ -1024,7 +1024,7 @@ void main() {
         requestedWidth: 100.0,
         requestedHeight: 80.0,
         blockAlignment: BlockAlignment.start,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       // HR block has clearsFloat == true (no requestedWidth) — must clear the float.
       final hr = _hrBlock('hr1');
@@ -1054,7 +1054,7 @@ void main() {
         requestedWidth: 100.0,
         requestedHeight: 80.0,
         blockAlignment: BlockAlignment.start,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final text = _textBlock('p1', 'Text that wraps beside the float image.');
       final layout = _layout(
@@ -1085,7 +1085,7 @@ void main() {
         requestedWidth: 100.0,
         requestedHeight: 80.0,
         blockAlignment: BlockAlignment.start,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       // Image with stretch alignment and a requestedWidth that fits in the
       // remaining space beside the float (maxWidth - floatWidth - gap = 292 px).
@@ -1094,7 +1094,6 @@ void main() {
         requestedWidth: 50.0,
         requestedHeight: 30.0,
         blockAlignment: BlockAlignment.stretch,
-        textWrap: false,
       );
       final layout = _layout(
         children: [image, smallBlock],
@@ -1122,14 +1121,14 @@ void main() {
         requestedWidth: floatWidth,
         requestedHeight: floatHeight,
         blockAlignment: BlockAlignment.start,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final image2 = _imageBlock(
         'img2',
         requestedWidth: floatWidth,
         requestedHeight: floatHeight,
         blockAlignment: BlockAlignment.start,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       _layout(children: [image1, image2], maxWidth: maxWidth, blockSpacing: 0.0);
 
@@ -1154,7 +1153,7 @@ void main() {
         requestedWidth: floatWidth, // 100
         requestedHeight: 200.0, // tall float
         blockAlignment: BlockAlignment.start,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       // Non-float, non-stretch block placed after the float.
       // 60 px fits comfortably beside a 100 px float in a 400 px layout
@@ -1164,7 +1163,7 @@ void main() {
         requestedWidth: 60.0,
         requestedHeight: 60.0,
         blockAlignment: BlockAlignment.center,
-        textWrap: false, // NOT a float
+        // textWrap defaults to TextWrapMode.none — NOT a float
       );
       _layout(
         children: [image, centeredImage],
@@ -1202,7 +1201,7 @@ void main() {
         requestedWidth: floatWidth, // 100
         requestedHeight: 200.0,
         blockAlignment: BlockAlignment.end,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       // 250 px fits beside a 100 px end float in a 400 px layout
       // (available = 400 - 108 = 292 px).
@@ -1245,7 +1244,7 @@ void main() {
         requestedWidth: floatWidth,
         requestedHeight: 200.0,
         blockAlignment: BlockAlignment.end,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       // HR defaults to stretch (which clears), so use a non-stretch HR.
       final hrCentered = RenderHorizontalRuleBlock(
@@ -1273,7 +1272,7 @@ void main() {
         requestedWidth: floatWidth, // 100
         requestedHeight: floatHeight, // 80
         blockAlignment: BlockAlignment.start,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final codeBlock = RenderCodeBlock(
         nodeId: 'code1',
@@ -1311,7 +1310,7 @@ void main() {
         requestedWidth: floatWidth,
         requestedHeight: floatHeight,
         blockAlignment: BlockAlignment.start,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final codeBlock = RenderCodeBlock(
         nodeId: 'code1',
@@ -1350,7 +1349,7 @@ void main() {
         requestedWidth: floatWidth,
         requestedHeight: floatHeight,
         blockAlignment: BlockAlignment.start,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final codeBlock = RenderCodeBlock(
         nodeId: 'code1',
@@ -1393,7 +1392,7 @@ void main() {
         requestedWidth: floatWidth,
         requestedHeight: floatHeight,
         blockAlignment: BlockAlignment.end,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final codeBlock = RenderCodeBlock(
         nodeId: 'code1',
@@ -1431,7 +1430,7 @@ void main() {
         requestedWidth: floatWidth,
         requestedHeight: floatHeight,
         blockAlignment: BlockAlignment.start,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final codeBlock = RenderCodeBlock(
         nodeId: 'code1',
@@ -1470,7 +1469,7 @@ void main() {
         requestedWidth: floatWidth,
         requestedHeight: floatHeight,
         blockAlignment: BlockAlignment.start,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final text = _textBlock('p1', 'Wrapped text beside float');
       final layout = _layout(
@@ -1494,7 +1493,7 @@ void main() {
         requestedWidth: floatWidth,
         requestedHeight: floatHeight,
         blockAlignment: BlockAlignment.start,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final text = _textBlock('p1', 'Wrapped text beside float');
       final layout = _layout(
@@ -1518,7 +1517,7 @@ void main() {
         requestedWidth: floatWidth,
         requestedHeight: floatHeight,
         blockAlignment: BlockAlignment.start,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final text = _textBlock('p1', 'Wrapped text beside float');
       final layout = _layout(
@@ -1543,7 +1542,7 @@ void main() {
         requestedWidth: floatWidth,
         requestedHeight: floatHeight,
         blockAlignment: BlockAlignment.end,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final text = _textBlock('p1', 'Text');
       final layout = _layout(
@@ -1696,7 +1695,7 @@ void main() {
         requestedWidth: floatWidth,
         requestedHeight: floatHeight,
         blockAlignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final text = _textBlock('p1', 'Text beside center float');
       _layout(children: [image, text], maxWidth: maxWidth, blockSpacing: 0.0);
@@ -1713,7 +1712,7 @@ void main() {
         requestedWidth: floatWidth,
         requestedHeight: floatHeight,
         blockAlignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final text = _textBlock('p1', 'Text beside center float');
       _layout(children: [image, text], maxWidth: maxWidth, blockSpacing: 0.0);
@@ -1734,7 +1733,7 @@ void main() {
         requestedWidth: floatWidth,
         requestedHeight: floatHeight,
         blockAlignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       // Very short text — will end before the float bottom.
       final shortText = _textBlock('p1', 'Hi');
@@ -1758,7 +1757,7 @@ void main() {
         requestedWidth: floatWidth,
         requestedHeight: floatHeight,
         blockAlignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final text = _textBlock('p1', 'Beside the float');
       _layout(children: [image, text], maxWidth: maxWidth, blockSpacing: 0.0);
@@ -1776,7 +1775,7 @@ void main() {
         requestedWidth: floatWidth,
         requestedHeight: floatHeight,
         blockAlignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final hr = _hrBlock('hr1');
       _layout(children: [image, hr], maxWidth: maxWidth, blockSpacing: 0.0);
@@ -1800,7 +1799,7 @@ void main() {
         requestedWidth: floatWidth,
         requestedHeight: floatHeight,
         blockAlignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final text = _textBlock('p1', 'Text beside center float');
       _layout(children: [image, text], maxWidth: maxWidth, blockSpacing: 0.0);
@@ -1826,7 +1825,7 @@ void main() {
         requestedWidth: floatWidth,
         requestedHeight: floatHeight,
         blockAlignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final text = _textBlock('p1', 'Text beside center float');
       _layout(
@@ -1851,7 +1850,7 @@ void main() {
         requestedWidth: 100.0,
         requestedHeight: 60.0,
         blockAlignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final text = _textBlock('p1', 'Text beside center float reflow test');
       final layout = _layout(children: [image, text], maxWidth: maxWidth, blockSpacing: 0.0);
@@ -1883,14 +1882,14 @@ void main() {
         requestedWidth: floatWidth,
         requestedHeight: floatHeight,
         blockAlignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final image2 = _imageBlock(
         'img2',
         requestedWidth: floatWidth,
         requestedHeight: floatHeight,
         blockAlignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       _layout(children: [image1, image2], maxWidth: maxWidth, blockSpacing: 0.0);
 
@@ -1918,7 +1917,7 @@ void main() {
         requestedWidth: floatWidth,
         requestedHeight: floatHeight,
         blockAlignment: BlockAlignment.start,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final textStart = RenderTextBlock(
         nodeId: 'pS',
@@ -1947,7 +1946,7 @@ void main() {
         requestedWidth: floatWidth,
         requestedHeight: floatHeight,
         blockAlignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final textCenter = RenderTextBlock(
         nodeId: 'pC',
@@ -1992,7 +1991,7 @@ void main() {
         requestedWidth: floatWidth,
         requestedHeight: floatHeight,
         blockAlignment: BlockAlignment.start,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final textStart = RenderTextBlock(
         nodeId: 'pS',
@@ -2016,7 +2015,7 @@ void main() {
         requestedWidth: floatWidth,
         requestedHeight: floatHeight,
         blockAlignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final textCenter = RenderTextBlock(
         nodeId: 'pC',
@@ -2050,7 +2049,7 @@ void main() {
         requestedWidth: floatWidth,
         requestedHeight: floatHeight,
         blockAlignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final text = RenderTextBlock(
         nodeId: 'pC',
@@ -2095,7 +2094,7 @@ void main() {
         requestedWidth: imgWidth,
         requestedHeight: imgHeight,
         blockAlignment: BlockAlignment.start,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final txtStart = RenderTextBlock(
         nodeId: 'pS',
@@ -2114,7 +2113,7 @@ void main() {
         requestedWidth: imgWidth,
         requestedHeight: imgHeight,
         blockAlignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final txtCenter = RenderTextBlock(
         nodeId: 'pC',
@@ -2174,7 +2173,7 @@ void main() {
         requestedWidth: wideImageWidth,
         requestedHeight: wideImageHeight,
         blockAlignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final text = RenderTextBlock(
         nodeId: 'pW',
@@ -2231,7 +2230,7 @@ void main() {
         requestedWidth: floatW,
         requestedHeight: floatH,
         blockAlignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       // Short text — much less than floatH tall.
       final text1 = _textBlock('p1', 'Short first paragraph.');
@@ -2294,7 +2293,7 @@ void main() {
         requestedWidth: 150,
         requestedHeight: 120,
         blockAlignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final text = _RecordingTextBlock(
         'p1',
@@ -2360,7 +2359,7 @@ void main() {
         requestedWidth: 100,
         requestedHeight: 80,
         blockAlignment: BlockAlignment.start,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final float2 = _RecordingImageBlock(
         'float2',
@@ -2368,7 +2367,7 @@ void main() {
         requestedWidth: 100,
         requestedHeight: 80,
         blockAlignment: BlockAlignment.end,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final text = _RecordingTextBlock('p1', paintOrder: paintOrder, text: 'wrap text');
 

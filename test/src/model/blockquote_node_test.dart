@@ -2,6 +2,7 @@ import 'package:editable_document/src/model/attributed_text.dart';
 import 'package:editable_document/src/model/block_alignment.dart';
 import 'package:editable_document/src/model/blockquote_node.dart';
 import 'package:editable_document/src/model/text_node.dart';
+import 'package:editable_document/src/model/text_wrap_mode.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -24,9 +25,9 @@ void main() {
       expect(node.alignment, BlockAlignment.stretch);
     });
 
-    test('textWrap defaults to false', () {
+    test('textWrap defaults to TextWrapMode.none', () {
       final node = BlockquoteNode(id: 'bq1');
-      expect(node.textWrap, isFalse);
+      expect(node.textWrap, TextWrapMode.none);
     });
 
     test('text defaults to empty AttributedText', () {
@@ -67,8 +68,8 @@ void main() {
     });
 
     test('textWrap is set correctly', () {
-      final node = BlockquoteNode(id: 'bq1', textWrap: true);
-      expect(node.textWrap, isTrue);
+      final node = BlockquoteNode(id: 'bq1', textWrap: TextWrapMode.wrap);
+      expect(node.textWrap, TextWrapMode.wrap);
     });
 
     test('all fields set together', () {
@@ -79,7 +80,7 @@ void main() {
         width: 640.0,
         height: 300.0,
         alignment: BlockAlignment.end,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
         metadata: {'source': 'shakespeare'},
       );
       expect(node.id, 'bq1');
@@ -87,7 +88,7 @@ void main() {
       expect(node.width, 640.0);
       expect(node.height, 300.0);
       expect(node.alignment, BlockAlignment.end);
-      expect(node.textWrap, isTrue);
+      expect(node.textWrap, TextWrapMode.wrap);
       expect(node.metadata['source'], 'shakespeare');
     });
   });
@@ -129,9 +130,9 @@ void main() {
     });
 
     test('copyWith replaces textWrap', () {
-      final node = BlockquoteNode(id: 'bq1', textWrap: false);
-      final copy = node.copyWith(textWrap: true);
-      expect(copy.textWrap, isTrue);
+      final node = BlockquoteNode(id: 'bq1', textWrap: TextWrapMode.none);
+      final copy = node.copyWith(textWrap: TextWrapMode.wrap);
+      expect(copy.textWrap, TextWrapMode.wrap);
     });
 
     test('copyWith replaces metadata', () {
@@ -171,9 +172,9 @@ void main() {
     });
 
     test('copyWith preserves textWrap when not specified', () {
-      final node = BlockquoteNode(id: 'bq1', textWrap: true);
+      final node = BlockquoteNode(id: 'bq1', textWrap: TextWrapMode.wrap);
       final copy = node.copyWith(id: 'bq2');
-      expect(copy.textWrap, isTrue);
+      expect(copy.textWrap, TextWrapMode.wrap);
     });
 
     test('copyWith preserves metadata when not specified', () {
@@ -195,7 +196,7 @@ void main() {
         width: 400.0,
         height: 100.0,
         alignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final b = BlockquoteNode(
         id: 'bq1',
@@ -203,7 +204,7 @@ void main() {
         width: 400.0,
         height: 100.0,
         alignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       expect(a, equals(b));
     });
@@ -239,8 +240,8 @@ void main() {
     });
 
     test('unequal when textWrap differs', () {
-      final a = BlockquoteNode(id: 'bq1', textWrap: true);
-      final b = BlockquoteNode(id: 'bq1', textWrap: false);
+      final a = BlockquoteNode(id: 'bq1', textWrap: TextWrapMode.wrap);
+      final b = BlockquoteNode(id: 'bq1', textWrap: TextWrapMode.none);
       expect(a, isNot(equals(b)));
     });
 
@@ -274,7 +275,7 @@ void main() {
     });
 
     test('hashCode is consistent on same instance', () {
-      final node = BlockquoteNode(id: 'bq1', width: 200.0, textWrap: true);
+      final node = BlockquoteNode(id: 'bq1', width: 200.0, textWrap: TextWrapMode.wrap);
       expect(node.hashCode, node.hashCode);
     });
   });
@@ -309,8 +310,8 @@ void main() {
     });
 
     test('toString includes textWrap', () {
-      final node = BlockquoteNode(id: 'bq1', textWrap: true);
-      expect(node.toString(), contains('true'));
+      final node = BlockquoteNode(id: 'bq1', textWrap: TextWrapMode.wrap);
+      expect(node.toString(), contains('wrap'));
     });
 
     test('toString mentions BlockquoteNode type', () {

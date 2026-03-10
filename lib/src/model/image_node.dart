@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'block_alignment.dart';
 import 'block_layout.dart';
 import 'document_node.dart';
+import 'text_wrap_mode.dart';
 
 /// A [DocumentNode] representing a block-level image.
 ///
@@ -18,8 +19,8 @@ import 'document_node.dart';
 /// [BinaryNodePosition] (either before or after the image).
 ///
 /// The [alignment] field controls how the image is positioned within the
-/// available layout width. The [textWrap] field controls whether surrounding
-/// text may flow around the image.
+/// available layout width. The [textWrap] field controls how surrounding
+/// text interacts with this image.
 ///
 /// ```dart
 /// final image = ImageNode(
@@ -29,14 +30,14 @@ import 'document_node.dart';
 ///   width: 1920.0,
 ///   height: 1080.0,
 ///   alignment: BlockAlignment.center,
-///   textWrap: false,
+///   textWrap: TextWrapMode.none,
 /// );
 /// ```
 class ImageNode extends DocumentNode implements HasBlockLayout {
   /// Creates an [ImageNode] with a required [imageUrl] and optional fields.
   ///
   /// [alignment] defaults to [BlockAlignment.stretch] (full-width).
-  /// [textWrap] defaults to `false` (no text wrapping around the image).
+  /// [textWrap] defaults to [TextWrapMode.none] (no text wrapping around the image).
   ImageNode({
     required super.id,
     required this.imageUrl,
@@ -44,7 +45,7 @@ class ImageNode extends DocumentNode implements HasBlockLayout {
     this.width,
     this.height,
     this.alignment = BlockAlignment.stretch,
-    this.textWrap = false,
+    this.textWrap = TextWrapMode.none,
     super.metadata,
   });
 
@@ -67,11 +68,12 @@ class ImageNode extends DocumentNode implements HasBlockLayout {
   /// when the image has an explicit [width] that is smaller than the layout.
   final BlockAlignment alignment;
 
-  /// Whether surrounding text may flow around this image.
+  /// How surrounding text interacts with this image.
   ///
-  /// When `true` the rendering layer is expected to apply text-wrap layout
-  /// (similar to CSS `float`). Defaults to `false`.
-  final bool textWrap;
+  /// Defaults to [TextWrapMode.none], which causes the image to occupy a full
+  /// vertical row. Use [TextWrapMode.wrap] to enable float-like layout
+  /// (similar to CSS `float`).
+  final TextWrapMode textWrap;
 
   @override
   ImageNode copyWith({
@@ -81,7 +83,7 @@ class ImageNode extends DocumentNode implements HasBlockLayout {
     double? width,
     double? height,
     BlockAlignment? alignment,
-    bool? textWrap,
+    TextWrapMode? textWrap,
     Map<String, dynamic>? metadata,
   }) {
     return ImageNode(
@@ -133,7 +135,9 @@ class ImageNode extends DocumentNode implements HasBlockLayout {
     properties.add(
       EnumProperty<BlockAlignment>('alignment', alignment, defaultValue: BlockAlignment.stretch),
     );
-    properties.add(DiagnosticsProperty<bool>('textWrap', textWrap, defaultValue: false));
+    properties.add(
+      EnumProperty<TextWrapMode>('textWrap', textWrap, defaultValue: TextWrapMode.none),
+    );
   }
 
   @override

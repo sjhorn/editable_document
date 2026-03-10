@@ -3,6 +3,7 @@ library;
 
 import 'package:editable_document/src/model/block_alignment.dart';
 import 'package:editable_document/src/model/horizontal_rule_node.dart';
+import 'package:editable_document/src/model/text_wrap_mode.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -11,12 +12,12 @@ void main() {
     // Default construction
     // -------------------------------------------------------------------------
 
-    test('default construction has null width and height and textWrap false', () {
+    test('default construction has null width and height and textWrap TextWrapMode.none', () {
       final node = HorizontalRuleNode(id: 'hr-1');
 
       expect(node.width, isNull);
       expect(node.height, isNull);
-      expect(node.textWrap, isFalse);
+      expect(node.textWrap, TextWrapMode.none);
       expect(node.alignment, BlockAlignment.stretch);
     });
 
@@ -29,13 +30,13 @@ void main() {
         id: 'hr-2',
         width: 400.0,
         height: 2.0,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
         alignment: BlockAlignment.center,
       );
 
       expect(node.width, 400.0);
       expect(node.height, 2.0);
-      expect(node.textWrap, isTrue);
+      expect(node.textWrap, TextWrapMode.wrap);
       expect(node.alignment, BlockAlignment.center);
     });
 
@@ -48,7 +49,7 @@ void main() {
         id: 'hr-3',
         width: 300.0,
         height: 4.0,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
         alignment: BlockAlignment.end,
       );
 
@@ -57,7 +58,7 @@ void main() {
       expect(copy.id, 'hr-3-copy');
       expect(copy.width, 300.0);
       expect(copy.height, 4.0);
-      expect(copy.textWrap, isTrue);
+      expect(copy.textWrap, TextWrapMode.wrap);
       expect(copy.alignment, BlockAlignment.end);
     });
 
@@ -82,10 +83,10 @@ void main() {
     });
 
     test('copyWith overrides textWrap independently', () {
-      final original = HorizontalRuleNode(id: 'hr-6', textWrap: false);
-      final copy = original.copyWith(textWrap: true);
+      final original = HorizontalRuleNode(id: 'hr-6', textWrap: TextWrapMode.none);
+      final copy = original.copyWith(textWrap: TextWrapMode.wrap);
 
-      expect(copy.textWrap, isTrue);
+      expect(copy.textWrap, TextWrapMode.wrap);
     });
 
     // -------------------------------------------------------------------------
@@ -97,14 +98,14 @@ void main() {
         id: 'hr-7',
         width: 250.0,
         height: 3.0,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
         alignment: BlockAlignment.center,
       );
       final b = HorizontalRuleNode(
         id: 'hr-7',
         width: 250.0,
         height: 3.0,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
         alignment: BlockAlignment.center,
       );
 
@@ -130,8 +131,8 @@ void main() {
     });
 
     test('nodes with different textWrap are not equal', () {
-      final a = HorizontalRuleNode(id: 'hr-10', textWrap: false);
-      final b = HorizontalRuleNode(id: 'hr-10', textWrap: true);
+      final a = HorizontalRuleNode(id: 'hr-10', textWrap: TextWrapMode.none);
+      final b = HorizontalRuleNode(id: 'hr-10', textWrap: TextWrapMode.wrap);
 
       expect(a, isNot(equals(b)));
     });
@@ -155,8 +156,18 @@ void main() {
     });
 
     test('hashCode is equal for identical nodes', () {
-      final a = HorizontalRuleNode(id: 'hr-13', width: 50.0, height: 2.0, textWrap: true);
-      final b = HorizontalRuleNode(id: 'hr-13', width: 50.0, height: 2.0, textWrap: true);
+      final a = HorizontalRuleNode(
+        id: 'hr-13',
+        width: 50.0,
+        height: 2.0,
+        textWrap: TextWrapMode.wrap,
+      );
+      final b = HorizontalRuleNode(
+        id: 'hr-13',
+        width: 50.0,
+        height: 2.0,
+        textWrap: TextWrapMode.wrap,
+      );
 
       expect(a.hashCode, equals(b.hashCode));
     });
@@ -170,7 +181,7 @@ void main() {
         id: 'hr-14',
         width: 320.0,
         height: 4.0,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
 
       final description = node.toDiagnosticsNode().toStringDeep();
@@ -188,13 +199,13 @@ void main() {
         id: 'hr-15',
         width: 128.0,
         height: 1.0,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
 
       final s = node.toString();
       expect(s, contains('width: 128.0'));
       expect(s, contains('height: 1.0'));
-      expect(s, contains('textWrap: true'));
+      expect(s, contains('textWrap: TextWrapMode.wrap'));
     });
   });
 }

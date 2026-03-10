@@ -46,12 +46,12 @@ void main() {
       expect(block.requestedHeight, isNull);
     });
 
-    test('textWrap defaults to false', () {
+    test('textWrap defaults to TextWrapMode.none', () {
       final block = RenderBlockquoteBlock(
         nodeId: 'bq-1',
         text: AttributedText('hello'),
       );
-      expect(block.textWrap, isFalse);
+      expect(block.textWrap, TextWrapMode.none);
     });
   });
 
@@ -96,9 +96,9 @@ void main() {
       final block = RenderBlockquoteBlock(
         nodeId: 'bq-1',
         text: AttributedText('hello'),
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
-      expect(block.textWrap, isTrue);
+      expect(block.textWrap, TextWrapMode.wrap);
     });
   });
 
@@ -144,8 +144,8 @@ void main() {
         nodeId: 'bq-1',
         text: AttributedText('hello'),
       );
-      block.textWrap = true;
-      expect(block.textWrap, isTrue);
+      block.textWrap = TextWrapMode.wrap;
+      expect(block.textWrap, TextWrapMode.wrap);
     });
 
     test('setting borderColor to same value is a no-op', () {

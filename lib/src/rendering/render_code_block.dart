@@ -8,6 +8,7 @@ import 'package:flutter/rendering.dart';
 
 import '../model/block_alignment.dart';
 import '../model/node_position.dart';
+import '../model/text_wrap_mode.dart';
 import 'block_layout_mixin.dart';
 import 'render_text_block.dart';
 
@@ -33,8 +34,8 @@ class RenderCodeBlock extends RenderTextBlock with BlockLayoutMixin {
   /// [requestedWidth] overrides the layout width when non-null; the text is
   /// laid out within `requestedWidth - 2 * padding`.
   /// [requestedHeight] overrides the block height when non-null.
-  /// [textWrap] controls whether subsequent blocks may wrap around this block;
-  /// defaults to `false`.
+  /// [textWrap] controls how surrounding text interacts with this block;
+  /// defaults to [TextWrapMode.none].
   RenderCodeBlock({
     required super.nodeId,
     required super.text,
@@ -47,7 +48,7 @@ class RenderCodeBlock extends RenderTextBlock with BlockLayoutMixin {
     BlockAlignment blockAlignment = BlockAlignment.stretch,
     double? requestedWidth,
     double? requestedHeight,
-    bool textWrap = false,
+    TextWrapMode textWrap = TextWrapMode.none,
   })  : _backgroundColor = backgroundColor,
         _padding = padding {
     initBlockLayout(

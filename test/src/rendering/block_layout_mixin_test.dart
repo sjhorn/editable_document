@@ -12,7 +12,7 @@ void main() {
       expect(block.blockAlignment, BlockAlignment.stretch);
       expect(block.requestedWidth, isNull);
       expect(block.requestedHeight, isNull);
-      expect(block.textWrap, false);
+      expect(block.textWrap, TextWrapMode.none);
     });
 
     test('initBlockLayout sets values without markNeedsLayout', () {
@@ -22,12 +22,12 @@ void main() {
         blockAlignment: BlockAlignment.center,
         requestedWidth: 300.0,
         requestedHeight: 200.0,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       expect(block.blockAlignment, BlockAlignment.center);
       expect(block.requestedWidth, 300.0);
       expect(block.requestedHeight, 200.0);
-      expect(block.textWrap, true);
+      expect(block.textWrap, TextWrapMode.wrap);
     });
 
     test('blockAlignment setter triggers markNeedsLayout', () {
@@ -93,16 +93,16 @@ void main() {
       block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
       expect(block.debugNeedsLayout, false);
 
-      block.textWrap = true;
+      block.textWrap = TextWrapMode.wrap;
       expect(block.debugNeedsLayout, true);
     });
 
     test('textWrap setter is a no-op for same value', () {
-      final block = RenderImageBlock(nodeId: 'test-1', textWrap: true);
+      final block = RenderImageBlock(nodeId: 'test-1', textWrap: TextWrapMode.wrap);
       block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
       expect(block.debugNeedsLayout, false);
 
-      block.textWrap = true;
+      block.textWrap = TextWrapMode.wrap;
       expect(block.debugNeedsLayout, false);
     });
 
@@ -112,11 +112,11 @@ void main() {
         text: AttributedText('hello'),
         blockAlignment: BlockAlignment.end,
         requestedWidth: 500.0,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       expect(block.blockAlignment, BlockAlignment.end);
       expect(block.requestedWidth, 500.0);
-      expect(block.textWrap, true);
+      expect(block.textWrap, TextWrapMode.wrap);
     });
 
     test('mixin works on RenderBlockquoteBlock', () {
@@ -136,12 +136,12 @@ void main() {
         blockAlignment: BlockAlignment.center,
         requestedWidth: 200.0,
         requestedHeight: 4.0,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       expect(block.blockAlignment, BlockAlignment.center);
       expect(block.requestedWidth, 200.0);
       expect(block.requestedHeight, 4.0);
-      expect(block.textWrap, true);
+      expect(block.textWrap, TextWrapMode.wrap);
     });
 
     test('debugFillBlockLayoutProperties adds four properties', () {
@@ -150,7 +150,7 @@ void main() {
         blockAlignment: BlockAlignment.center,
         requestedWidth: 300.0,
         requestedHeight: 200.0,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final builder = DiagnosticPropertiesBuilder();
       block.debugFillBlockLayoutProperties(builder);

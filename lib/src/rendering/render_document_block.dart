@@ -11,6 +11,7 @@ import 'package:flutter/rendering.dart';
 import '../model/block_alignment.dart';
 import '../model/document_selection.dart';
 import '../model/node_position.dart';
+import '../model/text_wrap_mode.dart';
 
 /// Abstract [RenderBox] base for all document block types.
 ///
@@ -92,12 +93,14 @@ abstract class RenderDocumentBlock extends RenderBox {
   /// block height.  Text blocks return `null` by default (intrinsic height).
   double? get requestedHeight => null;
 
-  /// Whether subsequent blocks should wrap around this block.
+  /// How surrounding text interacts with this block.
   ///
-  /// When `true` and [blockAlignment] is [BlockAlignment.start] or
-  /// [BlockAlignment.end], the document layout creates an exclusion zone
-  /// and adjacent blocks receive reduced-width constraints.
-  bool get textWrap => false;
+  /// When [TextWrapMode.wrap] and [blockAlignment] is [BlockAlignment.start],
+  /// [BlockAlignment.end], or [BlockAlignment.center], the document layout
+  /// creates an exclusion zone and adjacent blocks receive reduced-width
+  /// constraints.  Other modes position the block like a float but without
+  /// creating an exclusion zone.
+  TextWrapMode get textWrap => TextWrapMode.none;
 
   /// Whether this block should clear active float exclusion zones.
   ///
@@ -118,7 +121,8 @@ abstract class RenderDocumentBlock extends RenderBox {
     properties.add(EnumProperty<BlockAlignment>('blockAlignment', blockAlignment));
     properties.add(DoubleProperty('requestedWidth', requestedWidth));
     properties.add(DoubleProperty('requestedHeight', requestedHeight));
-    properties.add(DiagnosticsProperty<bool>('textWrap', textWrap));
+    properties
+        .add(EnumProperty<TextWrapMode>('textWrap', textWrap, defaultValue: TextWrapMode.none));
     properties.add(DiagnosticsProperty<bool>('clearsFloat', clearsFloat));
   }
 }

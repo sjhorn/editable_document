@@ -89,8 +89,8 @@ void main() {
       expect(block.requestedHeight, isNull);
     });
 
-    test('textWrap defaults to false', () {
-      expect(block.textWrap, isFalse);
+    test('textWrap defaults to TextWrapMode.none', () {
+      expect(block.textWrap, TextWrapMode.none);
     });
   });
 }

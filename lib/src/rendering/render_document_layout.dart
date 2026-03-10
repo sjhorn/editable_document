@@ -13,6 +13,7 @@ import '../model/block_alignment.dart';
 import '../model/document_position.dart';
 import '../model/document_selection.dart';
 import '../model/node_position.dart';
+import '../model/text_wrap_mode.dart';
 import 'render_document_block.dart';
 
 // ---------------------------------------------------------------------------
@@ -30,6 +31,13 @@ class DocumentBlockParentData extends ContainerBoxParentData<RenderDocumentBlock
   /// When `true`, the block occupies an exclusion zone and adjacent blocks
   /// may wrap beside it.  Set by [RenderDocumentLayout.performLayout].
   bool isFloat = false;
+
+  /// The [TextWrapMode] of this block.
+  ///
+  /// Mirrors [RenderDocumentBlock.textWrap] as recorded during
+  /// [RenderDocumentLayout.performLayout].  Used by the paint method to
+  /// determine in which pass this block should be rendered.
+  TextWrapMode wrapMode = TextWrapMode.none;
 
   /// The interior exclusion rectangle for center-float wrapping, or `null`.
   ///
@@ -148,12 +156,13 @@ const double _kFloatGap = 8.0;
 ///
 /// - [BlockAlignment.center] — the block takes its natural/requested width and
 ///   is centred horizontally.
-/// - [BlockAlignment.start] / [BlockAlignment.end] (without [RenderDocumentBlock.textWrap])
-///   — the block is aligned to the corresponding edge but occupies a full
-///   vertical row (no wrapping of adjacent content).
-/// - [BlockAlignment.start] / [BlockAlignment.end] (with [RenderDocumentBlock.textWrap] `true`)
-///   — the block becomes a *float*: it is pinned to the edge, and subsequent
-///   blocks are narrowed to wrap beside it until the float's bottom is cleared.
+/// - [BlockAlignment.start] / [BlockAlignment.end] (with [RenderDocumentBlock.textWrap]
+///   [TextWrapMode.none]) — the block is aligned to the corresponding edge but
+///   occupies a full vertical row (no wrapping of adjacent content).
+/// - [BlockAlignment.start] / [BlockAlignment.end] (with [RenderDocumentBlock.textWrap]
+///   [TextWrapMode.wrap]) — the block becomes a *float*: it is pinned to the
+///   edge, and subsequent blocks are narrowed to wrap beside it until the
+///   float's bottom is cleared.
 ///
 /// ## Geometry queries
 ///
@@ -303,11 +312,13 @@ class RenderDocumentLayout extends RenderBox
     while (child != null) {
       final parentData = child.parentData as DocumentBlockParentData;
       final alignment = child.blockAlignment;
-      final isFloat = child.textWrap &&
+      final wrapMode = child.textWrap;
+      final isFloat = wrapMode != TextWrapMode.none &&
           (alignment == BlockAlignment.start ||
               alignment == BlockAlignment.end ||
               alignment == BlockAlignment.center);
       parentData.isFloat = isFloat;
+      parentData.wrapMode = wrapMode;
       parentData.exclusionRect = null;
 
       if (childIndex > 0) {
@@ -387,15 +398,20 @@ class RenderDocumentLayout extends RenderBox
         parentData.offset = Offset(xOffset, yOffset);
         widestChild = max(widestChild, parentData.offset.dx + child.size.width);
 
-        // Create exclusion zone so subsequent blocks wrap beside the float.
-        activeExclusion = _ExclusionZone(
-          side: alignment,
-          width:
-              alignment == BlockAlignment.center ? child.size.width : child.size.width + _kFloatGap,
-          top: yOffset,
-          bottom: yOffset + child.size.height,
-          floatLeft: xOffset,
-        );
+        // Create exclusion zone ONLY for TextWrapMode.wrap.
+        // behindText and inFrontOfText position like floats but don't create
+        // exclusions, so subsequent blocks overlay/underlay with no wrapping.
+        if (wrapMode == TextWrapMode.wrap) {
+          activeExclusion = _ExclusionZone(
+            side: alignment,
+            width: alignment == BlockAlignment.center
+                ? child.size.width
+                : child.size.width + _kFloatGap,
+            top: yOffset,
+            bottom: yOffset + child.size.height,
+            floatLeft: xOffset,
+          );
+        }
 
         // Do not advance yOffset — next block wraps beside the float.
       } else {
@@ -547,21 +563,33 @@ class RenderDocumentLayout extends RenderBox
   // Paint
   // ---------------------------------------------------------------------------
 
-  /// Paints children in two passes so that float blocks always render on top
-  /// of any adjacent non-float (wrapping) blocks.
+  /// Paints children in three passes based on [DocumentBlockParentData.wrapMode].
   ///
-  /// **Pass 1** — non-float children ([DocumentBlockParentData.isFloat] is
+  /// **Pass 1** — [TextWrapMode.behindText] float children are painted first,
+  /// behind all other content.
+  ///
+  /// **Pass 2** — non-float children ([DocumentBlockParentData.isFloat] is
   /// `false`) are painted in document order.  This includes stretch blocks
   /// that may wrap beside a float and have an opaque background.
   ///
-  /// **Pass 2** — float children ([DocumentBlockParentData.isFloat] is `true`)
-  /// are painted in document order, on top of the pass-1 content.  This
-  /// ensures that a floated image (or any other float block) is never obscured
-  /// by the background of a later wrapping block.
+  /// **Pass 3** — [TextWrapMode.wrap] and [TextWrapMode.inFrontOfText] float
+  /// children are painted last, on top of all non-float content.  This ensures
+  /// that a floated image (or any other float block) is never obscured by the
+  /// background of a later wrapping block.
   @override
   void paint(PaintingContext context, Offset offset) {
-    // Pass 1: non-float children.
+    // Pass 1: behindText floats (painted behind everything).
     RenderDocumentBlock? child = firstChild;
+    while (child != null) {
+      final parentData = child.parentData as DocumentBlockParentData;
+      if (parentData.isFloat && parentData.wrapMode == TextWrapMode.behindText) {
+        context.paintChild(child, offset + parentData.offset);
+      }
+      child = childAfter(child);
+    }
+
+    // Pass 2: non-float children (normal document order).
+    child = firstChild;
     while (child != null) {
       final parentData = child.parentData as DocumentBlockParentData;
       if (!parentData.isFloat) {
@@ -570,11 +598,11 @@ class RenderDocumentLayout extends RenderBox
       child = childAfter(child);
     }
 
-    // Pass 2: float children (painted on top).
+    // Pass 3: wrap + inFrontOfText floats (painted on top).
     child = firstChild;
     while (child != null) {
       final parentData = child.parentData as DocumentBlockParentData;
-      if (parentData.isFloat) {
+      if (parentData.isFloat && parentData.wrapMode != TextWrapMode.behindText) {
         context.paintChild(child, offset + parentData.offset);
       }
       child = childAfter(child);

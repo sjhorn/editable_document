@@ -10,6 +10,7 @@ import 'attributed_text.dart';
 import 'block_alignment.dart';
 import 'block_layout.dart';
 import 'text_node.dart';
+import 'text_wrap_mode.dart';
 
 /// A [TextNode] representing a blockquote.
 ///
@@ -33,7 +34,7 @@ class BlockquoteNode extends TextNode implements HasBlockLayout {
   /// Creates a [BlockquoteNode] with optional layout properties.
   ///
   /// [alignment] defaults to [BlockAlignment.stretch].
-  /// [textWrap] defaults to `false`.
+  /// [textWrap] defaults to [TextWrapMode.none].
   /// [width] and [height] default to `null` (use available / intrinsic size).
   BlockquoteNode({
     required super.id,
@@ -41,7 +42,7 @@ class BlockquoteNode extends TextNode implements HasBlockLayout {
     this.width,
     this.height,
     this.alignment = BlockAlignment.stretch,
-    this.textWrap = false,
+    this.textWrap = TextWrapMode.none,
     super.metadata,
   });
 
@@ -56,12 +57,12 @@ class BlockquoteNode extends TextNode implements HasBlockLayout {
   /// Defaults to [BlockAlignment.stretch].
   final BlockAlignment alignment;
 
-  /// Whether subsequent blocks should wrap around this blockquote.
+  /// How surrounding text interacts with this blockquote.
   ///
-  /// When `true` and [alignment] is [BlockAlignment.start] or
+  /// When [TextWrapMode.wrap] and [alignment] is [BlockAlignment.start] or
   /// [BlockAlignment.end], adjacent blocks receive reduced-width constraints
-  /// so they flow beside this blockquote. Defaults to `false`.
-  final bool textWrap;
+  /// so they flow beside this blockquote. Defaults to [TextWrapMode.none].
+  final TextWrapMode textWrap;
 
   @override
   BlockquoteNode copyWith({
@@ -70,7 +71,7 @@ class BlockquoteNode extends TextNode implements HasBlockLayout {
     double? width,
     double? height,
     BlockAlignment? alignment,
-    bool? textWrap,
+    TextWrapMode? textWrap,
     Map<String, dynamic>? metadata,
   }) {
     return BlockquoteNode(
@@ -117,7 +118,9 @@ class BlockquoteNode extends TextNode implements HasBlockLayout {
     properties.add(
       EnumProperty<BlockAlignment>('alignment', alignment, defaultValue: BlockAlignment.stretch),
     );
-    properties.add(DiagnosticsProperty<bool>('textWrap', textWrap, defaultValue: false));
+    properties.add(
+      EnumProperty<TextWrapMode>('textWrap', textWrap, defaultValue: TextWrapMode.none),
+    );
   }
 
   @override

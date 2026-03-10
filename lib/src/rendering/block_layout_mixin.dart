@@ -8,6 +8,7 @@ library;
 import 'package:flutter/rendering.dart';
 
 import '../model/block_alignment.dart';
+import '../model/text_wrap_mode.dart';
 import 'render_document_block.dart';
 
 /// Mixin that provides storage and setter boilerplate for the four block
@@ -19,6 +20,9 @@ import 'render_document_block.dart';
 ///
 /// Call [initBlockLayout] from the constructor body to set initial values
 /// without triggering [markNeedsLayout].
+///
+/// The [textWrap] property uses [TextWrapMode] to control how surrounding
+/// content interacts with this block when it is floated.
 ///
 /// ```dart
 /// class RenderMyBlock extends RenderDocumentBlock with BlockLayoutMixin {
@@ -37,7 +41,7 @@ mixin BlockLayoutMixin on RenderDocumentBlock {
   BlockAlignment _blockAlignment = BlockAlignment.stretch;
   double? _requestedWidth;
   double? _requestedHeight;
-  bool _textWrap = false;
+  TextWrapMode _textWrap = TextWrapMode.none;
 
   /// Sets initial block layout values without triggering [markNeedsLayout].
   ///
@@ -48,7 +52,7 @@ mixin BlockLayoutMixin on RenderDocumentBlock {
     BlockAlignment blockAlignment = BlockAlignment.stretch,
     double? requestedWidth,
     double? requestedHeight,
-    bool textWrap = false,
+    TextWrapMode textWrap = TextWrapMode.none,
   }) {
     _blockAlignment = blockAlignment;
     _requestedWidth = requestedWidth;
@@ -101,17 +105,19 @@ mixin BlockLayoutMixin on RenderDocumentBlock {
     markNeedsLayout();
   }
 
-  /// Whether subsequent blocks should wrap around this block.
+  /// How surrounding text interacts with this block when floated.
   ///
-  /// When `true` and [blockAlignment] is [BlockAlignment.start] or
-  /// [BlockAlignment.end], the document layout creates an exclusion zone so
-  /// adjacent blocks receive reduced-width constraints.
+  /// When [TextWrapMode.wrap] and [blockAlignment] is [BlockAlignment.start],
+  /// [BlockAlignment.end], or [BlockAlignment.center], the document layout
+  /// creates an exclusion zone so adjacent blocks receive reduced-width
+  /// constraints.  [TextWrapMode.none] causes the block to occupy a full
+  /// vertical row.
   // ignore: diagnostic_describe_all_properties
   @override
-  bool get textWrap => _textWrap;
+  TextWrapMode get textWrap => _textWrap;
 
-  /// Sets the text-wrap flag and schedules a layout pass.
-  set textWrap(bool value) {
+  /// Sets the text-wrap mode and schedules a layout pass.
+  set textWrap(TextWrapMode value) {
     if (_textWrap == value) return;
     _textWrap = value;
     markNeedsLayout();
@@ -128,6 +134,7 @@ mixin BlockLayoutMixin on RenderDocumentBlock {
     ));
     properties.add(DoubleProperty('requestedWidth', _requestedWidth, defaultValue: null));
     properties.add(DoubleProperty('requestedHeight', _requestedHeight, defaultValue: null));
-    properties.add(FlagProperty('textWrap', value: _textWrap, ifTrue: 'textWrap'));
+    properties
+        .add(EnumProperty<TextWrapMode>('textWrap', _textWrap, defaultValue: TextWrapMode.none));
   }
 }

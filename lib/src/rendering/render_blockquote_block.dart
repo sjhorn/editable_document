@@ -8,6 +8,7 @@ import 'package:flutter/rendering.dart';
 
 import '../model/block_alignment.dart';
 import '../model/node_position.dart';
+import '../model/text_wrap_mode.dart';
 import 'block_layout_mixin.dart';
 import 'render_text_block.dart';
 
@@ -33,7 +34,7 @@ const double _kBorderInset = _kBorderWidth + _kBorderPadding;
 /// | [blockAlignment]  | [BlockAlignment.stretch] | Horizontal alignment within the layout. |
 /// | [requestedWidth]  | `null`                | Overrides block width when non-null.     |
 /// | [requestedHeight] | `null`                | Overrides block height when non-null.    |
-/// | [textWrap]        | `false`               | Whether adjacent blocks wrap around this.|
+/// | [textWrap]        | [TextWrapMode.none]   | How surrounding text interacts with this.|
 ///
 /// Example:
 ///
@@ -59,8 +60,8 @@ class RenderBlockquoteBlock extends RenderTextBlock with BlockLayoutMixin {
   ///   [BlockAlignment.stretch].
   /// [requestedWidth] overrides the block width when non-null.
   /// [requestedHeight] overrides the block height when non-null.
-  /// [textWrap] controls whether adjacent blocks may wrap around this block;
-  ///   defaults to `false`.
+  /// [textWrap] controls how surrounding text interacts with this block;
+  ///   defaults to [TextWrapMode.none].
   RenderBlockquoteBlock({
     required super.nodeId,
     required super.text,
@@ -72,7 +73,7 @@ class RenderBlockquoteBlock extends RenderTextBlock with BlockLayoutMixin {
     BlockAlignment blockAlignment = BlockAlignment.stretch,
     double? requestedWidth,
     double? requestedHeight,
-    bool textWrap = false,
+    TextWrapMode textWrap = TextWrapMode.none,
   }) : _borderColor = borderColor {
     initBlockLayout(
       blockAlignment: blockAlignment,

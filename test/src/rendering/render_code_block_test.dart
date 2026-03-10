@@ -31,12 +31,12 @@ void main() {
       expect(block.requestedHeight, isNull);
     });
 
-    test('textWrap defaults to false', () {
+    test('textWrap defaults to TextWrapMode.none', () {
       final block = RenderCodeBlock(
         nodeId: 'code-1',
         text: AttributedText('hello'),
       );
-      expect(block.textWrap, isFalse);
+      expect(block.textWrap, TextWrapMode.none);
     });
 
     test('blockAlignment setter roundtrip', () {
@@ -71,8 +71,8 @@ void main() {
         nodeId: 'code-1',
         text: AttributedText('hello'),
       );
-      block.textWrap = true;
-      expect(block.textWrap, isTrue);
+      block.textWrap = TextWrapMode.wrap;
+      expect(block.textWrap, TextWrapMode.wrap);
     });
 
     test('setting blockAlignment to same value is a no-op', () {
@@ -115,9 +115,9 @@ void main() {
       final block = RenderCodeBlock(
         nodeId: 'code-1',
         text: AttributedText('hello'),
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
-      expect(block.textWrap, isTrue);
+      expect(block.textWrap, TextWrapMode.wrap);
     });
 
     test('requestedWidth constrains text layout width', () {

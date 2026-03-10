@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'block_alignment.dart';
 import 'block_layout.dart';
 import 'document_node.dart';
+import 'text_wrap_mode.dart';
 
 /// A [DocumentNode] representing a horizontal rule (thematic break).
 ///
@@ -25,8 +26,7 @@ import 'document_node.dart';
 /// rendering layer. When `null`, the rendering layer applies its default
 /// auto-sizing behaviour (typically full-width, thin line).
 ///
-/// The [textWrap] field controls whether surrounding text may flow around
-/// this rule.
+/// The [textWrap] field controls how surrounding text interacts with this rule.
 ///
 /// ```dart
 /// final rule = HorizontalRuleNode(
@@ -34,7 +34,7 @@ import 'document_node.dart';
 ///   width: 400.0,
 ///   height: 2.0,
 ///   alignment: BlockAlignment.center,
-///   textWrap: false,
+///   textWrap: TextWrapMode.none,
 /// );
 /// ```
 class HorizontalRuleNode extends DocumentNode implements HasBlockLayout {
@@ -43,13 +43,13 @@ class HorizontalRuleNode extends DocumentNode implements HasBlockLayout {
   /// [textWrap].
   ///
   /// [alignment] defaults to [BlockAlignment.stretch].
-  /// [textWrap] defaults to `false`.
+  /// [textWrap] defaults to [TextWrapMode.none].
   HorizontalRuleNode({
     required super.id,
     this.width,
     this.height,
     this.alignment = BlockAlignment.stretch,
-    this.textWrap = false,
+    this.textWrap = TextWrapMode.none,
     super.metadata,
   });
 
@@ -66,13 +66,12 @@ class HorizontalRuleNode extends DocumentNode implements HasBlockLayout {
   /// constrains the rule to a narrower width.
   final BlockAlignment alignment;
 
-  /// Whether surrounding text may flow around this horizontal rule.
+  /// How surrounding text interacts with this horizontal rule.
   ///
-  /// When `true` the rendering layer is expected to apply text-wrap layout
+  /// Defaults to [TextWrapMode.none], which causes the rule to occupy a full
+  /// vertical row. Use [TextWrapMode.wrap] to enable float-like layout
   /// (similar to CSS `float`).
-  ///
-  /// Defaults to `false`.
-  final bool textWrap;
+  final TextWrapMode textWrap;
 
   @override
   HorizontalRuleNode copyWith({
@@ -80,7 +79,7 @@ class HorizontalRuleNode extends DocumentNode implements HasBlockLayout {
     double? width,
     double? height,
     BlockAlignment? alignment,
-    bool? textWrap,
+    TextWrapMode? textWrap,
     Map<String, dynamic>? metadata,
   }) {
     return HorizontalRuleNode(
@@ -124,7 +123,9 @@ class HorizontalRuleNode extends DocumentNode implements HasBlockLayout {
     properties.add(
       EnumProperty<BlockAlignment>('alignment', alignment, defaultValue: BlockAlignment.stretch),
     );
-    properties.add(DiagnosticsProperty<bool>('textWrap', textWrap, defaultValue: false));
+    properties.add(
+      EnumProperty<TextWrapMode>('textWrap', textWrap, defaultValue: TextWrapMode.none),
+    );
   }
 
   @override

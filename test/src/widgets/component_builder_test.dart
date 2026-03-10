@@ -411,19 +411,19 @@ void main() {
         id: 'img1',
         imageUrl: 'https://example.com/img.png',
         alignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final doc = _doc([node]);
       final vm = builder.createViewModel(doc, node) as ImageComponentViewModel;
       expect(vm.alignment, BlockAlignment.center);
-      expect(vm.textWrap, isTrue);
+      expect(vm.textWrap, TextWrapMode.wrap);
     });
 
-    test('createViewModel defaults alignment to stretch and textWrap to false', () {
+    test('createViewModel defaults alignment to stretch and textWrap to none', () {
       final doc = _doc([_image()]);
       final vm = builder.createViewModel(doc, _image()) as ImageComponentViewModel;
       expect(vm.alignment, BlockAlignment.stretch);
-      expect(vm.textWrap, isFalse);
+      expect(vm.textWrap, TextWrapMode.none);
     });
 
     test('createComponent returns non-null for ImageComponentViewModel', () {
@@ -453,19 +453,19 @@ void main() {
         nodeId: 'img1',
         imageUrl: 'https://example.com/img.png',
         alignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       const b = ImageComponentViewModel(
         nodeId: 'img1',
         imageUrl: 'https://example.com/img.png',
         alignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       const c = ImageComponentViewModel(
         nodeId: 'img1',
         imageUrl: 'https://example.com/img.png',
         alignment: BlockAlignment.start,
-        textWrap: false,
+        textWrap: TextWrapMode.none,
       );
       expect(a, equals(b));
       expect(a, isNot(equals(c)));
@@ -476,13 +476,13 @@ void main() {
         nodeId: 'img1',
         imageUrl: 'https://example.com/img.png',
         alignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       const b = ImageComponentViewModel(
         nodeId: 'img1',
         imageUrl: 'https://example.com/img.png',
         alignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       expect(a.hashCode, equals(b.hashCode));
     });
@@ -533,14 +533,14 @@ void main() {
         width: 400.0,
         height: 200.0,
         alignment: BlockAlignment.end,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final doc = _doc([node]);
       final vm = builder.createViewModel(doc, node) as CodeBlockComponentViewModel;
       expect(vm.width, 400.0);
       expect(vm.height, 200.0);
       expect(vm.alignment, BlockAlignment.end);
-      expect(vm.textWrap, isTrue);
+      expect(vm.textWrap, TextWrapMode.wrap);
     });
 
     test('createViewModel defaults width, height to null and alignment to stretch', () {
@@ -549,7 +549,7 @@ void main() {
       expect(vm.width, isNull);
       expect(vm.height, isNull);
       expect(vm.alignment, BlockAlignment.stretch);
-      expect(vm.textWrap, isFalse);
+      expect(vm.textWrap, TextWrapMode.none);
     });
 
     test('createComponent returns non-null for CodeBlockComponentViewModel', () {
@@ -580,7 +580,7 @@ void main() {
         width: 400.0,
         height: 200.0,
         alignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final b = CodeBlockComponentViewModel(
         nodeId: 'cb1',
@@ -589,7 +589,7 @@ void main() {
         width: 400.0,
         height: 200.0,
         alignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final c = CodeBlockComponentViewModel(
         nodeId: 'cb1',
@@ -609,7 +609,7 @@ void main() {
         textStyle: const TextStyle(),
         width: 400.0,
         alignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final b = CodeBlockComponentViewModel(
         nodeId: 'cb1',
@@ -617,7 +617,7 @@ void main() {
         textStyle: const TextStyle(),
         width: 400.0,
         alignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       expect(a.hashCode, equals(b.hashCode));
     });
@@ -735,7 +735,7 @@ void main() {
         width: 500.0,
         height: 100.0,
         alignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final doc = _doc([node]);
       final vm = builder.createViewModel(doc, node) as BlockquoteComponentViewModel;
@@ -743,7 +743,7 @@ void main() {
       expect(vm.width, 500.0);
       expect(vm.height, 100.0);
       expect(vm.alignment, BlockAlignment.center);
-      expect(vm.textWrap, isTrue);
+      expect(vm.textWrap, TextWrapMode.wrap);
     });
 
     test('createViewModel defaults width, height to null and alignment to stretch', () {
@@ -752,7 +752,7 @@ void main() {
       expect(vm.width, isNull);
       expect(vm.height, isNull);
       expect(vm.alignment, BlockAlignment.stretch);
-      expect(vm.textWrap, isFalse);
+      expect(vm.textWrap, TextWrapMode.none);
     });
 
     test('createComponent returns non-null for BlockquoteComponentViewModel', () {
@@ -783,7 +783,7 @@ void main() {
         width: 500.0,
         height: 100.0,
         alignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final b = BlockquoteComponentViewModel(
         nodeId: 'bq1',
@@ -792,7 +792,7 @@ void main() {
         width: 500.0,
         height: 100.0,
         alignment: BlockAlignment.center,
-        textWrap: true,
+        textWrap: TextWrapMode.wrap,
       );
       final c = BlockquoteComponentViewModel(
         nodeId: 'bq1',
