@@ -14,6 +14,7 @@ import 'document_node.dart';
 import 'document_selection.dart';
 import 'node_position.dart';
 import 'paragraph_node.dart';
+import 'table_node.dart';
 
 // ---------------------------------------------------------------------------
 // EditRequest (abstract base)
@@ -523,4 +524,130 @@ class InsertTextAtBinaryNodeRequest extends EditRequest {
   @override
   String toString() => 'InsertTextAtBinaryNodeRequest(nodeId: $nodeId, '
       'nodePosition: $nodePosition, text: $text)';
+}
+
+// ---------------------------------------------------------------------------
+// InsertTableRequest
+// ---------------------------------------------------------------------------
+
+/// Request to insert a new [TableNode] into the document.
+///
+/// A [TableNode] with [rowCount] rows and [columnCount] columns is created,
+/// with all cells initialised to empty [AttributedText]. It is inserted at
+/// [insertIndex] when non-null, or appended to the end of the document when
+/// [insertIndex] is `null`.
+class InsertTableRequest extends EditRequest {
+  /// Creates an [InsertTableRequest].
+  const InsertTableRequest({
+    required this.nodeId,
+    required this.rowCount,
+    required this.columnCount,
+    this.insertIndex,
+  });
+
+  /// The id to assign to the new [TableNode].
+  final String nodeId;
+
+  /// Number of rows in the table.
+  final int rowCount;
+
+  /// Number of columns in the table.
+  final int columnCount;
+
+  /// Zero-based index at which to insert the table, or `null` to append.
+  final int? insertIndex;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is InsertTableRequest &&
+        other.nodeId == nodeId &&
+        other.rowCount == rowCount &&
+        other.columnCount == columnCount &&
+        other.insertIndex == insertIndex;
+  }
+
+  @override
+  int get hashCode => Object.hash(nodeId, rowCount, columnCount, insertIndex);
+
+  @override
+  String toString() => 'InsertTableRequest(nodeId: $nodeId, rowCount: $rowCount, '
+      'columnCount: $columnCount, insertIndex: $insertIndex)';
+}
+
+// ---------------------------------------------------------------------------
+// UpdateTableCellRequest
+// ---------------------------------------------------------------------------
+
+/// Request to update the text content of a specific [TableNode] cell.
+///
+/// The [TableNode] identified by [nodeId] must exist and the [row] and [col]
+/// indices must be within bounds. The cell at ([row], [col]) is replaced with
+/// [newText].
+class UpdateTableCellRequest extends EditRequest {
+  /// Creates an [UpdateTableCellRequest].
+  const UpdateTableCellRequest({
+    required this.nodeId,
+    required this.row,
+    required this.col,
+    required this.newText,
+  });
+
+  /// The id of the target [TableNode].
+  final String nodeId;
+
+  /// Zero-based row index of the cell to update.
+  final int row;
+
+  /// Zero-based column index of the cell to update.
+  final int col;
+
+  /// The new text content for the cell.
+  final AttributedText newText;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is UpdateTableCellRequest &&
+        other.nodeId == nodeId &&
+        other.row == row &&
+        other.col == col &&
+        other.newText == newText;
+  }
+
+  @override
+  int get hashCode => Object.hash(nodeId, row, col, newText);
+
+  @override
+  String toString() => 'UpdateTableCellRequest(nodeId: $nodeId, row: $row, '
+      'col: $col, newText: $newText)';
+}
+
+// ---------------------------------------------------------------------------
+// DeleteTableRequest
+// ---------------------------------------------------------------------------
+
+/// Request to delete the [TableNode] identified by [nodeId] from the document.
+///
+/// The node must exist and must be a [TableNode]. After deletion the controller
+/// selection is collapsed to the nearest surviving node, or cleared when the
+/// document becomes empty.
+class DeleteTableRequest extends EditRequest {
+  /// Creates a [DeleteTableRequest].
+  const DeleteTableRequest({required this.nodeId});
+
+  /// The id of the [TableNode] to delete.
+  final String nodeId;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is DeleteTableRequest && other.nodeId == nodeId;
+  }
+
+  @override
+  int get hashCode => nodeId.hashCode;
+
+  @override
+  String toString() => 'DeleteTableRequest(nodeId: $nodeId)';
 }

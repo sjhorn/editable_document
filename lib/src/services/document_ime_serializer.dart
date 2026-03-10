@@ -17,6 +17,7 @@ import '../model/document_position.dart';
 import '../model/document_selection.dart';
 import '../model/edit_request.dart';
 import '../model/node_position.dart';
+import '../model/table_node.dart';
 import '../model/text_node.dart';
 
 // ---------------------------------------------------------------------------
@@ -57,15 +58,26 @@ const String _kSyntheticPlaceholder = '\u200B';
 /// text model.  When [selection] is `null`, an empty string is returned
 /// instead of the placeholder.
 ///
+/// ### Mode 3 — Table Cell (single [TableNode] cell selected)
+///
+/// When [selection] is non-null and both endpoints refer to the same cell
+/// within a [TableNode] (identified by matching `row` and `col` in their
+/// [TableCellPosition]s), the cell's plain text is placed in
+/// [TextEditingValue.text] and the selection offsets are mapped to character
+/// positions within that cell.  Incoming deltas are converted to
+/// [UpdateTableCellRequest]s that replace the full cell text (newline
+/// insertions are treated as embedded newlines rather than paragraph splits).
+///
 /// ## Delta → EditRequest mapping
 ///
-/// | Delta type | Produces |
-/// |---|---|
-/// | [TextEditingDeltaInsertion] (normal text) | [InsertTextRequest] |
-/// | [TextEditingDeltaInsertion] (`'\n'`) | [SplitParagraphRequest] |
-/// | [TextEditingDeltaDeletion] | [DeleteContentRequest] |
-/// | [TextEditingDeltaReplacement] | [DeleteContentRequest] + [InsertTextRequest] |
-/// | [TextEditingDeltaNonTextUpdate] | *(empty — selection-only update)* |
+/// | Delta type | TextNode target | Produces |
+/// |---|---|---|
+/// | [TextEditingDeltaInsertion] (normal text) | [TextNode] | [InsertTextRequest] |
+/// | [TextEditingDeltaInsertion] (`'\n'`) | [TextNode] | [SplitParagraphRequest] |
+/// | [TextEditingDeltaDeletion] | [TextNode] | [DeleteContentRequest] |
+/// | [TextEditingDeltaReplacement] | [TextNode] | [DeleteContentRequest] + [InsertTextRequest] |
+/// | [TextEditingDeltaNonTextUpdate] | any | *(empty — selection-only update)* |
+/// | any delta | [TableNode] cell | [UpdateTableCellRequest] |
 class DocumentImeSerializer {
   /// Creates a [DocumentImeSerializer].
   const DocumentImeSerializer();
@@ -83,16 +95,26 @@ class DocumentImeSerializer {
   /// [composingNodeId], [composingBase], and [composingExtent]; the region is
   /// only used in Mode 1 (it is ignored in Mode 2).
   ///
+  /// When [selection] is non-null and both endpoints are inside the *same*
+  /// cell of a [TableNode] (Mode 3), the cell's text is serialized with the
+  /// character offsets mapped.  The composing region is honoured only when
+  /// [composingNodeId] matches the table node id **and** [composingRow] /
+  /// [composingCol] match the selected cell.
+  ///
   /// When [selection] is `null`, an empty [TextEditingValue] is returned.
   ///
-  /// In all other cases (cross-block selection, non-text node selection) a
-  /// synthetic Mode 2 value is returned — see [_kSyntheticPlaceholder].
+  /// In all other cases (cross-block selection, cross-cell table selection,
+  /// non-text / non-table node selection) a synthetic Mode 2 value is returned
+  /// — see [_kSyntheticPlaceholder].
   TextEditingValue toTextEditingValue({
     required Document document,
     required DocumentSelection? selection,
     String? composingNodeId,
     int? composingBase,
     int? composingExtent,
+    // Mode 3: row/col of the composing cell within a TableNode.
+    int? composingRow,
+    int? composingCol,
   }) {
     // Null selection — caller has nothing selected.
     if (selection == null) {
@@ -105,26 +127,25 @@ class DocumentImeSerializer {
     final baseNode = document.nodeById(selection.base.nodeId);
     final extentNode = document.nodeById(selection.extent.nodeId);
 
-    // Mode 1: both endpoints are in the same TextNode.
+    // Both endpoints must refer to the same node.
     final sameNode = baseNode != null && extentNode != null && identical(baseNode, extentNode);
-    if (sameNode && baseNode is TextNode) {
-      final nodeText = baseNode.text.text;
+    if (!sameNode) return _syntheticValue();
 
-      // Map DocumentSelection → TextSelection within this node's text.
+    // Mode 1: single TextNode selected.
+    if (baseNode is TextNode) {
       final basePos = selection.base.nodePosition;
       final extentPos = selection.extent.nodePosition;
 
       if (basePos is! TextNodePosition || extentPos is! TextNodePosition) {
-        // Fall through to Mode 2 if node positions are not text positions.
         return _syntheticValue();
       }
 
+      final nodeText = baseNode.text.text;
       final textSel = TextSelection(
         baseOffset: basePos.offset,
         extentOffset: extentPos.offset,
       );
 
-      // Build composing range if requested for this node.
       TextRange composing = TextRange.empty;
       if (composingNodeId == baseNode.id && composingBase != null && composingExtent != null) {
         composing = TextRange(start: composingBase, end: composingExtent);
@@ -137,7 +158,43 @@ class DocumentImeSerializer {
       );
     }
 
-    // Mode 2: cross-block or non-text node.
+    // Mode 3: single TableNode cell selected.
+    if (baseNode is TableNode) {
+      final basePos = selection.base.nodePosition;
+      final extentPos = selection.extent.nodePosition;
+
+      if (basePos is! TableCellPosition || extentPos is! TableCellPosition) {
+        return _syntheticValue();
+      }
+
+      // Both positions must refer to the same cell.
+      if (basePos.row != extentPos.row || basePos.col != extentPos.col) {
+        return _syntheticValue();
+      }
+
+      final cellText = baseNode.cellAt(basePos.row, basePos.col).text;
+      final textSel = TextSelection(
+        baseOffset: basePos.offset,
+        extentOffset: extentPos.offset,
+      );
+
+      TextRange composing = TextRange.empty;
+      if (composingNodeId == baseNode.id &&
+          composingRow == basePos.row &&
+          composingCol == basePos.col &&
+          composingBase != null &&
+          composingExtent != null) {
+        composing = TextRange(start: composingBase, end: composingExtent);
+      }
+
+      return TextEditingValue(
+        text: cellText,
+        selection: textSel,
+        composing: composing,
+      );
+    }
+
+    // Mode 2: non-text, non-table node.
     return _syntheticValue();
   }
 
@@ -147,18 +204,26 @@ class DocumentImeSerializer {
 
   /// Converts an IME [imeValue] back to a [DocumentSelection].
   ///
-  /// [serializedNodeId] must be the id of the [TextNode] that was serialized
-  /// during the corresponding [toTextEditingValue] call (Mode 1).  When
-  /// [serializedNodeId] is `null` the call was Mode 2 and `null` is returned.
+  /// [serializedNodeId] must be the id of the node that was serialized during
+  /// the corresponding [toTextEditingValue] call.  When `null`, the call was
+  /// Mode 2 and `null` is returned.
+  ///
+  /// For Mode 3 (table cell), [serializedRow] and [serializedCol] must be the
+  /// zero-based indices of the cell that was serialized.  When either is
+  /// `null`, `null` is returned.
   ///
   /// Returns `null` when:
   /// - [serializedNodeId] is `null`.
   /// - No node with [serializedNodeId] exists in [document].
   /// - The [imeValue] selection is invalid (negative offsets).
+  /// - [serializedNodeId] refers to a [TableNode] but [serializedRow] or
+  ///   [serializedCol] is `null`.
   DocumentSelection? toDocumentSelection({
     required TextEditingValue imeValue,
     required Document document,
     required String? serializedNodeId,
+    int? serializedRow,
+    int? serializedCol,
   }) {
     if (serializedNodeId == null) return null;
 
@@ -168,6 +233,30 @@ class DocumentImeSerializer {
     final sel = imeValue.selection;
     if (sel.baseOffset < 0 || sel.extentOffset < 0) return null;
 
+    // Mode 3: table cell deserialization.
+    if (node is TableNode) {
+      if (serializedRow == null || serializedCol == null) return null;
+
+      final base = DocumentPosition(
+        nodeId: serializedNodeId,
+        nodePosition: TableCellPosition(
+          row: serializedRow,
+          col: serializedCol,
+          offset: sel.baseOffset,
+        ),
+      );
+      final extent = DocumentPosition(
+        nodeId: serializedNodeId,
+        nodePosition: TableCellPosition(
+          row: serializedRow,
+          col: serializedCol,
+          offset: sel.extentOffset,
+        ),
+      );
+      return DocumentSelection(base: base, extent: extent);
+    }
+
+    // Mode 1: text node deserialization.
     final base = DocumentPosition(
       nodeId: serializedNodeId,
       nodePosition: TextNodePosition(offset: sel.baseOffset),
@@ -191,6 +280,12 @@ class DocumentImeSerializer {
   /// arrive.  When [selection] is `null` (Mode 2 with no active selection),
   /// the method cannot resolve a target node and returns an empty list.
   ///
+  /// For Mode 3 (table cell), each delta that mutates text produces an
+  /// [UpdateTableCellRequest] carrying the new full cell text derived by
+  /// applying the delta to the cell's current content.  Newline insertions
+  /// are treated as embedded newlines (no paragraph split occurs within a
+  /// table cell).
+  ///
   /// The deltas are processed in order; each delta may produce zero, one, or
   /// two [EditRequest]s.  See [DocumentImeSerializer] class docs for the
   /// full mapping table.
@@ -201,6 +296,12 @@ class DocumentImeSerializer {
   }) {
     if (deltas.isEmpty) return const [];
     if (selection == null) return const [];
+
+    // Check if this is a table cell selection (Mode 3).
+    final tableCellTarget = _resolveTableCellTarget(document, selection);
+    if (tableCellTarget != null) {
+      return _tableCellDeltaToRequests(deltas, document, tableCellTarget);
+    }
 
     // Resolve the target node — only Mode 1 (single TextNode) is actionable.
     final targetNodeId = _resolveTargetNodeId(document, selection);
@@ -247,6 +348,79 @@ class DocumentImeSerializer {
     if (node == null || node is! TextNode) return null;
 
     return node.id;
+  }
+
+  /// Identifies whether the selection is inside a single table cell.
+  ///
+  /// Returns a [_TableCellTarget] when both endpoints of [selection] refer to
+  /// the same [TableNode] and the same cell (matching row and col). Returns
+  /// `null` in all other cases.
+  _TableCellTarget? _resolveTableCellTarget(Document document, DocumentSelection selection) {
+    if (selection.base.nodeId != selection.extent.nodeId) return null;
+
+    final node = document.nodeById(selection.base.nodeId);
+    if (node == null || node is! TableNode) return null;
+
+    final basePos = selection.base.nodePosition;
+    final extentPos = selection.extent.nodePosition;
+    if (basePos is! TableCellPosition || extentPos is! TableCellPosition) return null;
+    if (basePos.row != extentPos.row || basePos.col != extentPos.col) return null;
+
+    return _TableCellTarget(nodeId: node.id, row: basePos.row, col: basePos.col);
+  }
+
+  /// Maps deltas to [UpdateTableCellRequest]s for a table cell target.
+  ///
+  /// Each text-mutating delta produces a single [UpdateTableCellRequest] that
+  /// carries the full new text of the cell (derived by applying the delta to
+  /// the current cell content). [TextEditingDeltaNonTextUpdate] produces no
+  /// request. Newlines are embedded as text — no paragraph split.
+  List<EditRequest> _tableCellDeltaToRequests(
+    List<TextEditingDelta> deltas,
+    Document document,
+    _TableCellTarget target,
+  ) {
+    final node = document.nodeById(target.nodeId);
+    if (node == null || node is! TableNode) return const [];
+
+    final requests = <EditRequest>[];
+
+    for (final delta in deltas) {
+      if (delta is TextEditingDeltaNonTextUpdate) continue;
+
+      // Compute the new cell text by applying the delta.
+      final currentText = node.cellAt(target.row, target.col).text;
+      final String newText;
+
+      if (delta is TextEditingDeltaInsertion) {
+        // Apply insertion: insert textInserted at insertionOffset.
+        newText = currentText.substring(0, delta.insertionOffset) +
+            delta.textInserted +
+            currentText.substring(delta.insertionOffset);
+      } else if (delta is TextEditingDeltaDeletion) {
+        // Apply deletion: remove characters in deletedRange.
+        newText = currentText.substring(0, delta.deletedRange.start) +
+            currentText.substring(delta.deletedRange.end);
+      } else if (delta is TextEditingDeltaReplacement) {
+        // Apply replacement: replace characters in replacedRange.
+        newText = currentText.substring(0, delta.replacedRange.start) +
+            delta.replacementText +
+            currentText.substring(delta.replacedRange.end);
+      } else {
+        continue;
+      }
+
+      requests.add(
+        UpdateTableCellRequest(
+          nodeId: target.nodeId,
+          row: target.row,
+          col: target.col,
+          newText: AttributedText(newText),
+        ),
+      );
+    }
+
+    return requests;
   }
 
   /// Maps a [TextEditingDeltaInsertion] to one [EditRequest].
@@ -360,4 +534,21 @@ class DocumentImeSerializer {
     }
     return requests;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Private data types
+// ---------------------------------------------------------------------------
+
+/// Internal descriptor for a resolved table cell target.
+class _TableCellTarget {
+  const _TableCellTarget({
+    required this.nodeId,
+    required this.row,
+    required this.col,
+  });
+
+  final String nodeId;
+  final int row;
+  final int col;
 }

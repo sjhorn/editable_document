@@ -19,6 +19,7 @@ import 'edit_context.dart';
 import 'list_item_node.dart';
 import 'node_position.dart';
 import 'paragraph_node.dart';
+import 'table_node.dart';
 import 'text_node.dart';
 
 // ---------------------------------------------------------------------------
@@ -1028,5 +1029,175 @@ class InsertTextAtBinaryNodeCommand extends EditCommand {
 
       return [NodeInserted(nodeId: newId, index: insertIndex)];
     }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// InsertTableCommand
+// ---------------------------------------------------------------------------
+
+/// Inserts a new [TableNode] into the document.
+///
+/// Creates a [TableNode] with [rowCount] rows, [columnCount] columns, and all
+/// cells initialised to empty [AttributedText]. The node is inserted at
+/// [insertIndex] when non-null, or appended when [insertIndex] is `null`.
+///
+/// The controller selection is not changed by this command; callers should
+/// update the selection to the desired cell after submission if needed.
+class InsertTableCommand extends EditCommand {
+  /// Creates an [InsertTableCommand].
+  const InsertTableCommand({
+    required this.nodeId,
+    required this.rowCount,
+    required this.columnCount,
+    this.insertIndex,
+  });
+
+  /// The id to assign to the new [TableNode].
+  final String nodeId;
+
+  /// Number of rows in the table.
+  final int rowCount;
+
+  /// Number of columns in the table.
+  final int columnCount;
+
+  /// Insertion index, or `null` to append.
+  final int? insertIndex;
+
+  @override
+  List<DocumentChangeEvent> execute(EditContext context) {
+    final doc = context.document;
+
+    // Build empty cells grid.
+    final cells = List<List<AttributedText>>.generate(
+      rowCount,
+      (_) => List<AttributedText>.generate(columnCount, (_) => AttributedText()),
+    );
+
+    final table = TableNode(
+      id: nodeId,
+      rowCount: rowCount,
+      columnCount: columnCount,
+      cells: cells,
+    );
+
+    final index = insertIndex ?? doc.nodeCount;
+    doc.insertNode(index, table);
+
+    return [NodeInserted(nodeId: nodeId, index: index)];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// UpdateTableCellCommand
+// ---------------------------------------------------------------------------
+
+/// Updates the text of a single cell in a [TableNode].
+///
+/// Replaces the [AttributedText] at ([row], [col]) of the [TableNode]
+/// identified by [nodeId] with [newText]. All other cells are unchanged.
+///
+/// Throws [StateError] when [nodeId] does not exist or is not a [TableNode].
+class UpdateTableCellCommand extends EditCommand {
+  /// Creates an [UpdateTableCellCommand].
+  const UpdateTableCellCommand({
+    required this.nodeId,
+    required this.row,
+    required this.col,
+    required this.newText,
+  });
+
+  /// The id of the target [TableNode].
+  final String nodeId;
+
+  /// Zero-based row index of the target cell.
+  final int row;
+
+  /// Zero-based column index of the target cell.
+  final int col;
+
+  /// The replacement text.
+  final AttributedText newText;
+
+  @override
+  List<DocumentChangeEvent> execute(EditContext context) {
+    final doc = context.document;
+    final node = doc.nodeById(nodeId);
+    if (node == null) {
+      throw StateError('UpdateTableCellCommand: no node with id "$nodeId".');
+    }
+    if (node is! TableNode) {
+      throw StateError('UpdateTableCellCommand: node "$nodeId" is not a TableNode.');
+    }
+
+    // Build a new cells grid with the target cell replaced.
+    final newCells = List<List<AttributedText>>.generate(
+      node.rowCount,
+      (r) => List<AttributedText>.generate(
+        node.columnCount,
+        (c) => (r == row && c == col) ? newText : node.cellAt(r, c),
+      ),
+    );
+
+    doc.replaceNode(nodeId, node.copyWith(cells: newCells));
+    return [NodeReplaced(oldNodeId: nodeId, newNodeId: nodeId)];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// DeleteTableCommand
+// ---------------------------------------------------------------------------
+
+/// Deletes a [TableNode] from the document.
+///
+/// After deletion the controller selection is collapsed to the nearest
+/// surviving node (previous preferred, then next), or cleared when the
+/// document becomes empty.
+///
+/// Throws [StateError] when [nodeId] does not exist.
+class DeleteTableCommand extends EditCommand {
+  /// Creates a [DeleteTableCommand].
+  const DeleteTableCommand({required this.nodeId});
+
+  /// The id of the [TableNode] to delete.
+  final String nodeId;
+
+  @override
+  List<DocumentChangeEvent> execute(EditContext context) {
+    final doc = context.document;
+    final node = doc.nodeById(nodeId);
+    if (node == null) {
+      throw StateError('DeleteTableCommand: no node with id "$nodeId".');
+    }
+
+    final prevNode = doc.nodeBefore(nodeId);
+    final nextNode = doc.nodeAfter(nodeId);
+    final nodeIndex = doc.getNodeIndexById(nodeId);
+    doc.deleteNode(nodeId);
+
+    if (prevNode is TextNode) {
+      context.controller.setSelection(
+        DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: prevNode.id,
+            nodePosition: TextNodePosition(offset: prevNode.text.length),
+          ),
+        ),
+      );
+    } else if (nextNode != null) {
+      context.controller.setSelection(
+        DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: nextNode.id,
+            nodePosition: const TextNodePosition(offset: 0),
+          ),
+        ),
+      );
+    } else {
+      context.controller.clearSelection();
+    }
+
+    return [NodeDeleted(nodeId: nodeId, index: nodeIndex)];
   }
 }

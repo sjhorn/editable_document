@@ -172,6 +172,22 @@ class Editor {
         nodePosition: request.nodePosition,
         text: request.text,
       );
+    } else if (request is InsertTableRequest) {
+      return InsertTableCommand(
+        nodeId: request.nodeId,
+        rowCount: request.rowCount,
+        columnCount: request.columnCount,
+        insertIndex: request.insertIndex,
+      );
+    } else if (request is UpdateTableCellRequest) {
+      return UpdateTableCellCommand(
+        nodeId: request.nodeId,
+        row: request.row,
+        col: request.col,
+        newText: request.newText,
+      );
+    } else if (request is DeleteTableRequest) {
+      return DeleteTableCommand(nodeId: request.nodeId);
     }
     throw ArgumentError('No command registered for request type ${request.runtimeType}.');
   }
