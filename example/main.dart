@@ -16,8 +16,10 @@
 /// - JSON save/load round-trip with full attribution serialization
 /// - Block alignment (start, center, end, stretch) for container blocks
 /// - Float-style text wrapping with textWrap property
+/// - Dual concurrent floats: start + end images with text wrapping around both
 /// - BlockquoteNode with left accent border
 /// - Property panel for editing block alignment, text wrap, and sizing
+/// - TableNode: a block-level table with editable cells and column widths
 ///
 /// Run with: `flutter run -t example/main.dart`
 library;
@@ -471,6 +473,102 @@ class _DocumentDemoState extends State<DocumentDemo> {
       HorizontalRuleNode(
         id: 'rule-center',
         alignment: BlockAlignment.center,
+      ),
+      // --- Dual Float Demo section ---
+      ParagraphNode(
+        id: 'h2-dual-float',
+        text: AttributedText('Dual Concurrent Floats'),
+        blockType: ParagraphBlockType.header2,
+      ),
+      ParagraphNode(
+        id: 'dual-float-intro',
+        text: AttributedText(
+          'Two images can float simultaneously — one anchored to the start edge '
+          'and one to the end edge — while text wraps through the space between '
+          'them. The layout engine tracks independent exclusion zones for each '
+          'float and narrows the available width for wrapping blocks accordingly.',
+        ),
+      ),
+      // Start-aligned (left) float.
+      ImageNode(
+        id: 'img-dual-start',
+        imageUrl: 'https://picsum.photos/seed/dual-left/150/100',
+        altText: 'Left float image',
+        width: 150,
+        height: 100,
+        alignment: BlockAlignment.start,
+        textWrap: TextWrapMode.wrap,
+      ),
+      // End-aligned (right) float.
+      ImageNode(
+        id: 'img-dual-end',
+        imageUrl: 'https://picsum.photos/seed/dual-right/150/100',
+        altText: 'Right float image',
+        width: 150,
+        height: 100,
+        alignment: BlockAlignment.end,
+        textWrap: TextWrapMode.wrap,
+      ),
+      // This paragraph wraps in the space between both floats.
+      ParagraphNode(
+        id: 'dual-float-text',
+        text: AttributedText(
+          'This paragraph flows through the gap between the two floating images. '
+          'As long as both floats are still active — i.e. their bottom edges have '
+          'not been passed — every wrapping block gets its available width reduced '
+          'by both exclusion zones at once. Once the text descends past the shorter '
+          'float, the full column width is restored for that side.',
+        ),
+      ),
+      // --- Table Demo section ---
+      HorizontalRuleNode(id: 'rule-before-table'),
+      ParagraphNode(
+        id: 'h2-table',
+        text: AttributedText('Table Support'),
+        blockType: ParagraphBlockType.header2,
+      ),
+      ParagraphNode(
+        id: 'table-intro',
+        text: AttributedText(
+          'TableNode stores a 2D grid of AttributedText cells. Each cell '
+          'supports the same inline attributions as any other text node. '
+          'Column widths can be set individually; null entries are auto-sized. '
+          'Tables participate in the same IME and edit-request pipeline as '
+          'all other block types.',
+        ),
+      ),
+      // A simple 3x3 table with a header row.
+      TableNode(
+        id: 'table-demo',
+        rowCount: 3,
+        columnCount: 3,
+        cells: [
+          [
+            AttributedText('Feature')..applyAttribution(NamedAttribution.bold, 0, 6),
+            AttributedText('Status')..applyAttribution(NamedAttribution.bold, 0, 5),
+            AttributedText('Notes')..applyAttribution(NamedAttribution.bold, 0, 4),
+          ],
+          [
+            AttributedText('Inline formatting'),
+            AttributedText('Complete'),
+            AttributedText('Bold, italic, underline, code'),
+          ],
+          [
+            AttributedText('Table editing'),
+            AttributedText('In progress'),
+            AttributedText('IME + edit requests'),
+          ],
+        ],
+        columnWidths: [200.0, 120.0, null],
+        alignment: BlockAlignment.stretch,
+      ),
+      ParagraphNode(
+        id: 'table-outro',
+        text: AttributedText(
+          'Use InsertTableRequest, UpdateTableCellRequest, and DeleteTableRequest '
+          'to mutate table content through the standard editor pipeline, giving '
+          'full undo/redo support for every cell edit.',
+        ),
       ),
     ]);
   }

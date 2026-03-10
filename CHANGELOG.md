@@ -1,3 +1,35 @@
+## [Unreleased]
+
+### Added
+- Dual concurrent float support in `RenderDocumentLayout`: independent start-edge
+  and end-edge exclusion zones are tracked simultaneously so that a start-aligned
+  float and an end-aligned float can coexist, with wrapping blocks receiving a
+  width reduced by both exclusion zones at once.
+- `TableNode` — block-level 2D grid of `AttributedText` cells. Constructor
+  parameters: `rowCount`, `columnCount`, `cells`, `columnWidths` (optional
+  per-column widths; `null` entries auto-size), `alignment`, `textWrap`,
+  `width`, `height`. Implements `HasBlockLayout` for the full layout property
+  surface.
+- `TableCellPosition` — `NodePosition` subtype for cursor placement within a
+  table cell, carrying `row`, `column`, and a nested `TextNodePosition`.
+- `RenderTableBlock` — `RenderDocumentBlock` subclass that lays out and paints
+  a `TableNode` with per-cell borders, column width constraints, and
+  selection/caret geometry.
+- `TableComponentBuilder` — registered in `defaultComponentBuilders` so tables
+  are rendered automatically without any additional wiring.
+- Table IME support in `DocumentImeSerializer`: `TableNode` cells are
+  serialised into the flat `TextEditingValue` string and deltas are
+  correctly mapped back to `TableCellPosition` offsets.
+- Edit requests for table mutation:
+  - `InsertTableRequest` — inserts a new `TableNode` at a given document index.
+  - `UpdateTableCellRequest` — replaces the `AttributedText` of a single cell,
+    identified by node ID, row, and column.
+  - `DeleteTableRequest` — removes a `TableNode` from the document.
+- Example app: *Dual Concurrent Floats* section demonstrating a
+  start-aligned and end-aligned image with wrapping text flowing between them.
+- Example app: *Table Support* section demonstrating a 3×3 `TableNode` with
+  a bold header row, mixed column widths, and contextual explanatory text.
+
 ## 0.8.0-dev (Phases 9-10)
 
 ### Block layout property deduplication
