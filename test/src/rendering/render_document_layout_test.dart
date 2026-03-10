@@ -2718,4 +2718,156 @@ void main() {
       expect(f2Idx, greaterThan(p1Idx), reason: 'float2 must be painted after p1');
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Bug regression: center exclusion not cleared when side float is placed
+  // ---------------------------------------------------------------------------
+
+  group('RenderDocumentLayout — center exclusion cleared by side float', () {
+    // Layout constants used across all three regression tests.
+    const maxWidth = 400.0;
+    const centerFloatW = 200.0;
+    const centerFloatH = 150.0;
+    const sideFloatW = 100.0;
+    const sideFloatH = 250.0;
+
+    // -------------------------------------------------------------------------
+    // Helper that builds the four-block sequence described in the bug report:
+    //   1. center-aligned wrap float
+    //   2. stretch paragraph (wraps beside center float)
+    //   3. side-aligned (start or end) wrap float
+    //   4. stretch paragraph
+    // Returns a record with all four render objects and the laid-out layout.
+    // -------------------------------------------------------------------------
+    ({
+      RenderImageBlock centerImage,
+      RenderTextBlock firstPara,
+      RenderImageBlock sideImage,
+      RenderTextBlock secondPara,
+      RenderDocumentLayout layout,
+    }) buildLayout({required BlockAlignment sideAlignment}) {
+      final centerImage = _imageBlock(
+        'centerImg',
+        requestedWidth: centerFloatW,
+        requestedHeight: centerFloatH,
+        blockAlignment: BlockAlignment.center,
+        textWrap: TextWrapMode.wrap,
+      );
+      final firstPara = _textBlock('p1', 'Short text');
+      final sideImage = _imageBlock(
+        'sideImg',
+        requestedWidth: sideFloatW,
+        requestedHeight: sideFloatH,
+        blockAlignment: sideAlignment,
+        textWrap: TextWrapMode.wrap,
+      );
+      final secondPara = _textBlock('p2', 'Text after side float');
+
+      final layout = _layout(
+        children: [centerImage, firstPara, sideImage, secondPara],
+        maxWidth: maxWidth,
+        blockSpacing: 0.0,
+      );
+
+      return (
+        centerImage: centerImage,
+        firstPara: firstPara,
+        sideImage: sideImage,
+        secondPara: secondPara,
+        layout: layout,
+      );
+    }
+
+    test('start float placed after center float clears center exclusion', () {
+      // Regression: when a start float is placed while centerExclusion is still
+      // active, the center exclusion was not cleared.  The subsequent stretch
+      // block then entered the hasCenter branch, which applied center-only
+      // exclusion and completely ignored the start float — making text render
+      // behind the float.
+      //
+      // After the fix, placing a start float must clear any active center
+      // exclusion so the two cannot coexist.
+      final result = buildLayout(sideAlignment: BlockAlignment.start);
+      final centerImageData = result.centerImage.parentData as DocumentBlockParentData;
+      final sideImageData = result.sideImage.parentData as DocumentBlockParentData;
+      final secondParaData = result.secondPara.parentData as DocumentBlockParentData;
+
+      // The side float must be placed at or below the center float's bottom
+      // (the center exclusion forces it downward).
+      final centerBottom = centerImageData.offset.dy + result.centerImage.size.height;
+      expect(
+        sideImageData.offset.dy,
+        greaterThanOrEqualTo(centerBottom),
+        reason: 'start float must be placed at/below center float bottom',
+      );
+
+      // The second stretch paragraph must be narrowed by the start float
+      // (pushed right of it), NOT use center exclusion.
+      // If the bug is present, secondPara would be at x=0 with full width.
+      expect(
+        secondParaData.offset.dx,
+        greaterThan(0.0),
+        reason: 'second paragraph x must be > 0 — pushed right by start float',
+      );
+      expect(
+        result.secondPara.size.width,
+        lessThan(maxWidth),
+        reason: 'second paragraph width must be narrowed by start float exclusion',
+      );
+    });
+
+    test('end float placed after center float clears center exclusion', () {
+      // Same regression as above but with an end-aligned float.
+      // After the fix the center exclusion must be cleared when the end float
+      // is placed, so the stretch block after it respects the end float, not
+      // the old center exclusion.
+      final result = buildLayout(sideAlignment: BlockAlignment.end);
+      final centerImageData = result.centerImage.parentData as DocumentBlockParentData;
+      final sideImageData = result.sideImage.parentData as DocumentBlockParentData;
+
+      // The side float must be placed at or below the center float's bottom.
+      final centerBottom = centerImageData.offset.dy + result.centerImage.size.height;
+      expect(
+        sideImageData.offset.dy,
+        greaterThanOrEqualTo(centerBottom),
+        reason: 'end float must be placed at/below center float bottom',
+      );
+
+      // The second stretch paragraph must be narrowed by the end float.
+      // End float is on the right, so the paragraph width is reduced.
+      expect(
+        result.secondPara.size.width,
+        lessThan(maxWidth),
+        reason: 'second paragraph width must be narrowed by end float exclusion',
+      );
+    });
+
+    test('text does not appear behind start float when center float precedes it', () {
+      // Focused check: the second paragraph's xOffset must equal the start
+      // float's width (+ gap), proving the start exclusion — not the center
+      // exclusion — governs its position.
+      final result = buildLayout(sideAlignment: BlockAlignment.start);
+      final sideImageData = result.sideImage.parentData as DocumentBlockParentData;
+      final secondParaData = result.secondPara.parentData as DocumentBlockParentData;
+
+      // Start float is at x=0.
+      expect(sideImageData.offset.dx, 0.0, reason: 'start float must be at x=0');
+
+      // The second paragraph must start to the right of the float + gap.
+      const expectedXOffset = sideFloatW + 8.0; // sideFloatW + _kFloatGap
+      expect(
+        secondParaData.offset.dx,
+        closeTo(expectedXOffset, 0.5),
+        reason: 'second paragraph must be pushed right by start float width + gap',
+      );
+
+      // Its width must be reduced accordingly.
+      const expectedWidth = maxWidth - sideFloatW - 8.0;
+      expect(
+        result.secondPara.size.width,
+        closeTo(expectedWidth, 0.5),
+        reason: 'second paragraph width must equal maxWidth minus start float exclusion',
+      );
+    });
+  });
 }

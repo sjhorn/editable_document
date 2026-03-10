@@ -395,12 +395,29 @@ class RenderDocumentLayout extends RenderBox
         // If the same side's exclusion is still active, advance past it so
         // consecutive same-side floats stack vertically rather than overlapping.
         // For opposite-side floats, allow concurrent placement.
-        if (alignment == BlockAlignment.start && hasStart) {
-          yOffset = startExclusion.bottom; // non-null: hasStart guarantees this
-          startExclusion = null;
-        } else if (alignment == BlockAlignment.end && hasEnd) {
-          yOffset = endExclusion.bottom; // non-null: hasEnd guarantees this
-          endExclusion = null;
+        //
+        // Also clear any active center exclusion when placing a side float.
+        // A center exclusion and a start/end exclusion cannot coexist — the
+        // side float must be placed below the center float's bottom so that
+        // subsequent stretch blocks only see one kind of exclusion at a time.
+        if (alignment == BlockAlignment.start) {
+          if (hasStart) {
+            yOffset = startExclusion.bottom; // non-null: hasStart guarantees this
+            startExclusion = null;
+          }
+          if (hasCenter) {
+            yOffset = max(yOffset, centerExclusion.bottom); // non-null: hasCenter guarantees this
+            centerExclusion = null;
+          }
+        } else if (alignment == BlockAlignment.end) {
+          if (hasEnd) {
+            yOffset = endExclusion.bottom; // non-null: hasEnd guarantees this
+            endExclusion = null;
+          }
+          if (hasCenter) {
+            yOffset = max(yOffset, centerExclusion.bottom); // non-null: hasCenter guarantees this
+            centerExclusion = null;
+          }
         } else if (alignment == BlockAlignment.center && (hasStart || hasEnd || hasCenter)) {
           // Center floats clear all active exclusions.
           final clearBottom = _maxExclusionBottom(startExclusion, endExclusion, centerExclusion);
