@@ -166,6 +166,12 @@ class Editor {
         splitOffset: request.splitOffset,
         removeTrailingNewline: request.removeTrailingNewline,
       );
+    } else if (request is ExitBlockquoteRequest) {
+      return ExitBlockquoteCommand(
+        nodeId: request.nodeId,
+        splitOffset: request.splitOffset,
+        removeTrailingNewline: request.removeTrailingNewline,
+      );
     } else if (request is InsertTextAtBinaryNodeRequest) {
       return InsertTextAtBinaryNodeCommand(
         nodeId: request.nodeId,

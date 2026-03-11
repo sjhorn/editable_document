@@ -288,4 +288,73 @@ void main() {
       );
     });
   });
+
+  // =========================================================================
+  // ExitBlockquoteRequest
+  // =========================================================================
+
+  group('ExitBlockquoteRequest', () {
+    test('1. stores nodeId, splitOffset, and removeTrailingNewline', () {
+      const req = ExitBlockquoteRequest(
+        nodeId: 'bq1',
+        splitOffset: 5,
+        removeTrailingNewline: true,
+      );
+      expect(req.nodeId, 'bq1');
+      expect(req.splitOffset, 5);
+      expect(req.removeTrailingNewline, isTrue);
+    });
+
+    test('2. removeTrailingNewline defaults to false', () {
+      const req = ExitBlockquoteRequest(nodeId: 'bq1', splitOffset: 3);
+      expect(req.removeTrailingNewline, isFalse);
+    });
+
+    test('3. equality: same fields are equal', () {
+      const a = ExitBlockquoteRequest(
+        nodeId: 'bq1',
+        splitOffset: 5,
+        removeTrailingNewline: true,
+      );
+      const b = ExitBlockquoteRequest(
+        nodeId: 'bq1',
+        splitOffset: 5,
+        removeTrailingNewline: true,
+      );
+      expect(a, equals(b));
+    });
+
+    test('4. equality: different splitOffset not equal', () {
+      const a = ExitBlockquoteRequest(nodeId: 'bq1', splitOffset: 5);
+      const b = ExitBlockquoteRequest(nodeId: 'bq1', splitOffset: 6);
+      expect(a, isNot(equals(b)));
+    });
+
+    test('5. equality: different removeTrailingNewline not equal', () {
+      const a = ExitBlockquoteRequest(nodeId: 'bq1', splitOffset: 5, removeTrailingNewline: true);
+      const b = ExitBlockquoteRequest(nodeId: 'bq1', splitOffset: 5, removeTrailingNewline: false);
+      expect(a, isNot(equals(b)));
+    });
+
+    test('6. hashCode is consistent with equality', () {
+      const a = ExitBlockquoteRequest(
+        nodeId: 'bq1',
+        splitOffset: 5,
+        removeTrailingNewline: true,
+      );
+      const b = ExitBlockquoteRequest(
+        nodeId: 'bq1',
+        splitOffset: 5,
+        removeTrailingNewline: true,
+      );
+      expect(a.hashCode, equals(b.hashCode));
+    });
+
+    test('7. toString includes class name and key fields', () {
+      const req = ExitBlockquoteRequest(nodeId: 'bq1', splitOffset: 3);
+      expect(req.toString(), contains('ExitBlockquoteRequest'));
+      expect(req.toString(), contains('bq1'));
+      expect(req.toString(), contains('3'));
+    });
+  });
 }

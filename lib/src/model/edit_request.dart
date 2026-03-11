@@ -476,6 +476,50 @@ class ExitCodeBlockRequest extends EditRequest {
 }
 
 // ---------------------------------------------------------------------------
+// ExitBlockquoteRequest
+// ---------------------------------------------------------------------------
+
+/// Request to exit a [BlockquoteNode] at [splitOffset], producing a new
+/// [ParagraphNode] below the (possibly truncated) blockquote.
+///
+/// When [removeTrailingNewline] is `true` and the character before
+/// [splitOffset] is `'\n'`, the effective split offset is decremented by one
+/// so the trailing newline is consumed by the exit gesture rather than left
+/// in the blockquote.
+class ExitBlockquoteRequest extends EditRequest {
+  /// Creates an [ExitBlockquoteRequest].
+  const ExitBlockquoteRequest({
+    required this.nodeId,
+    required this.splitOffset,
+    this.removeTrailingNewline = false,
+  });
+
+  /// The id of the [BlockquoteNode] to exit.
+  final String nodeId;
+
+  /// Character offset within the blockquote's text at which to split.
+  final int splitOffset;
+
+  /// Whether to consume a trailing `'\n'` before the split offset.
+  final bool removeTrailingNewline;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ExitBlockquoteRequest &&
+          other.nodeId == nodeId &&
+          other.splitOffset == splitOffset &&
+          other.removeTrailingNewline == removeTrailingNewline;
+
+  @override
+  int get hashCode => Object.hash(nodeId, splitOffset, removeTrailingNewline);
+
+  @override
+  String toString() => 'ExitBlockquoteRequest(nodeId: $nodeId, splitOffset: $splitOffset, '
+      'removeTrailingNewline: $removeTrailingNewline)';
+}
+
+// ---------------------------------------------------------------------------
 // InsertTextAtBinaryNodeRequest
 // ---------------------------------------------------------------------------
 

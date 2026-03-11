@@ -1304,4 +1304,192 @@ void main() {
       expect(() => cmd.execute(ctx), throwsStateError);
     });
   });
+
+  // =========================================================================
+  // ExitBlockquoteCommand
+  // =========================================================================
+
+  group('ExitBlockquoteCommand', () {
+    test('1. non-empty blockquote at end: truncates blockquote, inserts paragraph below', () {
+      final doc = MutableDocument([
+        BlockquoteNode(id: 'bq1', text: AttributedText('quoted text')),
+      ]);
+      final ctx = _ctx(doc);
+      // Cursor at end of text (offset 11).
+      final cmd = const ExitBlockquoteCommand(nodeId: 'bq1', splitOffset: 11);
+
+      final events = cmd.execute(ctx);
+
+      final bqNode = doc.nodeById('bq1') as BlockquoteNode;
+      expect(bqNode.text.text, 'quoted text');
+      expect(doc.nodeCount, 2);
+      final paragraph = doc.nodeAt(1) as ParagraphNode;
+      expect(paragraph.text.text, '');
+      expect(events.any((e) => e is TextChanged), isTrue);
+      expect(events.any((e) => e is NodeInserted), isTrue);
+    });
+
+    test('2. empty blockquote converts in-place to ParagraphNode', () {
+      final doc = MutableDocument([
+        BlockquoteNode(id: 'bq1', text: AttributedText('')),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = const ExitBlockquoteCommand(nodeId: 'bq1', splitOffset: 0);
+
+      final events = cmd.execute(ctx);
+
+      final node = doc.nodeById('bq1');
+      expect(node, isA<ParagraphNode>());
+      expect(node, isNot(isA<BlockquoteNode>()));
+      expect((node as ParagraphNode).text.text, '');
+      expect(events, [const NodeReplaced(oldNodeId: 'bq1', newNodeId: 'bq1')]);
+    });
+
+    test('3. removeTrailingNewline=true consumes trailing newline before split', () {
+      final doc = MutableDocument([
+        BlockquoteNode(id: 'bq1', text: AttributedText('line1\n')),
+      ]);
+      final ctx = _ctx(doc);
+      // Cursor at offset 6 (after '\n'), removeTrailingNewline=true.
+      final cmd = const ExitBlockquoteCommand(
+        nodeId: 'bq1',
+        splitOffset: 6,
+        removeTrailingNewline: true,
+      );
+
+      final events = cmd.execute(ctx);
+
+      final bqNode = doc.nodeById('bq1') as BlockquoteNode;
+      expect(bqNode.text.text, 'line1');
+      expect(doc.nodeCount, 2);
+      final paragraph = doc.nodeAt(1) as ParagraphNode;
+      expect(paragraph.text.text, '');
+      expect(events.any((e) => e is TextChanged), isTrue);
+      expect(events.any((e) => e is NodeInserted), isTrue);
+    });
+
+    test('4. mid-split: blockquote keeps before-text, paragraph gets after-text', () {
+      final doc = MutableDocument([
+        BlockquoteNode(id: 'bq1', text: AttributedText('abc\ndef')),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = const ExitBlockquoteCommand(nodeId: 'bq1', splitOffset: 4);
+
+      final events = cmd.execute(ctx);
+
+      final bqNode = doc.nodeById('bq1') as BlockquoteNode;
+      expect(bqNode.text.text, 'abc\n');
+      expect(doc.nodeCount, 2);
+      final paragraph = doc.nodeAt(1) as ParagraphNode;
+      expect(paragraph.text.text, 'def');
+      expect(events.any((e) => e is TextChanged), isTrue);
+      expect(events.any((e) => e is NodeInserted), isTrue);
+    });
+
+    test('5. split at offset 0: converts blockquote in place with full text in paragraph', () {
+      final doc = MutableDocument([
+        BlockquoteNode(id: 'bq1', text: AttributedText('all text')),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = const ExitBlockquoteCommand(nodeId: 'bq1', splitOffset: 0);
+
+      final events = cmd.execute(ctx);
+
+      final node = doc.nodeById('bq1');
+      expect(node, isA<ParagraphNode>());
+      expect(node, isNot(isA<BlockquoteNode>()));
+      expect((node as ParagraphNode).text.text, 'all text');
+      expect(events, [const NodeReplaced(oldNodeId: 'bq1', newNodeId: 'bq1')]);
+    });
+
+    test('6. removeTrailingNewline=true when last char is not newline: normal split', () {
+      final doc = MutableDocument([
+        BlockquoteNode(id: 'bq1', text: AttributedText('abcd')),
+      ]);
+      final ctx = _ctx(doc);
+      // splitOffset=4, last char is 'd' not '\n' — no adjustment.
+      final cmd = const ExitBlockquoteCommand(
+        nodeId: 'bq1',
+        splitOffset: 4,
+        removeTrailingNewline: true,
+      );
+
+      final events = cmd.execute(ctx);
+
+      final bqNode = doc.nodeById('bq1') as BlockquoteNode;
+      expect(bqNode.text.text, 'abcd');
+      expect(doc.nodeCount, 2);
+      final paragraph = doc.nodeAt(1) as ParagraphNode;
+      expect(paragraph.text.text, '');
+      expect(events.any((e) => e is NodeInserted), isTrue);
+    });
+
+    test('7. selection moves to offset 0 of new paragraph after split', () {
+      final doc = MutableDocument([
+        BlockquoteNode(id: 'bq1', text: AttributedText('abc\ndef')),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = const ExitBlockquoteCommand(nodeId: 'bq1', splitOffset: 4);
+
+      cmd.execute(ctx);
+
+      final newNodeId = doc.nodeAt(1).id;
+      final sel = ctx.controller.selection;
+      expect(sel, isNotNull);
+      expect(sel!.isCollapsed, isTrue);
+      expect(sel.extent.nodeId, newNodeId);
+      expect((sel.extent.nodePosition as TextNodePosition).offset, 0);
+    });
+
+    test('8. selection moves to offset 0 of converted paragraph', () {
+      final doc = MutableDocument([
+        BlockquoteNode(id: 'bq1', text: AttributedText('')),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = const ExitBlockquoteCommand(nodeId: 'bq1', splitOffset: 0);
+
+      cmd.execute(ctx);
+
+      final sel = ctx.controller.selection;
+      expect(sel, isNotNull);
+      expect(sel!.isCollapsed, isTrue);
+      expect(sel.extent.nodeId, 'bq1');
+      expect((sel.extent.nodePosition as TextNodePosition).offset, 0);
+    });
+
+    test('9. preserves metadata when converting empty blockquote in place', () {
+      final doc = MutableDocument([
+        BlockquoteNode(id: 'bq1', text: AttributedText(''), metadata: {'key': 'value'}),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = const ExitBlockquoteCommand(nodeId: 'bq1', splitOffset: 0);
+
+      cmd.execute(ctx);
+
+      final node = doc.nodeById('bq1') as ParagraphNode;
+      expect(node.metadata, {'key': 'value'});
+    });
+
+    test('10. throws StateError for non-BlockquoteNode', () {
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('Hello')),
+      ]);
+      final ctx = _ctx(doc);
+      expect(
+        () => const ExitBlockquoteCommand(nodeId: 'p1', splitOffset: 0).execute(ctx),
+        throwsStateError,
+      );
+    });
+
+    test('11. throws StateError for missing node', () {
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('Hello')),
+      ]);
+      final ctx = _ctx(doc);
+      expect(
+        () => const ExitBlockquoteCommand(nodeId: 'nope', splitOffset: 0).execute(ctx),
+        throwsStateError,
+      );
+    });
+  });
 }
