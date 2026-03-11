@@ -619,6 +619,13 @@ class _DocumentDemoState extends State<DocumentDemo> {
           nodePosition: const TextNodePosition(offset: 0),
         ),
       ));
+    } else {
+      _controller.setSelection(DocumentSelection.collapsed(
+        position: DocumentPosition(
+          nodeId: node.id,
+          nodePosition: const BinaryNodePosition.downstream(),
+        ),
+      ));
     }
   }
 
