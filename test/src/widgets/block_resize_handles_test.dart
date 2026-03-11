@@ -708,23 +708,23 @@ void main() {
       expect(height, 140.0);
     });
 
-    testWidgets('dragging bottomRight corner calls onResize with both width and height',
+    testWidgets('dragging bottomRight corner calls onResize with aspect-ratio-locked dimensions',
         (tester) async {
+      // Image is 200×100 → aspect ratio 2:1.
       final results = await pumpAndCaptureDrags(tester);
 
       final listeners = find.descendant(
         of: find.byType(BlockResizeHandles),
         matching: find.byType(Listener),
       );
-      // bottomRight is index 7 in ResizeHandlePosition.values
+      // bottomRight is index 7. Drag mostly horizontal (60,30) → width drives.
       await tester.drag(listeners.at(7), const Offset(60.0, 30.0));
       await tester.pumpAndSettle();
 
-      // onResize fires on every pointer-move (real-time), check the last call.
       expect(results, isNotEmpty);
       final (nodeId, width, height) = results.last;
       expect(nodeId, 'img-1');
-      // Width: 200 + 60 = 260, Height: 100 + 30 = 130.
+      // Width: 200 + 60 = 260, Height locked to 260 / 2 = 130.
       expect(width, 260.0);
       expect(height, 130.0);
     });

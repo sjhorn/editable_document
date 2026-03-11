@@ -473,24 +473,36 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
 
     switch (handle) {
       case ResizeHandlePosition.topLeft:
-        newWidth = original.width - delta.dx;
-        newHeight = original.height - delta.dy;
-      case ResizeHandlePosition.topCenter:
-        newHeight = original.height - delta.dy;
       case ResizeHandlePosition.topRight:
-        newWidth = original.width + delta.dx;
+      case ResizeHandlePosition.bottomLeft:
+      case ResizeHandlePosition.bottomRight:
+        // Corner handles maintain aspect ratio. Use the axis with the
+        // larger absolute delta as the driver.
+        final dxSign = switch (handle) {
+          ResizeHandlePosition.topLeft || ResizeHandlePosition.bottomLeft => -1.0,
+          _ => 1.0,
+        };
+        final dySign = switch (handle) {
+          ResizeHandlePosition.topLeft || ResizeHandlePosition.topRight => -1.0,
+          _ => 1.0,
+        };
+        final rawW = original.width + delta.dx * dxSign;
+        final rawH = original.height + delta.dy * dySign;
+        final aspect = original.width / original.height;
+        if ((delta.dx.abs()) >= (delta.dy.abs())) {
+          newWidth = rawW;
+          newHeight = rawW / aspect;
+        } else {
+          newHeight = rawH;
+          newWidth = rawH * aspect;
+        }
+      case ResizeHandlePosition.topCenter:
         newHeight = original.height - delta.dy;
       case ResizeHandlePosition.middleLeft:
         newWidth = original.width - delta.dx;
       case ResizeHandlePosition.middleRight:
         newWidth = original.width + delta.dx;
-      case ResizeHandlePosition.bottomLeft:
-        newWidth = original.width - delta.dx;
-        newHeight = original.height + delta.dy;
       case ResizeHandlePosition.bottomCenter:
-        newHeight = original.height + delta.dy;
-      case ResizeHandlePosition.bottomRight:
-        newWidth = original.width + delta.dx;
         newHeight = original.height + delta.dy;
     }
 
@@ -503,49 +515,31 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
 
   /// Returns the visual preview [Rect] to display during a drag.
   ///
-  /// The preview rect is derived from [_blockRect] adjusted by the current
-  /// [_dragDelta] according to which handle is being dragged.
+  /// Uses [_computeNewSize] so the preview matches the actual resize
+  /// dimensions (including aspect-ratio locking for corner handles).
   Rect _previewRect(Rect base) {
     final handle = _dragHandlePosition;
-    if (handle == null || _dragDelta == Offset.zero) return base;
-
-    double left = base.left;
-    double top = base.top;
-    double right = base.right;
-    double bottom = base.bottom;
-
-    switch (handle) {
-      case ResizeHandlePosition.topLeft:
-        left += _dragDelta.dx;
-        top += _dragDelta.dy;
-      case ResizeHandlePosition.topCenter:
-        top += _dragDelta.dy;
-      case ResizeHandlePosition.topRight:
-        right += _dragDelta.dx;
-        top += _dragDelta.dy;
-      case ResizeHandlePosition.middleLeft:
-        left += _dragDelta.dx;
-      case ResizeHandlePosition.middleRight:
-        right += _dragDelta.dx;
-      case ResizeHandlePosition.bottomLeft:
-        left += _dragDelta.dx;
-        bottom += _dragDelta.dy;
-      case ResizeHandlePosition.bottomCenter:
-        bottom += _dragDelta.dy;
-      case ResizeHandlePosition.bottomRight:
-        right += _dragDelta.dx;
-        bottom += _dragDelta.dy;
+    final startSize = _dragStartSize;
+    if (handle == null || startSize == null || _dragDelta == Offset.zero) {
+      return base;
     }
 
-    // Clamp so rect doesn't invert.
-    final minRight = left + widget.minWidth;
-    final minBottom = top + widget.minHeight;
-    return Rect.fromLTRB(
-      left,
-      top,
-      right < minRight ? minRight : right,
-      bottom < minBottom ? minBottom : bottom,
-    );
+    final (rawW, rawH) = _computeNewSize(handle, startSize, _dragDelta);
+    final newW = rawW?.clamp(widget.minWidth, double.infinity) ?? base.width;
+    final newH = rawH?.clamp(widget.minHeight, double.infinity) ?? base.height;
+
+    // Anchor the preview to the correct edge/corner.
+    final bool anchorRight = handle == ResizeHandlePosition.topLeft ||
+        handle == ResizeHandlePosition.middleLeft ||
+        handle == ResizeHandlePosition.bottomLeft;
+    final bool anchorBottom = handle == ResizeHandlePosition.topLeft ||
+        handle == ResizeHandlePosition.topCenter ||
+        handle == ResizeHandlePosition.topRight;
+
+    final left = anchorRight ? base.right - newW : base.left;
+    final top = anchorBottom ? base.bottom - newH : base.top;
+
+    return Rect.fromLTWH(left, top, newW, newH);
   }
 
   // ---------------------------------------------------------------------------
