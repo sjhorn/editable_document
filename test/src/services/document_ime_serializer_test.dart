@@ -793,6 +793,99 @@ void main() {
 
         expect(requests, isEmpty);
       });
+
+      group('code block newlines', () {
+        test('newline insertion into CodeBlockNode produces InsertTextRequest', () {
+          final node = CodeBlockNode(id: 'cb1', text: AttributedText('line1'));
+          final doc = Document([node]);
+          final selection = const DocumentSelection.collapsed(
+            position: DocumentPosition(
+              nodeId: 'cb1',
+              nodePosition: TextNodePosition(offset: 5),
+            ),
+          );
+
+          final delta = const TextEditingDeltaInsertion(
+            oldText: 'line1',
+            textInserted: '\n',
+            insertionOffset: 5,
+            selection: TextSelection.collapsed(offset: 6),
+            composing: TextRange.empty,
+          );
+
+          final requests = serializer.deltaToRequests(
+            deltas: [delta],
+            document: doc,
+            selection: selection,
+          );
+
+          expect(requests, hasLength(1));
+          expect(requests.first, isA<InsertTextRequest>());
+          final req = requests.first as InsertTextRequest;
+          expect(req.nodeId, equals('cb1'));
+          expect(req.offset, equals(5));
+          expect(req.text.text, equals('\n'));
+        });
+
+        test('newline insertion into ParagraphNode still produces SplitParagraphRequest', () {
+          final node = ParagraphNode(id: 'p1', text: AttributedText('Hello'));
+          final doc = Document([node]);
+          final selection = const DocumentSelection.collapsed(
+            position: DocumentPosition(
+              nodeId: 'p1',
+              nodePosition: TextNodePosition(offset: 5),
+            ),
+          );
+
+          final delta = const TextEditingDeltaInsertion(
+            oldText: 'Hello',
+            textInserted: '\n',
+            insertionOffset: 5,
+            selection: TextSelection.collapsed(offset: 6),
+            composing: TextRange.empty,
+          );
+
+          final requests = serializer.deltaToRequests(
+            deltas: [delta],
+            document: doc,
+            selection: selection,
+          );
+
+          expect(requests, hasLength(1));
+          expect(requests.first, isA<SplitParagraphRequest>());
+        });
+
+        test('replacement containing newline on CodeBlockNode produces delete + insert-text', () {
+          final node = CodeBlockNode(id: 'cb1', text: AttributedText('abc'));
+          final doc = Document([node]);
+          final selection = const DocumentSelection.collapsed(
+            position: DocumentPosition(
+              nodeId: 'cb1',
+              nodePosition: TextNodePosition(offset: 3),
+            ),
+          );
+
+          final delta = const TextEditingDeltaReplacement(
+            oldText: 'abc',
+            replacementText: '\n',
+            replacedRange: TextRange(start: 1, end: 2),
+            selection: TextSelection.collapsed(offset: 2),
+            composing: TextRange.empty,
+          );
+
+          final requests = serializer.deltaToRequests(
+            deltas: [delta],
+            document: doc,
+            selection: selection,
+          );
+
+          expect(requests, hasLength(2));
+          expect(requests[0], isA<DeleteContentRequest>());
+          expect(requests[1], isA<InsertTextRequest>());
+          final insertReq = requests[1] as InsertTextRequest;
+          expect(insertReq.text.text, equals('\n'));
+        });
+      });
     });
 
     // -------------------------------------------------------------------------

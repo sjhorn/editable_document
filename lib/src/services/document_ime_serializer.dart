@@ -12,6 +12,7 @@ library;
 import 'package:flutter/services.dart';
 
 import '../model/attributed_text.dart';
+import '../model/code_block_node.dart';
 import '../model/document.dart';
 import '../model/document_position.dart';
 import '../model/document_selection.dart';
@@ -314,7 +315,7 @@ class DocumentImeSerializer {
 
     for (final delta in deltas) {
       if (delta is TextEditingDeltaInsertion) {
-        requests.addAll(_insertionToRequests(delta, targetNodeId));
+        requests.addAll(_insertionToRequests(delta, targetNodeId, document));
       } else if (delta is TextEditingDeltaDeletion) {
         requests.addAll(_deletionToRequests(delta, targetNodeId));
       } else if (delta is TextEditingDeltaReplacement) {
@@ -425,13 +426,29 @@ class DocumentImeSerializer {
 
   /// Maps a [TextEditingDeltaInsertion] to one [EditRequest].
   ///
-  /// A newline produces a [SplitParagraphRequest]; any other text produces an
-  /// [InsertTextRequest].
+  /// A newline produces a [SplitParagraphRequest] for most [TextNode] types.
+  /// The exception is [CodeBlockNode]: code blocks embed newlines as text
+  /// content rather than splitting into two blocks, so a newline there
+  /// produces an [InsertTextRequest] instead.
+  /// Any other text always produces an [InsertTextRequest].
   List<EditRequest> _insertionToRequests(
     TextEditingDeltaInsertion delta,
     String nodeId,
+    Document document,
   ) {
     if (delta.textInserted == '\n') {
+      // Code blocks embed newlines as text content — they should not be
+      // split into two blocks by the IME.
+      final node = document.nodeById(nodeId);
+      if (node is CodeBlockNode) {
+        return [
+          InsertTextRequest(
+            nodeId: nodeId,
+            offset: delta.insertionOffset,
+            text: AttributedText('\n'),
+          ),
+        ];
+      }
       return [
         SplitParagraphRequest(
           nodeId: nodeId,
