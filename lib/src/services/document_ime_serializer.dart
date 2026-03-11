@@ -12,6 +12,7 @@ library;
 import 'package:flutter/services.dart';
 
 import '../model/attributed_text.dart';
+import '../model/blockquote_node.dart';
 import '../model/code_block_node.dart';
 import '../model/document.dart';
 import '../model/document_position.dart';
@@ -74,7 +75,8 @@ const String _kSyntheticPlaceholder = '\u200B';
 /// | Delta type | TextNode target | Produces |
 /// |---|---|---|
 /// | [TextEditingDeltaInsertion] (normal text) | [TextNode] | [InsertTextRequest] |
-/// | [TextEditingDeltaInsertion] (`'\n'`) | [TextNode] | [SplitParagraphRequest] |
+/// | [TextEditingDeltaInsertion] (`'\n'`) | [TextNode] (not [CodeBlockNode] or [BlockquoteNode]) | [SplitParagraphRequest] |
+/// | [TextEditingDeltaInsertion] (`'\n'`) | [CodeBlockNode] or [BlockquoteNode] | [InsertTextRequest] |
 /// | [TextEditingDeltaDeletion] | [TextNode] | [DeleteContentRequest] |
 /// | [TextEditingDeltaReplacement] | [TextNode] | [DeleteContentRequest] + [InsertTextRequest] |
 /// | [TextEditingDeltaNonTextUpdate] | any | *(empty — selection-only update)* |
@@ -427,9 +429,9 @@ class DocumentImeSerializer {
   /// Maps a [TextEditingDeltaInsertion] to one [EditRequest].
   ///
   /// A newline produces a [SplitParagraphRequest] for most [TextNode] types.
-  /// The exception is [CodeBlockNode]: code blocks embed newlines as text
-  /// content rather than splitting into two blocks, so a newline there
-  /// produces an [InsertTextRequest] instead.
+  /// The exceptions are [CodeBlockNode] and [BlockquoteNode]: these node types
+  /// embed newlines as text content rather than splitting into two blocks, so a
+  /// newline there produces an [InsertTextRequest] instead.
   /// Any other text always produces an [InsertTextRequest].
   List<EditRequest> _insertionToRequests(
     TextEditingDeltaInsertion delta,
@@ -437,10 +439,10 @@ class DocumentImeSerializer {
     Document document,
   ) {
     if (delta.textInserted == '\n') {
-      // Code blocks embed newlines as text content — they should not be
-      // split into two blocks by the IME.
+      // Code blocks and blockquotes embed newlines as text content — they
+      // should not be split into two blocks by the IME.
       final node = document.nodeById(nodeId);
-      if (node is CodeBlockNode) {
+      if (node is CodeBlockNode || node is BlockquoteNode) {
         return [
           InsertTextRequest(
             nodeId: nodeId,

@@ -1047,8 +1047,8 @@ void main() {
       });
 
       test(
-          'TextEditingDeltaInsertion of newline into BlockquoteNode produces SplitParagraphRequest',
-          () {
+          'TextEditingDeltaInsertion of newline into BlockquoteNode produces InsertTextRequest '
+          '(embedded newline, mirrors CodeBlockNode behaviour)', () {
         final node = BlockquoteNode(id: 'bq1', text: AttributedText('Quote'));
         final doc = Document([node]);
         final selection = const DocumentSelection.collapsed(
@@ -1073,10 +1073,11 @@ void main() {
         );
 
         expect(requests, hasLength(1));
-        expect(requests.first, isA<SplitParagraphRequest>());
-        final req = requests.first as SplitParagraphRequest;
+        expect(requests.first, isA<InsertTextRequest>());
+        final req = requests.first as InsertTextRequest;
         expect(req.nodeId, equals('bq1'));
-        expect(req.splitOffset, equals(5));
+        expect(req.offset, equals(5));
+        expect(req.text.text, equals('\n'));
       });
 
       test('TextEditingDeltaDeletion into BlockquoteNode produces DeleteContentRequest', () {

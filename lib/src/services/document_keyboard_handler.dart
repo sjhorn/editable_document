@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '../model/attributed_text.dart';
+import '../model/blockquote_node.dart';
 import '../model/code_block_node.dart';
 import '../model/document.dart';
 import '../model/document_editing_controller.dart';
@@ -814,9 +815,18 @@ class DocumentKeyboardHandler {
   // Enter (list-item exit / code block)
   // -------------------------------------------------------------------------
 
-  /// Handles Enter inside list items and code blocks.
+  /// Handles Enter inside list items, code blocks, and blockquotes.
   ///
   /// **List items:** converts an empty [ListItemNode] to a [ParagraphNode].
+  ///
+  /// **ParagraphNode blockquotes:** converts an empty paragraph with
+  /// `ParagraphBlockType.blockquote` to a plain paragraph.
+  ///
+  /// **BlockquoteNode:**
+  /// * Empty text → [ExitBlockquoteRequest] (exit to paragraph).
+  /// * Cursor at end + text ends with `'\n'` → [ExitBlockquoteRequest] with
+  ///   [ExitBlockquoteRequest.removeTrailingNewline] (double-Enter exit).
+  /// * Otherwise → [InsertTextRequest] with a newline (stay in block).
   ///
   /// **Code blocks:**
   /// * Empty text → [ExitCodeBlockRequest] (convert in place).
@@ -837,7 +847,7 @@ class DocumentKeyboardHandler {
       return true;
     }
 
-    // Empty blockquote → convert to plain paragraph.
+    // Empty ParagraphNode blockquote → convert to plain paragraph.
     if (node is ParagraphNode &&
         node.blockType == ParagraphBlockType.blockquote &&
         node.text.text.isEmpty) {
@@ -845,6 +855,40 @@ class DocumentKeyboardHandler {
         ChangeBlockTypeRequest(
           nodeId: node.id,
           newBlockType: ParagraphBlockType.paragraph,
+        ),
+      );
+      return true;
+    }
+
+    // BlockquoteNode handling (mirrors code block Enter behaviour).
+    if (node is BlockquoteNode) {
+      final offset = (selection.extent.nodePosition as TextNodePosition).offset;
+      final text = node.text.text;
+
+      if (text.isEmpty) {
+        // Empty blockquote → exit to paragraph.
+        _requestHandler(ExitBlockquoteRequest(nodeId: node.id, splitOffset: 0));
+        return true;
+      }
+
+      if (offset == text.length && text.endsWith('\n')) {
+        // Double-Enter: cursor at end and text ends with newline → exit.
+        _requestHandler(
+          ExitBlockquoteRequest(
+            nodeId: node.id,
+            splitOffset: offset,
+            removeTrailingNewline: true,
+          ),
+        );
+        return true;
+      }
+
+      // Normal Enter inside blockquote → insert newline, stay in block.
+      _requestHandler(
+        InsertTextRequest(
+          nodeId: node.id,
+          offset: offset,
+          text: AttributedText('\n'),
         ),
       );
       return true;

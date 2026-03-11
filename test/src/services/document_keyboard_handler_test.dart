@@ -4000,6 +4000,84 @@ void main() {
   });
 
   // =========================================================================
+  // Enter — BlockquoteNode (double-Enter escape + embedded newlines)
+  // =========================================================================
+
+  group('Enter (BlockquoteNode — double-Enter escape and embedded newlines)', () {
+    test('empty BlockquoteNode + Enter dispatches ExitBlockquoteRequest with splitOffset 0', () {
+      final doc = MutableDocument([
+        BlockquoteNode(id: 'bq1', text: AttributedText('')),
+      ]);
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('bq1', 0));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.enter));
+
+      expect(result, true);
+      expect(requests, hasLength(1));
+      final req = requests.first as ExitBlockquoteRequest;
+      expect(req.nodeId, equals('bq1'));
+      expect(req.splitOffset, equals(0));
+      expect(req.removeTrailingNewline, isFalse);
+    });
+
+    test('non-empty BlockquoteNode + Enter dispatches InsertTextRequest with newline', () {
+      final doc = MutableDocument([
+        BlockquoteNode(id: 'bq1', text: AttributedText('hello')),
+      ]);
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('bq1', 5));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.enter));
+
+      expect(result, true);
+      expect(requests, hasLength(1));
+      final req = requests.first as InsertTextRequest;
+      expect(req.nodeId, equals('bq1'));
+      expect(req.offset, equals(5));
+      expect(req.text.text, equals('\n'));
+    });
+
+    test('double-Enter: cursor at end with trailing newline dispatches ExitBlockquoteRequest', () {
+      final doc = MutableDocument([
+        BlockquoteNode(id: 'bq1', text: AttributedText('hello\n')),
+      ]);
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('bq1', 6));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.enter));
+
+      expect(result, true);
+      expect(requests, hasLength(1));
+      final req = requests.first as ExitBlockquoteRequest;
+      expect(req.nodeId, equals('bq1'));
+      expect(req.splitOffset, equals(6));
+      expect(req.removeTrailingNewline, isTrue);
+    });
+
+    test('Enter mid-text in BlockquoteNode dispatches InsertTextRequest with newline', () {
+      final doc = MutableDocument([
+        BlockquoteNode(id: 'bq1', text: AttributedText('hello\nworld')),
+      ]);
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('bq1', 5));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.enter));
+
+      expect(result, true);
+      expect(requests, hasLength(1));
+      final req = requests.first as InsertTextRequest;
+      expect(req.nodeId, equals('bq1'));
+      expect(req.offset, equals(5));
+      expect(req.text.text, equals('\n'));
+    });
+  });
+
+  // =========================================================================
   // Backspace — empty blockquote → plain paragraph
   // =========================================================================
 
