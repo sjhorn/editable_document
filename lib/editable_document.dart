@@ -54,6 +54,7 @@ export 'src/services/document_clipboard.dart';
 export 'src/services/document_ime_serializer.dart';
 export 'src/services/document_ime_input_client.dart';
 export 'src/services/document_keyboard_handler.dart';
+export 'src/widgets/block_resize_handles.dart';
 export 'src/widgets/caret_document_overlay.dart';
 export 'src/widgets/component_builder.dart';
 export 'src/widgets/drag_handle_auto_scroller.dart';

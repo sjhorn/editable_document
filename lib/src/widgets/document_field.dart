@@ -23,6 +23,7 @@ import '../model/paragraph_node.dart';
 import '../model/text_node.dart';
 import '../model/undoable_editor.dart';
 import '../services/document_clipboard.dart';
+import 'block_resize_handles.dart';
 import 'caret_document_overlay.dart';
 import 'component_builder.dart';
 import 'document_layout.dart';
@@ -743,6 +744,13 @@ class DocumentFieldState extends State<DocumentField> {
                 startHandleLayerLink: _startHandleLayerLink,
                 endHandleLayerLink: _endHandleLayerLink,
                 showCaret: false,
+                document: _effectiveController.document,
+                onBlockResize: (nodeId, width, height) {
+                  final node = _effectiveController.document.nodeById(nodeId);
+                  if (node == null) return;
+                  final req = createResizeRequest(node, width, height);
+                  if (req != null) _effectiveEditor.submit(req);
+                },
                 child: EditableDocument(
                   controller: _effectiveController,
                   focusNode: _effectiveFocusNode,

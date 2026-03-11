@@ -1940,22 +1940,30 @@ class _DocumentDemoState extends State<DocumentDemo> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                // --- Width ---
-                Text('Width', style: Theme.of(context).textTheme.labelMedium),
+                // --- Width x Height ---
+                Text('Width x Height', style: Theme.of(context).textTheme.labelMedium),
                 const SizedBox(height: 4),
-                _DimensionField(
-                  key: ValueKey('${node.id}-w'),
-                  value: _getWidth(node),
-                  onChanged: (value) => _updateWidth(node, value),
-                ),
-                const SizedBox(height: 8),
-                // --- Height ---
-                Text('Height', style: Theme.of(context).textTheme.labelMedium),
-                const SizedBox(height: 4),
-                _DimensionField(
-                  key: ValueKey('${node.id}-h'),
-                  value: _getHeight(node),
-                  onChanged: (value) => _updateHeight(node, value),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _DimensionField(
+                        key: ValueKey('${node.id}-w'),
+                        value: _getWidth(node),
+                        onChanged: (value) => _updateWidth(node, value),
+                      ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 6),
+                      child: Text('\u00d7'), // ×
+                    ),
+                    Expanded(
+                      child: _DimensionField(
+                        key: ValueKey('${node.id}-h'),
+                        value: _getHeight(node),
+                        onChanged: (value) => _updateHeight(node, value),
+                      ),
+                    ),
+                  ],
                 ),
                 if (node is ImageNode) ...[
                   const SizedBox(height: 12),
@@ -2004,6 +2012,13 @@ class _DocumentDemoState extends State<DocumentDemo> {
               startHandleLayerLink: _startHandleLayerLink,
               endHandleLayerLink: _endHandleLayerLink,
               showCaret: false,
+              document: _document,
+              onBlockResize: (nodeId, width, height) {
+                final node = _document.nodeById(nodeId);
+                if (node == null) return;
+                final req = createResizeRequest(node, width, height);
+                if (req != null) _editor.submit(req);
+              },
               child: EditableDocument(
                 controller: _controller,
                 focusNode: _focusNode,

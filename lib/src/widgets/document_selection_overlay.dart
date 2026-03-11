@@ -44,14 +44,17 @@
 /// ```
 library;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
+import '../model/document.dart';
 import '../model/document_editing_controller.dart';
 import '../model/document_selection.dart';
 import '../rendering/render_document_caret.dart';
 import '../rendering/render_document_selection_highlight.dart';
+import 'block_resize_handles.dart';
 import 'document_layout.dart';
 
 // ---------------------------------------------------------------------------
@@ -126,6 +129,8 @@ class DocumentSelectionOverlay extends StatefulWidget {
     this.showCaret = true,
     this.showSelection = true,
     this.showHandles = false,
+    this.document,
+    this.onBlockResize,
   });
 
   /// The document editing controller that provides selection state.
@@ -181,6 +186,18 @@ class DocumentSelectionOverlay extends StatefulWidget {
   /// (Phase 6.3–6.5) set it to `true` once long-press or drag is detected.
   final bool showHandles;
 
+  /// The document, required for block resize handles.
+  ///
+  /// When both [document] and [onBlockResize] are provided, a
+  /// [BlockResizeHandles] overlay is added to the widget tree.
+  final Document? document;
+
+  /// Called when the user finishes resizing a block via drag handles.
+  ///
+  /// When both this and [document] are non-null, [BlockResizeHandles] is
+  /// shown for fully-selected non-stretch blocks.
+  final BlockResizeCallback? onBlockResize;
+
   @override
   State<DocumentSelectionOverlay> createState() => DocumentSelectionOverlayState();
 
@@ -196,6 +213,10 @@ class DocumentSelectionOverlay extends StatefulWidget {
     properties.add(FlagProperty('showCaret', value: showCaret, ifTrue: 'showCaret'));
     properties.add(FlagProperty('showSelection', value: showSelection, ifTrue: 'showSelection'));
     properties.add(FlagProperty('showHandles', value: showHandles, ifTrue: 'showHandles'));
+    properties.add(DiagnosticsProperty<Document?>('document', document, defaultValue: null));
+    properties.add(
+      ObjectFlagProperty<BlockResizeCallback?>.has('onBlockResize', onBlockResize),
+    );
   }
 }
 
@@ -351,7 +372,18 @@ class DocumentSelectionOverlayState extends State<DocumentSelectionOverlay> {
             ),
           ),
 
-        // 4. CompositedTransformTarget for the selection-start handle.
+        // 4. Block resize handles — shown for non-stretch block selection.
+        if (widget.document != null && widget.onBlockResize != null)
+          Positioned.fill(
+            child: BlockResizeHandles(
+              controller: widget.controller,
+              layoutKey: widget.layoutKey,
+              document: widget.document!,
+              onResize: widget.onBlockResize,
+            ),
+          ),
+
+        // 5. CompositedTransformTarget for the selection-start handle.
         Positioned(
           left: _startOffset.dx,
           top: _startOffset.dy,
@@ -361,7 +393,7 @@ class DocumentSelectionOverlayState extends State<DocumentSelectionOverlay> {
           ),
         ),
 
-        // 5. CompositedTransformTarget for the selection-end handle.
+        // 6. CompositedTransformTarget for the selection-end handle.
         Positioned(
           left: _endOffset.dx,
           top: _endOffset.dy,

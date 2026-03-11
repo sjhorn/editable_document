@@ -42,6 +42,7 @@ import '../../model/document_editing_controller.dart';
 import '../../model/document_position.dart';
 import '../../model/document_selection.dart';
 import '../../model/node_position.dart';
+import '../block_resize_handles.dart';
 import '../../model/text_node.dart';
 import '../document_layout.dart';
 
@@ -307,6 +308,9 @@ class DocumentMouseInteractorState extends State<DocumentMouseInteractor> {
       // Non-primary-button mouse press — ignore.
       return;
     }
+    // Skip drag-selection when a block resize handle is active — the resize
+    // overlay owns this pointer.
+    if (BlockResizeHandles.isDragging) return;
     // Request focus so clicking the document steals focus from other widgets.
     widget.focusNode?.requestFocus();
     _dragBasePosition = _positionForOffset(event.localPosition);
