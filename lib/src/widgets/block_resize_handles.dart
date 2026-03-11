@@ -656,7 +656,7 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
   static const double _resetButtonGap = 4.0;
 
   Widget _buildResetButton(Rect blockRect, String nodeId) {
-    const buttonWidth = 36.0;
+    const buttonWidth = 46.0;
     return Positioned(
       left: blockRect.center.dx - buttonWidth / 2,
       top: blockRect.top - _resetButtonHeight - _resetButtonGap,
@@ -674,7 +674,7 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
             ),
             child: const Center(
               child: Text(
-                '1:1',
+                'Reset',
                 style: TextStyle(
                   color: Color(0xFFFFFFFF),
                   fontSize: 11.0,

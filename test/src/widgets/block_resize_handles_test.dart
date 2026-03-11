@@ -1052,7 +1052,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // The "1:1" text widget should be present.
-      expect(find.text('1:1'), findsOneWidget);
+      expect(find.text('Reset'), findsOneWidget);
     });
 
     testWidgets('reset button does NOT appear for HorizontalRuleNode', (tester) async {
@@ -1079,7 +1079,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('1:1'), findsNothing);
+      expect(find.text('Reset'), findsNothing);
     });
 
     testWidgets('reset button does NOT appear when onResetImageSize is null', (tester) async {
@@ -1112,7 +1112,7 @@ void main() {
       // Note: _buildWithOverlay doesn't wire onResetImageSize through
       // DocumentSelectionOverlay, so BlockResizeHandles.onResetImageSize
       // is null.
-      expect(find.text('1:1'), findsNothing);
+      expect(find.text('Reset'), findsNothing);
     });
   });
 }
