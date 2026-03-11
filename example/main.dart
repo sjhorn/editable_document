@@ -2019,6 +2019,12 @@ class _DocumentDemoState extends State<DocumentDemo> {
                 final req = createResizeRequest(node, width, height);
                 if (req != null) _editor.submit(req);
               },
+              onResetImageSize: (nodeId) {
+                final node = _document.nodeById(nodeId);
+                if (node == null) return;
+                final req = createResetImageSizeRequest(node);
+                if (req != null) _editor.submit(req);
+              },
               child: EditableDocument(
                 controller: _controller,
                 focusNode: _focusNode,

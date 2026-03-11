@@ -131,6 +131,7 @@ class DocumentSelectionOverlay extends StatefulWidget {
     this.showHandles = false,
     this.document,
     this.onBlockResize,
+    this.onResetImageSize,
   });
 
   /// The document editing controller that provides selection state.
@@ -198,6 +199,12 @@ class DocumentSelectionOverlay extends StatefulWidget {
   /// shown for fully-selected non-stretch blocks.
   final BlockResizeCallback? onBlockResize;
 
+  /// Called when the user taps the "1:1" reset button on a selected image.
+  ///
+  /// Receives the node id of the [ImageNode] to reset to intrinsic size.
+  /// The button only appears when this is non-null.
+  final ValueChanged<String>? onResetImageSize;
+
   @override
   State<DocumentSelectionOverlay> createState() => DocumentSelectionOverlayState();
 
@@ -216,6 +223,12 @@ class DocumentSelectionOverlay extends StatefulWidget {
     properties.add(DiagnosticsProperty<Document?>('document', document, defaultValue: null));
     properties.add(
       ObjectFlagProperty<BlockResizeCallback?>.has('onBlockResize', onBlockResize),
+    );
+    properties.add(
+      ObjectFlagProperty<ValueChanged<String>?>.has(
+        'onResetImageSize',
+        onResetImageSize,
+      ),
     );
   }
 }
@@ -380,6 +393,7 @@ class DocumentSelectionOverlayState extends State<DocumentSelectionOverlay> {
               layoutKey: widget.layoutKey,
               document: widget.document!,
               onResize: widget.onBlockResize,
+              onResetImageSize: widget.onResetImageSize,
             ),
           ),
 

@@ -62,6 +62,7 @@ Widget _buildWithOverlay({
   required DocumentEditingController controller,
   required Document document,
   BlockResizeCallback? onBlockResize,
+  ValueChanged<String>? onResetImageSize,
   GlobalKey<DocumentLayoutState>? layoutKey,
 }) {
   final key = layoutKey ?? GlobalKey<DocumentLayoutState>();
@@ -76,6 +77,7 @@ Widget _buildWithOverlay({
         endHandleLayerLink: LayerLink(),
         document: document,
         onBlockResize: onBlockResize,
+        onResetImageSize: onResetImageSize,
         child: DocumentLayout(
           key: key,
           document: controller.document,
@@ -954,6 +956,163 @@ void main() {
   group('BlockResizeHandles — isDragging', () {
     testWidgets('isDragging is false when no drag is active', (tester) async {
       expect(BlockResizeHandles.isDragging, isFalse);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // createResetImageSizeRequest
+  // -------------------------------------------------------------------------
+
+  group('createResetImageSizeRequest', () {
+    test('returns ReplaceNodeRequest with null width and height for ImageNode', () {
+      final node = ImageNode(
+        id: 'img-1',
+        imageUrl: 'test.png',
+        width: 320.0,
+        height: 240.0,
+        alignment: BlockAlignment.center,
+      );
+
+      final req = createResetImageSizeRequest(node);
+
+      expect(req, isA<ReplaceNodeRequest>());
+      final replace = req! as ReplaceNodeRequest;
+      expect(replace.nodeId, 'img-1');
+      final newNode = replace.newNode as ImageNode;
+      expect(newNode.width, isNull);
+      expect(newNode.height, isNull);
+      // Other fields preserved.
+      expect(newNode.imageUrl, 'test.png');
+      expect(newNode.alignment, BlockAlignment.center);
+    });
+
+    test('preserves altText, textWrap, and metadata', () {
+      final node = ImageNode(
+        id: 'img-2',
+        imageUrl: 'photo.jpg',
+        altText: 'A photo',
+        width: 100.0,
+        height: 100.0,
+        alignment: BlockAlignment.start,
+        textWrap: TextWrapMode.wrap,
+        metadata: {'key': 'value'},
+      );
+
+      final req = createResetImageSizeRequest(node);
+
+      final newNode = (req! as ReplaceNodeRequest).newNode as ImageNode;
+      expect(newNode.altText, 'A photo');
+      expect(newNode.textWrap, TextWrapMode.wrap);
+      expect(newNode.metadata, {'key': 'value'});
+    });
+
+    test('returns null for non-ImageNode', () {
+      final node = ParagraphNode(id: 'p-1', text: AttributedText('Hello'));
+      expect(createResetImageSizeRequest(node), isNull);
+    });
+
+    test('returns null for CodeBlockNode', () {
+      final node = CodeBlockNode(
+        id: 'code-1',
+        text: AttributedText('code'),
+        alignment: BlockAlignment.center,
+      );
+      expect(createResetImageSizeRequest(node), isNull);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // BlockResizeHandles — reset button
+  // -------------------------------------------------------------------------
+
+  group('BlockResizeHandles — reset button', () {
+    testWidgets('reset button appears for selected ImageNode', (tester) async {
+      final doc = MutableDocument([
+        ImageNode(
+          id: 'img-1',
+          imageUrl: 'test.png',
+          width: 200.0,
+          height: 100.0,
+          alignment: BlockAlignment.center,
+        ),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      addTearDown(controller.dispose);
+
+      _selectFully(controller, 'img-1');
+
+      await tester.pumpWidget(
+        _buildWithOverlay(
+          controller: controller,
+          document: doc,
+          onBlockResize: (id, w, h) {},
+          onResetImageSize: (id) {},
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // The "1:1" text widget should be present.
+      expect(find.text('1:1'), findsOneWidget);
+    });
+
+    testWidgets('reset button does NOT appear for HorizontalRuleNode', (tester) async {
+      final doc = MutableDocument([
+        HorizontalRuleNode(
+          id: 'hr-1',
+          width: 200.0,
+          height: 4.0,
+          alignment: BlockAlignment.center,
+        ),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      addTearDown(controller.dispose);
+
+      _selectFully(controller, 'hr-1');
+
+      await tester.pumpWidget(
+        _buildWithOverlay(
+          controller: controller,
+          document: doc,
+          onBlockResize: (id, w, h) {},
+          onResetImageSize: (id) {},
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('1:1'), findsNothing);
+    });
+
+    testWidgets('reset button does NOT appear when onResetImageSize is null', (tester) async {
+      final doc = MutableDocument([
+        ImageNode(
+          id: 'img-1',
+          imageUrl: 'test.png',
+          width: 200.0,
+          height: 100.0,
+          alignment: BlockAlignment.center,
+        ),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      addTearDown(controller.dispose);
+
+      _selectFully(controller, 'img-1');
+
+      // _buildWithOverlay does not pass onResetImageSize, so it's null
+      // on BlockResizeHandles. The button should not appear.
+      await tester.pumpWidget(
+        _buildWithOverlay(
+          controller: controller,
+          document: doc,
+          onBlockResize: (id, w, h) {},
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // onResetImageSize is null → no button.
+      // Note: _buildWithOverlay doesn't wire onResetImageSize through
+      // DocumentSelectionOverlay, so BlockResizeHandles.onResetImageSize
+      // is null.
+      expect(find.text('1:1'), findsNothing);
     });
   });
 }

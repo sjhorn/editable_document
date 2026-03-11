@@ -125,6 +125,7 @@ class BlockResizeHandles extends StatefulWidget {
     required this.layoutKey,
     required this.document,
     this.onResize,
+    this.onResetImageSize,
     this.handleSize = 8.0,
     this.borderColor = const Color(0xFF2196F3),
     this.handleColor = const Color(0xFF2196F3),
@@ -158,6 +159,15 @@ class BlockResizeHandles extends StatefulWidget {
   ///
   /// When `null`, no handles are drawn.
   final BlockResizeCallback? onResize;
+
+  /// Called when the user taps the "1:1" reset button on a selected
+  /// [ImageNode].
+  ///
+  /// Receives the [nodeId] of the image whose size should be reset to its
+  /// intrinsic dimensions (i.e. [ImageNode.width] and [ImageNode.height]
+  /// set to `null`). The button only appears when the selected node is an
+  /// [ImageNode] and this callback is non-null.
+  final ValueChanged<String>? onResetImageSize;
 
   /// The side length of each square handle in logical pixels.
   ///
@@ -205,6 +215,12 @@ class BlockResizeHandles extends StatefulWidget {
     properties.add(DiagnosticsProperty<Document>('document', document));
     properties.add(
       ObjectFlagProperty<BlockResizeCallback?>.has('onResize', onResize),
+    );
+    properties.add(
+      ObjectFlagProperty<ValueChanged<String>?>.has(
+        'onResetImageSize',
+        onResetImageSize,
+      ),
     );
     properties.add(
       DoubleProperty('handleSize', handleSize, defaultValue: 8.0),
@@ -630,6 +646,50 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
   }
 
   // ---------------------------------------------------------------------------
+  // Reset button
+  // ---------------------------------------------------------------------------
+
+  /// Height of the "1:1" reset button.
+  static const double _resetButtonHeight = 22.0;
+
+  /// Vertical gap between the reset button and the block border.
+  static const double _resetButtonGap = 4.0;
+
+  Widget _buildResetButton(Rect blockRect, String nodeId) {
+    const buttonWidth = 36.0;
+    return Positioned(
+      left: blockRect.center.dx - buttonWidth / 2,
+      top: blockRect.top - _resetButtonHeight - _resetButtonGap,
+      width: buttonWidth,
+      height: _resetButtonHeight,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => widget.onResetImageSize?.call(nodeId),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: widget.borderColor,
+              borderRadius: BorderRadius.circular(3.0),
+            ),
+            child: const Center(
+              child: Text(
+                '1:1',
+                style: TextStyle(
+                  color: Color(0xFFFFFFFF),
+                  fontSize: 11.0,
+                  fontWeight: FontWeight.w600,
+                  height: 1.0,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
   // Build
   // ---------------------------------------------------------------------------
 
@@ -640,6 +700,13 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
     }
 
     final blockRect = _previewRect(_blockRect!);
+
+    // Check if the selected node is an ImageNode for the reset button.
+    final nodeId = _activePointer != null ? _dragNodeId : _selectedNodeId();
+    final showReset = widget.onResetImageSize != null &&
+        nodeId != null &&
+        widget.document.nodeById(nodeId) is ImageNode &&
+        _activePointer == null;
 
     return Stack(
       children: [
@@ -659,6 +726,8 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
         ),
         // Eight resize handles
         for (final pos in ResizeHandlePosition.values) _buildHandle(pos, blockRect),
+        // "1:1" reset button — shown for ImageNode only, above the block.
+        if (showReset) _buildResetButton(blockRect, nodeId),
       ],
     );
   }
@@ -735,4 +804,39 @@ EditRequest? createResizeRequest(
     );
   }
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// createResetImageSizeRequest
+// ---------------------------------------------------------------------------
+
+/// Creates a [ReplaceNodeRequest] that resets an [ImageNode]'s [width] and
+/// [height] to `null`, restoring the image to its intrinsic dimensions.
+///
+/// Returns `null` if [node] is not an [ImageNode].
+///
+/// Because [ImageNode.copyWith] cannot set dimensions to `null` (it uses
+/// `??` semantics), this helper constructs a fresh [ImageNode] with all
+/// fields preserved except [width] and [height].
+///
+/// Example:
+/// ```dart
+/// final node = document.nodeById('img-1')!;
+/// final req = createResetImageSizeRequest(node);
+/// if (req != null) editor.submit(req);
+/// ```
+EditRequest? createResetImageSizeRequest(DocumentNode node) {
+  if (node is! ImageNode) return null;
+  return ReplaceNodeRequest(
+    nodeId: node.id,
+    newNode: ImageNode(
+      id: node.id,
+      imageUrl: node.imageUrl,
+      altText: node.altText,
+      // width and height intentionally null → intrinsic size.
+      alignment: node.alignment,
+      textWrap: node.textWrap,
+      metadata: node.metadata,
+    ),
+  );
 }

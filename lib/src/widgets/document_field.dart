@@ -751,6 +751,12 @@ class DocumentFieldState extends State<DocumentField> {
                   final req = createResizeRequest(node, width, height);
                   if (req != null) _effectiveEditor.submit(req);
                 },
+                onResetImageSize: (nodeId) {
+                  final node = _effectiveController.document.nodeById(nodeId);
+                  if (node == null) return;
+                  final req = createResetImageSizeRequest(node);
+                  if (req != null) _effectiveEditor.submit(req);
+                },
                 child: EditableDocument(
                   controller: _effectiveController,
                   focusNode: _effectiveFocusNode,
