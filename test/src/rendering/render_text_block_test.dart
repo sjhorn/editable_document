@@ -774,6 +774,103 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
+  // getLocalRectForPosition — trailing newline caret position
+  // ---------------------------------------------------------------------------
+
+  group('RenderTextBlock getLocalRectForPosition trailing newline', () {
+    test('caret at end of text ending with newline uses trailing line position', () {
+      // Text "abc\n" — cursor at offset 4 should be on the empty line BELOW
+      // "abc", not on the "abc" line itself.
+      //
+      // With TextPainter, getOffsetForCaret at offset 4 returns a dy value
+      // that is on the second (empty trailing) line.  However the old
+      // implementation then queried getBoxesForSelection for char index 3
+      // (the '\n'), which returned the box for the FIRST line.  The resulting
+      // caret rect had caretOffset.dx (line 2) paired with box.top from line 1
+      // — a mismatch that placed the caret on the wrong line.
+      const text = 'abc\n';
+      final block = RenderTextBlock(
+        nodeId: 'trailing_nl',
+        text: AttributedText(text),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+
+      // Position at the last char on the first line (offset 2 = 'c').
+      final rectFirstLine = block.getLocalRectForPosition(
+        const TextNodePosition(offset: 2),
+      );
+
+      // Position at end of text (offset 4 = after '\n') — should be on the
+      // trailing empty line, i.e. rect.top > rectFirstLine.top.
+      final rectTrailingLine = block.getLocalRectForPosition(
+        const TextNodePosition(offset: text.length),
+      );
+
+      expect(rectTrailingLine.height, greaterThan(0),
+          reason: 'caret on trailing line must have positive height');
+      expect(
+        rectTrailingLine.top,
+        greaterThan(rectFirstLine.top),
+        reason: 'caret at end-of-text after trailing newline must be BELOW the first line, '
+            'not on the same line as the newline character itself',
+      );
+    });
+
+    test('caret at end of text NOT ending with newline stays on the same line', () {
+      // Sanity check: "abc" — cursor at offset 3 should still be on the first
+      // (and only) line. This ensures the fix does not regress the common case.
+      const text = 'abc';
+      final block = RenderTextBlock(
+        nodeId: 'no_trailing_nl',
+        text: AttributedText(text),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+
+      final rectAtC = block.getLocalRectForPosition(const TextNodePosition(offset: 2));
+      final rectAtEnd = block.getLocalRectForPosition(
+        const TextNodePosition(offset: text.length),
+      );
+
+      // Both positions are on the same (only) line — tops must be equal.
+      expect(
+        rectAtEnd.top,
+        closeTo(rectAtC.top, 1.0),
+        reason: 'caret at end of text without trailing newline must remain on the same line',
+      );
+    });
+
+    test('caret at end of multi-line text ending with newline is on the last empty line', () {
+      // "line1\nline2\n" — cursor at offset 12 should be below "line2".
+      const text = 'line1\nline2\n';
+      final block = RenderTextBlock(
+        nodeId: 'multiline_trailing_nl',
+        text: AttributedText(text),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+
+      // Offset 6 is the 'l' of "line2" — on the second line.
+      final rectSecondLine = block.getLocalRectForPosition(
+        const TextNodePosition(offset: 6),
+      );
+
+      // Offset 12 = after the trailing '\n' — should be on the THIRD line.
+      final rectThirdLine = block.getLocalRectForPosition(
+        const TextNodePosition(offset: text.length),
+      );
+
+      expect(rectThirdLine.height, greaterThan(0));
+      expect(
+        rectThirdLine.top,
+        greaterThan(rectSecondLine.top),
+        reason: 'caret after trailing newline of "line1\\nline2\\n" must be below "line2"',
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // Exclusion zone text wrapping (center float)
   // ---------------------------------------------------------------------------
 

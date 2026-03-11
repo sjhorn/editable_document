@@ -816,6 +816,15 @@ class RenderTextBlock extends RenderDocumentBlock {
     // height, which accounts for mixed fonts on the same line.
     final textLength = _text.text.length;
     if (textLength > 0) {
+      // When the cursor is at the end of text that ends with '\n', TextPainter
+      // places the caret on the empty trailing line (caretOffset.dy reflects
+      // this correctly).  Querying getBoxesForSelection for the '\n' character
+      // (textLength - 1) would return the box for the line CONTAINING '\n',
+      // not the trailing empty line — producing a mismatch between caretOffset
+      // and box.top.  Use caretOffset + preferredLineHeight directly instead.
+      if (tp.offset >= textLength && _text.text.endsWith('\n')) {
+        return Rect.fromLTWH(caretOffset.dx, caretOffset.dy, 0, _textPainter.preferredLineHeight);
+      }
       final start = tp.offset >= textLength ? textLength - 1 : tp.offset;
       final end = start + 1;
       final boxes = _textPainter.getBoxesForSelection(
@@ -867,6 +876,13 @@ class RenderTextBlock extends RenderDocumentBlock {
       final caretOffset = painter.getOffsetForCaret(textPos, Rect.zero);
       final belowLength = _text.text.length - excl.besideEndIndex;
       if (belowLength > 0) {
+        // Same trailing-newline guard as the non-exclusion path: when the
+        // cursor is at the end of text ending with '\n', use caretOffset
+        // directly rather than querying the box for the '\n' character.
+        if (localIndex >= belowLength && _text.text.endsWith('\n')) {
+          return Rect.fromLTWH(
+              caretOffset.dx, baseY + caretOffset.dy, 0, painter.preferredLineHeight);
+        }
         final start = localIndex >= belowLength ? belowLength - 1 : localIndex;
         final boxes = painter.getBoxesForSelection(
           TextSelection(baseOffset: start, extentOffset: start + 1),
