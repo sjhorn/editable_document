@@ -84,6 +84,12 @@ class _DocumentDemoState extends State<DocumentDemo> {
   /// when the panel is hidden.
   String? _propertyPanelNodeId;
 
+  /// Whether a pointer drag is in progress over the editor area.
+  ///
+  /// While `true`, the floating property panel is suppressed so it doesn't
+  /// interfere with drag-selection focus.
+  bool _isDragSelecting = false;
+
   /// Preset color swatches for text-color and background-color pickers.
   ///
   /// Keys are ARGB 32-bit integer values; values are display labels.
@@ -1069,12 +1075,23 @@ class _DocumentDemoState extends State<DocumentDemo> {
         children: [
           _buildToolbar(),
           Expanded(
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                _buildEditor(),
-                _buildFloatingPropertyPanel(),
-              ],
+            child: Listener(
+              onPointerDown: (_) {
+                if (!_isDragSelecting) setState(() => _isDragSelecting = true);
+              },
+              onPointerUp: (_) {
+                if (_isDragSelecting) setState(() => _isDragSelecting = false);
+              },
+              onPointerCancel: (_) {
+                if (_isDragSelecting) setState(() => _isDragSelecting = false);
+              },
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  _buildEditor(),
+                  _buildFloatingPropertyPanel(),
+                ],
+              ),
             ),
           ),
           _buildStatusBar(),
@@ -1829,7 +1846,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
   }
 
   Widget _buildFloatingPropertyPanel() {
-    if (_propertyPanelNodeId == null) {
+    if (_propertyPanelNodeId == null || _isDragSelecting) {
       return const SizedBox.shrink();
     }
 
