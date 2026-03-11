@@ -866,13 +866,16 @@ class RenderDocumentLayout extends RenderBox
   ///
   /// ## Cross-node selections
   ///
-  /// When the selection spans multiple nodes the method falls back to computing
-  /// rects from the caret endpoint geometry:
+  /// When the selection spans multiple nodes the method iterates through each
+  /// block between the upstream and downstream endpoints, producing rects that
+  /// respect each block's actual bounds (accounting for float offsets):
   ///
-  /// - **Top line**: from the base endpoint's left edge to the full layout width.
-  /// - **Intermediate gap** (when there is vertical space between the top line's
-  ///   bottom and the bottom line's top): a full-width rect.
-  /// - **Bottom line**: from the left edge to the extent endpoint's right edge.
+  /// - **Upstream block** (partial): from the caret position to the block's
+  ///   right edge.
+  /// - **Intermediate blocks** (fully selected): the block's full bounds.
+  ///   Float blocks are skipped since they are not part of the text flow.
+  /// - **Downstream block** (partial): from the block's left edge to the caret
+  ///   position.
   ///
   /// Returns an empty list when:
   /// - [selection] is collapsed.
@@ -897,32 +900,87 @@ class RenderDocumentLayout extends RenderBox
     }
 
     // -----------------------------------------------------------------------
-    // Cross-node path — use caret endpoint rects with top/middle/bottom logic.
+    // Cross-node path — per-block iteration respecting actual block bounds.
     // -----------------------------------------------------------------------
+    final baseComponent = getComponentByNodeId(base.nodeId);
+    final extentComponent = getComponentByNodeId(extent.nodeId);
+    if (baseComponent == null || extentComponent == null) return const [];
+
     final baseRect = getRectForDocumentPosition(base);
     final extentRect = getRectForDocumentPosition(extent);
-
     if (baseRect == null || extentRect == null) return const [];
 
-    // Determine which rect is upstream (top) and which is downstream (bottom).
-    final topRect = baseRect.top <= extentRect.top ? baseRect : extentRect;
-    final bottomRect = baseRect.top <= extentRect.top ? extentRect : baseRect;
+    // Determine document order: walk the child list to find which comes first.
+    final bool baseIsUpstream = _isBeforeInChildList(baseComponent, extentComponent);
+    final RenderDocumentBlock upstreamBlock = baseIsUpstream ? baseComponent : extentComponent;
+    final RenderDocumentBlock downstreamBlock = baseIsUpstream ? extentComponent : baseComponent;
+    final Rect upstreamCaret = baseIsUpstream ? baseRect : extentRect;
+    final Rect downstreamCaret = baseIsUpstream ? extentRect : baseRect;
 
-    final layoutWidth = size.width;
     final rects = <Rect>[];
 
-    // Top line: from the upstream endpoint to the right edge.
-    rects.add(Rect.fromLTRB(topRect.left, topRect.top, layoutWidth, topRect.bottom));
-
-    // Intermediate lines (fill the gap between top and bottom, if any).
-    if (bottomRect.top > topRect.bottom + 1.0) {
-      rects.add(Rect.fromLTRB(0, topRect.bottom, layoutWidth, bottomRect.top));
+    // --- Upstream block (partial): caret to block's right edge ---
+    final upData = upstreamBlock.parentData as DocumentBlockParentData;
+    final upBlockRight = upData.offset.dx + upstreamBlock.size.width;
+    rects.add(Rect.fromLTRB(
+      upstreamCaret.left,
+      upstreamCaret.top,
+      upBlockRight,
+      upstreamCaret.bottom,
+    ));
+    // If the upstream caret is not on the last line, fill below it to block bottom.
+    final upBlockBottom = upData.offset.dy + upstreamBlock.size.height;
+    if (upstreamCaret.bottom < upBlockBottom - 1.0) {
+      rects.add(Rect.fromLTRB(
+        upData.offset.dx,
+        upstreamCaret.bottom,
+        upBlockRight,
+        upBlockBottom,
+      ));
     }
 
-    // Bottom line: from the left edge to the downstream endpoint's right edge.
-    rects.add(Rect.fromLTRB(0, bottomRect.top, bottomRect.right, bottomRect.bottom));
+    // --- Intermediate blocks (fully selected): use actual block bounds ---
+    RenderDocumentBlock? child = childAfter(upstreamBlock);
+    while (child != null && child != downstreamBlock) {
+      final childData = child.parentData as DocumentBlockParentData;
+      // Skip float blocks — they are not part of the text flow.
+      if (!childData.isFloat) {
+        rects.add(childData.offset & child.size);
+      }
+      child = childAfter(child);
+    }
+
+    // --- Downstream block (partial): block's left edge to caret ---
+    final downData = downstreamBlock.parentData as DocumentBlockParentData;
+    final downBlockLeft = downData.offset.dx;
+    // If the downstream caret is not on the first line, fill above it from block top.
+    if (downstreamCaret.top > downData.offset.dy + 1.0) {
+      rects.add(Rect.fromLTRB(
+        downBlockLeft,
+        downData.offset.dy,
+        downData.offset.dx + downstreamBlock.size.width,
+        downstreamCaret.top,
+      ));
+    }
+    rects.add(Rect.fromLTRB(
+      downBlockLeft,
+      downstreamCaret.top,
+      downstreamCaret.right,
+      downstreamCaret.bottom,
+    ));
 
     return rects;
+  }
+
+  /// Returns `true` when [a] appears before [b] in the child list.
+  bool _isBeforeInChildList(RenderDocumentBlock a, RenderDocumentBlock b) {
+    RenderDocumentBlock? child = firstChild;
+    while (child != null) {
+      if (identical(child, a)) return true;
+      if (identical(child, b)) return false;
+      child = childAfter(child);
+    }
+    return true; // fallback — should not occur
   }
 
   // ---------------------------------------------------------------------------

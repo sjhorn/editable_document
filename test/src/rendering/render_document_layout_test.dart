@@ -2870,4 +2870,361 @@ void main() {
       );
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // getRectsForSelection — cross-node with floats
+  // ---------------------------------------------------------------------------
+
+  group('getRectsForSelection — cross-node with floats', () {
+    // Layout constants shared across all tests in this group.
+    const maxWidth = 400.0;
+    const floatW = 100.0;
+    const floatH = 80.0;
+    // _kFloatGap == 8.0 in render_document_layout.dart
+    const floatGap = 8.0;
+    // When a start float of [floatW] is present, text blocks are pushed to:
+    const textXWithStartFloat = floatW + floatGap; // 108.0
+    const textWidthWithStartFloat = maxWidth - textXWithStartFloat; // 292.0
+    // When an end float of [floatW] is present, text blocks stay at x=0 with:
+    const textWidthWithEndFloat = maxWidth - floatW - floatGap; // 292.0
+
+    // Helper that builds: [start-float image] + [text 'First'] + [text 'Second']
+    // and returns the layout plus all three components.
+    ({
+      RenderDocumentLayout layout,
+      RenderImageBlock floatImg,
+      RenderTextBlock first,
+      RenderTextBlock second,
+    }) _startFloatLayout() {
+      final img = _imageBlock(
+        'img1',
+        requestedWidth: floatW,
+        requestedHeight: floatH,
+        blockAlignment: BlockAlignment.start,
+        textWrap: TextWrapMode.wrap,
+      );
+      final first = _textBlock('p1', 'First');
+      final second = _textBlock('p2', 'Second');
+      final layout = _layout(
+        children: [img, first, second],
+        maxWidth: maxWidth,
+        blockSpacing: 0.0,
+      );
+      return (layout: layout, floatImg: img, first: first, second: second);
+    }
+
+    // Helper that builds: [end-float image] + [text 'First'] + [text 'Second']
+    ({
+      RenderDocumentLayout layout,
+      RenderImageBlock floatImg,
+      RenderTextBlock first,
+      RenderTextBlock second,
+    }) _endFloatLayout() {
+      final img = _imageBlock(
+        'img1',
+        requestedWidth: floatW,
+        requestedHeight: floatH,
+        blockAlignment: BlockAlignment.end,
+        textWrap: TextWrapMode.wrap,
+      );
+      final first = _textBlock('p1', 'First');
+      final second = _textBlock('p2', 'Second');
+      final layout = _layout(
+        children: [img, first, second],
+        maxWidth: maxWidth,
+        blockSpacing: 0.0,
+      );
+      return (layout: layout, floatImg: img, first: first, second: second);
+    }
+
+    test(
+        'start float: no selection rect overlaps the float x-zone (left edge >= text block offset)',
+        () {
+      // EXPECTED TO FAIL with the current implementation because the bottom rect
+      // uses x=0 as its left edge, which falls inside the float zone (x < 108).
+      final result = _startFloatLayout();
+      final firstData = result.first.parentData as DocumentBlockParentData;
+
+      // Sanity: the text block was pushed right and narrowed by the float.
+      expect(
+        firstData.offset.dx,
+        closeTo(textXWithStartFloat, 0.5),
+        reason: 'sanity: first text block must be pushed right by start float + gap',
+      );
+      expect(
+        result.first.size.width,
+        closeTo(textWidthWithStartFloat, 0.5),
+        reason: 'sanity: first text block must be narrowed by start float exclusion',
+      );
+
+      const sel = DocumentSelection(
+        base: DocumentPosition(
+          nodeId: 'p1',
+          nodePosition: TextNodePosition(offset: 0),
+        ),
+        extent: DocumentPosition(
+          nodeId: 'p2',
+          nodePosition: TextNodePosition(offset: 3),
+        ),
+      );
+      final rects = result.layout.getRectsForSelection(sel);
+      expect(rects, isNotEmpty);
+
+      // All selection rects must NOT intrude into the float's x-zone (0..floatW).
+      // Specifically every rect's left edge must be >= the text block's x-offset.
+      for (final r in rects) {
+        expect(
+          r.left,
+          greaterThanOrEqualTo(textXWithStartFloat - 0.5),
+          reason: 'selection rect left=${r.left} must not overlap start float zone '
+              '(0..${floatW}); text blocks are at x=$textXWithStartFloat',
+        );
+      }
+    });
+
+    test('both floats: top rect right edge bounded to block width, not layoutWidth', () {
+      // EXPECTED TO FAIL with the current implementation because the top rect
+      // extends to layoutWidth (400) instead of stopping at the text block's
+      // own right edge.
+      //
+      // Layout: [start-float 100 wide] + [end-float 100 wide] + [text 'First'] + [text 'Second']
+      // With both floats active simultaneously, the text blocks are:
+      //   x  = floatW + floatGap = 108
+      //   w  = maxWidth - floatW - floatGap - floatW - floatGap = 184
+      //   right edge = 108 + 184 = 292   (<< layout width 400)
+      //
+      // The top rect must stop at 292, not extend to 400.
+      final startImg = _imageBlock(
+        'img_start',
+        requestedWidth: floatW,
+        requestedHeight: floatH,
+        blockAlignment: BlockAlignment.start,
+        textWrap: TextWrapMode.wrap,
+      );
+      final endImg = _imageBlock(
+        'img_end',
+        requestedWidth: floatW,
+        requestedHeight: floatH,
+        blockAlignment: BlockAlignment.end,
+        textWrap: TextWrapMode.wrap,
+      );
+      final first = _textBlock('p1', 'First');
+      final second = _textBlock('p2', 'Second');
+      final layout = _layout(
+        children: [startImg, endImg, first, second],
+        maxWidth: maxWidth,
+        blockSpacing: 0.0,
+      );
+
+      final firstData = first.parentData as DocumentBlockParentData;
+      final expectedTopRectRight = firstData.offset.dx + first.size.width;
+
+      // Sanity: the text block must NOT extend to layoutWidth.
+      expect(
+        expectedTopRectRight,
+        lessThan(maxWidth - 1.0),
+        reason: 'sanity: text block right must be < layoutWidth when both floats narrow it',
+      );
+
+      const sel = DocumentSelection(
+        base: DocumentPosition(
+          nodeId: 'p1',
+          nodePosition: TextNodePosition(offset: 0),
+        ),
+        extent: DocumentPosition(
+          nodeId: 'p2',
+          nodePosition: TextNodePosition(offset: 3),
+        ),
+      );
+      final rects = layout.getRectsForSelection(sel);
+      expect(rects, isNotEmpty);
+
+      // The top-most rect (covering 'First') must not extend beyond the
+      // block's own right edge.
+      final topRect = rects.reduce((a, b) => a.top < b.top ? a : b);
+      expect(
+        topRect.right,
+        lessThanOrEqualTo(expectedTopRectRight + 0.5),
+        reason: 'top rect right (${topRect.right}) must be <= block right edge '
+            '($expectedTopRectRight); must not extend to layoutWidth ($maxWidth)',
+      );
+    });
+
+    test('no-float: intermediate rects use actual block bounds (regression)', () {
+      // THREE text blocks, no floats — selects from First to Last through Middle.
+      // The intermediate rect covering Middle should span its actual block bounds.
+      // This is a regression test: it should PASS with both old and new code.
+      final first = _textBlock('p1', 'First');
+      final middle = _textBlock('p2', 'Middle paragraph content here');
+      final last = _textBlock('p3', 'Last');
+      final layout =
+          _layout(children: [first, middle, last], maxWidth: maxWidth, blockSpacing: 0.0);
+
+      final middleData = middle.parentData as DocumentBlockParentData;
+
+      const sel = DocumentSelection(
+        base: DocumentPosition(
+          nodeId: 'p1',
+          nodePosition: TextNodePosition(offset: 0),
+        ),
+        extent: DocumentPosition(
+          nodeId: 'p3',
+          nodePosition: TextNodePosition(offset: 3),
+        ),
+      );
+      final rects = layout.getRectsForSelection(sel);
+      // At minimum: top rect (First), intermediate (Middle), bottom rect (Last).
+      expect(rects.length, greaterThanOrEqualTo(2));
+
+      // All rects must be within the layout's horizontal bounds.
+      for (final r in rects) {
+        expect(r.left, greaterThanOrEqualTo(-0.5));
+        expect(r.right, lessThanOrEqualTo(maxWidth + 0.5));
+      }
+
+      // The union of all rects must cover the middle block's y-range.
+      final middleTop = middleData.offset.dy;
+      final middleBottom = middleTop + middle.size.height;
+      final unionTop = rects.map((r) => r.top).reduce((a, b) => a < b ? a : b);
+      final unionBottom = rects.map((r) => r.bottom).reduce((a, b) => a > b ? a : b);
+      expect(unionTop, lessThanOrEqualTo(middleTop + 1.0));
+      expect(unionBottom, greaterThanOrEqualTo(middleBottom - 1.0));
+    });
+
+    test('float block skipped: no selection rect overlaps an intermediate float image', () {
+      // Layout: [text 'First'] + [start-float image] + [text 'Second'] + [text 'Third']
+      // Select from 'First' to 'Third'.
+      // EXPECTED TO FAIL with the current implementation because the intermediate
+      // rect (Rect.fromLTRB(0, topRect.bottom, layoutWidth, bottomRect.top)) is
+      // full-width and covers the float's x-range at its y-range.
+      final first = _textBlock('p1', 'First');
+      final floatImg = _imageBlock(
+        'img1',
+        requestedWidth: floatW,
+        requestedHeight: floatH,
+        blockAlignment: BlockAlignment.start,
+        textWrap: TextWrapMode.wrap,
+      );
+      final second = _textBlock('p2', 'Second');
+      final third = _textBlock('p3', 'Third');
+      final layout = _layout(
+        children: [first, floatImg, second, third],
+        maxWidth: maxWidth,
+        blockSpacing: 0.0,
+      );
+
+      final floatData = floatImg.parentData as DocumentBlockParentData;
+      final floatRect = floatData.offset & floatImg.size;
+
+      const sel = DocumentSelection(
+        base: DocumentPosition(
+          nodeId: 'p1',
+          nodePosition: TextNodePosition(offset: 0),
+        ),
+        extent: DocumentPosition(
+          nodeId: 'p3',
+          nodePosition: TextNodePosition(offset: 3),
+        ),
+      );
+      final rects = layout.getRectsForSelection(sel);
+      expect(rects, isNotEmpty);
+
+      // No selection rect should overlap the float image's bounding box.
+      for (final r in rects) {
+        final overlaps = r.overlaps(floatRect);
+        expect(
+          overlaps,
+          isFalse,
+          reason: 'selection rect $r must not overlap float image rect $floatRect',
+        );
+      }
+    });
+
+    test('no-float regression: two text blocks, rects cover both (>= 2 rects)', () {
+      // Simple regression: no floats, two text blocks.
+      // The existing cross-node path must still return at least 2 rects.
+      // This SHOULD PASS with both old and new implementations.
+      final first = _textBlock('p1', 'First paragraph');
+      final second = _textBlock('p2', 'Second paragraph');
+      final layout = _layout(children: [first, second], maxWidth: maxWidth, blockSpacing: 0.0);
+
+      const sel = DocumentSelection(
+        base: DocumentPosition(
+          nodeId: 'p1',
+          nodePosition: TextNodePosition(offset: 0),
+        ),
+        extent: DocumentPosition(
+          nodeId: 'p2',
+          nodePosition: TextNodePosition(offset: 6),
+        ),
+      );
+      final rects = layout.getRectsForSelection(sel);
+      expect(
+        rects.length,
+        greaterThanOrEqualTo(2),
+        reason: 'cross-node selection must produce at least 2 rects (one per block)',
+      );
+
+      // The top-most rect covers the first block.
+      final firstData = first.parentData as DocumentBlockParentData;
+      final topRect = rects.reduce((a, b) => a.top < b.top ? a : b);
+      expect(topRect.top, closeTo(firstData.offset.dy, 2.0));
+
+      // The bottom-most rect covers the second block.
+      final secondData = second.parentData as DocumentBlockParentData;
+      final bottomRect = rects.reduce((a, b) => a.bottom > b.bottom ? a : b);
+      expect(bottomRect.bottom, greaterThanOrEqualTo(secondData.offset.dy));
+    });
+
+    test('end float: no selection rect extends right into the float zone', () {
+      // Layout: [end-float image] + [text 'First'] + [text 'Second'].
+      // The end float occupies the right side (x = maxWidth - floatW = 300).
+      // EXPECTED TO FAIL with the current implementation because the top rect
+      // extends to layoutWidth (400), intruding into the end float zone.
+      final result = _endFloatLayout();
+      final floatData = result.floatImg.parentData as DocumentBlockParentData;
+      final firstData = result.first.parentData as DocumentBlockParentData;
+
+      // Sanity: the end float is positioned on the right side.
+      expect(
+        floatData.offset.dx,
+        closeTo(maxWidth - floatW, 0.5),
+        reason: 'sanity: end float must be at x = maxWidth - floatW',
+      );
+      // Sanity: the text block is narrowed.
+      expect(
+        result.first.size.width,
+        closeTo(textWidthWithEndFloat, 0.5),
+        reason: 'sanity: first text block must be narrowed by end float',
+      );
+
+      // The text block's right edge (its actual content boundary).
+      final textRightEdge = firstData.offset.dx + result.first.size.width;
+
+      const sel = DocumentSelection(
+        base: DocumentPosition(
+          nodeId: 'p1',
+          nodePosition: TextNodePosition(offset: 0),
+        ),
+        extent: DocumentPosition(
+          nodeId: 'p2',
+          nodePosition: TextNodePosition(offset: 3),
+        ),
+      );
+      final rects = result.layout.getRectsForSelection(sel);
+      expect(rects, isNotEmpty);
+
+      // No selection rect should extend into the float's x-zone.
+      // The float starts at maxWidth - floatW = 300.
+      final floatLeft = floatData.offset.dx;
+      for (final r in rects) {
+        expect(
+          r.right,
+          lessThanOrEqualTo(textRightEdge + 0.5),
+          reason: 'selection rect right (${r.right}) must not extend into end float '
+              'zone (float starts at x=$floatLeft); text right edge is $textRightEdge',
+        );
+      }
+    });
+  });
 }
