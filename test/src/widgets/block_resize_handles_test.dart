@@ -676,8 +676,9 @@ void main() {
       await tester.drag(listeners.at(4), const Offset(50.0, 0.0));
       await tester.pumpAndSettle();
 
-      expect(results, hasLength(1));
-      final (nodeId, width, height) = results.first;
+      // onResize fires on every pointer-move (real-time), check the last call.
+      expect(results, isNotEmpty);
+      final (nodeId, width, height) = results.last;
       expect(nodeId, 'img-1');
       // Width should be the original 200 + 50 = 250, clamped to >= minWidth (20).
       expect(width, 250.0);
@@ -697,8 +698,9 @@ void main() {
       await tester.drag(listeners.at(6), const Offset(0.0, 40.0));
       await tester.pumpAndSettle();
 
-      expect(results, hasLength(1));
-      final (nodeId, width, height) = results.first;
+      // onResize fires on every pointer-move (real-time), check the last call.
+      expect(results, isNotEmpty);
+      final (nodeId, width, height) = results.last;
       expect(nodeId, 'img-1');
       // Width should be null (only vertical handle).
       expect(width, isNull);
@@ -718,8 +720,9 @@ void main() {
       await tester.drag(listeners.at(7), const Offset(60.0, 30.0));
       await tester.pumpAndSettle();
 
-      expect(results, hasLength(1));
-      final (nodeId, width, height) = results.first;
+      // onResize fires on every pointer-move (real-time), check the last call.
+      expect(results, isNotEmpty);
+      final (nodeId, width, height) = results.last;
       expect(nodeId, 'img-1');
       // Width: 200 + 60 = 260, Height: 100 + 30 = 130.
       expect(width, 260.0);
@@ -738,8 +741,9 @@ void main() {
       await tester.drag(listeners.at(4), const Offset(-300.0, 0.0));
       await tester.pumpAndSettle();
 
-      expect(results, hasLength(1));
-      final (nodeId, width, height) = results.first;
+      // onResize fires on every pointer-move (real-time), check the last call.
+      expect(results, isNotEmpty);
+      final (nodeId, width, height) = results.last;
       expect(nodeId, 'img-1');
       // Should be clamped to minWidth = 20.
       expect(width, 20.0);
@@ -758,8 +762,9 @@ void main() {
       await tester.drag(listeners.at(6), const Offset(0.0, -300.0));
       await tester.pumpAndSettle();
 
-      expect(results, hasLength(1));
-      final (nodeId, width, height) = results.first;
+      // onResize fires on every pointer-move (real-time), check the last call.
+      expect(results, isNotEmpty);
+      final (nodeId, width, height) = results.last;
       expect(nodeId, 'img-1');
       expect(width, isNull);
       // Should be clamped to minHeight = 20.

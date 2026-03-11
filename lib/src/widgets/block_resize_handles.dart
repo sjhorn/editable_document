@@ -89,9 +89,10 @@ enum ResizeHandlePosition {
 /// * and the node implements [HasBlockLayout] with
 ///   [HasBlockLayout.alignment] != [BlockAlignment.stretch].
 ///
-/// On drag-end the [onResize] callback is invoked with the node id and the
-/// new width/height values. The caller is responsible for submitting the
-/// corresponding [EditRequest] (e.g. via [createResizeRequest]).
+/// During drag the [onResize] callback fires on every pointer-move for
+/// real-time feedback, and once more on pointer-up for the final value.
+/// The caller is responsible for submitting the corresponding [EditRequest]
+/// (e.g. via [createResizeRequest]).
 ///
 /// Example:
 /// ```dart
@@ -147,11 +148,13 @@ class BlockResizeHandles extends StatefulWidget {
   /// implements [HasBlockLayout].
   final Document document;
 
-  /// Called when the user finishes a resize drag.
+  /// Called during and at the end of a resize drag.
   ///
-  /// Receives the [nodeId] of the resized block along with the new [width]
-  /// and [height] in logical pixels. A `null` dimension means "preserve the
-  /// current value".
+  /// Fires on every pointer-move for real-time feedback (the document model
+  /// updates as the user drags) and once more on pointer-up for the final
+  /// value. Receives the [nodeId] of the resized block along with the new
+  /// [width] and [height] in logical pixels. A `null` dimension means
+  /// "preserve the current value".
   ///
   /// When `null`, no handles are drawn.
   final BlockResizeCallback? onResize;
@@ -230,10 +233,11 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
   /// Which handle is currently being dragged, or `null` when idle.
   ResizeHandlePosition? _dragHandlePosition;
 
-  /// Accumulated drag delta since the drag started.
+  /// Accumulated drag delta since the last baseline resync.
   Offset _dragDelta = Offset.zero;
 
-  /// The size of the block at the moment the drag began.
+  /// The size of the block at the last baseline resync (initially set at drag
+  /// start, then updated each time [_blockRect] catches up to the model).
   Size? _dragStartSize;
 
   /// The node id captured at drag start, so it survives selection changes.
@@ -241,6 +245,9 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
 
   /// The pointer id currently being tracked for a drag, or `null`.
   int? _activePointer;
+
+  /// Whether a post-frame geometry update is already scheduled.
+  bool _geometryUpdateScheduled = false;
 
   // ---------------------------------------------------------------------------
   // Lifecycle
@@ -274,9 +281,6 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
   // ---------------------------------------------------------------------------
 
   void _onControllerChanged() {
-    // Don't clear the block rect during an active drag — the interactor may
-    // have changed the selection but we still need the rect for the preview.
-    if (_activePointer != null) return;
     _scheduleGeometryUpdate();
   }
 
@@ -288,15 +292,23 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
   ///
   /// This must be deferred to after layout so that [RenderDocumentBlock.size]
   /// and [RenderDocumentBlock.localToGlobal] are valid.
+  ///
+  /// Multiple calls within a single frame are coalesced — only one callback
+  /// is registered per frame.
   void _scheduleGeometryUpdate() {
+    if (_geometryUpdateScheduled) return;
+    _geometryUpdateScheduled = true;
     SchedulerBinding.instance.addPostFrameCallback((_) {
+      _geometryUpdateScheduled = false;
       if (!mounted) return;
       _updateBlockRect();
     });
   }
 
   void _updateBlockRect() {
-    final nodeId = _selectedNodeId();
+    // During drag, use the captured node id so geometry tracking survives
+    // selection changes made by the mouse interactor.
+    final nodeId = _activePointer != null ? _dragNodeId : _selectedNodeId();
     if (nodeId == null) {
       if (_blockRect != null) {
         setState(() => _blockRect = null);
@@ -326,7 +338,15 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
     final newRect = blockOffset & renderBlock.size;
 
     if (newRect != _blockRect) {
-      setState(() => _blockRect = newRect);
+      setState(() {
+        _blockRect = newRect;
+        // During drag, resync the baseline so that _previewRect and
+        // _computeNewSize stay correct after the model catches up.
+        if (_activePointer != null) {
+          _dragStartSize = newRect.size;
+          _dragDelta = Offset.zero;
+        }
+      });
     }
   }
 
@@ -397,6 +417,7 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
     setState(() {
       _dragDelta += event.delta;
     });
+    _emitResize();
   }
 
   void _onPointerUp(PointerUpEvent event) {
@@ -409,19 +430,24 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
     _finishDrag();
   }
 
-  void _finishDrag() {
+  /// Fires the [BlockResizeHandles.onResize] callback with the current
+  /// drag dimensions. Called on every pointer-move for real-time feedback
+  /// and once more on drag end for the final value.
+  void _emitResize() {
     final handle = _dragHandlePosition;
     final startSize = _dragStartSize;
     final nodeId = _dragNodeId;
+    if (handle == null || startSize == null || nodeId == null) return;
 
-    if (handle != null && startSize != null && nodeId != null) {
-      final result = _computeNewSize(handle, startSize, _dragDelta);
-      final newWidth =
-          result.$1 != null ? result.$1!.clamp(widget.minWidth, double.infinity) : null;
-      final newHeight =
-          result.$2 != null ? result.$2!.clamp(widget.minHeight, double.infinity) : null;
-      widget.onResize?.call(nodeId, newWidth, newHeight);
-    }
+    final result = _computeNewSize(handle, startSize, _dragDelta);
+    final newWidth = result.$1 != null ? result.$1!.clamp(widget.minWidth, double.infinity) : null;
+    final newHeight =
+        result.$2 != null ? result.$2!.clamp(widget.minHeight, double.infinity) : null;
+    widget.onResize?.call(nodeId, newWidth, newHeight);
+  }
+
+  void _finishDrag() {
+    _emitResize();
 
     _activePointer = null;
     _dragNodeId = null;
@@ -543,8 +569,12 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
   // Handle widget builder
   // ---------------------------------------------------------------------------
 
+  /// The touch target size around each handle for easier grabbing.
+  static const double _handleHitPadding = 8.0;
+
   Widget _buildHandle(ResizeHandlePosition pos, Rect blockRect) {
-    final half = widget.handleSize / 2.0;
+    final hitSize = widget.handleSize + _handleHitPadding * 2;
+    final hitHalf = hitSize / 2.0;
 
     final double cx;
     final double cy;
@@ -577,10 +607,10 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
     }
 
     return Positioned(
-      left: cx - half,
-      top: cy - half,
-      width: widget.handleSize,
-      height: widget.handleSize,
+      left: cx - hitHalf,
+      top: cy - hitHalf,
+      width: hitSize,
+      height: hitSize,
       child: MouseRegion(
         cursor: _cursorForHandle(pos),
         child: Listener(
@@ -589,9 +619,15 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
           onPointerMove: _onPointerMove,
           onPointerUp: _onPointerUp,
           onPointerCancel: _onPointerCancel,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: widget.handleColor,
+          child: Center(
+            child: SizedBox(
+              width: widget.handleSize,
+              height: widget.handleSize,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: widget.handleColor,
+                ),
+              ),
             ),
           ),
         ),

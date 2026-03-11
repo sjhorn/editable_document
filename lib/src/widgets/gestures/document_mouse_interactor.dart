@@ -324,6 +324,7 @@ class DocumentMouseInteractorState extends State<DocumentMouseInteractor> {
   void _onPointerMove(PointerMoveEvent event) {
     if (!widget.enabled) return;
     if (!_isDragging) return;
+    if (BlockResizeHandles.isDragging) return;
     final base = _dragBasePosition;
     if (base == null) return;
     final extent = _positionForOffset(event.localPosition);
