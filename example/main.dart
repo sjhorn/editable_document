@@ -598,12 +598,12 @@ class _DocumentDemoState extends State<DocumentDemo> {
 
   void _insertNode(DocumentNode node) {
     final sel = _controller.selection;
+    // Capture the selected node before any mutations so we can match its
+    // type when creating a follow-on block.
+    final selectedNode = sel != null ? _document.nodeById(sel.extent.nodeId) : null;
     String? emptyNodeId;
-    if (sel != null) {
-      final selected = _document.nodeById(sel.extent.nodeId);
-      if (selected is TextNode && selected.text.text.isEmpty) {
-        emptyNodeId = selected.id;
-      }
+    if (selectedNode is TextNode && selectedNode.text.text.isEmpty) {
+      emptyNodeId = selectedNode.id;
     }
 
     _document.insertNode(_insertIndex(), node);
@@ -620,26 +620,34 @@ class _DocumentDemoState extends State<DocumentDemo> {
         ),
       ));
     } else {
-      // Place caret at the start of the node after the inserted one.
-      // If there is no next node, create an empty paragraph.
+      // Insert an empty block after the non-text node, matching the type
+      // of the block the user was in when they triggered the insertion.
       final idx = _document.getNodeIndexById(node.id);
       if (idx < 0) return;
-      DocumentNode nextNode;
-      if (idx + 1 < _document.nodeCount) {
-        nextNode = _document.nodeAt(idx + 1);
-      } else {
-        nextNode = ParagraphNode(id: _newId(), text: AttributedText(''));
-        _document.insertNode(idx + 1, nextNode);
-      }
+      final emptyBlock = _emptyBlockLike(selectedNode);
+      _document.insertNode(idx + 1, emptyBlock);
       _controller.setSelection(DocumentSelection.collapsed(
         position: DocumentPosition(
-          nodeId: nextNode.id,
-          nodePosition: nextNode is TextNode
-              ? const TextNodePosition(offset: 0)
-              : const BinaryNodePosition.upstream(),
+          nodeId: emptyBlock.id,
+          nodePosition: const TextNodePosition(offset: 0),
         ),
       ));
     }
+  }
+
+  /// Returns a new empty text block matching the type of [source].
+  ///
+  /// If [source] is `null` or a non-text node, a plain [ParagraphNode] is
+  /// returned as the default.
+  TextNode _emptyBlockLike(DocumentNode? source) {
+    final id = _newId();
+    final empty = AttributedText('');
+    if (source is BlockquoteNode) return BlockquoteNode(id: id, text: empty);
+    if (source is CodeBlockNode) return CodeBlockNode(id: id, text: empty);
+    if (source is ListItemNode) {
+      return ListItemNode(id: id, text: empty, type: source.type);
+    }
+    return ParagraphNode(id: id, text: empty);
   }
 
   // ---------------------------------------------------------------------------
