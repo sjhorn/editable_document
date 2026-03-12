@@ -620,10 +620,23 @@ class _DocumentDemoState extends State<DocumentDemo> {
         ),
       ));
     } else {
+      // Place caret at the start of the node after the inserted one.
+      // If there is no next node, create an empty paragraph.
+      final idx = _document.getNodeIndexById(node.id);
+      if (idx < 0) return;
+      DocumentNode nextNode;
+      if (idx + 1 < _document.nodeCount) {
+        nextNode = _document.nodeAt(idx + 1);
+      } else {
+        nextNode = ParagraphNode(id: _newId(), text: AttributedText(''));
+        _document.insertNode(idx + 1, nextNode);
+      }
       _controller.setSelection(DocumentSelection.collapsed(
         position: DocumentPosition(
-          nodeId: node.id,
-          nodePosition: const BinaryNodePosition.downstream(),
+          nodeId: nextNode.id,
+          nodePosition: nextNode is TextNode
+              ? const TextNodePosition(offset: 0)
+              : const BinaryNodePosition.upstream(),
         ),
       ));
     }
