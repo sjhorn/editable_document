@@ -55,6 +55,10 @@ fi
 RESULT_ANALYZE="SKIP"
 RESULT_FORMAT="SKIP"
 RESULT_TEST="SKIP"
+RESULT_EXAMPLE="SKIP"
+
+# Resolve project root (two levels above scripts/ci/).
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Step 1: analyze
 echo ">>> flutter analyze"
@@ -83,9 +87,21 @@ else
 fi
 echo ""
 
+# Step 4: example app gate (standalone project — analyze + format)
+EXAMPLE_DIR="$PROJECT_ROOT/example"
+if [ -z "$SCOPE" ] && [ -f "$EXAMPLE_DIR/pubspec.yaml" ]; then
+  echo ">>> example: flutter pub get + analyze + format"
+  if (cd "$EXAMPLE_DIR" && flutter pub get --no-example && flutter analyze lib/ && dart format --set-exit-if-changed lib/); then
+    RESULT_EXAMPLE="PASS"
+  else
+    RESULT_EXAMPLE="FAIL"
+  fi
+  echo ""
+fi
+
 # Determine overall result
 OVERALL="PASS"
-if [ "$RESULT_ANALYZE" = "FAIL" ] || [ "$RESULT_FORMAT" = "FAIL" ] || [ "$RESULT_TEST" = "FAIL" ]; then
+if [ "$RESULT_ANALYZE" = "FAIL" ] || [ "$RESULT_FORMAT" = "FAIL" ] || [ "$RESULT_TEST" = "FAIL" ] || [ "$RESULT_EXAMPLE" = "FAIL" ]; then
   OVERALL="FAIL"
 fi
 
@@ -98,6 +114,7 @@ fi
   echo "  flutter analyze   : $RESULT_ANALYZE"
   echo "  dart format check : $RESULT_FORMAT"
   echo "  flutter test      : $RESULT_TEST"
+  echo "  example gate      : $RESULT_EXAMPLE"
   echo ""
   echo "Overall   : $OVERALL"
 } | tee "$SUMMARYFILE"

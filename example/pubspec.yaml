@@ -1,0 +1,16 @@
+name: editable_document_example
+description: Example app for editable_document package.
+publish_to: none
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  editable_document:
+    path: ..
+  re_highlight: ^0.0.3
+
+flutter:
+  uses-material-design: true

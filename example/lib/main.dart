@@ -28,8 +28,87 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:re_highlight/languages/all.dart';
+import 'package:re_highlight/re_highlight.dart';
 
 import 'package:editable_document/editable_document.dart';
+
+// ---------------------------------------------------------------------------
+// Syntax highlighting theme — a light-friendly palette based on GitHub style.
+// ---------------------------------------------------------------------------
+const _syntaxTheme = <String, TextStyle>{
+  'keyword': TextStyle(color: Color(0xFFD73A49), fontWeight: FontWeight.bold),
+  'built_in': TextStyle(color: Color(0xFF005CC5)),
+  'type': TextStyle(color: Color(0xFF005CC5)),
+  'literal': TextStyle(color: Color(0xFF005CC5)),
+  'number': TextStyle(color: Color(0xFF005CC5)),
+  'string': TextStyle(color: Color(0xFF032F62)),
+  'comment': TextStyle(color: Color(0xFF6A737D), fontStyle: FontStyle.italic),
+  'doctag': TextStyle(color: Color(0xFF6A737D), fontStyle: FontStyle.italic),
+  'meta': TextStyle(color: Color(0xFF735C0F)),
+  'meta keyword': TextStyle(color: Color(0xFF735C0F), fontWeight: FontWeight.bold),
+  'meta string': TextStyle(color: Color(0xFF032F62)),
+  'symbol': TextStyle(color: Color(0xFFE36209)),
+  'regexp': TextStyle(color: Color(0xFF032F62)),
+  'title': TextStyle(color: Color(0xFF6F42C1)),
+  'title.class_': TextStyle(color: Color(0xFF6F42C1)),
+  'title.function': TextStyle(color: Color(0xFF6F42C1)),
+  'name': TextStyle(color: Color(0xFF22863A)),
+  'section': TextStyle(color: Color(0xFF005CC5), fontWeight: FontWeight.bold),
+  'attr': TextStyle(color: Color(0xFF005CC5)),
+  'attribute': TextStyle(color: Color(0xFF005CC5)),
+  'variable': TextStyle(color: Color(0xFFE36209)),
+  'params': TextStyle(color: Color(0xFF24292E)),
+  'template-variable': TextStyle(color: Color(0xFFE36209)),
+  'selector-tag': TextStyle(color: Color(0xFF22863A)),
+  'selector-id': TextStyle(color: Color(0xFF005CC5), fontWeight: FontWeight.bold),
+  'selector-class': TextStyle(color: Color(0xFF6F42C1)),
+  'addition': TextStyle(color: Color(0xFF22863A), backgroundColor: Color(0xFFE6FFEC)),
+  'deletion': TextStyle(color: Color(0xFFD73A49), backgroundColor: Color(0xFFFFEEF0)),
+  'subst': TextStyle(color: Color(0xFF24292E)),
+  'formula': TextStyle(color: Color(0xFF24292E)),
+  'emphasis': TextStyle(fontStyle: FontStyle.italic),
+  'strong': TextStyle(fontWeight: FontWeight.bold),
+  'link': TextStyle(color: Color(0xFF032F62), decoration: TextDecoration.underline),
+};
+
+// ---------------------------------------------------------------------------
+// SyntaxHighlightCodeBlockBuilder — plugs re_highlight into code blocks.
+// ---------------------------------------------------------------------------
+
+class SyntaxHighlightCodeBlockBuilder extends CodeBlockComponentBuilder {
+  SyntaxHighlightCodeBlockBuilder() {
+    _highlight.registerLanguages(builtinAllLanguages);
+  }
+
+  final Highlight _highlight = Highlight();
+
+  @override
+  ComponentViewModel? createViewModel(Document document, DocumentNode node) {
+    if (node is! CodeBlockNode) return null;
+    return CodeBlockComponentViewModel(
+      nodeId: node.id,
+      text: node.text,
+      textStyle: const TextStyle(),
+      language: node.language,
+      width: node.width,
+      height: node.height,
+      alignment: node.alignment,
+      textWrap: node.textWrap,
+      textSpanBuilder: (text, baseStyle) => _buildHighlightedSpan(text, baseStyle),
+    );
+  }
+
+  TextSpan _buildHighlightedSpan(AttributedText text, TextStyle baseStyle) {
+    final code = text.text;
+    if (code.isEmpty) return TextSpan(text: '', style: baseStyle);
+
+    final result = _highlight.highlightAuto(code, builtinAllLanguages.keys.toList());
+    final renderer = TextSpanRenderer(baseStyle, _syntaxTheme);
+    result.render(renderer);
+    return renderer.span ?? TextSpan(text: code, style: baseStyle);
+  }
+}
 
 void main() {
   runApp(const ExampleApp());
@@ -73,6 +152,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
   final _endHandleLayerLink = LayerLink();
   final _contextMenuController = ContextMenuController();
   final _clipboard = const DocumentClipboard();
+  final _syntaxBuilder = SyntaxHighlightCodeBlockBuilder();
 
   /// Counter for generating unique node IDs.
   int _nextNodeId = 100;
@@ -650,51 +730,6 @@ class _DocumentDemoState extends State<DocumentDemo> {
     return ParagraphNode(id: id, text: empty);
   }
 
-  // ---------------------------------------------------------------------------
-  // Block type changes
-  // ---------------------------------------------------------------------------
-
-  void _changeBlockType(String value) {
-    final sel = _controller.selection;
-    if (sel == null) return;
-    final node = _document.nodeById(sel.extent.nodeId);
-
-    if (value == 'blockquote') {
-      // Convert ParagraphNode → BlockquoteNode.
-      if (node is ParagraphNode) {
-        _editor.submit(ReplaceNodeRequest(
-          nodeId: node.id,
-          newNode: BlockquoteNode(id: node.id, text: node.text),
-        ));
-      }
-      // If already a BlockquoteNode, nothing to do.
-      return;
-    }
-
-    // Non-blockquote type selected.
-    final blockType = ParagraphBlockType.values.firstWhere(
-      (bt) => bt.name == value,
-      orElse: () => ParagraphBlockType.paragraph,
-    );
-
-    if (node is BlockquoteNode) {
-      // Convert BlockquoteNode → ParagraphNode with the chosen block type.
-      _editor.submit(ReplaceNodeRequest(
-        nodeId: node.id,
-        newNode: ParagraphNode(
-          id: node.id,
-          text: node.text,
-          blockType: blockType,
-        ),
-      ));
-    } else if (node is ParagraphNode) {
-      _editor.submit(ChangeBlockTypeRequest(
-        nodeId: node.id,
-        newBlockType: blockType,
-      ));
-    }
-  }
-
   /// Returns the current block type name for the selected node.
   String _currentBlockLabel() {
     final sel = _controller.selection;
@@ -727,6 +762,71 @@ class _DocumentDemoState extends State<DocumentDemo> {
       return 'Image';
     }
     return '';
+  }
+
+  /// Returns the [TextNode]s covered by the current selection.
+  List<TextNode> _selectedTextNodes() {
+    final sel = _controller.selection;
+    if (sel == null) return const [];
+    final baseIdx = _document.getNodeIndexById(sel.base.nodeId);
+    final extentIdx = _document.getNodeIndexById(sel.extent.nodeId);
+    if (baseIdx < 0 || extentIdx < 0) return const [];
+    final start = baseIdx < extentIdx ? baseIdx : extentIdx;
+    final end = baseIdx < extentIdx ? extentIdx : baseIdx;
+    return [
+      for (var i = start; i <= end; i++)
+        if (_document.nodeAt(i) is TextNode) _document.nodeAt(i) as TextNode,
+    ];
+  }
+
+  /// Returns `true` when the node matches [type].
+  bool _nodeMatchesType(DocumentNode? node, String type) {
+    return switch (type) {
+      'paragraph' => node is ParagraphNode && node.blockType == ParagraphBlockType.paragraph,
+      'blockquote' => node is BlockquoteNode,
+      'code' => node is CodeBlockNode,
+      'unordered' => node is ListItemNode && node.type == ListItemType.unordered,
+      'ordered' => node is ListItemNode && node.type == ListItemType.ordered,
+      _ => false,
+    };
+  }
+
+  /// Returns `true` when **all** selected text nodes match [type].
+  bool _isBlockType(String type) {
+    final nodes = _selectedTextNodes();
+    if (nodes.isEmpty) return false;
+    return nodes.every((n) => _nodeMatchesType(n, type));
+  }
+
+  /// Creates a new [TextNode] of [type] preserving [id] and [text].
+  TextNode? _makeNode(String type, String id, AttributedText text) {
+    return switch (type) {
+      'paragraph' => ParagraphNode(id: id, text: text),
+      'blockquote' => BlockquoteNode(id: id, text: text),
+      'code' => CodeBlockNode(id: id, text: text),
+      'unordered' => ListItemNode(id: id, text: text, type: ListItemType.unordered),
+      'ordered' => ListItemNode(id: id, text: text, type: ListItemType.ordered),
+      _ => null,
+    };
+  }
+
+  /// Converts all selected text nodes to [type], or back to paragraph if
+  /// every selected node already matches (toggle behavior).
+  void _toggleBlockType(String type) {
+    final nodes = _selectedTextNodes();
+    if (nodes.isEmpty) return;
+
+    // If every node already matches, toggle back to paragraph.
+    final allMatch = nodes.every((n) => _nodeMatchesType(n, type));
+    final targetType = allMatch && type != 'paragraph' ? 'paragraph' : type;
+
+    for (final node in nodes) {
+      if (_nodeMatchesType(node, targetType)) continue;
+      final newNode = _makeNode(targetType, node.id, node.text);
+      if (newNode != null) {
+        _editor.submit(ReplaceNodeRequest(nodeId: node.id, newNode: newNode));
+      }
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -1133,8 +1233,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
     final hasExpandedSelection = sel != null && !sel.isCollapsed;
     final hasCursor = sel != null;
     final selectedNode = sel != null ? _document.nodeById(sel.extent.nodeId) : null;
-    final isOnParagraph = selectedNode is ParagraphNode;
-    final isOnBlockquote = selectedNode is BlockquoteNode;
+    final isOnTextNode = selectedNode is TextNode;
     final colorScheme = Theme.of(context).colorScheme;
 
     const iconSize = 18.0;
@@ -1196,9 +1295,37 @@ class _DocumentDemoState extends State<DocumentDemo> {
                   style: buttonStyle,
                 ),
                 divider(),
-                // --- Block type dropdown ---
-                _buildBlockTypeDropdown(isOnParagraph || isOnBlockquote, selectedNode),
-                const SizedBox(width: 8),
+                // --- Block type toggles ---
+                _FormatToggle(
+                  icon: Icons.segment,
+                  tooltip: 'Paragraph',
+                  isActive: _isBlockType('paragraph'),
+                  onPressed: isOnTextNode ? () => _toggleBlockType('paragraph') : null,
+                ),
+                _FormatToggle(
+                  icon: Icons.format_quote,
+                  tooltip: 'Blockquote',
+                  isActive: _isBlockType('blockquote'),
+                  onPressed: isOnTextNode ? () => _toggleBlockType('blockquote') : null,
+                ),
+                _FormatToggle(
+                  icon: Icons.data_object,
+                  tooltip: 'Code',
+                  isActive: _isBlockType('code'),
+                  onPressed: isOnTextNode ? () => _toggleBlockType('code') : null,
+                ),
+                _FormatToggle(
+                  icon: Icons.format_list_bulleted,
+                  tooltip: 'Bullet list',
+                  isActive: _isBlockType('unordered'),
+                  onPressed: isOnTextNode ? () => _toggleBlockType('unordered') : null,
+                ),
+                _FormatToggle(
+                  icon: Icons.format_list_numbered,
+                  tooltip: 'Numbered list',
+                  isActive: _isBlockType('ordered'),
+                  onPressed: isOnTextNode ? () => _toggleBlockType('ordered') : null,
+                ),
                 divider(),
                 // --- Inline formatting ---
                 _FormatToggle(
@@ -1434,31 +1561,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
                   ),
                 ),
                 divider(),
-                // --- Lists ---
-                IconButton(
-                  icon: const Icon(Icons.format_list_bulleted, size: iconSize),
-                  onPressed: hasCursor
-                      ? () => _insertNode(ListItemNode(
-                            id: _newId(),
-                            text: AttributedText(),
-                            type: ListItemType.unordered,
-                          ))
-                      : null,
-                  tooltip: 'Bullet list',
-                  style: buttonStyle,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.format_list_numbered, size: iconSize),
-                  onPressed: hasCursor
-                      ? () => _insertNode(ListItemNode(
-                            id: _newId(),
-                            text: AttributedText(),
-                            type: ListItemType.ordered,
-                          ))
-                      : null,
-                  tooltip: 'Numbered list',
-                  style: buttonStyle,
-                ),
+                // --- List indent/unindent ---
                 IconButton(
                   icon: const Icon(Icons.format_indent_increase, size: iconSize),
                   onPressed: selectedNode is ListItemNode
@@ -1518,42 +1621,6 @@ class _DocumentDemoState extends State<DocumentDemo> {
     );
   }
 
-  Widget _buildBlockTypeDropdown(bool isOnTextBlock, DocumentNode? selectedNode) {
-    final current = _currentBlockTypeValue(selectedNode);
-    return SizedBox(
-      width: 140,
-      height: 32,
-      child: DropdownButtonFormField<String>(
-        initialValue: current,
-        decoration: InputDecoration(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
-          isDense: true,
-        ),
-        style: Theme.of(context).textTheme.bodySmall,
-        items: const [
-          DropdownMenuItem(value: 'paragraph', child: Text('Paragraph')),
-          DropdownMenuItem(value: 'header1', child: Text('Heading 1')),
-          DropdownMenuItem(value: 'header2', child: Text('Heading 2')),
-          DropdownMenuItem(value: 'header3', child: Text('Heading 3')),
-          DropdownMenuItem(value: 'blockquote', child: Text('Blockquote')),
-        ],
-        onChanged: isOnTextBlock
-            ? (value) {
-                if (value == null) return;
-                _changeBlockType(value);
-              }
-            : null,
-      ),
-    );
-  }
-
-  String? _currentBlockTypeValue(DocumentNode? node) {
-    if (node is ParagraphNode) return node.blockType.name;
-    if (node is BlockquoteNode) return 'blockquote';
-    return null;
-  }
-
   Widget _buildInsertMenu(bool enabled) {
     return PopupMenuButton<String>(
       tooltip: 'Insert',
@@ -1561,17 +1628,6 @@ class _DocumentDemoState extends State<DocumentDemo> {
       offset: const Offset(0, 36),
       onSelected: (value) {
         switch (value) {
-          case 'blockquote':
-            _insertNode(BlockquoteNode(
-              id: _newId(),
-              text: AttributedText(''),
-            ));
-          case 'code':
-            _insertNode(CodeBlockNode(
-              id: _newId(),
-              text: AttributedText(),
-              language: 'dart',
-            ));
           case 'hr':
             _insertNode(HorizontalRuleNode(id: _newId()));
           case 'image':
@@ -1583,8 +1639,6 @@ class _DocumentDemoState extends State<DocumentDemo> {
         }
       },
       itemBuilder: (context) => const [
-        PopupMenuItem(value: 'blockquote', child: Text('Blockquote')),
-        PopupMenuItem(value: 'code', child: Text('Code block')),
         PopupMenuItem(value: 'hr', child: Text('Horizontal rule')),
         PopupMenuItem(value: 'image', child: Text('Image')),
       ],
@@ -2077,6 +2131,10 @@ class _DocumentDemoState extends State<DocumentDemo> {
                 autofocus: true,
                 editor: _editor,
                 blockSpacing: _blockSpacing,
+                componentBuilders: [
+                  _syntaxBuilder,
+                  ...defaultComponentBuilders.where((b) => b is! CodeBlockComponentBuilder),
+                ],
               ),
             ),
             Positioned.fill(
