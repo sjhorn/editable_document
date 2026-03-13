@@ -1005,4 +1005,57 @@ void main() {
       }
     });
   });
+
+  group('RenderTextBlock textSpanBuilder', () {
+    test('uses textSpanBuilder when set', () {
+      var callCount = 0;
+      const customSpan = TextSpan(text: 'custom', style: TextStyle(fontSize: 42));
+
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        textStyle: const TextStyle(fontSize: 16),
+        textSpanBuilder: (text, style) {
+          callCount++;
+          return customSpan;
+        },
+      );
+      block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+
+      // The builder should have been called during layout.
+      expect(callCount, greaterThan(0));
+    });
+
+    test('setter marks needs layout', () {
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+
+      var callCount = 0;
+      block.textSpanBuilder = (text, style) {
+        callCount++;
+        return TextSpan(text: 'override', style: style);
+      };
+
+      // Re-layout should call the new builder.
+      block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      expect(callCount, greaterThan(0));
+    });
+
+    test('null builder falls back to default behavior', () {
+      final text = AttributedText('Hello').applyAttribution(NamedAttribution.bold, 0, 4);
+
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: text,
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      // No textSpanBuilder set — should not throw.
+      block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      expect(block.size.height, greaterThan(0));
+    });
+  });
 }

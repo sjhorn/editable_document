@@ -17,6 +17,14 @@ import '../model/node_position.dart';
 import 'render_document_block.dart';
 import 'render_document_layout.dart' show DocumentBlockConstraints;
 
+/// Signature for a callback that builds a [TextSpan] from [AttributedText]
+/// and a base [TextStyle].
+///
+/// Used by [RenderTextBlock.textSpanBuilder] to let callers override the
+/// default attribution-based span building — for example to inject
+/// syntax-highlighted spans from an external package.
+typedef TextSpanBuilder = TextSpan Function(AttributedText text, TextStyle baseStyle);
+
 // ---------------------------------------------------------------------------
 // _ExclusionLayout — result of multi-segment exclusion-zone text layout
 // ---------------------------------------------------------------------------
@@ -170,12 +178,14 @@ class RenderTextBlock extends RenderDocumentBlock {
     TextDirection textDirection = TextDirection.ltr,
     TextAlign textAlign = TextAlign.start,
     Color selectionColor = const Color(0x663399FF),
+    TextSpanBuilder? textSpanBuilder,
   })  : _nodeId = nodeId,
         _text = text,
         _textStyle = textStyle ?? const TextStyle(),
         _textDirection = textDirection,
         _textAlign = textAlign,
         _selectionColor = selectionColor,
+        _textSpanBuilder = textSpanBuilder,
         _textPainter = TextPainter(
           textDirection: textDirection,
           textAlign: textAlign,
@@ -191,6 +201,7 @@ class RenderTextBlock extends RenderDocumentBlock {
   TextDirection _textDirection;
   TextAlign _textAlign;
   Color _selectionColor;
+  TextSpanBuilder? _textSpanBuilder;
   DocumentSelection? _nodeSelection;
 
   final TextPainter _textPainter;
@@ -286,6 +297,23 @@ class RenderTextBlock extends RenderDocumentBlock {
     if (_selectionColor == value) return;
     _selectionColor = value;
     markNeedsPaint();
+  }
+
+  /// Optional callback to build a custom [TextSpan] from the attributed text.
+  ///
+  /// When non-null, this callback replaces the default attribution-based
+  /// span building in [_buildTextSpan] and [_buildTextSpanForRange].
+  /// This allows external packages (e.g. syntax highlighters) to provide
+  /// pre-styled [TextSpan] trees without round-tripping through
+  /// [AttributedText] attributions.
+  // ignore: diagnostic_describe_all_properties
+  TextSpanBuilder? get textSpanBuilder => _textSpanBuilder;
+
+  /// Sets the text span builder and schedules a layout pass.
+  set textSpanBuilder(TextSpanBuilder? value) {
+    if (_textSpanBuilder == value) return;
+    _textSpanBuilder = value;
+    markNeedsLayout();
   }
 
   // ---------------------------------------------------------------------------
@@ -1235,6 +1263,9 @@ class RenderTextBlock extends RenderDocumentBlock {
   ///
   /// Used by the exclusion-zone layout to create per-zone painters.
   TextSpan _buildTextSpanForRange(int start, int end) {
+    if (_textSpanBuilder != null) {
+      return _textSpanBuilder!(_text.copyText(start, end), _textStyle);
+    }
     final rawText = _text.text;
     if (start >= end || start >= rawText.length) {
       return TextSpan(text: '', style: _textStyle);
@@ -1280,6 +1311,7 @@ class RenderTextBlock extends RenderDocumentBlock {
   /// Otherwise the text is split into runs at attribution boundaries and each
   /// run receives a merged [TextStyle].
   TextSpan _buildTextSpan() {
+    if (_textSpanBuilder != null) return _textSpanBuilder!(_text, _textStyle);
     final rawText = _text.text;
     if (rawText.isEmpty) {
       return TextSpan(text: '', style: _textStyle);
@@ -1412,5 +1444,6 @@ class RenderTextBlock extends RenderDocumentBlock {
     properties.add(EnumProperty('textDirection', _textDirection));
     properties.add(EnumProperty('textAlign', _textAlign));
     properties.add(ColorProperty('selectionColor', _selectionColor));
+    properties.add(ObjectFlagProperty<TextSpanBuilder?>.has('textSpanBuilder', _textSpanBuilder));
   }
 }
