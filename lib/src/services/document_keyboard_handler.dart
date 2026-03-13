@@ -819,26 +819,6 @@ class DocumentKeyboardHandler {
       _requestHandler(UnindentListItemRequest(nodeId: node.id));
       return true;
     }
-    if (node is TextNode && selection.isCollapsed) {
-      final offset = (selection.extent.nodePosition as TextNodePosition).offset;
-      if (offset > 0 && node.text.text[offset - 1] == '\t') {
-        _requestHandler(
-          DeleteContentRequest(
-            selection: DocumentSelection(
-              base: DocumentPosition(
-                nodeId: node.id,
-                nodePosition: TextNodePosition(offset: offset - 1),
-              ),
-              extent: DocumentPosition(
-                nodeId: node.id,
-                nodePosition: TextNodePosition(offset: offset),
-              ),
-            ),
-          ),
-        );
-        return true;
-      }
-    }
     return false;
   }
 
