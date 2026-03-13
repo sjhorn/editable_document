@@ -88,7 +88,7 @@ fi
 echo ""
 
 # Step 4: example app gate (standalone project — analyze + format)
-EXAMPLE_DIR="$PROJECT_ROOT/example"
+EXAMPLE_DIR="$PROJECT_ROOT/example/editable_document_example"
 if [ -z "$SCOPE" ] && [ -f "$EXAMPLE_DIR/pubspec.yaml" ]; then
   echo ">>> example: flutter pub get + analyze + format"
   if (cd "$EXAMPLE_DIR" && flutter pub get --no-example && flutter analyze lib/ && dart format --set-exit-if-changed lib/); then

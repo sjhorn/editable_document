@@ -9,7 +9,7 @@ dependencies:
   flutter:
     sdk: flutter
   editable_document:
-    path: ..
+    path: ../..
   re_highlight: ^0.0.3
 
 flutter:

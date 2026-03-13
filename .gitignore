@@ -31,7 +31,7 @@ migrate_working_dir/
 .flutter-plugins-dependencies
 /build/
 /coverage/
-example/pubspec.lock
+example/*/pubspec.lock
 
 # Platform-specific generated directories
 /android/
