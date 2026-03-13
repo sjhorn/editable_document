@@ -1253,9 +1253,49 @@ void main() {
       expect(req.nodeId, equals('li1'));
     });
 
-    test('returns ignored when cursor is NOT in a ListItemNode', () {
+    test('inserts tab in ParagraphNode at caret position', () {
       final doc = _singleParagraph('Hello');
       final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 2));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.tab));
+
+      expect(result, true);
+      expect(requests, hasLength(1));
+      final req = requests.first as InsertTextRequest;
+      expect(req.nodeId, equals('p1'));
+      expect(req.offset, equals(2));
+      expect(req.text.text, equals('\t'));
+    });
+
+    test('inserts tab in CodeBlockNode', () {
+      final doc = MutableDocument([
+        CodeBlockNode(id: 'cb1', text: AttributedText('code'), language: 'dart'),
+      ]);
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('cb1', 2));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.tab));
+
+      expect(result, true);
+      expect(requests, hasLength(1));
+      final req = requests.first as InsertTextRequest;
+      expect(req.nodeId, equals('cb1'));
+      expect(req.offset, equals(2));
+      expect(req.text.text, equals('\t'));
+    });
+
+    test('returns ignored when selection is expanded (non-collapsed)', () {
+      final doc = _singleParagraph('Hello');
+      final controller = DocumentEditingController(
+        document: doc,
+        selection: const DocumentSelection(
+          base: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 1)),
+          extent: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 3)),
+        ),
+      );
       final requests = <EditRequest>[];
       final handler = _makeHandler(doc, controller, requests);
 
@@ -1328,6 +1368,73 @@ void main() {
         ListItemNode(id: 'li1', text: AttributedText('Item one')),
       ]);
       final controller = DocumentEditingController(document: doc);
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);
+
+      expect(requests, isEmpty);
+    });
+
+    testWidgets('removes tab before caret in ParagraphNode', (tester) async {
+      final doc = _singleParagraph('\tHello');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 1));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);
+
+      expect(requests, hasLength(1));
+      final req = requests.first as DeleteContentRequest;
+      expect(
+        req.selection,
+        equals(
+          const DocumentSelection(
+            base: DocumentPosition(
+              nodeId: 'p1',
+              nodePosition: TextNodePosition(offset: 0),
+            ),
+            extent: DocumentPosition(
+              nodeId: 'p1',
+              nodePosition: TextNodePosition(offset: 1),
+            ),
+          ),
+        ),
+      );
+    });
+
+    testWidgets('no-op when char before caret is not tab', (tester) async {
+      final doc = _singleParagraph('Hello');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 3));
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);
+
+      expect(requests, isEmpty);
+    });
+
+    testWidgets('no-op at start of node (offset 0)', (tester) async {
+      final doc = _singleParagraph('Hello');
+      final controller = DocumentEditingController(document: doc, selection: _collapsed('p1', 0));
       final requests = <EditRequest>[];
       final handler = _makeHandler(doc, controller, requests);
 
