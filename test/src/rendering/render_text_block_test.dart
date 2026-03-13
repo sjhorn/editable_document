@@ -1058,4 +1058,124 @@ void main() {
       expect(block.size.height, greaterThan(0));
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Tab expansion
+  // ---------------------------------------------------------------------------
+
+  group('Tab expansion', () {
+    // Helper: lay out a block and return it.
+    RenderTextBlock _block(String text) {
+      final b = RenderTextBlock(
+        nodeId: 'tab_test',
+        text: AttributedText(text),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      b.layout(const BoxConstraints(maxWidth: 800), parentUsesSize: true);
+      return b;
+    }
+
+    test('renders tab as 4 spaces width', () {
+      // A tab at position 0 should give the same caret-x at model offset 1
+      // as 4 spaces give at model offset 4.
+      final tabBlock = _block('\tHello');
+      final spacesBlock = _block('    Hello'); // 4 spaces
+
+      final rectAfterTab = tabBlock.getLocalRectForPosition(const TextNodePosition(offset: 1));
+      final rectAfterSpaces =
+          spacesBlock.getLocalRectForPosition(const TextNodePosition(offset: 4));
+
+      // Both carets should be at the same x (the 4-space-width position).
+      expect(
+        rectAfterTab.left,
+        closeTo(rectAfterSpaces.left, 2.0),
+        reason: 'caret after \\t must be at same x as caret after 4 spaces',
+      );
+    });
+
+    test('getPositionAtOffset maps visual offset back to model offset', () {
+      // The tab character is at model offset 0. After hit-testing at the
+      // x-coordinate that corresponds to the middle of the tab expansion,
+      // the returned model offset must be either 0 (before tab) or 1 (after).
+      final block = _block('\tHello');
+
+      // Get the x position of the caret after the tab (model offset 1).
+      final rectAfterTab = block.getLocalRectForPosition(const TextNodePosition(offset: 1));
+      final tabEndX = rectAfterTab.left;
+
+      // Hit-test just before the end of the tab.
+      final pos = block.getPositionAtOffset(Offset(tabEndX / 2, 0)) as TextNodePosition;
+      expect(pos.offset, anyOf(0, 1),
+          reason: 'hit in the tab range must return a model offset of 0 or 1');
+    });
+
+    test('getLocalRectForPosition converts model offset correctly', () {
+      // Text "\tA" — caret at model offset 0 should be at x=0,
+      // caret at model offset 1 (after the tab) should be at x > 0,
+      // caret at model offset 2 (after 'A') should be further right.
+      final block = _block('\tA');
+
+      final r0 = block.getLocalRectForPosition(const TextNodePosition(offset: 0));
+      final r1 = block.getLocalRectForPosition(const TextNodePosition(offset: 1));
+      final r2 = block.getLocalRectForPosition(const TextNodePosition(offset: 2));
+
+      expect(r0.left, closeTo(0, 1.0), reason: 'caret at offset 0 must be at x~0');
+      expect(r1.left, greaterThan(r0.left), reason: 'caret after tab must be to the right of x=0');
+      expect(r2.left, greaterThan(r1.left),
+          reason: 'caret after A must be to the right of caret after tab');
+    });
+
+    test('getLineBoundary returns model offsets', () {
+      // Text "\tword" — line boundary for offset 0 must return a range whose
+      // end is the model length (5), not an expanded visual length.
+      final block = _block('\tword');
+      final range = block.getLineBoundary(const TextNodePosition(offset: 0));
+
+      expect(range.isValid, isTrue);
+      expect(range.start, 0);
+      // Model length of "\tword" is 5; visual length with tab expansion is 8.
+      // The returned end must be in model space, i.e. <= 5.
+      expect(
+        range.end,
+        lessThanOrEqualTo(5),
+        reason: 'getLineBoundary must return model-space offsets, not visual-space offsets',
+      );
+    });
+
+    test('getEndpointsForSelection with tabs', () {
+      // Select from 0 to 2 in "\tHello" (covers the tab + 'H').
+      // The resulting rects must have positive width (the tab takes up space).
+      final block = _block('\tHello');
+      final rects = block.getEndpointsForSelection(
+        const TextNodePosition(offset: 0),
+        const TextNodePosition(offset: 2),
+      );
+
+      expect(rects, isNotEmpty, reason: 'selection spanning a tab must produce rects');
+      for (final r in rects) {
+        expect(r.width, greaterThan(0),
+            reason: 'selection rect spanning a tab must have positive width');
+        expect(r.height, greaterThan(0));
+      }
+    });
+
+    test('multiple tabs in text — offsets accumulate correctly', () {
+      // Text "\t\tHi" — model length 4, visual length 10 (4+4+1+1).
+      // Caret at model offset 2 (after both tabs) should match caret at
+      // model offset 8 in "        Hi" (8 spaces + Hi).
+      final twoTabBlock = _block('\t\tHi');
+      final eightSpaceBlock = _block('        Hi'); // 8 spaces
+
+      final rectAfterTwoTabs =
+          twoTabBlock.getLocalRectForPosition(const TextNodePosition(offset: 2));
+      final rectAfterEightSpaces =
+          eightSpaceBlock.getLocalRectForPosition(const TextNodePosition(offset: 8));
+
+      expect(
+        rectAfterTwoTabs.left,
+        closeTo(rectAfterEightSpaces.left, 2.0),
+        reason: 'caret after two tabs must be at same x as caret after 8 spaces',
+      );
+    });
+  });
 }

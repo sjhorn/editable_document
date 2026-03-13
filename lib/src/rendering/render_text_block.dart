@@ -824,6 +824,53 @@ class RenderTextBlock extends RenderDocumentBlock {
   }
 
   // ---------------------------------------------------------------------------
+  // Tab-expansion offset conversion helpers
+  // ---------------------------------------------------------------------------
+
+  /// Number of extra characters added by tab expansion in model range [from, to).
+  ///
+  /// Each `\t` character is rendered as 4 spaces, so it contributes 3 extra
+  /// visual characters compared to its 1 model character.
+  int _tabExtra(int from, int to) {
+    int extra = 0;
+    final text = _text.text;
+    final end = to.clamp(0, text.length);
+    for (int i = from.clamp(0, text.length); i < end; i++) {
+      if (text.codeUnitAt(i) == 0x09) extra += 3; // tab → 4 spaces = 3 extra
+    }
+    return extra;
+  }
+
+  /// Model offset → visual offset (for full-text [TextPainter]).
+  int _m2v(int modelOffset) => modelOffset + _tabExtra(0, modelOffset);
+
+  /// Visual offset → model offset (for full-text [TextPainter]).
+  int _v2m(int visualOffset) {
+    final text = _text.text;
+    int model = 0, visual = 0;
+    while (visual < visualOffset && model < text.length) {
+      visual += text.codeUnitAt(model) == 0x09 ? 4 : 1;
+      model++;
+    }
+    return model;
+  }
+
+  /// Model-local offset → visual-local offset within a zone starting at [rangeStart].
+  int _m2vLocal(int localOffset, int rangeStart) =>
+      localOffset + _tabExtra(rangeStart, rangeStart + localOffset);
+
+  /// Visual-local offset → model-local offset within a zone starting at [rangeStart].
+  int _v2mLocal(int visualLocal, int rangeStart) {
+    final text = _text.text;
+    int model = 0, visual = 0;
+    while (visual < visualLocal && (rangeStart + model) < text.length) {
+      visual += text.codeUnitAt(rangeStart + model) == 0x09 ? 4 : 1;
+      model++;
+    }
+    return model;
+  }
+
+  // ---------------------------------------------------------------------------
   // RenderDocumentBlock — geometry queries
   // ---------------------------------------------------------------------------
 
@@ -837,7 +884,8 @@ class RenderTextBlock extends RenderDocumentBlock {
       return _getLocalRectForPositionExclusion(tp, excl);
     }
 
-    final textPosition = TextPosition(offset: tp.offset, affinity: tp.affinity);
+    final visualOffset = _m2v(tp.offset);
+    final textPosition = TextPosition(offset: visualOffset, affinity: tp.affinity);
     final caretOffset = _textPainter.getOffsetForCaret(textPosition, Rect.zero);
 
     // Use a 1-char selection with BoxHeightStyle.max to get the actual line
@@ -854,9 +902,11 @@ class RenderTextBlock extends RenderDocumentBlock {
         return Rect.fromLTWH(caretOffset.dx, caretOffset.dy, 0, _textPainter.preferredLineHeight);
       }
       final start = tp.offset >= textLength ? textLength - 1 : tp.offset;
-      final end = start + 1;
+      final end = (start + 1).clamp(0, textLength);
+      final visualStart = _m2v(start);
+      final visualEnd = _m2v(end);
       final boxes = _textPainter.getBoxesForSelection(
-        TextSelection(baseOffset: start, extentOffset: end),
+        TextSelection(baseOffset: visualStart, extentOffset: visualEnd),
         boxHeightStyle: ui.BoxHeightStyle.max,
       );
       if (boxes.isNotEmpty) {
@@ -878,13 +928,17 @@ class RenderTextBlock extends RenderDocumentBlock {
       if (painter == null) {
         return Rect.fromLTWH(0, 0, 0, _textPainter.preferredLineHeight);
       }
-      final textPos = TextPosition(offset: charIndex, affinity: position.affinity);
+      // Above painter covers [0, aboveEndIndex) — model offsets = global offsets.
+      final visualCharIndex = _m2v(charIndex);
+      final textPos = TextPosition(offset: visualCharIndex, affinity: position.affinity);
       final caretOffset = painter.getOffsetForCaret(textPos, Rect.zero);
       final textLength = excl.aboveEndIndex;
       if (textLength > 0) {
         final start = charIndex >= textLength ? textLength - 1 : charIndex;
+        final visualStart = _m2v(start);
+        final visualEnd = _m2v(start + 1).clamp(0, _m2v(textLength));
         final boxes = painter.getBoxesForSelection(
-          TextSelection(baseOffset: start, extentOffset: start + 1),
+          TextSelection(baseOffset: visualStart, extentOffset: visualEnd),
           boxHeightStyle: ui.BoxHeightStyle.max,
         );
         if (boxes.isNotEmpty) {
@@ -900,7 +954,10 @@ class RenderTextBlock extends RenderDocumentBlock {
       final painter = excl.belowPainter!;
       final baseY = excl.aboveHeight + excl.besideHeight;
       final localIndex = charIndex - excl.besideEndIndex;
-      final textPos = TextPosition(offset: localIndex, affinity: position.affinity);
+      // Below painter covers [besideEndIndex, textLength) — local offsets need
+      // to be converted using rangeStart = besideEndIndex.
+      final visualLocalIndex = _m2vLocal(localIndex, excl.besideEndIndex);
+      final textPos = TextPosition(offset: visualLocalIndex, affinity: position.affinity);
       final caretOffset = painter.getOffsetForCaret(textPos, Rect.zero);
       final belowLength = _text.text.length - excl.besideEndIndex;
       if (belowLength > 0) {
@@ -912,8 +969,10 @@ class RenderTextBlock extends RenderDocumentBlock {
               caretOffset.dx, baseY + caretOffset.dy, 0, painter.preferredLineHeight);
         }
         final start = localIndex >= belowLength ? belowLength - 1 : localIndex;
+        final visualStart = _m2vLocal(start, excl.besideEndIndex);
+        final visualEnd = _m2vLocal(start + 1, excl.besideEndIndex);
         final boxes = painter.getBoxesForSelection(
-          TextSelection(baseOffset: start, extentOffset: start + 1),
+          TextSelection(baseOffset: visualStart, extentOffset: visualEnd),
           boxHeightStyle: ui.BoxHeightStyle.max,
         );
         if (boxes.isNotEmpty) {
@@ -934,13 +993,16 @@ class RenderTextBlock extends RenderDocumentBlock {
       if (charIndex >= line.leftStartIndex && charIndex <= line.leftEndIndex) {
         final localIndex = charIndex - line.leftStartIndex;
         final painter = line.leftPainter;
-        final textPos = TextPosition(offset: localIndex, affinity: position.affinity);
+        final visualLocalIndex = _m2vLocal(localIndex, line.leftStartIndex);
+        final textPos = TextPosition(offset: visualLocalIndex, affinity: position.affinity);
         final caretOffset = painter.getOffsetForCaret(textPos, Rect.zero);
         final lineLen = line.leftEndIndex - line.leftStartIndex;
         if (lineLen > 0) {
           final start = localIndex >= lineLen ? lineLen - 1 : localIndex;
+          final visualStart = _m2vLocal(start, line.leftStartIndex);
+          final visualEnd = _m2vLocal(start + 1, line.leftStartIndex);
           final boxes = painter.getBoxesForSelection(
-            TextSelection(baseOffset: start, extentOffset: start + 1),
+            TextSelection(baseOffset: visualStart, extentOffset: visualEnd),
             boxHeightStyle: ui.BoxHeightStyle.max,
           );
           if (boxes.isNotEmpty) {
@@ -957,13 +1019,16 @@ class RenderTextBlock extends RenderDocumentBlock {
         final localIndex = charIndex - line.rightStartIndex;
         final painter = line.rightPainter;
         final rightBaseX = excl.exclusionRect.right;
-        final textPos = TextPosition(offset: localIndex, affinity: position.affinity);
+        final visualLocalIndex = _m2vLocal(localIndex, line.rightStartIndex);
+        final textPos = TextPosition(offset: visualLocalIndex, affinity: position.affinity);
         final caretOffset = painter.getOffsetForCaret(textPos, Rect.zero);
         final lineLen = line.rightEndIndex - line.rightStartIndex;
         if (lineLen > 0) {
           final start = localIndex >= lineLen ? lineLen - 1 : localIndex;
+          final visualStart = _m2vLocal(start, line.rightStartIndex);
+          final visualEnd = _m2vLocal(start + 1, line.rightStartIndex);
           final boxes = painter.getBoxesForSelection(
-            TextSelection(baseOffset: start, extentOffset: start + 1),
+            TextSelection(baseOffset: visualStart, extentOffset: visualEnd),
             boxHeightStyle: ui.BoxHeightStyle.max,
           );
           if (boxes.isNotEmpty) {
@@ -995,8 +1060,9 @@ class RenderTextBlock extends RenderDocumentBlock {
       if (y < excl.aboveHeight) {
         if (excl.abovePainter != null) {
           final tp = excl.abovePainter!.getPositionForOffset(localOffset);
+          // Above painter uses visual offsets; convert to model offsets.
           return TextNodePosition(
-            offset: tp.offset.clamp(0, excl.aboveEndIndex),
+            offset: _v2m(tp.offset).clamp(0, excl.aboveEndIndex),
             affinity: tp.affinity,
           );
         }
@@ -1008,8 +1074,10 @@ class RenderTextBlock extends RenderDocumentBlock {
         if (excl.belowPainter != null) {
           final belowOffset = Offset(x, y - excl.aboveHeight - excl.besideHeight);
           final tp = excl.belowPainter!.getPositionForOffset(belowOffset);
+          // Below painter uses local visual offsets; convert to model offsets.
+          final modelLocal = _v2mLocal(tp.offset, excl.besideEndIndex);
           return TextNodePosition(
-            offset: (excl.besideEndIndex + tp.offset).clamp(0, _text.text.length),
+            offset: (excl.besideEndIndex + modelLocal).clamp(0, _text.text.length),
             affinity: tp.affinity,
           );
         }
@@ -1038,7 +1106,9 @@ class RenderTextBlock extends RenderDocumentBlock {
         // Left column.
         if (excl.leftWidth > 0) {
           final tp = hitLine.leftPainter.getPositionForOffset(Offset(x, lineLocalY));
-          final idx = (hitLine.leftStartIndex + tp.offset).clamp(
+          // Left painter uses local visual offsets; convert to model offsets.
+          final modelLocal = _v2mLocal(tp.offset, hitLine.leftStartIndex);
+          final idx = (hitLine.leftStartIndex + modelLocal).clamp(
             hitLine.leftStartIndex,
             hitLine.leftEndIndex,
           );
@@ -1050,7 +1120,9 @@ class RenderTextBlock extends RenderDocumentBlock {
         if (excl.rightWidth > 0) {
           final rightX = x - excl.exclusionRect.right;
           final tp = hitLine.rightPainter.getPositionForOffset(Offset(rightX, lineLocalY));
-          final idx = (hitLine.rightStartIndex + tp.offset).clamp(
+          // Right painter uses local visual offsets; convert to model offsets.
+          final modelLocal = _v2mLocal(tp.offset, hitLine.rightStartIndex);
+          final idx = (hitLine.rightStartIndex + modelLocal).clamp(
             hitLine.rightStartIndex,
             hitLine.rightEndIndex,
           );
@@ -1071,7 +1143,7 @@ class RenderTextBlock extends RenderDocumentBlock {
     }
 
     final tp = _textPainter.getPositionForOffset(localOffset);
-    return TextNodePosition(offset: tp.offset, affinity: tp.affinity);
+    return TextNodePosition(offset: _v2m(tp.offset), affinity: tp.affinity);
   }
 
   /// Returns the [TextRange] spanning the visual line that contains [position].
@@ -1102,11 +1174,11 @@ class RenderTextBlock extends RenderDocumentBlock {
       // Above zone: [0, aboveEndIndex)
       // ------------------------------------------------------------------
       if (excl.abovePainter != null && offset < excl.aboveEndIndex) {
-        final localPos = TextPosition(offset: offset, affinity: position.affinity);
+        final visualOffset = _m2v(offset);
+        final localPos = TextPosition(offset: visualOffset, affinity: position.affinity);
         final localRange = excl.abovePainter!.getLineBoundary(localPos);
-        // The above painter covers [0, aboveEndIndex) with local indices that
-        // equal global indices (the painter starts from char 0).
-        return localRange;
+        // Convert visual range back to model range.
+        return TextRange(start: _v2m(localRange.start), end: _v2m(localRange.end));
       }
 
       // ------------------------------------------------------------------
@@ -1132,19 +1204,21 @@ class RenderTextBlock extends RenderDocumentBlock {
       // ------------------------------------------------------------------
       if (excl.belowPainter != null && offset >= excl.besideEndIndex) {
         final localOffset = offset - excl.besideEndIndex;
-        final localPos = TextPosition(offset: localOffset, affinity: position.affinity);
+        final visualLocalOffset = _m2vLocal(localOffset, excl.besideEndIndex);
+        final localPos = TextPosition(offset: visualLocalOffset, affinity: position.affinity);
         final localRange = excl.belowPainter!.getLineBoundary(localPos);
-        // Shift local indices back to global indices.
+        // Convert visual local range back to model global indices.
         return TextRange(
-          start: localRange.start + excl.besideEndIndex,
-          end: localRange.end + excl.besideEndIndex,
+          start: excl.besideEndIndex + _v2mLocal(localRange.start, excl.besideEndIndex),
+          end: excl.besideEndIndex + _v2mLocal(localRange.end, excl.besideEndIndex),
         );
       }
     }
 
     // Fallback: no exclusion zone, or offset didn't match any zone.
-    final tp = TextPosition(offset: offset, affinity: position.affinity);
-    return _textPainter.getLineBoundary(tp);
+    final tp = TextPosition(offset: _m2v(offset), affinity: position.affinity);
+    final range = _textPainter.getLineBoundary(tp);
+    return TextRange(start: _v2m(range.start), end: _v2m(range.end));
   }
 
   @override
@@ -1167,7 +1241,7 @@ class RenderTextBlock extends RenderDocumentBlock {
     }
 
     final boxes = _textPainter.getBoxesForSelection(
-      TextSelection(baseOffset: selStart, extentOffset: selEnd),
+      TextSelection(baseOffset: _m2v(selStart), extentOffset: _m2v(selEnd)),
       boxHeightStyle: ui.BoxHeightStyle.max,
     );
     return boxes.map((box) => box.toRect()).toList();
@@ -1187,7 +1261,7 @@ class RenderTextBlock extends RenderDocumentBlock {
       final zoneEnd = selEnd.clamp(0, excl.aboveEndIndex);
       if (zoneStart < zoneEnd) {
         final boxes = excl.abovePainter!.getBoxesForSelection(
-          TextSelection(baseOffset: zoneStart, extentOffset: zoneEnd),
+          TextSelection(baseOffset: _m2v(zoneStart), extentOffset: _m2v(zoneEnd)),
           boxHeightStyle: ui.BoxHeightStyle.max,
         );
         rects.addAll(boxes.map((box) => box.toRect()));
@@ -1206,7 +1280,10 @@ class RenderTextBlock extends RenderDocumentBlock {
             (selEnd - line.leftStartIndex).clamp(0, line.leftEndIndex - line.leftStartIndex);
         if (zoneStart < zoneEnd) {
           final boxes = line.leftPainter.getBoxesForSelection(
-            TextSelection(baseOffset: zoneStart, extentOffset: zoneEnd),
+            TextSelection(
+              baseOffset: _m2vLocal(zoneStart, line.leftStartIndex),
+              extentOffset: _m2vLocal(zoneEnd, line.leftStartIndex),
+            ),
             boxHeightStyle: ui.BoxHeightStyle.max,
           );
           rects.addAll(boxes.map((box) => box.toRect().shift(Offset(0, baseY))));
@@ -1221,7 +1298,10 @@ class RenderTextBlock extends RenderDocumentBlock {
             (selEnd - line.rightStartIndex).clamp(0, line.rightEndIndex - line.rightStartIndex);
         if (zoneStart < zoneEnd) {
           final boxes = line.rightPainter.getBoxesForSelection(
-            TextSelection(baseOffset: zoneStart, extentOffset: zoneEnd),
+            TextSelection(
+              baseOffset: _m2vLocal(zoneStart, line.rightStartIndex),
+              extentOffset: _m2vLocal(zoneEnd, line.rightStartIndex),
+            ),
             boxHeightStyle: ui.BoxHeightStyle.max,
           );
           rects.addAll(
@@ -1244,7 +1324,10 @@ class RenderTextBlock extends RenderDocumentBlock {
       );
       if (zoneStart < zoneEnd) {
         final boxes = excl.belowPainter!.getBoxesForSelection(
-          TextSelection(baseOffset: zoneStart, extentOffset: zoneEnd),
+          TextSelection(
+            baseOffset: _m2vLocal(zoneStart, excl.besideEndIndex),
+            extentOffset: _m2vLocal(zoneEnd, excl.besideEndIndex),
+          ),
           boxHeightStyle: ui.BoxHeightStyle.max,
         );
         rects.addAll(boxes.map((box) => box.toRect().shift(Offset(0, baseY))));
@@ -1278,7 +1361,7 @@ class RenderTextBlock extends RenderDocumentBlock {
 
     final spans = _text.getAttributionSpansInRange(start, clampedEnd - 1).toList();
     if (spans.isEmpty) {
-      return TextSpan(text: substring, style: _textStyle);
+      return TextSpan(text: substring.replaceAll('\t', '    '), style: _textStyle);
     }
 
     // Collect all boundary offsets relative to the substring.
@@ -1298,7 +1381,8 @@ class RenderTextBlock extends RenderDocumentBlock {
       if (s >= substring.length) break;
       final activeAttributions = _text.getAttributionsAt(s + start);
       final style = _buildStyleForAttributions(activeAttributions);
-      children.add(TextSpan(text: substring.substring(s, e), style: style));
+      children
+          .add(TextSpan(text: substring.substring(s, e).replaceAll('\t', '    '), style: style));
     }
 
     return TextSpan(style: _textStyle, children: children);
@@ -1319,7 +1403,7 @@ class RenderTextBlock extends RenderDocumentBlock {
 
     final spans = _text.getAttributionSpansInRange(0, rawText.length - 1).toList();
     if (spans.isEmpty) {
-      return TextSpan(text: rawText, style: _textStyle);
+      return TextSpan(text: rawText.replaceAll('\t', '    '), style: _textStyle);
     }
 
     // Collect all boundary offsets.
@@ -1338,7 +1422,8 @@ class RenderTextBlock extends RenderDocumentBlock {
 
       final activeAttributions = _text.getAttributionsAt(start);
       final style = _buildStyleForAttributions(activeAttributions);
-      children.add(TextSpan(text: rawText.substring(start, end), style: style));
+      children.add(
+          TextSpan(text: rawText.substring(start, end).replaceAll('\t', '    '), style: style));
     }
 
     return TextSpan(style: _textStyle, children: children);
