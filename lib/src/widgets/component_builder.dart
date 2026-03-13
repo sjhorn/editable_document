@@ -38,6 +38,7 @@ import '../model/table_node.dart';
 import '../rendering/block_layout_mixin.dart';
 import '../rendering/render_blockquote_block.dart';
 import '../rendering/render_code_block.dart';
+import '../rendering/render_text_block.dart' show TextSpanBuilder;
 import '../rendering/render_horizontal_rule_block.dart';
 import '../rendering/render_image_block.dart';
 import '../rendering/render_list_item_block.dart';
@@ -729,6 +730,7 @@ class CodeBlockComponentViewModel extends ComponentViewModel implements HasLayou
     this.height,
     this.alignment = BlockAlignment.stretch,
     this.textWrap = TextWrapMode.none,
+    this.textSpanBuilder,
     super.nodeSelection,
     super.isSelected,
   });
@@ -757,6 +759,13 @@ class CodeBlockComponentViewModel extends ComponentViewModel implements HasLayou
   ///
   /// Defaults to [TextWrapMode.none].
   final TextWrapMode textWrap;
+
+  /// Optional callback to build a custom [TextSpan] for this code block.
+  ///
+  /// When non-null, the [RenderTextBlock] will use this callback instead
+  /// of its default attribution-based span building. This allows external
+  /// syntax-highlighting packages to provide pre-styled [TextSpan] trees.
+  final TextSpanBuilder? textSpanBuilder;
 
   @override
   bool operator ==(Object other) {
@@ -832,7 +841,7 @@ class _CodeBlockWidget extends LeafRenderObjectWidget {
       requestedWidth: viewModel.width,
       requestedHeight: viewModel.height,
       textWrap: viewModel.textWrap,
-    );
+    )..textSpanBuilder = viewModel.textSpanBuilder;
   }
 
   @override
@@ -840,6 +849,7 @@ class _CodeBlockWidget extends LeafRenderObjectWidget {
     renderObject
       ..nodeId = viewModel.nodeId
       ..text = viewModel.text
+      ..textSpanBuilder = viewModel.textSpanBuilder
       ..nodeSelection = viewModel.nodeSelection;
     _updateBlockLayout(renderObject, viewModel);
   }

@@ -621,6 +621,27 @@ void main() {
       );
       expect(a.hashCode, equals(b.hashCode));
     });
+
+    test('textSpanBuilder flows through CodeBlockComponentViewModel', () {
+      TextSpan myBuilder(AttributedText text, TextStyle style) {
+        return TextSpan(text: text.text, style: style);
+      }
+
+      final vm = CodeBlockComponentViewModel(
+        nodeId: 'cb1',
+        text: AttributedText('code'),
+        textStyle: const TextStyle(),
+        textSpanBuilder: myBuilder,
+      );
+      expect(vm.textSpanBuilder, equals(myBuilder));
+
+      final vmWithout = CodeBlockComponentViewModel(
+        nodeId: 'cb1',
+        text: AttributedText('code'),
+        textStyle: const TextStyle(),
+      );
+      expect(vmWithout.textSpanBuilder, isNull);
+    });
   });
 
   // -------------------------------------------------------------------------
