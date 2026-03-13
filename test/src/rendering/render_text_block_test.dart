@@ -1177,5 +1177,50 @@ void main() {
         reason: 'caret after two tabs must be at same x as caret after 8 spaces',
       );
     });
+
+    test('tab expansion applies when textSpanBuilder is set', () {
+      // A custom builder (like a syntax highlighter) returns a plain TextSpan
+      // with the raw text (no tab expansion applied by the builder itself).
+      // The rendering layer must still expand \t → 4 spaces in the span tree.
+      //
+      // One-tab case (\tHello) coincidentally passes on some platforms because
+      // font metrics happen to align, so we use two tabs (\t\tHi) where the
+      // model-to-visual offset mapping (_m2v(2) == 8) would land in the middle
+      // of "Hi" if the TextPainter sees raw \t characters (4 chars wide total
+      // vs 8 visual positions).
+      TextSpan customBuilder(AttributedText text, TextStyle style) {
+        // Return raw text — no tab expansion — simulating a syntax highlighter.
+        return TextSpan(text: text.text, style: style);
+      }
+
+      final twoTabBlock = RenderTextBlock(
+        nodeId: 'tab_builder_test',
+        text: AttributedText('\t\tHi'),
+        textStyle: const TextStyle(fontSize: 16, fontFamily: 'monospace'),
+        textSpanBuilder: customBuilder,
+      );
+      twoTabBlock.layout(const BoxConstraints(maxWidth: 800), parentUsesSize: true);
+
+      final eightSpaceBlock = RenderTextBlock(
+        nodeId: 'spaces_builder_test',
+        text: AttributedText('        Hi'), // 8 spaces
+        textStyle: const TextStyle(fontSize: 16, fontFamily: 'monospace'),
+        textSpanBuilder: customBuilder,
+      );
+      eightSpaceBlock.layout(const BoxConstraints(maxWidth: 800), parentUsesSize: true);
+
+      // Caret after both tabs (model offset 2) must be at the same x as the
+      // caret after 8 spaces (model offset 8), proving tab expansion ran.
+      final rectAfterTwoTabs =
+          twoTabBlock.getLocalRectForPosition(const TextNodePosition(offset: 2));
+      final rectAfterEightSpaces =
+          eightSpaceBlock.getLocalRectForPosition(const TextNodePosition(offset: 8));
+
+      expect(
+        rectAfterTwoTabs.left,
+        closeTo(rectAfterEightSpaces.left, 2.0),
+        reason: 'tab expansion must apply even when textSpanBuilder is set',
+      );
+    });
   });
 }

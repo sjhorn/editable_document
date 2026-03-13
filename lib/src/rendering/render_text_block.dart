@@ -1347,7 +1347,7 @@ class RenderTextBlock extends RenderDocumentBlock {
   /// Used by the exclusion-zone layout to create per-zone painters.
   TextSpan _buildTextSpanForRange(int start, int end) {
     if (_textSpanBuilder != null) {
-      return _textSpanBuilder!(_text.copyText(start, end), _textStyle);
+      return _expandTabs(_textSpanBuilder!(_text.copyText(start, end), _textStyle));
     }
     final rawText = _text.text;
     if (start >= end || start >= rawText.length) {
@@ -1395,7 +1395,7 @@ class RenderTextBlock extends RenderDocumentBlock {
   /// Otherwise the text is split into runs at attribution boundaries and each
   /// run receives a merged [TextStyle].
   TextSpan _buildTextSpan() {
-    if (_textSpanBuilder != null) return _textSpanBuilder!(_text, _textStyle);
+    if (_textSpanBuilder != null) return _expandTabs(_textSpanBuilder!(_text, _textStyle));
     final rawText = _text.text;
     if (rawText.isEmpty) {
       return TextSpan(text: '', style: _textStyle);
@@ -1427,6 +1427,28 @@ class RenderTextBlock extends RenderDocumentBlock {
     }
 
     return TextSpan(style: _textStyle, children: children);
+  }
+
+  /// Recursively replaces tab characters with 4 spaces in a [TextSpan] tree.
+  ///
+  /// Used to ensure tab expansion is applied to spans produced by a custom
+  /// [textSpanBuilder] (e.g. a syntax-highlighting callback) just as it is
+  /// applied to spans built by the default attribution path.
+  TextSpan _expandTabs(TextSpan span) {
+    final newText = span.text?.replaceAll('\t', '    ');
+    final children = span.children;
+    if (children == null || children.isEmpty) {
+      return TextSpan(text: newText, style: span.style, recognizer: span.recognizer);
+    }
+    return TextSpan(
+      text: newText,
+      style: span.style,
+      recognizer: span.recognizer,
+      children: children.map((child) {
+        if (child is TextSpan) return _expandTabs(child);
+        return child;
+      }).toList(),
+    );
   }
 
   /// Merges a set of [Attribution]s into a single [TextStyle].
