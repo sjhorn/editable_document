@@ -38,6 +38,7 @@ class ImageNode extends DocumentNode implements HasBlockLayout {
   ///
   /// [alignment] defaults to [BlockAlignment.stretch] (full-width).
   /// [textWrap] defaults to [TextWrapMode.none] (no text wrapping around the image).
+  /// [lockAspect] defaults to `true` (aspect-ratio-preserving resize).
   ImageNode({
     required super.id,
     required this.imageUrl,
@@ -46,6 +47,7 @@ class ImageNode extends DocumentNode implements HasBlockLayout {
     this.height,
     this.alignment = BlockAlignment.stretch,
     this.textWrap = TextWrapMode.none,
+    this.lockAspect = true,
     super.metadata,
   });
 
@@ -75,6 +77,13 @@ class ImageNode extends DocumentNode implements HasBlockLayout {
   /// (similar to CSS `float`).
   final TextWrapMode textWrap;
 
+  /// Whether resize handles maintain the image's aspect ratio.
+  ///
+  /// When `true` (the default), all resize handles — corners and edges —
+  /// scale both dimensions proportionally. When `false`, corners resize
+  /// width and height independently, and edges change only their dimension.
+  final bool lockAspect;
+
   @override
   bool get isDraggable => true;
 
@@ -97,6 +106,7 @@ class ImageNode extends DocumentNode implements HasBlockLayout {
     double? height,
     BlockAlignment? alignment,
     TextWrapMode? textWrap,
+    bool? lockAspect,
     Map<String, dynamic>? metadata,
   }) {
     return ImageNode(
@@ -107,6 +117,7 @@ class ImageNode extends DocumentNode implements HasBlockLayout {
       height: height ?? this.height,
       alignment: alignment ?? this.alignment,
       textWrap: textWrap ?? this.textWrap,
+      lockAspect: lockAspect ?? this.lockAspect,
       metadata: metadata ?? this.metadata,
     );
   }
@@ -123,6 +134,7 @@ class ImageNode extends DocumentNode implements HasBlockLayout {
         other.height == height &&
         other.alignment == alignment &&
         other.textWrap == textWrap &&
+        other.lockAspect == lockAspect &&
         mapEquals(other.metadata, metadata);
   }
 
@@ -135,6 +147,7 @@ class ImageNode extends DocumentNode implements HasBlockLayout {
         height,
         alignment,
         textWrap,
+        lockAspect,
         Object.hashAll(metadata.entries.map((e) => e)),
       );
 
@@ -151,11 +164,12 @@ class ImageNode extends DocumentNode implements HasBlockLayout {
     properties.add(
       EnumProperty<TextWrapMode>('textWrap', textWrap, defaultValue: TextWrapMode.none),
     );
+    properties.add(DiagnosticsProperty<bool>('lockAspect', lockAspect, defaultValue: true));
   }
 
   @override
   String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) =>
       'ImageNode(id: $id, imageUrl: $imageUrl, altText: $altText, '
       'width: $width, height: $height, alignment: ${alignment.name}, '
-      'textWrap: $textWrap, metadata: $metadata)';
+      'textWrap: $textWrap, lockAspect: $lockAspect, metadata: $metadata)';
 }
