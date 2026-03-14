@@ -5,7 +5,7 @@
 /// synthetic value generation.
 library;
 
-import 'package:benchmark_harness/benchmark_harness.dart';
+import 'benchmark_base.dart';
 import 'package:editable_document/editable_document.dart';
 
 // ---------------------------------------------------------------------------

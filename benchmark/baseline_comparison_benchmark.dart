@@ -5,7 +5,7 @@
 /// or: flutter pub run benchmark_harness:benchmark_harness baseline_comparison_benchmark
 library baseline_comparison;
 
-import 'package:benchmark_harness/benchmark_harness.dart';
+import 'benchmark_base.dart';
 import 'package:editable_document/editable_document.dart';
 
 // =============================================================================
