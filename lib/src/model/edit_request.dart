@@ -11,6 +11,7 @@ library;
 import 'attribution.dart';
 import 'attributed_text.dart';
 import 'document_node.dart';
+import 'document_position.dart';
 import 'document_selection.dart';
 import 'node_position.dart';
 import 'paragraph_node.dart';
@@ -694,4 +695,45 @@ class DeleteTableRequest extends EditRequest {
 
   @override
   String toString() => 'DeleteTableRequest(nodeId: $nodeId)';
+}
+
+// ---------------------------------------------------------------------------
+// MoveNodeToPositionRequest
+// ---------------------------------------------------------------------------
+
+/// Request to move a block node to a [DocumentPosition] within the document.
+///
+/// When [position] falls mid-text (i.e. a [TextNodePosition] with offset > 0
+/// and < text.length), the text node is split at that offset and the block is
+/// inserted between the two halves. When [position] is at a block boundary,
+/// the block is simply moved to the appropriate index.
+///
+/// The node identified by [nodeId] must exist and implement [HasBlockLayout];
+/// the target [position.nodeId] must also exist in the document.
+class MoveNodeToPositionRequest extends EditRequest {
+  /// Creates a [MoveNodeToPositionRequest].
+  const MoveNodeToPositionRequest({required this.nodeId, required this.position});
+
+  /// The id of the block node to move.
+  final String nodeId;
+
+  /// The document position to move the block to.
+  ///
+  /// When this is a [TextNodePosition] with a mid-text offset, the target text
+  /// node is split and the block is inserted between the two halves.
+  final DocumentPosition position;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is MoveNodeToPositionRequest &&
+        other.nodeId == nodeId &&
+        other.position == position;
+  }
+
+  @override
+  int get hashCode => Object.hash(nodeId, position);
+
+  @override
+  String toString() => 'MoveNodeToPositionRequest(nodeId: $nodeId, position: $position)';
 }

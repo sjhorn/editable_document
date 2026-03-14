@@ -1311,3 +1311,130 @@ class DeleteTableCommand extends EditCommand {
     return [NodeDeleted(nodeId: nodeId, index: nodeIndex)];
   }
 }
+
+// ---------------------------------------------------------------------------
+// MoveNodeToPositionCommand
+// ---------------------------------------------------------------------------
+
+/// Moves the block node identified by [nodeId] to the document location
+/// described by [position].
+///
+/// ### Algorithm
+///
+/// 1. Validate [nodeId] exists; throw [StateError] otherwise.
+/// 2. Validate [position.nodeId] exists; throw [StateError] otherwise.
+/// 3. Remove the block from its current position.
+/// 4. Determine the insertion index based on [position]:
+///    - **[BinaryNodePosition.upstream]** — insert before the target node.
+///    - **[BinaryNodePosition.downstream]** — insert after the target node.
+///    - **[TextNodePosition] at offset 0** — insert before the target node.
+///    - **[TextNodePosition] at offset >= text.length** — insert after the
+///      target node.
+///    - **[TextNodePosition] at mid-text offset** — split the target text node
+///      at that offset, then insert the block between the two halves.
+///      A fresh [ParagraphNode] is created for the text after the offset.
+/// 5. The controller selection is set to the block node at its new position.
+///
+/// Throws [StateError] when [nodeId] or [position.nodeId] does not exist.
+class MoveNodeToPositionCommand extends EditCommand {
+  /// Creates a [MoveNodeToPositionCommand].
+  const MoveNodeToPositionCommand({required this.nodeId, required this.position});
+
+  /// The id of the block node to move.
+  final String nodeId;
+
+  /// The document position to move the block to.
+  final DocumentPosition position;
+
+  @override
+  List<DocumentChangeEvent> execute(EditContext context) {
+    final doc = context.document;
+
+    // 1. Validate the node to move.
+    final nodeToMove = doc.nodeById(nodeId);
+    if (nodeToMove == null) {
+      throw StateError('MoveNodeToPositionCommand: no node with id "$nodeId".');
+    }
+
+    // 2. Validate the target position node.
+    final targetNode = doc.nodeById(position.nodeId);
+    if (targetNode == null) {
+      throw StateError(
+        'MoveNodeToPositionCommand: target node "${position.nodeId}" not found.',
+      );
+    }
+
+    final events = <DocumentChangeEvent>[];
+
+    // 3. Remove the block from its current position.
+    final oldIndex = doc.getNodeIndexById(nodeId);
+    doc.deleteNode(nodeId);
+    events.add(NodeDeleted(nodeId: nodeId, index: oldIndex));
+
+    // After removal the target node index may have shifted.
+    final targetIndex = doc.getNodeIndexById(position.nodeId);
+
+    // 4. Determine the insertion index.
+    final nodePosition = position.nodePosition;
+
+    if (nodePosition is BinaryNodePosition) {
+      final insertIndex =
+          nodePosition.type == BinaryNodePositionType.upstream ? targetIndex : targetIndex + 1;
+      doc.insertNode(insertIndex, nodeToMove);
+      events.add(NodeInserted(nodeId: nodeId, index: insertIndex));
+    } else if (nodePosition is TextNodePosition) {
+      final textOffset = nodePosition.offset;
+
+      if (targetNode is! TextNode) {
+        // Target is not a text node — treat as if inserting after.
+        final insertIndex = targetIndex + 1;
+        doc.insertNode(insertIndex, nodeToMove);
+        events.add(NodeInserted(nodeId: nodeId, index: insertIndex));
+      } else {
+        final textLength = targetNode.text.length;
+
+        if (textOffset <= 0) {
+          // Insert before target node.
+          doc.insertNode(targetIndex, nodeToMove);
+          events.add(NodeInserted(nodeId: nodeId, index: targetIndex));
+        } else if (textOffset >= textLength) {
+          // Insert after target node.
+          final insertIndex = targetIndex + 1;
+          doc.insertNode(insertIndex, nodeToMove);
+          events.add(NodeInserted(nodeId: nodeId, index: insertIndex));
+        } else {
+          // Mid-text: split the target node, then insert the block between
+          // the two halves.
+          final firstText = targetNode.text.copyText(0, textOffset);
+          final secondText = targetNode.text.copyText(textOffset);
+
+          // Truncate the original node to text before offset.
+          doc.updateNode(
+            position.nodeId,
+            (n) => (n as TextNode).copyWith(text: firstText),
+          );
+          events.add(TextChanged(nodeId: position.nodeId));
+
+          // Insert the block immediately after the (now truncated) target.
+          final blockInsertIndex = targetIndex + 1;
+          doc.insertNode(blockInsertIndex, nodeToMove);
+          events.add(NodeInserted(nodeId: nodeId, index: blockInsertIndex));
+
+          // Insert a new paragraph node with the remaining text after the block.
+          final newId = generateNodeId();
+          final newParagraph = ParagraphNode(id: newId, text: secondText);
+          final paragraphInsertIndex = blockInsertIndex + 1;
+          doc.insertNode(paragraphInsertIndex, newParagraph);
+          events.add(NodeInserted(nodeId: newId, index: paragraphInsertIndex));
+        }
+      }
+    } else {
+      // Unknown position type — fall back to appending at the end.
+      final insertIndex = doc.nodeCount;
+      doc.insertNode(insertIndex, nodeToMove);
+      events.add(NodeInserted(nodeId: nodeId, index: insertIndex));
+    }
+
+    return events;
+  }
+}

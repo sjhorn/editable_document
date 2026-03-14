@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'attributed_text.dart';
 import 'block_alignment.dart';
 import 'block_layout.dart';
+import 'document_node.dart';
 import 'text_node.dart';
 import 'text_wrap_mode.dart';
 
@@ -74,6 +75,16 @@ class CodeBlockNode extends TextNode implements HasBlockLayout {
   /// Defaults to [TextWrapMode.none], which causes the block to occupy a full
   /// vertical row. Use [TextWrapMode.wrap] to enable float-like layout.
   final TextWrapMode textWrap;
+
+  @override
+  bool get isDraggable => true;
+
+  @override
+  bool get isResizable => alignment != BlockAlignment.stretch;
+
+  @override
+  DocumentNode copyWithSize({double? width, double? height}) =>
+      copyWith(width: width ?? this.width, height: height ?? this.height);
 
   @override
   CodeBlockNode copyWith({

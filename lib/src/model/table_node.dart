@@ -118,6 +118,16 @@ class TableNode extends DocumentNode implements HasBlockLayout {
   AttributedText cellAt(int row, int col) => _cells[row][col];
 
   @override
+  bool get isDraggable => true;
+
+  @override
+  bool get isResizable => alignment != BlockAlignment.stretch;
+
+  @override
+  DocumentNode copyWithSize({double? width, double? height}) =>
+      copyWith(width: width ?? this.width, height: height ?? this.height);
+
+  @override
   TableNode copyWith({
     String? id,
     int? rowCount,

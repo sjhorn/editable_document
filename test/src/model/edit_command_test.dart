@@ -1492,4 +1492,183 @@ void main() {
       );
     });
   });
+
+  // ===========================================================================
+  // MoveNodeToPositionCommand
+  // ===========================================================================
+
+  group('MoveNodeToPositionCommand', () {
+    test('1. moves block to start-of-node boundary (BinaryNodePosition upstream)', () {
+      // Document: [p1:"Hello", img, p2:"World"]
+      // Move img to before p2 → [p1:"Hello", p2:"World", img] (img goes after p2's upstream
+      // boundary = index after p1).
+      // Actually: position = p2/upstream means insert BEFORE p2 at that boundary.
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('Hello')),
+        ImageNode(id: 'img', imageUrl: 'https://example.com/a.png'),
+        ParagraphNode(id: 'p2', text: AttributedText('World')),
+      ]);
+      final ctx = _ctx(doc);
+      const cmd = MoveNodeToPositionCommand(
+        nodeId: 'img',
+        position: DocumentPosition(
+          nodeId: 'p1',
+          nodePosition: TextNodePosition(offset: 0),
+        ),
+      );
+
+      final events = cmd.execute(ctx);
+
+      // img should now be at index 0, before p1.
+      expect(doc.nodeAt(0), isA<ImageNode>());
+      expect(doc.nodeAt(1).id, 'p1');
+      expect(doc.nodeAt(2).id, 'p2');
+      expect(doc.nodeCount, 3);
+      expect(events.any((e) => e is NodeDeleted), isTrue);
+      expect(events.any((e) => e is NodeInserted), isTrue);
+    });
+
+    test('2. moves block to end-of-node boundary (TextNodePosition at text.length)', () {
+      // Document: [p1:"Hello", img, p2:"World"]
+      // Move img to end of p2 (offset == p2.text.length == 5) → insert after p2.
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('Hello')),
+        ImageNode(id: 'img', imageUrl: 'https://example.com/a.png'),
+        ParagraphNode(id: 'p2', text: AttributedText('World')),
+      ]);
+      final ctx = _ctx(doc);
+      const cmd = MoveNodeToPositionCommand(
+        nodeId: 'img',
+        position: DocumentPosition(
+          nodeId: 'p2',
+          nodePosition: TextNodePosition(offset: 5),
+        ),
+      );
+
+      final events = cmd.execute(ctx);
+
+      // img should now be at the end (index 2), after p2.
+      expect(doc.nodeAt(0).id, 'p1');
+      expect(doc.nodeAt(1).id, 'p2');
+      expect(doc.nodeAt(2), isA<ImageNode>());
+      expect(doc.nodeCount, 3);
+      expect(events.any((e) => e is NodeDeleted), isTrue);
+      expect(events.any((e) => e is NodeInserted), isTrue);
+    });
+
+    test('3. moves block to mid-text position: splits text node', () {
+      // Document: [p1:"Hello World", img]
+      // Move img to p1 at offset 5 (mid-text).
+      // Expected: [p1:"Hello", img, p_new:"World"]
+      // p1 retains "Hello", img is inserted after p1, new paragraph has " World".
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('Hello World')),
+        ImageNode(id: 'img', imageUrl: 'https://example.com/a.png'),
+      ]);
+      final ctx = _ctx(doc);
+      const cmd = MoveNodeToPositionCommand(
+        nodeId: 'img',
+        position: DocumentPosition(
+          nodeId: 'p1',
+          nodePosition: TextNodePosition(offset: 5),
+        ),
+      );
+
+      final events = cmd.execute(ctx);
+
+      expect(doc.nodeCount, 3);
+      final first = doc.nodeAt(0) as ParagraphNode;
+      expect(first.id, 'p1');
+      expect(first.text.text, 'Hello');
+
+      expect(doc.nodeAt(1), isA<ImageNode>());
+      expect(doc.nodeAt(1).id, 'img');
+
+      final third = doc.nodeAt(2) as ParagraphNode;
+      expect(third.text.text, ' World');
+
+      // Events: TextChanged(p1) + NodeInserted(p_new) + NodeDeleted(img from old pos) +
+      // NodeInserted(img at new pos) — at minimum TextChanged and NodeInserted.
+      expect(events.any((e) => e is TextChanged && (e).nodeId == 'p1'), isTrue);
+      expect(events.any((e) => e is NodeInserted && (e).nodeId == 'img'), isTrue);
+    });
+
+    test('4. moves block adjacent to a binary node (BinaryNodePosition)', () {
+      // Document: [hr1, p1:"Hello", hr2]
+      // Move hr1 to hr2/downstream → insert after hr2.
+      final doc = MutableDocument([
+        HorizontalRuleNode(id: 'hr1'),
+        ParagraphNode(id: 'p1', text: AttributedText('Hello')),
+        HorizontalRuleNode(id: 'hr2'),
+      ]);
+      final ctx = _ctx(doc);
+      const cmd = MoveNodeToPositionCommand(
+        nodeId: 'hr1',
+        position: DocumentPosition(
+          nodeId: 'hr2',
+          nodePosition: BinaryNodePosition.downstream(),
+        ),
+      );
+
+      final events = cmd.execute(ctx);
+
+      expect(doc.nodeAt(0).id, 'p1');
+      expect(doc.nodeAt(1).id, 'hr2');
+      expect(doc.nodeAt(2).id, 'hr1');
+      expect(doc.nodeCount, 3);
+      expect(events.any((e) => e is NodeDeleted), isTrue);
+      expect(events.any((e) => e is NodeInserted), isTrue);
+    });
+
+    test('5. throws StateError for unknown nodeId', () {
+      final doc = _twoParaDoc();
+      final ctx = _ctx(doc);
+      const cmd = MoveNodeToPositionCommand(
+        nodeId: 'nope',
+        position: DocumentPosition(
+          nodeId: 'p1',
+          nodePosition: TextNodePosition(offset: 0),
+        ),
+      );
+      expect(() => cmd.execute(ctx), throwsStateError);
+    });
+
+    test('6. throws StateError for unknown target nodeId in position', () {
+      final doc = _twoParaDoc();
+      final ctx = _ctx(doc);
+      const cmd = MoveNodeToPositionCommand(
+        nodeId: 'p1',
+        position: DocumentPosition(
+          nodeId: 'nope',
+          nodePosition: TextNodePosition(offset: 0),
+        ),
+      );
+      expect(() => cmd.execute(ctx), throwsStateError);
+    });
+
+    test('7. via Editor.submit dispatches correctly', () {
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('Hello')),
+        ImageNode(id: 'img', imageUrl: 'https://example.com/a.png'),
+        ParagraphNode(id: 'p2', text: AttributedText('World')),
+      ]);
+      final ctx = _ctx(doc);
+      final editor = Editor(editContext: ctx);
+
+      editor.submit(
+        const MoveNodeToPositionRequest(
+          nodeId: 'img',
+          position: DocumentPosition(
+            nodeId: 'p2',
+            nodePosition: TextNodePosition(offset: 5),
+          ),
+        ),
+      );
+
+      expect(doc.nodeAt(0).id, 'p1');
+      expect(doc.nodeAt(1).id, 'p2');
+      expect(doc.nodeAt(2), isA<ImageNode>());
+      editor.dispose();
+    });
+  });
 }

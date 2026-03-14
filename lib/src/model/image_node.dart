@@ -76,6 +76,16 @@ class ImageNode extends DocumentNode implements HasBlockLayout {
   final TextWrapMode textWrap;
 
   @override
+  bool get isDraggable => true;
+
+  @override
+  bool get isResizable => alignment != BlockAlignment.stretch;
+
+  @override
+  DocumentNode copyWithSize({double? width, double? height}) =>
+      copyWith(width: width ?? this.width, height: height ?? this.height);
+
+  @override
   ImageNode copyWith({
     String? id,
     String? imageUrl,

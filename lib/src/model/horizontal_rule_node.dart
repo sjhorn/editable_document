@@ -74,6 +74,16 @@ class HorizontalRuleNode extends DocumentNode implements HasBlockLayout {
   final TextWrapMode textWrap;
 
   @override
+  bool get isDraggable => true;
+
+  @override
+  bool get isResizable => alignment != BlockAlignment.stretch;
+
+  @override
+  DocumentNode copyWithSize({double? width, double? height}) =>
+      copyWith(width: width ?? this.width, height: height ?? this.height);
+
+  @override
   HorizontalRuleNode copyWith({
     String? id,
     double? width,

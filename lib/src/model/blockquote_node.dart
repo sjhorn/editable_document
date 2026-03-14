@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'attributed_text.dart';
 import 'block_alignment.dart';
 import 'block_layout.dart';
+import 'document_node.dart';
 import 'text_node.dart';
 import 'text_wrap_mode.dart';
 
@@ -63,6 +64,16 @@ class BlockquoteNode extends TextNode implements HasBlockLayout {
   /// [BlockAlignment.end], adjacent blocks receive reduced-width constraints
   /// so they flow beside this blockquote. Defaults to [TextWrapMode.none].
   final TextWrapMode textWrap;
+
+  @override
+  bool get isDraggable => true;
+
+  @override
+  bool get isResizable => alignment != BlockAlignment.stretch;
+
+  @override
+  DocumentNode copyWithSize({double? width, double? height}) =>
+      copyWith(width: width ?? this.width, height: height ?? this.height);
 
   @override
   BlockquoteNode copyWith({

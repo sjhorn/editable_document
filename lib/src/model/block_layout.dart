@@ -1,23 +1,28 @@
 /// Block layout interface for container document nodes.
 ///
 /// Provides [HasBlockLayout], the common interface for nodes that support
-/// block-level layout properties: alignment, text wrapping, width, and height.
+/// block-level layout properties: alignment, text wrapping, width, height,
+/// draggability, resizability, and size-copy.
 library;
 
 import 'block_alignment.dart';
+import 'document_node.dart';
 import 'text_wrap_mode.dart';
 
 /// Interface for document nodes that support block-level layout properties.
 ///
 /// Container block nodes — [ImageNode], [CodeBlockNode], [BlockquoteNode],
-/// and [HorizontalRuleNode] — all implement this interface, providing a
-/// uniform way to read their layout properties without type-checking each
-/// concrete type.
+/// [HorizontalRuleNode], and [TableNode] — all implement this interface,
+/// providing a uniform way to read and update their layout properties without
+/// type-checking each concrete type.
 ///
 /// ```dart
 /// if (node is HasBlockLayout) {
 ///   final alignment = node.alignment;
 ///   final wrap = node.textWrap;
+///   if (node.isResizable) {
+///     final resized = node.copyWithSize(width: 320.0);
+///   }
 /// }
 /// ```
 abstract interface class HasBlockLayout {
@@ -32,4 +37,29 @@ abstract interface class HasBlockLayout {
 
   /// Preferred display height in logical pixels, or `null` for default sizing.
   double? get height;
+
+  /// Whether this block can be dragged to a new position in the document.
+  ///
+  /// All concrete [HasBlockLayout] implementations return `true` by default,
+  /// allowing drag-to-move interactions at the editing layer. Override to
+  /// return `false` for nodes that should remain anchored in place.
+  bool get isDraggable;
+
+  /// Whether this block can be resized via drag handles.
+  ///
+  /// Returns `true` when [alignment] is not [BlockAlignment.stretch], because
+  /// stretch-aligned blocks fill the full available width and resizing them
+  /// independently would conflict with the stretch constraint. When
+  /// [alignment] is [BlockAlignment.stretch] this returns `false`.
+  bool get isResizable;
+
+  /// Returns a copy of this node with updated [width] and/or [height].
+  ///
+  /// This eliminates the need for type-dispatching in resize operations.
+  /// Pass `null` for either dimension to preserve the current value.
+  ///
+  /// ```dart
+  /// final resized = (node as HasBlockLayout).copyWithSize(width: 400.0);
+  /// ```
+  DocumentNode copyWithSize({double? width, double? height});
 }

@@ -194,6 +194,8 @@ class Editor {
       );
     } else if (request is DeleteTableRequest) {
       return DeleteTableCommand(nodeId: request.nodeId);
+    } else if (request is MoveNodeToPositionRequest) {
+      return MoveNodeToPositionCommand(nodeId: request.nodeId, position: request.position);
     }
     throw ArgumentError('No command registered for request type ${request.runtimeType}.');
   }
