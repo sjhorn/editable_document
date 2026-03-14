@@ -25,6 +25,7 @@
 /// - Edge drag with [ImageNode.lockAspect] = true scales the orthogonal
 ///   dimension proportionally.
 /// - [createResetImageSizeRequest] preserves [ImageNode.lockAspect].
+/// - Selection persists (remains fully-selected) after a resize drag completes.
 library;
 
 import 'package:flutter/material.dart';
@@ -1351,6 +1352,121 @@ void main() {
       expect(nodeId, 'img-1');
       expect(width, 250.0, reason: 'width should increase by 50');
       expect(height, 125.0, reason: 'height should be proportionally scaled to 250/2 = 125');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // BlockResizeHandles — selection persistence after drag
+  // -------------------------------------------------------------------------
+
+  group('BlockResizeHandles — selection persistence after drag', () {
+    testWidgets('selection persists after resize drag completes on a stretch image',
+        (tester) async {
+      // Use a stretch-aligned image (no explicit alignment → BlockAlignment.stretch).
+      // The onBlockResize callback is intentionally a no-op here so that the
+      // document model stays stable; the test only checks that the controller
+      // selection references the node after the drag ends.
+      final doc = MutableDocument([
+        ImageNode(
+          id: 'img-1',
+          imageUrl: 'test.png',
+          // no alignment → defaults to BlockAlignment.stretch
+        ),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      addTearDown(controller.dispose);
+
+      _selectFully(controller, 'img-1');
+
+      await tester.pumpWidget(
+        _buildWithOverlay(
+          controller: controller,
+          document: doc,
+          // No-op: we only care about the selection state after the drag, not
+          // about the document mutation.
+          onBlockResize: (id, w, h) {},
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Drag middleLeft handle (index 3) — always within the viewport even for
+      // a stretch-aligned (full-width) image where the right-side handles sit
+      // right at the container edge.
+      final listeners = find.descendant(
+        of: find.byType(BlockResizeHandles),
+        matching: find.byType(Listener),
+      );
+      // middleLeft is index 3 in ResizeHandlePosition.values.
+      await tester.drag(listeners.at(3), const Offset(-20.0, 0.0));
+      await tester.pumpAndSettle();
+
+      // After the drag ends, the selection must still reference 'img-1'.
+      final selection = controller.selection;
+      expect(
+        selection,
+        isNotNull,
+        reason: 'Selection should not be null after a resize drag completes',
+      );
+      expect(
+        selection!.base.nodeId,
+        'img-1',
+        reason: 'Base position should still be on the resized node',
+      );
+      expect(
+        selection.extent.nodeId,
+        'img-1',
+        reason: 'Extent position should still be on the resized node',
+      );
+    });
+
+    testWidgets('selection persists after resize drag completes on a center-aligned image',
+        (tester) async {
+      final doc = MutableDocument([
+        ImageNode(
+          id: 'img-1',
+          imageUrl: 'test.png',
+          width: 200.0,
+          height: 100.0,
+          alignment: BlockAlignment.center,
+        ),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      addTearDown(controller.dispose);
+
+      _selectFully(controller, 'img-1');
+
+      await tester.pumpWidget(
+        _buildWithOverlay(
+          controller: controller,
+          document: doc,
+          onBlockResize: (id, w, h) {
+            final node = doc.nodeById(id);
+            if (node == null) return;
+            final req = createResizeRequest(node, w, h);
+            if (req != null) {
+              doc.replaceNode(id, (req as ReplaceNodeRequest).newNode);
+            }
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Drag middleRight handle.
+      final listeners = find.descendant(
+        of: find.byType(BlockResizeHandles),
+        matching: find.byType(Listener),
+      );
+      // middleRight is index 4 in ResizeHandlePosition.values.
+      await tester.drag(listeners.at(4), const Offset(50.0, 0.0));
+      await tester.pumpAndSettle();
+
+      final selection = controller.selection;
+      expect(selection, isNotNull,
+          reason: 'Selection should not be null after a resize drag completes');
+      expect(selection!.base.nodeId, 'img-1',
+          reason: 'Base position should still be on the resized node');
+      expect(selection.extent.nodeId, 'img-1',
+          reason: 'Extent position should still be on the resized node');
     });
   });
 

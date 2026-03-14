@@ -1222,5 +1222,81 @@ void main() {
         reason: 'tab expansion must apply even when textSpanBuilder is set',
       );
     });
+
+    test('layout updates correctly after tab insertion into existing text', () {
+      // Simulate the user pressing Tab mid-text: "Hello" → "He\tllo".
+      // After updating text, the render object must re-layout and produce
+      // correct caret positions in model space.
+      final block = RenderTextBlock(
+        nodeId: 'tab_insert_test',
+        text: AttributedText('Hello'),
+        textStyle: const TextStyle(fontSize: 16, fontFamily: 'monospace'),
+      );
+      block.layout(const BoxConstraints(maxWidth: 800), parentUsesSize: true);
+
+      // Record caret-x at end of "Hello" (model offset 5) before insertion.
+      final beforeRect = block.getLocalRectForPosition(const TextNodePosition(offset: 5));
+
+      // Insert a tab at offset 2: "Hello" → "He\tllo".
+      block.text = AttributedText('He\tllo');
+      block.layout(const BoxConstraints(maxWidth: 800), parentUsesSize: true);
+
+      // Caret at model offset 3 (just after the tab).
+      final afterTabRect = block.getLocalRectForPosition(const TextNodePosition(offset: 3));
+      // Caret at model offset 6 (end of "llo").
+      final endRect = block.getLocalRectForPosition(const TextNodePosition(offset: 6));
+
+      // The caret after the tab must be at the position of 2 chars + 4 spaces,
+      // which is further right than the original position at offset 2.
+      final offsetTwoRect = block.getLocalRectForPosition(const TextNodePosition(offset: 2));
+      expect(afterTabRect.left, greaterThan(offsetTwoRect.left),
+          reason: 'caret after tab must be right of caret at model offset 2');
+
+      // The end-of-text caret must be shifted right compared to the original
+      // "Hello" end, because the tab adds 3 extra visual characters.
+      expect(endRect.left, greaterThan(beforeRect.left),
+          reason: 'end of text must shift right after tab insertion');
+    });
+
+    test('layout updates correctly after tab insertion with custom textSpanBuilder', () {
+      // Same scenario but with a custom textSpanBuilder (syntax highlighting).
+      TextSpan customBuilder(AttributedText text, TextStyle style) {
+        return TextSpan(text: text.text, style: style);
+      }
+
+      final block = RenderTextBlock(
+        nodeId: 'tab_insert_builder_test',
+        text: AttributedText('Hello'),
+        textStyle: const TextStyle(fontSize: 16, fontFamily: 'monospace'),
+        textSpanBuilder: customBuilder,
+      );
+      block.layout(const BoxConstraints(maxWidth: 800), parentUsesSize: true);
+
+      final beforeRect = block.getLocalRectForPosition(const TextNodePosition(offset: 5));
+
+      // Insert tab: "Hello" → "He\tllo".
+      block.text = AttributedText('He\tllo');
+      block.layout(const BoxConstraints(maxWidth: 800), parentUsesSize: true);
+
+      final endRect = block.getLocalRectForPosition(const TextNodePosition(offset: 6));
+
+      // The end caret must be further right than before (tab adds 3 extra).
+      expect(endRect.left, greaterThan(beforeRect.left),
+          reason: 'end of text must shift right after tab insertion with custom builder');
+
+      // Verify the end position matches the equivalent with spaces.
+      final spacesBlock = RenderTextBlock(
+        nodeId: 'spaces_insert_test',
+        text: AttributedText('He    llo'), // 4 spaces instead of tab
+        textStyle: const TextStyle(fontSize: 16, fontFamily: 'monospace'),
+        textSpanBuilder: customBuilder,
+      );
+      spacesBlock.layout(const BoxConstraints(maxWidth: 800), parentUsesSize: true);
+
+      final spacesEndRect = spacesBlock.getLocalRectForPosition(const TextNodePosition(offset: 9));
+
+      expect(endRect.left, closeTo(spacesEndRect.left, 2.0),
+          reason: 'tab-expanded end must match space-expanded end');
+    });
   });
 }

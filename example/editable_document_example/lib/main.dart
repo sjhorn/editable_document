@@ -1937,8 +1937,18 @@ class _DocumentDemoState extends State<DocumentDemo> {
       height: node.height,
       alignment: node.alignment,
       textWrap: node.textWrap,
+      lockAspect: node.lockAspect,
     );
     _editor.submit(ReplaceNodeRequest(nodeId: node.id, newNode: updated));
+  }
+
+  void _updateLockAspect(ImageNode node, bool value) {
+    _editor.submit(
+      ReplaceNodeRequest(
+        nodeId: node.id,
+        newNode: node.copyWith(lockAspect: value),
+      ),
+    );
   }
 
   Future<void> _pickImageFile(DocumentNode node) async {
@@ -2111,7 +2121,23 @@ class _DocumentDemoState extends State<DocumentDemo> {
                   ],
                 ),
                 if (node is ImageNode) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
+                  // --- Lock Aspect ---
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Lock Aspect',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ),
+                      Checkbox(
+                        value: node.lockAspect,
+                        onChanged: (value) => _updateLockAspect(node, value ?? true),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
                   Text('Image URL', style: Theme.of(context).textTheme.labelMedium),
                   const SizedBox(height: 4),
                   _UrlField(

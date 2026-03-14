@@ -16,9 +16,12 @@ import '../model/block_layout.dart';
 import '../model/document.dart';
 import '../model/document_editing_controller.dart';
 import '../model/document_node.dart';
+import '../model/document_position.dart';
+import '../model/document_selection.dart';
 import '../model/edit_request.dart';
 import '../model/image_node.dart';
 import '../model/node_position.dart';
+import '../model/text_node.dart';
 import 'document_layout.dart';
 
 // ---------------------------------------------------------------------------
@@ -490,6 +493,12 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
   void _finishDrag() {
     _emitResize();
 
+    // Re-select the node so it remains visually selected after the drag.
+    final nodeId = _dragNodeId;
+    if (nodeId != null) {
+      _reselectBlock(nodeId);
+    }
+
     _activePointer = null;
     _dragNodeId = null;
     _lockAspect = true;
@@ -499,6 +508,47 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
       _dragDelta = Offset.zero;
       _dragStartSize = null;
     });
+  }
+
+  /// Re-selects [nodeId] with a full-node selection so that the block
+  /// remains visually selected after a resize drag completes.
+  ///
+  /// For binary nodes ([ImageNode], [HorizontalRuleNode]) this sets an
+  /// upstream → downstream [BinaryNodePosition] selection.  For text-based
+  /// block nodes ([CodeBlockNode], [BlockquoteNode]) it selects from offset 0
+  /// to the end of the text.
+  ///
+  /// Mirrors the [BlockDragOverlay._selectBlock] pattern — same principle,
+  /// applied at drag-resize completion rather than block-move drop.
+  void _reselectBlock(String nodeId) {
+    final node = widget.document.nodeById(nodeId);
+    if (node == null) return;
+
+    final DocumentSelection selection;
+    if (node is TextNode) {
+      selection = DocumentSelection(
+        base: DocumentPosition(
+          nodeId: nodeId,
+          nodePosition: const TextNodePosition(offset: 0),
+        ),
+        extent: DocumentPosition(
+          nodeId: nodeId,
+          nodePosition: TextNodePosition(offset: node.text.text.length),
+        ),
+      );
+    } else {
+      selection = DocumentSelection(
+        base: DocumentPosition(
+          nodeId: nodeId,
+          nodePosition: const BinaryNodePosition.upstream(),
+        ),
+        extent: DocumentPosition(
+          nodeId: nodeId,
+          nodePosition: const BinaryNodePosition.downstream(),
+        ),
+      );
+    }
+    widget.controller.setSelection(selection);
   }
 
   /// Computes the new (width, height) from [original] size and [delta].

@@ -381,6 +381,41 @@ Container blocks (image, code block, blockquote, horizontal rule) gain explicit 
 
 ---
 
+## Phase 10.6 — Dual floats and table support
+
+> **Commit messages:** `feat(rendering): support concurrent start+end float exclusion zones`, `feat(model): add TableNode with AttributedText cells`, etc.
+
+Concurrent float layout (left+right images with text flowing between) and basic table support via self-contained composite `TableNode`.
+
+### 10.6.1 Dual float support (rendering layer)
+- [x] `RenderDocumentLayout` — extend `activeExclusion` from single `_ExclusionZone?` to independent `startExclusion`/`endExclusion` pair; stretch blocks account for both sides simultaneously; each exclusion clears independently when `yOffset >= exclusion.bottom`.
+- [x] Tests: dual float layout (start+end images with text between), independent clearing, hit testing with dual exclusions, mixed single+dual scenarios.
+
+### 10.6.2 Table model layer
+- [x] `TableNode extends DocumentNode implements HasBlockLayout` — 2D grid of `AttributedText` cells (`List<List<AttributedText>>`), `rowCount`, `columnCount`, `List<double?> columnWidths` (null = auto), `alignment`, `textWrap`, `width`, `height`.
+- [x] `TableCellPosition implements NodePosition` — `{int row, int col, int offset, TextAffinity affinity}`.
+- [x] Tests: construction, equality, `copyWith`, cell access, position comparisons.
+
+### 10.6.3 Table rendering layer
+- [x] `RenderTableBlock extends RenderDocumentBlock` — self-contained cell layout using `TextPainter` per cell; auto column width distribution; cell padding; border painting; selection highlight within cells.
+- [x] `getLocalRectForPosition(TableCellPosition)`, `getPositionAtOffset(Offset)` hit testing into correct cell.
+- [x] Tests: layout at various constraints, hit testing into cells, position-to-rect round-trips, selection painting within cells.
+
+### 10.6.4 Table services layer
+- [x] `DocumentImeSerializer` handles `TableNode` — serializes only the active cell's text to the platform.
+- [x] Table edit requests: `InsertTableRequest`, `DeleteTableRequest`, `UpdateTableCellRequest`.
+- [x] Tests: IME serialization round-trip for table cells, edit request execution.
+
+### 10.6.5 Table widget layer
+- [x] `TableComponentBuilder` + `TableComponentViewModel` — wire through to `RenderTableBlock`; added to `defaultComponentBuilders`.
+- [x] Tests: builder round-trips, view model equality, layout property wiring.
+
+### 10.6.6 Example app and documentation
+- [x] `example/main.dart` updated with dual float demo (left+right images with text wrapping) and table demo.
+- [x] Dartdoc for all new public APIs (`TableNode`, `TableCellPosition`, `RenderTableBlock`, `TableComponentBuilder`).
+
+---
+
 ## Phase 11 — Flutter framework contribution prep
 
 > **Commit message:** `chore: flutter contribution readiness — design doc, analysis alignment`
@@ -399,7 +434,7 @@ Container blocks (image, code block, blockquote, horizontal rule) gain explicit 
 
 > **Commit message:** `release: editable_document 1.0.0`
 
-- [ ] All phases 0–11 (including 10.5) complete with all checkboxes ticked.
+- [ ] All phases 0–11 (including 10.5 and 10.6) complete with all checkboxes ticked.
 - [ ] Test coverage ≥ 90 % overall; 100 % on `services/`, `model/position`, `model/selection`.
 - [ ] Zero `flutter analyze` issues.
 - [ ] Zero `dart doc` warnings.
@@ -423,5 +458,6 @@ Container blocks (image, code block, blockquote, horizontal rule) gain explicit 
 | `0.7.0-dev` | 8 | Accessibility |
 | `0.8.0-dev` | 9–10 | Benchmarks + docs |
 | `0.8.1-dev` | 10.5 | Block layout properties |
+| `0.8.2-dev` | 10.6 | Dual floats + tables |
 | `0.9.0-dev` | 11 | Flutter contribution prep |
 | `1.0.0` | 12 | Stable |
