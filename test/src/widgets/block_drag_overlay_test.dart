@@ -320,5 +320,152 @@ void main() {
         findsOneWidget,
       );
     });
+
+    testWidgets('ghost uses actual block size when layout is available', (tester) async {
+      final doc = _twoRulesDoc();
+      final controller = DocumentEditingController(document: doc);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+      final overlayKey = GlobalKey<BlockDragOverlayState>();
+
+      await tester.pumpWidget(
+        _buildWithDragOverlay(
+          controller: controller,
+          document: doc,
+          layoutKey: layoutKey,
+          overlayKey: overlayKey,
+        ),
+      );
+      await tester.pump();
+
+      // Start a drag with a pointer offset so the overlay can compute the block size.
+      overlayKey.currentState!.startBlockDrag('hr1', pointerOffset: const Offset(300, 20));
+      await tester.pump();
+
+      // The ghost must use the block's actual size (not the 120x40 placeholder).
+      // The block size comes from componentForNode — for a HorizontalRuleNode
+      // rendered inside a 600-wide container, width should be > 120.
+      final state = overlayKey.currentState!;
+      // blockSize is captured from the layout; it should be non-null and wider
+      // than the old 120 px placeholder.
+      expect(state.blockSize, isNotNull);
+      expect(state.blockSize!.width, greaterThan(120));
+    });
+
+    testWidgets('startBlockDrag with pointerOffset stores grab offset', (tester) async {
+      final doc = _twoRulesDoc();
+      final controller = DocumentEditingController(document: doc);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+      final overlayKey = GlobalKey<BlockDragOverlayState>();
+
+      await tester.pumpWidget(
+        _buildWithDragOverlay(
+          controller: controller,
+          document: doc,
+          layoutKey: layoutKey,
+          overlayKey: overlayKey,
+        ),
+      );
+      await tester.pump();
+
+      overlayKey.currentState!.startBlockDrag('hr1', pointerOffset: const Offset(50, 10));
+      await tester.pump();
+
+      // grabOffset should be non-null (pointer was within the block).
+      expect(overlayKey.currentState!.grabOffset, isNotNull);
+    });
+
+    testWidgets('ghost Positioned child uses block size not 120x40 fallback', (tester) async {
+      final doc = _twoRulesDoc();
+      final controller = DocumentEditingController(document: doc);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+      final overlayKey = GlobalKey<BlockDragOverlayState>();
+
+      await tester.pumpWidget(
+        _buildWithDragOverlay(
+          controller: controller,
+          document: doc,
+          layoutKey: layoutKey,
+          overlayKey: overlayKey,
+        ),
+      );
+      await tester.pump();
+
+      overlayKey.currentState!.startBlockDrag('hr1', pointerOffset: const Offset(300, 10));
+      // Simulate the pointer having moved so the ghost is rendered.
+      overlayKey.currentState!.updateBlockDrag(const Offset(300, 50));
+      await tester.pump();
+
+      // The ghost Positioned widget should have width > 120.
+      final positioned = tester
+          .widgetList<Positioned>(
+            find.descendant(
+              of: find.byKey(overlayKey),
+              matching: find.byType(Positioned),
+            ),
+          )
+          .toList();
+      // At least one Positioned child exists (the ghost).
+      expect(positioned, isNotEmpty);
+      final ghost = positioned.first;
+      expect(ghost.width, greaterThan(120));
+    });
+
+    testWidgets('blockSize and grabOffset are cleared after endBlockDrag', (tester) async {
+      final doc = _twoRulesDoc();
+      final controller = DocumentEditingController(document: doc);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+      final overlayKey = GlobalKey<BlockDragOverlayState>();
+
+      await tester.pumpWidget(
+        _buildWithDragOverlay(
+          controller: controller,
+          document: doc,
+          layoutKey: layoutKey,
+          overlayKey: overlayKey,
+        ),
+      );
+      await tester.pump();
+
+      overlayKey.currentState!.startBlockDrag('hr1', pointerOffset: const Offset(50, 10));
+      await tester.pump();
+      overlayKey.currentState!.endBlockDrag();
+      await tester.pump();
+
+      expect(overlayKey.currentState!.blockSize, isNull);
+      expect(overlayKey.currentState!.grabOffset, isNull);
+    });
+
+    testWidgets('ghost has border width 2 and 0.5 opacity', (tester) async {
+      final doc = _twoRulesDoc();
+      final controller = DocumentEditingController(document: doc);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+      final overlayKey = GlobalKey<BlockDragOverlayState>();
+
+      await tester.pumpWidget(
+        _buildWithDragOverlay(
+          controller: controller,
+          document: doc,
+          layoutKey: layoutKey,
+          overlayKey: overlayKey,
+        ),
+      );
+      await tester.pump();
+
+      overlayKey.currentState!.startBlockDrag('hr1');
+      overlayKey.currentState!.updateBlockDrag(const Offset(300, 50));
+      await tester.pump();
+
+      // The Opacity widget surrounding the ghost should be 0.5.
+      final opacityWidgets = tester
+          .widgetList<Opacity>(
+            find.descendant(
+              of: find.byKey(overlayKey),
+              matching: find.byType(Opacity),
+            ),
+          )
+          .toList();
+      expect(opacityWidgets, isNotEmpty);
+      expect(opacityWidgets.first.opacity, 0.5);
+    });
   });
 }

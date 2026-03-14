@@ -181,6 +181,19 @@ class BlockDragOverlayState extends State<BlockDragOverlay> {
   /// Whether a post-frame geometry update is already scheduled.
   bool _geometryUpdateScheduled = false;
 
+  /// The actual size of the block being dragged, captured at drag start.
+  ///
+  /// `null` when no drag is in progress or when the render object was not
+  /// available at the time [startBlockDrag] was called.
+  Size? _blockSize;
+
+  /// The offset from the dragged block's top-left corner to the pointer
+  /// position at drag start, in layout-local coordinates.
+  ///
+  /// Used to keep the grab point under the pointer as the ghost moves.
+  /// `null` when no [pointerOffset] was supplied to [startBlockDrag].
+  Offset? _grabOffset;
+
   // ---------------------------------------------------------------------------
   // Lifecycle
   // ---------------------------------------------------------------------------
@@ -235,18 +248,59 @@ class BlockDragOverlayState extends State<BlockDragOverlay> {
   // Public API
   // ---------------------------------------------------------------------------
 
+  /// The size of the block currently being dragged, or `null` when idle.
+  ///
+  /// Captured from the rendered [RenderDocumentBlock] at the time
+  /// [startBlockDrag] is called. Useful for tests and for external widgets
+  /// that need to know the ghost dimensions.
+  // ignore: diagnostic_describe_all_properties
+  Size? get blockSize => _blockSize;
+
+  /// The offset from the dragged block's top-left corner to the pointer
+  /// at drag start, in layout-local coordinates.
+  ///
+  /// `null` when no [pointerOffset] was passed to [startBlockDrag] or when
+  /// no drag is in progress.
+  // ignore: diagnostic_describe_all_properties
+  Offset? get grabOffset => _grabOffset;
+
   /// Begins a block drag for the block identified by [nodeId].
   ///
   /// Sets [BlockDragOverlay.isDragging] to `true` and records [nodeId] as the
   /// block being dragged. Saves the current selection to restore on cancel.
   /// The ghost is not shown until [updateBlockDrag] is called.
-  void startBlockDrag(String nodeId) {
+  ///
+  /// When [pointerOffset] is supplied (in the layout's local coordinate space),
+  /// the actual rendered size of the block is queried via
+  /// [DocumentLayoutState.componentForNode] and stored as [blockSize]. The
+  /// offset from the block's top-left corner to [pointerOffset] is stored as
+  /// [grabOffset] so the ghost tracks the grab point rather than centering on
+  /// the pointer.
+  void startBlockDrag(String nodeId, {Offset? pointerOffset}) {
     BlockDragOverlay.isDragging = true;
+
+    Size? blockSize;
+    Offset? grabOffset;
+
+    final renderBlock = widget.layoutKey.currentState?.componentForNode(nodeId);
+    final layoutRO = widget.layoutKey.currentState?.renderObject;
+    if (renderBlock != null && renderBlock.hasSize && layoutRO != null) {
+      blockSize = renderBlock.size;
+      if (pointerOffset != null) {
+        // Compute pointer position relative to the block's top-left in
+        // layout-local coordinates.
+        final blockTopLeft = renderBlock.localToGlobal(Offset.zero, ancestor: layoutRO);
+        grabOffset = pointerOffset - blockTopLeft;
+      }
+    }
+
     setState(() {
       _dragNodeId = nodeId;
       _dropPosition = null;
       _ghostCenter = null;
       _savedSelection = widget.controller.selection;
+      _blockSize = blockSize;
+      _grabOffset = grabOffset;
     });
   }
 
@@ -337,6 +391,8 @@ class BlockDragOverlayState extends State<BlockDragOverlay> {
       _dropPosition = null;
       _ghostCenter = null;
       _savedSelection = null;
+      _blockSize = null;
+      _grabOffset = null;
     });
   }
 
@@ -355,11 +411,15 @@ class BlockDragOverlayState extends State<BlockDragOverlay> {
     // Compute ghost rectangle if we have a pointer position.
     final ghostCenter = _ghostCenter;
 
-    // Convert ghost center from layout-local to overlay-local coordinates.
+    // Use the actual block size when available; fall back to a small placeholder
+    // only when the render object was not yet available at drag start.
+    final ghostSize = _blockSize ?? const Size(120.0, 40.0);
+
+    // Convert ghost pointer position from layout-local to overlay-local
+    // coordinates, then apply the grab offset so the pointer stays at the
+    // same relative point on the ghost as it was when the drag started.
     double? ghostLeft;
     double? ghostTop;
-    const double ghostWidth = 120.0;
-    const double ghostHeight = 40.0;
 
     if (ghostCenter != null) {
       final layoutBox = widget.layoutKey.currentContext?.findRenderObject() as RenderBox?;
@@ -372,25 +432,29 @@ class BlockDragOverlayState extends State<BlockDragOverlay> {
         cx = localPos.dx;
         cy = localPos.dy;
       }
-      ghostLeft = cx - ghostWidth / 2;
-      ghostTop = cy - ghostHeight / 2;
+      // Offset so the grab point tracks the pointer; fall back to centering.
+      ghostLeft = cx - (_grabOffset?.dx ?? ghostSize.width / 2);
+      ghostTop = cy - (_grabOffset?.dy ?? ghostSize.height / 2);
     }
 
     return Stack(
       children: [
-        // Drag ghost — semi-transparent rectangle following the pointer.
+        // Drag ghost — semi-transparent rectangle at the block's real size.
         if (ghostLeft != null && ghostTop != null)
           Positioned(
             left: ghostLeft,
             top: ghostTop,
-            width: ghostWidth,
-            height: ghostHeight,
-            child: Opacity(
-              opacity: 0.5,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: const Color(0x332196F3),
-                  border: Border.all(color: widget.indicatorColor),
+            width: ghostSize.width,
+            height: ghostSize.height,
+            child: IgnorePointer(
+              child: Opacity(
+                opacity: 0.5,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: const Color(0x332196F3),
+                    border: Border.all(color: widget.indicatorColor, width: 2),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                 ),
               ),
             ),
@@ -404,5 +468,7 @@ class BlockDragOverlayState extends State<BlockDragOverlay> {
     super.debugFillProperties(properties);
     properties.add(StringProperty('dragNodeId', _dragNodeId, defaultValue: null));
     properties.add(DiagnosticsProperty<DocumentPosition?>('dropPosition', _dropPosition));
+    properties.add(DiagnosticsProperty<Size?>('blockSize', _blockSize, defaultValue: null));
+    properties.add(DiagnosticsProperty<Offset?>('grabOffset', _grabOffset, defaultValue: null));
   }
 }

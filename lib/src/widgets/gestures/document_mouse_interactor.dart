@@ -423,7 +423,19 @@ class DocumentMouseInteractorState extends State<DocumentMouseInteractor> {
           // Crossed threshold — begin a block drag.
           _isBlockDragging = true;
           BlockDragOverlay.isDragging = true;
-          widget.blockDragOverlayKey?.currentState?.startBlockDrag(_blockDragNodeId!);
+          // Compute the pointer position in layout-local coordinates so the
+          // overlay can capture the block size and grab offset.
+          final layoutBox = widget.layoutKey.currentContext?.findRenderObject() as RenderBox?;
+          final listenerBox = _listenerKey.currentContext?.findRenderObject() as RenderBox?;
+          Offset? pointerOffset;
+          if (layoutBox != null && listenerBox != null) {
+            final globalStart = listenerBox.localToGlobal(startOffset);
+            pointerOffset = layoutBox.globalToLocal(globalStart);
+          }
+          widget.blockDragOverlayKey?.currentState?.startBlockDrag(
+            _blockDragNodeId!,
+            pointerOffset: pointerOffset,
+          );
           _updateBlockDrag(event);
         }
       }
