@@ -292,6 +292,45 @@ void main() {
       expect(newNode.width, 300.0);
       expect(newNode.height, 200.0);
     });
+
+    test('createResizeRequest switches stretch alignment to start', () {
+      // A stretch ImageNode (default alignment) should be auto-switched to
+      // BlockAlignment.start when resized so the explicit dimensions take effect.
+      final node = ImageNode(
+        id: 'img-stretch',
+        imageUrl: 'test.png',
+        // no alignment → defaults to BlockAlignment.stretch
+      );
+
+      final req = createResizeRequest(node, 300.0, 150.0);
+
+      expect(req, isA<ReplaceNodeRequest>());
+      final newNode = (req! as ReplaceNodeRequest).newNode as ImageNode;
+      expect(newNode.width, 300.0);
+      expect(newNode.height, 150.0);
+      expect(newNode.alignment, BlockAlignment.start,
+          reason: 'stretch alignment should be auto-switched to start on resize');
+    });
+
+    test('createResizeRequest preserves non-stretch alignment', () {
+      // A center-aligned ImageNode should keep its alignment after resize.
+      final node = ImageNode(
+        id: 'img-center',
+        imageUrl: 'test.png',
+        width: 200.0,
+        height: 100.0,
+        alignment: BlockAlignment.center,
+      );
+
+      final req = createResizeRequest(node, 320.0, 160.0);
+
+      expect(req, isA<ReplaceNodeRequest>());
+      final newNode = (req! as ReplaceNodeRequest).newNode as ImageNode;
+      expect(newNode.width, 320.0);
+      expect(newNode.height, 160.0);
+      expect(newNode.alignment, BlockAlignment.center,
+          reason: 'non-stretch alignment should be preserved on resize');
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -397,8 +436,10 @@ void main() {
       expect(listeners, findsNothing);
     });
 
-    testWidgets('no handles shown for stretch-alignment block (default)', (tester) async {
+    testWidgets('handles shown for stretch-alignment block', (tester) async {
       // ImageNode defaults to BlockAlignment.stretch.
+      // Resize handles should now appear for stretch-alignment blocks too,
+      // and dragging will auto-switch the alignment to start.
       final doc = MutableDocument([
         ImageNode(
           id: 'img-1',
@@ -423,11 +464,12 @@ void main() {
       final blockHandlesFinder = find.byType(BlockResizeHandles);
       expect(blockHandlesFinder, findsOneWidget);
 
+      // Eight Listener widgets — handles are shown for stretch-alignment blocks.
       final listeners = find.descendant(
         of: blockHandlesFinder,
         matching: find.byType(Listener),
       );
-      expect(listeners, findsNothing);
+      expect(listeners, findsNWidgets(8));
     });
 
     testWidgets('no handles shown when onBlockResize is null', (tester) async {
@@ -862,8 +904,8 @@ void main() {
 
     testWidgets('border IS shown for stretch-alignment image when selected', (tester) async {
       // ImageNode with no explicit alignment defaults to BlockAlignment.stretch.
-      // Stretch-alignment blocks cannot be resized (handles are suppressed), but
-      // the selection border should still appear so the user can see the selection.
+      // Both the selection border and resize handles should appear; dragging a
+      // handle will auto-switch alignment from stretch to start.
       final doc = MutableDocument([
         ImageNode(
           id: 'img-1',
@@ -889,15 +931,15 @@ void main() {
       final blockHandlesFinder = find.byType(BlockResizeHandles);
       expect(blockHandlesFinder, findsOneWidget);
 
-      // No Listener widgets (resize handles) because alignment is stretch.
+      // Eight Listener widgets (resize handles) — stretch blocks now show handles.
       final listeners = find.descendant(
         of: blockHandlesFinder,
         matching: find.byType(Listener),
       );
-      expect(listeners, findsNothing);
+      expect(listeners, findsNWidgets(8));
 
       // At least one DecoratedBox with a BoxDecoration.border IS present —
-      // the selection border is drawn even though resize handles are absent.
+      // the selection border is drawn along with the resize handles.
       final decoratedBoxes = find.descendant(
         of: blockHandlesFinder,
         matching: find.byType(DecoratedBox),
@@ -913,7 +955,7 @@ void main() {
         hasBorder,
         isTrue,
         reason: 'Expected a DecoratedBox with a border inside BlockResizeHandles '
-            'even though no resize handles are shown for a stretch-alignment image.',
+            'for a stretch-alignment image.',
       );
     });
   });

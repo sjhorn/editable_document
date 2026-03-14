@@ -1,15 +1,17 @@
 /// Block selection border with resize handles for the editable_document package.
 ///
-/// When a single non-stretch [HasBlockLayout] block is fully selected,
+/// When a single [HasBlockLayout] block is fully selected,
 /// [BlockResizeHandles] draws a selection border and eight drag handles
 /// (four corners + four edge midpoints) that allow the user to resize
-/// the block by dragging.
+/// the block by dragging. For stretch-aligned blocks, dragging a handle
+/// automatically switches the alignment to [BlockAlignment.start].
 library;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
+import '../model/block_alignment.dart';
 import '../model/block_layout.dart';
 import '../model/document.dart';
 import '../model/document_editing_controller.dart';
@@ -72,7 +74,7 @@ enum ResizeHandlePosition {
 // ---------------------------------------------------------------------------
 
 /// A widget that draws a selection border and eight drag handles around a
-/// fully-selected, non-stretch [HasBlockLayout] block node.
+/// fully-selected [HasBlockLayout] block node.
 ///
 /// [BlockResizeHandles] is an overlay widget: it does not occupy space in the
 /// document flow. It watches [controller] for selection changes and shows
@@ -81,8 +83,12 @@ enum ResizeHandlePosition {
 /// * [onResize] is non-null (handles are disabled without a resize callback),
 /// * a single block node is fully selected (base at upstream, extent at
 ///   downstream),
-/// * and the node implements [HasBlockLayout] with
-///   [HasBlockLayout.isResizable] is `true`.
+/// * and the node implements [HasBlockLayout].
+///
+/// Handles are shown for all [BlockAlignment] values, including
+/// [BlockAlignment.stretch]. When the user drags a handle on a stretch-aligned
+/// block, [createResizeRequest] automatically switches the alignment to
+/// [BlockAlignment.start] so the explicit dimensions take visual effect.
 ///
 /// During drag the [onResize] callback fires on every pointer-move for
 /// real-time feedback, and once more on pointer-up for the final value.
@@ -406,8 +412,10 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
 
   /// Returns `true` when resize handles should be shown on top of the border.
   ///
-  /// Requires [onResize] to be non-null and the selected node to be
-  /// resizable (i.e. alignment is not stretch).
+  /// Requires [onResize] to be non-null and the selected node to implement
+  /// [HasBlockLayout]. Handles are shown for all alignment modes, including
+  /// stretch — dragging a stretch block's handle will auto-switch alignment
+  /// to [BlockAlignment.start] via [createResizeRequest].
   bool _shouldShowResizeHandles() {
     if (widget.onResize == null) return false;
     if (_activePointer != null) return true;
@@ -416,7 +424,7 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
     if (nodeId == null) return false;
     final node = widget.document.nodeById(nodeId);
     if (node == null || node is! HasBlockLayout) return false;
-    return (node as HasBlockLayout).isResizable;
+    return true;
   }
 
   // ---------------------------------------------------------------------------
@@ -776,6 +784,12 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
 /// A `null` [width] or [height] argument preserves the node's current value
 /// for that dimension. Pass a non-null value to update it.
 ///
+/// When the node's current [HasBlockLayout.alignment] is
+/// [BlockAlignment.stretch], this helper automatically passes
+/// [BlockAlignment.start] to [HasBlockLayout.copyWithSize] so that the
+/// explicit dimensions take visual effect. Non-stretch alignments are
+/// preserved unchanged.
+///
 /// Example:
 /// ```dart
 /// final node = document.nodeById('img-1')!;
@@ -788,11 +802,18 @@ EditRequest? createResizeRequest(
   double? height,
 ) {
   if (node is! HasBlockLayout) return null;
+  final blockNode = node as HasBlockLayout;
+  // When resizing a stretch block, switch to start alignment so the
+  // explicit dimensions take visual effect.
+  final alignment = blockNode.alignment == BlockAlignment.stretch
+      ? BlockAlignment.start
+      : null; // null preserves current alignment
   return ReplaceNodeRequest(
     nodeId: node.id,
-    newNode: (node as HasBlockLayout).copyWithSize(
+    newNode: blockNode.copyWithSize(
       width: width,
       height: height,
+      alignment: alignment,
     ),
   );
 }
