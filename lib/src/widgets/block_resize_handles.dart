@@ -384,11 +384,13 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
     return selection.base.nodeId;
   }
 
-  /// Returns `true` when handles should be shown.
-  bool _shouldShowHandles() {
-    if (widget.onResize == null) return false;
-
-    // During an active drag, keep showing handles even though the selection
+  /// Returns `true` when the selection border should be shown.
+  ///
+  /// The border is shown for any fully-selected [HasBlockLayout] node,
+  /// regardless of alignment. Resize handles are conditionally added on
+  /// top by [_shouldShowResizeHandles].
+  bool _shouldShowBorder() {
+    // During an active resize drag, keep showing even though the selection
     // may have been changed by the mouse interactor.
     if (_activePointer != null) return _blockRect != null;
 
@@ -398,9 +400,23 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
     final node = widget.document.nodeById(nodeId);
     if (node == null) return false;
     if (node is! HasBlockLayout) return false;
-    if (!(node as HasBlockLayout).isResizable) return false;
 
     return _blockRect != null;
+  }
+
+  /// Returns `true` when resize handles should be shown on top of the border.
+  ///
+  /// Requires [onResize] to be non-null and the selected node to be
+  /// resizable (i.e. alignment is not stretch).
+  bool _shouldShowResizeHandles() {
+    if (widget.onResize == null) return false;
+    if (_activePointer != null) return true;
+
+    final nodeId = _selectedNodeId();
+    if (nodeId == null) return false;
+    final node = widget.document.nodeById(nodeId);
+    if (node == null || node is! HasBlockLayout) return false;
+    return (node as HasBlockLayout).isResizable;
   }
 
   // ---------------------------------------------------------------------------
@@ -688,22 +704,26 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_shouldShowHandles()) {
+    if (!_shouldShowBorder()) {
       return const SizedBox.shrink();
     }
 
     final blockRect = _previewRect(_blockRect!);
+    final showHandles = _shouldShowResizeHandles();
 
-    // Check if the selected node is an ImageNode for the reset button.
+    // Check if the selected node is an ImageNode with custom dimensions
+    // for the reset button. Only show when the image has been resized
+    // (width or height is non-null) and no resize drag is in progress.
     final nodeId = _activePointer != null ? _dragNodeId : _selectedNodeId();
+    final node = nodeId != null ? widget.document.nodeById(nodeId) : null;
     final showReset = widget.onResetImageSize != null &&
-        nodeId != null &&
-        widget.document.nodeById(nodeId) is ImageNode &&
+        node is ImageNode &&
+        (node.width != null || node.height != null) &&
         _activePointer == null;
 
     return Stack(
       children: [
-        // Selection border
+        // Selection border — always shown for fully-selected block nodes.
         Positioned(
           left: blockRect.left,
           top: blockRect.top,
@@ -717,10 +737,11 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
             ),
           ),
         ),
-        // Eight resize handles
-        for (final pos in ResizeHandlePosition.values) _buildHandle(pos, blockRect),
-        // "1:1" reset button — shown for ImageNode only, above the block.
-        if (showReset) _buildResetButton(blockRect, nodeId),
+        // Eight resize handles — only for non-stretch blocks.
+        if (showHandles)
+          for (final pos in ResizeHandlePosition.values) _buildHandle(pos, blockRect),
+        // "Reset" button — shown for ImageNode with custom dimensions only.
+        if (showReset) _buildResetButton(blockRect, nodeId!),
       ],
     );
   }

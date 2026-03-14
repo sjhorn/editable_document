@@ -859,6 +859,63 @@ void main() {
       );
       expect(listeners, findsNothing);
     });
+
+    testWidgets('border IS shown for stretch-alignment image when selected', (tester) async {
+      // ImageNode with no explicit alignment defaults to BlockAlignment.stretch.
+      // Stretch-alignment blocks cannot be resized (handles are suppressed), but
+      // the selection border should still appear so the user can see the selection.
+      final doc = MutableDocument([
+        ImageNode(
+          id: 'img-1',
+          imageUrl: 'test.png',
+          // no alignment → defaults to BlockAlignment.stretch
+        ),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      addTearDown(controller.dispose);
+
+      _selectFully(controller, 'img-1');
+
+      await tester.pumpWidget(
+        _buildWithOverlay(
+          controller: controller,
+          document: doc,
+          onBlockResize: (id, w, h) {},
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // BlockResizeHandles must be present in the tree.
+      final blockHandlesFinder = find.byType(BlockResizeHandles);
+      expect(blockHandlesFinder, findsOneWidget);
+
+      // No Listener widgets (resize handles) because alignment is stretch.
+      final listeners = find.descendant(
+        of: blockHandlesFinder,
+        matching: find.byType(Listener),
+      );
+      expect(listeners, findsNothing);
+
+      // At least one DecoratedBox with a BoxDecoration.border IS present —
+      // the selection border is drawn even though resize handles are absent.
+      final decoratedBoxes = find.descendant(
+        of: blockHandlesFinder,
+        matching: find.byType(DecoratedBox),
+      );
+      final hasBorder = tester.widgetList<DecoratedBox>(decoratedBoxes).any((box) {
+        final decoration = box.decoration;
+        if (decoration is BoxDecoration) {
+          return decoration.border != null;
+        }
+        return false;
+      });
+      expect(
+        hasBorder,
+        isTrue,
+        reason: 'Expected a DecoratedBox with a border inside BlockResizeHandles '
+            'even though no resize handles are shown for a stretch-alignment image.',
+      );
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -1079,6 +1136,34 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      expect(find.text('Reset'), findsNothing);
+    });
+
+    testWidgets('reset button does NOT appear when image has default dimensions', (tester) async {
+      final doc = MutableDocument([
+        ImageNode(
+          id: 'img-1',
+          imageUrl: 'test.png',
+          // width and height are null → intrinsic/default size
+          alignment: BlockAlignment.center,
+        ),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      addTearDown(controller.dispose);
+
+      _selectFully(controller, 'img-1');
+
+      await tester.pumpWidget(
+        _buildWithOverlay(
+          controller: controller,
+          document: doc,
+          onBlockResize: (id, w, h) {},
+          onResetImageSize: (id) {},
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Image has no custom dimensions → Reset button should not appear.
       expect(find.text('Reset'), findsNothing);
     });
 
