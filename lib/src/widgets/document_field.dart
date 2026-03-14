@@ -23,6 +23,7 @@ import '../model/paragraph_node.dart';
 import '../model/text_node.dart';
 import '../model/undoable_editor.dart';
 import '../services/document_clipboard.dart';
+import 'block_drag_overlay.dart';
 import 'block_resize_handles.dart';
 import 'caret_document_overlay.dart';
 import 'component_builder.dart';
@@ -340,6 +341,13 @@ class DocumentFieldState extends State<DocumentField> {
   /// can resolve the [RenderDocumentLayout] at paint time for geometry
   /// queries without a post-frame callback.
   final _layoutKey = GlobalKey<DocumentLayoutState>();
+
+  /// A [GlobalKey] for the [BlockDragOverlay] in [DocumentSelectionOverlay].
+  ///
+  /// Shared between [DocumentSelectionOverlay] (which owns the [BlockDragOverlay]
+  /// widget) and [DocumentMouseInteractor] (which calls the overlay's methods
+  /// during drag events) so both refer to the same [BlockDragOverlayState].
+  final _blockDragOverlayKey = GlobalKey<BlockDragOverlayState>();
 
   /// Layer links for selection handle positioning.
   final _startHandleLayerLink = LayerLink();
@@ -729,6 +737,7 @@ class DocumentFieldState extends State<DocumentField> {
       focusNode: _effectiveFocusNode,
       enabled: widget.enabled,
       onSecondaryTapDown: widget.enabled ? _showContextMenu : null,
+      blockDragOverlayKey: widget.enabled && !isReadOnly ? _blockDragOverlayKey : null,
       child: InputDecorator(
         decoration: effectiveDecoration,
         baseStyle: effectiveStyle,
@@ -757,6 +766,14 @@ class DocumentFieldState extends State<DocumentField> {
                   final req = createResetImageSizeRequest(node);
                   if (req != null) _effectiveEditor.submit(req);
                 },
+                onBlockMoved: !isReadOnly
+                    ? (nodeId, newIndex) {
+                        _effectiveEditor.submit(
+                          MoveNodeRequest(nodeId: nodeId, newIndex: newIndex),
+                        );
+                      }
+                    : null,
+                blockDragOverlayKey: !isReadOnly ? _blockDragOverlayKey : null,
                 child: EditableDocument(
                   controller: _effectiveController,
                   focusNode: _effectiveFocusNode,

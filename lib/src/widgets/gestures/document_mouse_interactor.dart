@@ -42,6 +42,7 @@ import '../../model/document_editing_controller.dart';
 import '../../model/document_position.dart';
 import '../../model/document_selection.dart';
 import '../../model/node_position.dart';
+import '../block_drag_overlay.dart';
 import '../block_resize_handles.dart';
 import '../../model/text_node.dart';
 import '../document_layout.dart';
@@ -94,6 +95,7 @@ class DocumentMouseInteractor extends StatefulWidget {
     this.enabled = true,
     this.cursor = SystemMouseCursors.text,
     this.onSecondaryTapDown,
+    this.blockDragOverlayKey,
   });
 
   /// The controller whose [DocumentEditingController.selection] is updated
@@ -140,6 +142,19 @@ class DocumentMouseInteractor extends StatefulWidget {
   /// When `null`, secondary taps are ignored.
   final ValueChanged<Offset>? onSecondaryTapDown;
 
+  /// An optional [GlobalKey] for [BlockDragOverlayState].
+  ///
+  /// When non-null, the interactor detects when the user drags a
+  /// fully-selected binary block and delegates to the overlay via
+  /// [BlockDragOverlayState.startBlockDrag], [BlockDragOverlayState.updateBlockDrag],
+  /// and [BlockDragOverlayState.endBlockDrag].
+  ///
+  /// The interactor also checks [BlockDragOverlay.isDragging] alongside
+  /// [BlockResizeHandles.isDragging] in its pointer-down and pointer-move
+  /// handlers to suppress normal selection-drag behaviour while a block drag
+  /// is in progress.
+  final GlobalKey<BlockDragOverlayState>? blockDragOverlayKey;
+
   @override
   State<DocumentMouseInteractor> createState() => DocumentMouseInteractorState();
 
@@ -154,6 +169,13 @@ class DocumentMouseInteractor extends StatefulWidget {
     properties.add(DiagnosticsProperty<MouseCursor>('cursor', cursor));
     properties.add(
       ObjectFlagProperty<ValueChanged<Offset>?>.has('onSecondaryTapDown', onSecondaryTapDown),
+    );
+    properties.add(
+      DiagnosticsProperty<GlobalKey<BlockDragOverlayState>?>(
+        'blockDragOverlayKey',
+        blockDragOverlayKey,
+        defaultValue: null,
+      ),
     );
   }
 }
@@ -184,6 +206,22 @@ class DocumentMouseInteractorState extends State<DocumentMouseInteractor> {
 
   /// Whether the pointer is currently pressed (primary button held down).
   bool _isDragging = false;
+
+  // -------------------------------------------------------------------------
+  // Block drag state
+  // -------------------------------------------------------------------------
+
+  /// The id of the binary block node that may be dragged, or `null`.
+  ///
+  /// Set on pointer-down when a fully-selected binary block is detected.
+  /// Cleared on pointer-up or pointer-cancel.
+  String? _blockDragNodeId;
+
+  /// The pointer position at which a potential block drag began.
+  Offset? _blockDragStartOffset;
+
+  /// Whether a block drag (as opposed to a normal selection drag) is active.
+  bool _isBlockDragging = false;
 
   // -------------------------------------------------------------------------
   // Multi-tap tracking
@@ -301,16 +339,38 @@ class DocumentMouseInteractorState extends State<DocumentMouseInteractor> {
 
   /// Handles raw pointer-down events.
   ///
-  /// Records the drag base position for primary-button presses.
+  /// Records the drag base position for primary-button presses. Also detects
+  /// whether the press lands on a fully-selected binary block that can be
+  /// dragged to a new position via [BlockDragOverlay].
   void _onPointerDown(PointerDownEvent event) {
     if (!widget.enabled) return;
     if (event.buttons & kPrimaryMouseButton == 0 && event.kind != PointerDeviceKind.touch) {
       // Non-primary-button mouse press — ignore.
       return;
     }
-    // Skip drag-selection when a block resize handle is active — the resize
-    // overlay owns this pointer.
+    // Skip drag-selection when a block resize handle or block drag is active.
     if (BlockResizeHandles.isDragging) return;
+    if (BlockDragOverlay.isDragging) return;
+
+    // Check whether the pointer is on a fully-selected binary (non-text) node
+    // that could be dragged to a new position.
+    if (widget.blockDragOverlayKey != null) {
+      final selection = widget.controller.selection;
+      if (selection != null &&
+          !selection.isCollapsed &&
+          selection.base.nodeId == selection.extent.nodeId) {
+        final basePos = selection.base.nodePosition;
+        final extentPos = selection.extent.nodePosition;
+        if (basePos is BinaryNodePosition &&
+            extentPos is BinaryNodePosition &&
+            basePos.type == BinaryNodePositionType.upstream &&
+            extentPos.type == BinaryNodePositionType.downstream) {
+          _blockDragNodeId = selection.base.nodeId;
+          _blockDragStartOffset = event.localPosition;
+        }
+      }
+    }
+
     // Request focus so clicking the document steals focus from other widgets.
     widget.focusNode?.requestFocus();
     _dragBasePosition = _positionForOffset(event.localPosition);
@@ -319,12 +379,45 @@ class DocumentMouseInteractorState extends State<DocumentMouseInteractor> {
 
   /// Handles raw pointer-move events.
   ///
-  /// Extends the selection from the base to the current position when
-  /// the primary button is held.
+  /// When a potential block drag was detected in [_onPointerDown] and the
+  /// pointer has moved past the drag threshold (4 logical pixels), the move
+  /// event is routed to [BlockDragOverlayState] instead of the normal
+  /// selection-drag logic.
+  ///
+  /// Otherwise, extends the selection from the base to the current position.
   void _onPointerMove(PointerMoveEvent event) {
     if (!widget.enabled) return;
     if (!_isDragging) return;
     if (BlockResizeHandles.isDragging) return;
+    if (BlockDragOverlay.isDragging) return;
+
+    // Check for block drag threshold.
+    if (_blockDragNodeId != null && !_isBlockDragging) {
+      final startOffset = _blockDragStartOffset;
+      if (startOffset != null) {
+        final delta = event.localPosition - startOffset;
+        if (delta.distance > 4.0) {
+          // Crossed threshold — begin a block drag.
+          _isBlockDragging = true;
+          BlockDragOverlay.isDragging = true;
+          widget.blockDragOverlayKey?.currentState?.startBlockDrag(_blockDragNodeId!);
+        }
+      }
+    }
+
+    if (_isBlockDragging) {
+      // Convert listener-local coordinates to layout-local coordinates.
+      final layoutBox = widget.layoutKey.currentContext?.findRenderObject() as RenderBox?;
+      final listenerBox = _listenerKey.currentContext?.findRenderObject() as RenderBox?;
+      if (layoutBox != null && listenerBox != null) {
+        final globalOffset = listenerBox.localToGlobal(event.localPosition);
+        final layoutLocal = layoutBox.globalToLocal(globalOffset);
+        widget.blockDragOverlayKey?.currentState?.updateBlockDrag(layoutLocal);
+      }
+      // Skip normal drag-selection while a block drag is in progress.
+      return;
+    }
+
     final base = _dragBasePosition;
     if (base == null) return;
     final extent = _positionForOffset(event.localPosition);
@@ -334,13 +427,38 @@ class DocumentMouseInteractorState extends State<DocumentMouseInteractor> {
 
   /// Handles raw pointer-up events.
   ///
-  /// Clears the drag state.
+  /// When a block drag is active, delegates to [BlockDragOverlayState.endBlockDrag]
+  /// and clears block drag state. Otherwise clears the normal drag state.
   void _onPointerUp(PointerUpEvent event) {
+    if (_isBlockDragging) {
+      widget.blockDragOverlayKey?.currentState?.endBlockDrag();
+      _isBlockDragging = false;
+      _blockDragNodeId = null;
+      _blockDragStartOffset = null;
+      BlockDragOverlay.isDragging = false;
+      _isDragging = false;
+      return;
+    }
+    _blockDragNodeId = null;
+    _blockDragStartOffset = null;
     _isDragging = false;
   }
 
   /// Handles raw pointer-cancel events.
+  ///
+  /// When a block drag is active, delegates to
+  /// [BlockDragOverlayState.cancelBlockDrag]. Otherwise clears the normal
+  /// drag state.
   void _onPointerCancel(PointerCancelEvent event) {
+    if (_isBlockDragging) {
+      widget.blockDragOverlayKey?.currentState?.cancelBlockDrag();
+      _isBlockDragging = false;
+      _blockDragNodeId = null;
+      _blockDragStartOffset = null;
+      BlockDragOverlay.isDragging = false;
+    }
+    _blockDragNodeId = null;
+    _blockDragStartOffset = null;
     _isDragging = false;
   }
 

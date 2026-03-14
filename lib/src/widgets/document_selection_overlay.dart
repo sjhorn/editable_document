@@ -54,6 +54,7 @@ import '../model/document_editing_controller.dart';
 import '../model/document_selection.dart';
 import '../rendering/render_document_caret.dart';
 import '../rendering/render_document_selection_highlight.dart';
+import 'block_drag_overlay.dart';
 import 'block_resize_handles.dart';
 import 'document_layout.dart';
 
@@ -132,6 +133,8 @@ class DocumentSelectionOverlay extends StatefulWidget {
     this.document,
     this.onBlockResize,
     this.onResetImageSize,
+    this.onBlockMoved,
+    this.blockDragOverlayKey,
   });
 
   /// The document editing controller that provides selection state.
@@ -205,6 +208,20 @@ class DocumentSelectionOverlay extends StatefulWidget {
   /// The button only appears when this is non-null.
   final ValueChanged<String>? onResetImageSize;
 
+  /// Called when the user drops a dragged block at a new position.
+  ///
+  /// When both [document] and this callback are provided, a [BlockDragOverlay]
+  /// is added to the overlay stack.
+  final BlockMoveCallback? onBlockMoved;
+
+  /// An optional [GlobalKey] for the [BlockDragOverlay] child.
+  ///
+  /// When provided, [DocumentSelectionOverlay] uses this key for the
+  /// [BlockDragOverlay] so that [DocumentMouseInteractor] can call
+  /// [BlockDragOverlayState] methods directly. When `null`, an internal key
+  /// is created if [onBlockMoved] and [document] are both non-null.
+  final GlobalKey<BlockDragOverlayState>? blockDragOverlayKey;
+
   @override
   State<DocumentSelectionOverlay> createState() => DocumentSelectionOverlayState();
 
@@ -230,6 +247,16 @@ class DocumentSelectionOverlay extends StatefulWidget {
         onResetImageSize,
       ),
     );
+    properties.add(
+      ObjectFlagProperty<BlockMoveCallback?>.has('onBlockMoved', onBlockMoved),
+    );
+    properties.add(
+      DiagnosticsProperty<GlobalKey<BlockDragOverlayState>?>(
+        'blockDragOverlayKey',
+        blockDragOverlayKey,
+        defaultValue: null,
+      ),
+    );
   }
 }
 
@@ -251,6 +278,27 @@ class DocumentSelectionOverlay extends StatefulWidget {
 /// platform gesture controllers compute a new selection independently of the
 /// controller notifier).
 class DocumentSelectionOverlayState extends State<DocumentSelectionOverlay> {
+  // ---------------------------------------------------------------------------
+  // Block drag overlay key
+  // ---------------------------------------------------------------------------
+
+  /// Internal [GlobalKey] for the [BlockDragOverlay] child.
+  ///
+  /// Used when [DocumentSelectionOverlay.blockDragOverlayKey] is `null` and
+  /// a [BlockDragOverlay] is created automatically because [document] and
+  /// [onBlockMoved] are both non-null.
+  final _internalBlockDragOverlayKey = GlobalKey<BlockDragOverlayState>();
+
+  /// Returns the effective [GlobalKey] for the [BlockDragOverlay].
+  ///
+  /// Prefers [DocumentSelectionOverlay.blockDragOverlayKey] when provided;
+  /// falls back to [_internalBlockDragOverlayKey] otherwise. Returns `null`
+  /// when neither [document] nor [onBlockMoved] is set.
+  GlobalKey<BlockDragOverlayState>? get blockDragOverlayKey {
+    if (widget.document == null || widget.onBlockMoved == null) return null;
+    return widget.blockDragOverlayKey ?? _internalBlockDragOverlayKey;
+  }
+
   // ---------------------------------------------------------------------------
   // Handle anchor offsets
   // ---------------------------------------------------------------------------
@@ -397,7 +445,19 @@ class DocumentSelectionOverlayState extends State<DocumentSelectionOverlay> {
             ),
           ),
 
-        // 5. CompositedTransformTarget for the selection-start handle.
+        // 5. Block drag overlay — shown while dragging blocks to new positions.
+        if (widget.document != null && widget.onBlockMoved != null)
+          Positioned.fill(
+            child: BlockDragOverlay(
+              key: blockDragOverlayKey,
+              controller: widget.controller,
+              layoutKey: widget.layoutKey,
+              document: widget.document!,
+              onBlockMoved: widget.onBlockMoved,
+            ),
+          ),
+
+        // 6. CompositedTransformTarget for the selection-start handle.
         Positioned(
           left: _startOffset.dx,
           top: _startOffset.dy,
@@ -407,7 +467,7 @@ class DocumentSelectionOverlayState extends State<DocumentSelectionOverlay> {
           ),
         ),
 
-        // 6. CompositedTransformTarget for the selection-end handle.
+        // 7. CompositedTransformTarget for the selection-end handle.
         Positioned(
           left: _endOffset.dx,
           top: _endOffset.dy,
@@ -425,6 +485,13 @@ class DocumentSelectionOverlayState extends State<DocumentSelectionOverlay> {
     super.debugFillProperties(properties);
     properties.add(DiagnosticsProperty<Offset>('startOffset', _startOffset));
     properties.add(DiagnosticsProperty<Offset>('endOffset', _endOffset));
+    properties.add(
+      DiagnosticsProperty<GlobalKey<BlockDragOverlayState>?>(
+        'blockDragOverlayKey',
+        blockDragOverlayKey,
+        defaultValue: null,
+      ),
+    );
   }
 }
 

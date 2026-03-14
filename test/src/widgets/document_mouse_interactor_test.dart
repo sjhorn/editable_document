@@ -696,4 +696,107 @@ void main() {
       expect(controller.selection, isNotNull);
     });
   });
+
+  // =========================================================================
+  // 9. Block drag integration
+  // =========================================================================
+
+  group('DocumentMouseInteractor — block drag', () {
+    testWidgets('BlockDragOverlay.isDragging prevents normal selection drag', (tester) async {
+      final doc = _singleParagraph('Hello world');
+      final controller = DocumentEditingController(document: doc);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+
+      await tester.pumpWidget(
+        _buildInteractor(
+          DocumentMouseInteractor(
+            controller: controller,
+            layoutKey: layoutKey,
+            document: doc,
+            child: DocumentLayout(
+              key: layoutKey,
+              document: doc,
+              controller: controller,
+              componentBuilders: defaultComponentBuilders,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Simulate block drag overlay being active.
+      BlockDragOverlay.isDragging = true;
+
+      final rect = tester.getRect(find.byType(DocumentMouseInteractor));
+      final gesture = await tester.startGesture(
+        rect.centerLeft + const Offset(5, 0),
+        kind: PointerDeviceKind.mouse,
+      );
+      await gesture.moveTo(rect.center + const Offset(40, 0));
+      await tester.pump();
+      await gesture.up();
+      await tester.pump(_tapSettleDuration);
+
+      // BlockDragOverlay.isDragging was set — no selection drag should occur.
+      // Selection remains null (not set by interactor during block drag).
+      expect(controller.selection, isNull);
+
+      // Cleanup.
+      BlockDragOverlay.isDragging = false;
+    });
+
+    testWidgets(
+      'interactor accepts blockDragOverlayKey parameter without error',
+      (tester) async {
+        final doc = _singleParagraph('Hello');
+        final controller = DocumentEditingController(document: doc);
+        final layoutKey = GlobalKey<DocumentLayoutState>();
+        final overlayKey = GlobalKey<BlockDragOverlayState>();
+
+        // Build a minimal doc for the drag overlay (needs two nodes to compute gaps).
+        final dragDoc = MutableDocument([
+          HorizontalRuleNode(id: 'hr1'),
+          HorizontalRuleNode(id: 'hr2'),
+        ]);
+        final dragController = DocumentEditingController(document: dragDoc);
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: 600,
+                child: Stack(
+                  children: [
+                    DocumentMouseInteractor(
+                      controller: controller,
+                      layoutKey: layoutKey,
+                      document: doc,
+                      blockDragOverlayKey: overlayKey,
+                      child: DocumentLayout(
+                        key: layoutKey,
+                        document: doc,
+                        controller: controller,
+                        componentBuilders: defaultComponentBuilders,
+                      ),
+                    ),
+                    Positioned.fill(
+                      child: BlockDragOverlay(
+                        key: overlayKey,
+                        controller: dragController,
+                        layoutKey: GlobalKey<DocumentLayoutState>(),
+                        document: dragDoc,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        expect(tester.takeException(), isNull);
+      },
+    );
+  });
 }
