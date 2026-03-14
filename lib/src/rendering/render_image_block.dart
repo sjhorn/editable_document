@@ -233,6 +233,20 @@ class RenderImageBlock extends RenderDocumentBlock with BlockLayoutMixin {
   // ignore: diagnostic_describe_all_properties
   String? get altText => _altText;
 
+  /// The decoded image's pixel dimensions, or `null` when no image is loaded.
+  ///
+  /// Returns `Size(_image!.width.toDouble(), _image!.height.toDouble())` when
+  /// a [dart:ui.Image] has been provided via [image], otherwise returns `null`.
+  ///
+  /// The widget layer uses this to compare the node's explicit
+  /// [requestedWidth]/[requestedHeight] against the image's true resolution —
+  /// for example, to decide whether to show a "Reset to original size" button.
+  @override
+  Size? get intrinsicContentSize {
+    if (_image == null) return null;
+    return Size(_image!.width.toDouble(), _image!.height.toDouble());
+  }
+
   /// Sets the alt text and schedules a semantics update.
   set altText(String? value) {
     if (_altText == value) return;

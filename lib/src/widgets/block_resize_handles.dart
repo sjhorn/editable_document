@@ -713,12 +713,27 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
 
     // Check if the selected node is an ImageNode with custom dimensions
     // for the reset button. Only show when the image has been resized
-    // (width or height is non-null) and no resize drag is in progress.
+    // (width or height is non-null), no resize drag is in progress, and
+    // the explicit dimensions do not already match the decoded image's
+    // intrinsic size (within 1.0 pixel tolerance).
     final nodeId = _activePointer != null ? _dragNodeId : _selectedNodeId();
     final node = nodeId != null ? widget.document.nodeById(nodeId) : null;
+
+    final component =
+        nodeId != null ? widget.layoutKey.currentState?.componentForNode(nodeId) : null;
+    final intrinsicSize = component?.intrinsicContentSize;
+    final imageNode = node is ImageNode ? node : null;
+    final atIntrinsicSize = intrinsicSize != null &&
+        imageNode != null &&
+        imageNode.width != null &&
+        imageNode.height != null &&
+        (imageNode.width! - intrinsicSize.width).abs() < 1.0 &&
+        (imageNode.height! - intrinsicSize.height).abs() < 1.0;
+
     final showReset = widget.onResetImageSize != null &&
         node is ImageNode &&
         (node.width != null || node.height != null) &&
+        !atIntrinsicSize &&
         _activePointer == null;
 
     return Stack(

@@ -319,6 +319,48 @@ void main() {
     });
   });
 
+  group('RenderImageBlock intrinsicContentSize', () {
+    test('returns null when no image is loaded', () {
+      final block = RenderImageBlock(nodeId: 'img-1');
+      expect(block.intrinsicContentSize, isNull);
+    });
+
+    test('returns the decoded image pixel dimensions when image is set', () async {
+      final img = await _createTestImage(320, 180);
+      addTearDown(img.dispose);
+
+      final block = RenderImageBlock(nodeId: 'img-1', image: img);
+      final size = block.intrinsicContentSize;
+      expect(size, isNotNull);
+      expect(size!.width, 320.0);
+      expect(size.height, 180.0);
+    });
+
+    test('returns null after image is cleared', () async {
+      final img = await _createTestImage(100, 50);
+      addTearDown(img.dispose);
+
+      final block = RenderImageBlock(nodeId: 'img-1', image: img);
+      expect(block.intrinsicContentSize, isNotNull);
+
+      block.image = null;
+      expect(block.intrinsicContentSize, isNull);
+    });
+
+    test('reflects new dimensions after image is replaced', () async {
+      final img1 = await _createTestImage(100, 50);
+      final img2 = await _createTestImage(640, 480);
+      addTearDown(img1.dispose);
+      addTearDown(img2.dispose);
+
+      final block = RenderImageBlock(nodeId: 'img-1', image: img1);
+      expect(block.intrinsicContentSize, equals(const Size(100, 50)));
+
+      block.image = img2;
+      expect(block.intrinsicContentSize, equals(const Size(640, 480)));
+    });
+  });
+
   group('RenderImageBlock layout property defaults and setters', () {
     test('blockAlignment defaults to BlockAlignment.stretch', () {
       final block = RenderImageBlock(nodeId: 'img-1');

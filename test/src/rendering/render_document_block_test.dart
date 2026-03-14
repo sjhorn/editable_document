@@ -92,5 +92,11 @@ void main() {
     test('textWrap defaults to TextWrapMode.none', () {
       expect(block.textWrap, TextWrapMode.none);
     });
+
+    test('intrinsicContentSize defaults to null for non-image block types', () {
+      // Base class default must be null for all blocks that do not carry
+      // a natural pixel size (text, horizontal rule, etc.).
+      expect(block.intrinsicContentSize, isNull);
+    });
   });
 }

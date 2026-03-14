@@ -113,6 +113,21 @@ abstract class RenderDocumentBlock extends RenderBox {
   /// (e.g. horizontal rules without an explicit [requestedWidth]).
   bool get clearsFloat => false;
 
+  /// The natural/intrinsic content size of this block in logical pixels,
+  /// or `null` if the concept does not apply to this block type.
+  ///
+  /// For image blocks this is the pixel dimensions of the decoded image
+  /// (e.g. `Size(image.width.toDouble(), image.height.toDouble())`).  It
+  /// allows the widget layer to compare the node's explicit
+  /// [requestedWidth]/[requestedHeight] against the image's true resolution
+  /// to decide, for example, whether to show a "Reset to original size"
+  /// button.
+  ///
+  /// Text blocks, horizontal rules, and other non-image blocks return `null`
+  /// by default.  Override this getter in concrete subclasses where the
+  /// notion of a natural content size is meaningful (e.g. [RenderImageBlock]).
+  Size? get intrinsicContentSize => null;
+
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
@@ -124,5 +139,7 @@ abstract class RenderDocumentBlock extends RenderBox {
     properties
         .add(EnumProperty<TextWrapMode>('textWrap', textWrap, defaultValue: TextWrapMode.none));
     properties.add(DiagnosticsProperty<bool>('clearsFloat', clearsFloat));
+    properties.add(DiagnosticsProperty<Size?>('intrinsicContentSize', intrinsicContentSize,
+        defaultValue: null));
   }
 }
