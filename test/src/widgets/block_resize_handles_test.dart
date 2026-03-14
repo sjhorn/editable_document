@@ -20,6 +20,11 @@
 /// - Drag below [minWidth] or [minHeight] is clamped.
 /// - A [DecoratedBox] border is visible when handles are shown.
 /// - [BlockResizeHandles.isDragging] is set during a drag.
+/// - Corner drag with [ImageNode.lockAspect] = false resizes width and height
+///   independently.
+/// - Edge drag with [ImageNode.lockAspect] = true scales the orthogonal
+///   dimension proportionally.
+/// - [createResetImageSizeRequest] preserves [ImageNode.lockAspect].
 library;
 
 import 'package:flutter/material.dart';
@@ -708,8 +713,10 @@ void main() {
       return results;
     }
 
-    testWidgets('dragging middleRight handle calls onResize with increased width, null height',
-        (tester) async {
+    testWidgets(
+        'dragging middleRight handle calls onResize with increased width '
+        'and proportional height (lockAspect=true default)', (tester) async {
+      // Image is 200×100 → aspect 2:1. Default lockAspect=true.
       final results = await pumpAndCaptureDrags(tester);
 
       final listeners = find.descendant(
@@ -724,14 +731,16 @@ void main() {
       expect(results, isNotEmpty);
       final (nodeId, width, height) = results.last;
       expect(nodeId, 'img-1');
-      // Width should be the original 200 + 50 = 250, clamped to >= minWidth (20).
+      // Width: 200 + 50 = 250.
       expect(width, 250.0);
-      // Height should be null (only horizontal handle).
-      expect(height, isNull);
+      // Height is proportionally scaled: 250 / 2 = 125 (lockAspect=true).
+      expect(height, 125.0);
     });
 
-    testWidgets('dragging bottomCenter handle calls onResize with null width, increased height',
-        (tester) async {
+    testWidgets(
+        'dragging bottomCenter handle calls onResize with increased height '
+        'and proportional width (lockAspect=true default)', (tester) async {
+      // Image is 200×100 → aspect 2:1. Default lockAspect=true.
       final results = await pumpAndCaptureDrags(tester);
 
       final listeners = find.descendant(
@@ -746,10 +755,10 @@ void main() {
       expect(results, isNotEmpty);
       final (nodeId, width, height) = results.last;
       expect(nodeId, 'img-1');
-      // Width should be null (only vertical handle).
-      expect(width, isNull);
-      // Height should be the original 100 + 40 = 140.
+      // Height: 100 + 40 = 140.
       expect(height, 140.0);
+      // Width is proportionally scaled: 140 * 2 = 280 (lockAspect=true).
+      expect(width, 280.0);
     });
 
     testWidgets('dragging bottomRight corner calls onResize with aspect-ratio-locked dimensions',
@@ -774,6 +783,7 @@ void main() {
     });
 
     testWidgets('drag beyond minWidth clamps width to minWidth', (tester) async {
+      // Image is 200×100 → aspect 2:1. Default lockAspect=true.
       final results = await pumpAndCaptureDrags(tester, imageWidth: 200.0);
 
       final listeners = find.descendant(
@@ -781,7 +791,8 @@ void main() {
         matching: find.byType(Listener),
       );
       // middleRight is index 4. Dragging left by 300: newWidth = 200 + (-300) = -100,
-      // clamped to minWidth (20).
+      // clamped to minWidth (20). With lockAspect=true, height = -100 / 2 = -50,
+      // also clamped to minHeight (20).
       await tester.drag(listeners.at(4), const Offset(-300.0, 0.0));
       await tester.pumpAndSettle();
 
@@ -791,10 +802,12 @@ void main() {
       expect(nodeId, 'img-1');
       // Should be clamped to minWidth = 20.
       expect(width, 20.0);
-      expect(height, isNull);
+      // lockAspect=true: height is also clamped to minHeight = 20.
+      expect(height, 20.0);
     });
 
     testWidgets('drag beyond minHeight clamps height to minHeight', (tester) async {
+      // Image is 200×100 → aspect 2:1. Default lockAspect=true.
       final results = await pumpAndCaptureDrags(tester, imageHeight: 100.0);
 
       final listeners = find.descendant(
@@ -802,7 +815,8 @@ void main() {
         matching: find.byType(Listener),
       );
       // bottomCenter is index 6. Dragging up: newHeight = 100 + (-300) = -200,
-      // clamped to minHeight (20).
+      // clamped to minHeight (20). With lockAspect=true, width = -200 * 2 = -400,
+      // also clamped to minWidth (20).
       await tester.drag(listeners.at(6), const Offset(0.0, -300.0));
       await tester.pumpAndSettle();
 
@@ -810,7 +824,8 @@ void main() {
       expect(results, isNotEmpty);
       final (nodeId, width, height) = results.last;
       expect(nodeId, 'img-1');
-      expect(width, isNull);
+      // lockAspect=true: width is also clamped to minWidth = 20.
+      expect(width, 20.0);
       // Should be clamped to minHeight = 20.
       expect(height, 20.0);
     });
@@ -1240,6 +1255,141 @@ void main() {
       // DocumentSelectionOverlay, so BlockResizeHandles.onResetImageSize
       // is null.
       expect(find.text('Reset'), findsNothing);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // BlockResizeHandles — lockAspect behaviour
+  // -------------------------------------------------------------------------
+
+  group('BlockResizeHandles — lockAspect', () {
+    /// Builds the overlay stack with an [ImageNode] whose [lockAspect] is
+    /// configurable. Returns the list of (nodeId, width, height) calls
+    /// received by [onResize].
+    Future<List<(String, double?, double?)>> pumpAndCaptureDragsWithLock(
+      WidgetTester tester, {
+      double imageWidth = 200.0,
+      double imageHeight = 100.0,
+      bool lockAspect = true,
+    }) async {
+      final results = <(String, double?, double?)>[];
+
+      final doc = MutableDocument([
+        ImageNode(
+          id: 'img-1',
+          imageUrl: 'test.png',
+          width: imageWidth,
+          height: imageHeight,
+          alignment: BlockAlignment.center,
+          lockAspect: lockAspect,
+        ),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      addTearDown(controller.dispose);
+
+      _selectFully(controller, 'img-1');
+
+      await tester.pumpWidget(
+        _buildWithOverlay(
+          controller: controller,
+          document: doc,
+          onBlockResize: (id, w, h) => results.add((id, w, h)),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      return results;
+    }
+
+    testWidgets('corner drag with lockAspect=false resizes width and height independently',
+        (tester) async {
+      // Image is 200×100. Drag bottomRight by (50, 30) with lockAspect=false.
+      // Expected: width = 200+50 = 250, height = 100+30 = 130 (independent).
+      final results = await pumpAndCaptureDragsWithLock(
+        tester,
+        imageWidth: 200.0,
+        imageHeight: 100.0,
+        lockAspect: false,
+      );
+
+      final listeners = find.descendant(
+        of: find.byType(BlockResizeHandles),
+        matching: find.byType(Listener),
+      );
+      // bottomRight is index 7 in ResizeHandlePosition.values.
+      await tester.drag(listeners.at(7), const Offset(50.0, 30.0));
+      await tester.pumpAndSettle();
+
+      expect(results, isNotEmpty);
+      final (nodeId, width, height) = results.last;
+      expect(nodeId, 'img-1');
+      expect(width, 250.0, reason: 'width should increase by 50 independently');
+      expect(height, 130.0, reason: 'height should increase by 30 independently');
+    });
+
+    testWidgets('edge drag with lockAspect=true scales orthogonal dimension proportionally',
+        (tester) async {
+      // Image is 200×100 → aspect 2:1. Drag middleRight by (50, 0) with lockAspect=true.
+      // Expected: width = 200+50 = 250, height = 250/2 = 125 (proportional).
+      final results = await pumpAndCaptureDragsWithLock(
+        tester,
+        imageWidth: 200.0,
+        imageHeight: 100.0,
+        lockAspect: true,
+      );
+
+      final listeners = find.descendant(
+        of: find.byType(BlockResizeHandles),
+        matching: find.byType(Listener),
+      );
+      // middleRight is index 4 in ResizeHandlePosition.values.
+      await tester.drag(listeners.at(4), const Offset(50.0, 0.0));
+      await tester.pumpAndSettle();
+
+      expect(results, isNotEmpty);
+      final (nodeId, width, height) = results.last;
+      expect(nodeId, 'img-1');
+      expect(width, 250.0, reason: 'width should increase by 50');
+      expect(height, 125.0, reason: 'height should be proportionally scaled to 250/2 = 125');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // createResetImageSizeRequest — lockAspect preservation
+  // -------------------------------------------------------------------------
+
+  group('createResetImageSizeRequest — lockAspect', () {
+    test('preserves lockAspect=true through reset', () {
+      final node = ImageNode(
+        id: 'img-1',
+        imageUrl: 'test.png',
+        width: 320.0,
+        height: 240.0,
+        alignment: BlockAlignment.center,
+        lockAspect: true,
+      );
+
+      final req = createResetImageSizeRequest(node);
+
+      final newNode = (req! as ReplaceNodeRequest).newNode as ImageNode;
+      expect(newNode.lockAspect, isTrue, reason: 'lockAspect should be preserved through reset');
+    });
+
+    test('preserves lockAspect=false through reset', () {
+      final node = ImageNode(
+        id: 'img-2',
+        imageUrl: 'test.png',
+        width: 320.0,
+        height: 240.0,
+        alignment: BlockAlignment.center,
+        lockAspect: false,
+      );
+
+      final req = createResetImageSizeRequest(node);
+
+      final newNode = (req! as ReplaceNodeRequest).newNode as ImageNode;
+      expect(newNode.lockAspect, isFalse,
+          reason: 'lockAspect=false should be preserved through reset');
     });
   });
 }

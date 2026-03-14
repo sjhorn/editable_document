@@ -260,6 +260,12 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
   /// The node id captured at drag start, so it survives selection changes.
   String? _dragNodeId;
 
+  /// Whether the active drag should maintain the block's aspect ratio.
+  ///
+  /// Captured from [ImageNode.lockAspect] at drag start. Defaults to `true`
+  /// for non-[ImageNode] nodes (aspect-ratio-preserving is the safe default).
+  bool _lockAspect = true;
+
   /// The pointer id currently being tracked for a drag, or `null`.
   int? _activePointer;
 
@@ -437,6 +443,8 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
   ) {
     _activePointer = event.pointer;
     _dragNodeId = _selectedNodeId();
+    final node = _dragNodeId != null ? widget.document.nodeById(_dragNodeId!) : null;
+    _lockAspect = node is ImageNode ? node.lockAspect : true;
     BlockResizeHandles.isDragging = true;
     setState(() {
       _dragHandlePosition = handle;
@@ -472,7 +480,7 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
     final nodeId = _dragNodeId;
     if (handle == null || startSize == null || nodeId == null) return;
 
-    final result = _computeNewSize(handle, startSize, _dragDelta);
+    final result = _computeNewSize(handle, startSize, _dragDelta, lockAspect: _lockAspect);
     final newWidth = result.$1 != null ? result.$1!.clamp(widget.minWidth, double.infinity) : null;
     final newHeight =
         result.$2 != null ? result.$2!.clamp(widget.minHeight, double.infinity) : null;
@@ -484,6 +492,7 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
 
     _activePointer = null;
     _dragNodeId = null;
+    _lockAspect = true;
     BlockResizeHandles.isDragging = false;
     setState(() {
       _dragHandlePosition = null;
@@ -496,21 +505,32 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
   ///
   /// Returns a record of `(newWidth, newHeight)`. A `null` component means
   /// "do not change this dimension".
+  ///
+  /// When [lockAspect] is `true`:
+  /// - Corner handles: the dominant axis drives, the other adjusts proportionally
+  ///   (existing behaviour).
+  /// - Edge handles: the dragged dimension drives, the orthogonal dimension
+  ///   adjusts proportionally (new behaviour).
+  ///
+  /// When [lockAspect] is `false`:
+  /// - Corner handles: width and height resize independently.
+  /// - Edge handles: only the dragged dimension changes (existing behaviour).
   (double?, double?) _computeNewSize(
     ResizeHandlePosition handle,
     Size original,
-    Offset delta,
-  ) {
+    Offset delta, {
+    bool lockAspect = true,
+  }) {
     double? newWidth;
     double? newHeight;
+
+    final aspect = original.width / original.height;
 
     switch (handle) {
       case ResizeHandlePosition.topLeft:
       case ResizeHandlePosition.topRight:
       case ResizeHandlePosition.bottomLeft:
       case ResizeHandlePosition.bottomRight:
-        // Corner handles maintain aspect ratio. Use the axis with the
-        // larger absolute delta as the driver.
         final dxSign = switch (handle) {
           ResizeHandlePosition.topLeft || ResizeHandlePosition.bottomLeft => -1.0,
           _ => 1.0,
@@ -521,22 +541,40 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
         };
         final rawW = original.width + delta.dx * dxSign;
         final rawH = original.height + delta.dy * dySign;
-        final aspect = original.width / original.height;
-        if ((delta.dx.abs()) >= (delta.dy.abs())) {
-          newWidth = rawW;
-          newHeight = rawW / aspect;
+        if (lockAspect) {
+          // Aspect-ratio-preserving: dominant axis drives both dimensions.
+          if ((delta.dx.abs()) >= (delta.dy.abs())) {
+            newWidth = rawW;
+            newHeight = rawW / aspect;
+          } else {
+            newHeight = rawH;
+            newWidth = rawH * aspect;
+          }
         } else {
+          // Free resize: each axis is independent.
+          newWidth = rawW;
           newHeight = rawH;
-          newWidth = rawH * aspect;
         }
       case ResizeHandlePosition.topCenter:
         newHeight = original.height - delta.dy;
+        if (lockAspect) {
+          newWidth = newHeight * aspect;
+        }
       case ResizeHandlePosition.middleLeft:
         newWidth = original.width - delta.dx;
+        if (lockAspect) {
+          newHeight = newWidth / aspect;
+        }
       case ResizeHandlePosition.middleRight:
         newWidth = original.width + delta.dx;
+        if (lockAspect) {
+          newHeight = newWidth / aspect;
+        }
       case ResizeHandlePosition.bottomCenter:
         newHeight = original.height + delta.dy;
+        if (lockAspect) {
+          newWidth = newHeight * aspect;
+        }
     }
 
     return (newWidth, newHeight);
@@ -557,7 +595,7 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
       return base;
     }
 
-    final (rawW, rawH) = _computeNewSize(handle, startSize, _dragDelta);
+    final (rawW, rawH) = _computeNewSize(handle, startSize, _dragDelta, lockAspect: _lockAspect);
     final newW = rawW?.clamp(widget.minWidth, double.infinity) ?? base.width;
     final newH = rawH?.clamp(widget.minHeight, double.infinity) ?? base.height;
 
@@ -848,6 +886,7 @@ EditRequest? createResetImageSizeRequest(DocumentNode node) {
       // width and height intentionally null → intrinsic size.
       alignment: node.alignment,
       textWrap: node.textWrap,
+      lockAspect: node.lockAspect,
       metadata: node.metadata,
     ),
   );
