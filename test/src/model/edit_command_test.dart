@@ -1646,7 +1646,31 @@ void main() {
       expect(() => cmd.execute(ctx), throwsStateError);
     });
 
-    test('7. via Editor.submit dispatches correctly', () {
+    test('7. is a no-op when moving a node to itself', () {
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('First')),
+        ImageNode(id: 'img-1', imageUrl: 'test.png'),
+        ParagraphNode(id: 'p2', text: AttributedText('Second')),
+      ]);
+      final ctx = _ctx(doc);
+      const cmd = MoveNodeToPositionCommand(
+        nodeId: 'img-1',
+        position: DocumentPosition(
+          nodeId: 'img-1',
+          nodePosition: BinaryNodePosition.downstream(),
+        ),
+      );
+
+      final events = cmd.execute(ctx);
+
+      expect(events, isEmpty);
+      expect(doc.nodes.length, 3);
+      expect(doc.nodes[0].id, 'p1');
+      expect(doc.nodes[1].id, 'img-1');
+      expect(doc.nodes[2].id, 'p2');
+    });
+
+    test('8. via Editor.submit dispatches correctly', () {
       final doc = MutableDocument([
         ParagraphNode(id: 'p1', text: AttributedText('Hello')),
         ImageNode(id: 'img', imageUrl: 'https://example.com/a.png'),

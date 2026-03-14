@@ -1364,6 +1364,9 @@ class MoveNodeToPositionCommand extends EditCommand {
       );
     }
 
+    // Self-move is a no-op — the node is already at its own position.
+    if (position.nodeId == nodeId) return [];
+
     final events = <DocumentChangeEvent>[];
 
     // 3. Remove the block from its current position.
