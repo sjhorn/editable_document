@@ -14,6 +14,8 @@ import '../model/document.dart';
 import '../model/document_editing_controller.dart';
 import '../model/document_position.dart';
 import '../model/document_selection.dart';
+import '../model/image_node.dart';
+import '_image_provider_stub.dart' if (dart.library.io) '_image_provider_io.dart';
 import 'document_layout.dart';
 
 // ---------------------------------------------------------------------------
@@ -194,6 +196,12 @@ class BlockDragOverlayState extends State<BlockDragOverlay> {
   /// `null` when no [pointerOffset] was supplied to [startBlockDrag].
   Offset? _grabOffset;
 
+  /// The image URL of the dragged block, when it is an [ImageNode].
+  ///
+  /// When non-null, the drag ghost renders the actual image content instead
+  /// of a plain coloured rectangle.
+  String? _imageUrl;
+
   // ---------------------------------------------------------------------------
   // Lifecycle
   // ---------------------------------------------------------------------------
@@ -294,6 +302,11 @@ class BlockDragOverlayState extends State<BlockDragOverlay> {
       }
     }
 
+    // Check if the dragged node is an image so the ghost can show the actual
+    // image content instead of a plain rectangle.
+    final node = widget.document.nodeById(nodeId);
+    final imageUrl = node is ImageNode ? node.imageUrl : null;
+
     setState(() {
       _dragNodeId = nodeId;
       _dropPosition = null;
@@ -301,6 +314,7 @@ class BlockDragOverlayState extends State<BlockDragOverlay> {
       _savedSelection = widget.controller.selection;
       _blockSize = blockSize;
       _grabOffset = grabOffset;
+      _imageUrl = imageUrl;
     });
   }
 
@@ -393,6 +407,7 @@ class BlockDragOverlayState extends State<BlockDragOverlay> {
       _savedSelection = null;
       _blockSize = null;
       _grabOffset = null;
+      _imageUrl = null;
     });
   }
 
@@ -439,7 +454,7 @@ class BlockDragOverlayState extends State<BlockDragOverlay> {
 
     return Stack(
       children: [
-        // Drag ghost — semi-transparent rectangle at the block's real size.
+        // Drag ghost — at the block's real size, following the pointer.
         if (ghostLeft != null && ghostTop != null)
           Positioned(
             left: ghostLeft,
@@ -449,17 +464,55 @@ class BlockDragOverlayState extends State<BlockDragOverlay> {
             child: IgnorePointer(
               child: Opacity(
                 opacity: 0.5,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: const Color(0x332196F3),
-                    border: Border.all(color: widget.indicatorColor, width: 2),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
+                child: _buildGhostContent(),
               ),
             ),
           ),
       ],
+    );
+  }
+
+  /// Builds the ghost content widget.
+  ///
+  /// When the dragged block is an [ImageNode], shows the actual image via
+  /// Flutter's image cache. Otherwise falls back to a coloured rectangle.
+  Widget _buildGhostContent() {
+    final url = _imageUrl;
+    if (url != null) {
+      final ImageProvider? provider;
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        provider = NetworkImage(url);
+      } else {
+        provider = createFileImageProvider(url);
+      }
+      if (provider != null) {
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border.all(color: widget.indicatorColor, width: 2),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(2),
+            child: Image(
+              image: provider,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => _defaultGhostBox(),
+            ),
+          ),
+        );
+      }
+    }
+    return _defaultGhostBox();
+  }
+
+  /// The fallback ghost: a translucent blue rectangle with a border.
+  Widget _defaultGhostBox() {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0x332196F3),
+        border: Border.all(color: widget.indicatorColor, width: 2),
+        borderRadius: BorderRadius.circular(4),
+      ),
     );
   }
 
