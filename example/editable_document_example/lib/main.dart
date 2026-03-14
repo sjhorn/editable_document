@@ -1196,9 +1196,6 @@ class _DocumentDemoState extends State<DocumentDemo> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('EditableDocument Demo'),
-      ),
       body: Column(
         children: [
           _buildToolbar(),
