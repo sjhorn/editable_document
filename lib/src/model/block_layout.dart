@@ -53,13 +53,16 @@ abstract interface class HasBlockLayout {
   /// [alignment] is [BlockAlignment.stretch] this returns `false`.
   bool get isResizable;
 
-  /// Returns a copy of this node with updated [width] and/or [height].
+  /// Returns a copy of this node with updated [width], [height], and/or [alignment].
   ///
-  /// This eliminates the need for type-dispatching in resize operations.
-  /// Pass `null` for either dimension to preserve the current value.
+  /// This eliminates the need for type-dispatching in resize and re-alignment
+  /// operations. Pass `null` for any parameter to preserve the current value.
   ///
   /// ```dart
   /// final resized = (node as HasBlockLayout).copyWithSize(width: 400.0);
+  /// final realigned = (node as HasBlockLayout).copyWithSize(
+  ///   alignment: BlockAlignment.center,
+  /// );
   /// ```
-  DocumentNode copyWithSize({double? width, double? height});
+  DocumentNode copyWithSize({double? width, double? height, BlockAlignment? alignment});
 }

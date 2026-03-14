@@ -267,5 +267,67 @@ void main() {
       expect(copy.width, 100.0);
       expect(copy.height, 50.0);
     });
+
+    test('ImageNode copyWithSize with alignment changes the alignment on the copy', () {
+      final node = ImageNode(
+        id: '1',
+        imageUrl: 'https://example.com/a.png',
+        alignment: BlockAlignment.stretch,
+      );
+      final copy =
+          (node as HasBlockLayout).copyWithSize(alignment: BlockAlignment.center) as ImageNode;
+      expect(copy.alignment, BlockAlignment.center);
+      expect(copy.id, '1');
+      expect(copy.imageUrl, 'https://example.com/a.png');
+    });
+
+    test('CodeBlockNode copyWithSize with alignment changes the alignment on the copy', () {
+      final node = CodeBlockNode(id: '2', alignment: BlockAlignment.stretch);
+      final copy =
+          (node as HasBlockLayout).copyWithSize(alignment: BlockAlignment.end) as CodeBlockNode;
+      expect(copy.alignment, BlockAlignment.end);
+      expect(copy.id, '2');
+    });
+
+    test('BlockquoteNode copyWithSize with alignment changes the alignment on the copy', () {
+      final node = BlockquoteNode(id: '3', alignment: BlockAlignment.center);
+      final copy =
+          (node as HasBlockLayout).copyWithSize(alignment: BlockAlignment.start) as BlockquoteNode;
+      expect(copy.alignment, BlockAlignment.start);
+    });
+
+    test('HorizontalRuleNode copyWithSize with alignment changes the alignment on the copy', () {
+      final node = HorizontalRuleNode(id: '4', alignment: BlockAlignment.center);
+      final copy = (node as HasBlockLayout).copyWithSize(alignment: BlockAlignment.end)
+          as HorizontalRuleNode;
+      expect(copy.alignment, BlockAlignment.end);
+    });
+
+    test('TableNode copyWithSize with alignment changes the alignment on the copy', () {
+      final node = TableNode(
+        id: '5',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('cell')],
+        ],
+        alignment: BlockAlignment.stretch,
+      );
+      final copy =
+          (node as HasBlockLayout).copyWithSize(alignment: BlockAlignment.center) as TableNode;
+      expect(copy.alignment, BlockAlignment.center);
+      expect(copy.id, '5');
+    });
+
+    test('copyWithSize null alignment preserves the current alignment', () {
+      final node = ImageNode(
+        id: '1',
+        imageUrl: 'https://example.com/a.png',
+        alignment: BlockAlignment.end,
+      );
+      final copy = (node as HasBlockLayout).copyWithSize(width: 200.0) as ImageNode;
+      expect(copy.alignment, BlockAlignment.end);
+      expect(copy.width, 200.0);
+    });
   });
 }

@@ -82,8 +82,11 @@ class ImageNode extends DocumentNode implements HasBlockLayout {
   bool get isResizable => alignment != BlockAlignment.stretch;
 
   @override
-  DocumentNode copyWithSize({double? width, double? height}) =>
-      copyWith(width: width ?? this.width, height: height ?? this.height);
+  DocumentNode copyWithSize({double? width, double? height, BlockAlignment? alignment}) => copyWith(
+        width: width ?? this.width,
+        height: height ?? this.height,
+        alignment: alignment ?? this.alignment,
+      );
 
   @override
   ImageNode copyWith({
