@@ -4,11 +4,11 @@
 /// - [BlockDragOverlay] renders [SizedBox.shrink] when no drag is active.
 /// - [BlockDragOverlay.isDragging] is false initially.
 /// - [startBlockDrag] sets [BlockDragOverlay.isDragging] to true.
-/// - [endBlockDrag] returns null when no insertion gap is set.
+/// - [endBlockDrag] returns null when no drop position is set.
 /// - [cancelBlockDrag] resets state without calling [onBlockMoved].
-/// - [endBlockDrag] calls [onBlockMoved] with correct nodeId and index when gap is set.
-/// - [updateBlockDrag] updates the insertion gap and triggers a rebuild.
-/// - Block drag overlay shows a horizontal line indicator during drag.
+/// - [endBlockDrag] calls [onBlockMoved] with correct nodeId and position when set.
+/// - [updateBlockDrag] updates the drop position and triggers a rebuild.
+/// - Block drag overlay shows a ghost rectangle during drag.
 /// - [BlockDragOverlay.isDragging] is false after [endBlockDrag].
 /// - [BlockDragOverlay.isDragging] is false after [cancelBlockDrag].
 library;
@@ -99,7 +99,7 @@ void main() {
       await tester.pump();
 
       // When idle, the overlay renders a SizedBox.shrink — no Stack or Positioned
-      // children should be present (no indicator line).
+      // children should be present (no indicator line or ghost).
       expect(
         find.descendant(
           of: find.byKey(overlayKey),
@@ -167,7 +167,7 @@ void main() {
   // =========================================================================
 
   group('BlockDragOverlay — endBlockDrag', () {
-    testWidgets('endBlockDrag returns null when no insertion gap is set', (tester) async {
+    testWidgets('endBlockDrag returns null when no drop position is set', (tester) async {
       final doc = _twoRulesDoc();
       final controller = DocumentEditingController(document: doc);
       final layoutKey = GlobalKey<DocumentLayoutState>();
@@ -184,9 +184,9 @@ void main() {
       await tester.pump();
 
       overlayKey.currentState!.startBlockDrag('hr1');
-      // No updateBlockDrag call → no gap set.
-      final gap = overlayKey.currentState!.endBlockDrag();
-      expect(gap, isNull);
+      // No updateBlockDrag call → no drop position set.
+      final pos = overlayKey.currentState!.endBlockDrag();
+      expect(pos, isNull);
     });
 
     testWidgets('endBlockDrag resets isDragging to false', (tester) async {
@@ -211,14 +211,14 @@ void main() {
       expect(BlockDragOverlay.isDragging, isFalse);
     });
 
-    testWidgets('endBlockDrag calls onBlockMoved when gap is set', (tester) async {
+    testWidgets('endBlockDrag calls onBlockMoved when drop position is set', (tester) async {
       final doc = _twoRulesDoc();
       final controller = DocumentEditingController(document: doc);
       final layoutKey = GlobalKey<DocumentLayoutState>();
       final overlayKey = GlobalKey<BlockDragOverlayState>();
 
       String? movedNodeId;
-      int? movedIndex;
+      DocumentPosition? movedPosition;
 
       await tester.pumpWidget(
         _buildWithDragOverlay(
@@ -226,23 +226,25 @@ void main() {
           document: doc,
           layoutKey: layoutKey,
           overlayKey: overlayKey,
-          onBlockMoved: (nodeId, newIndex) {
+          onBlockMoved: (nodeId, position) {
             movedNodeId = nodeId;
-            movedIndex = newIndex;
+            movedPosition = position;
           },
         ),
       );
       await tester.pump();
 
       overlayKey.currentState!.startBlockDrag('hr1');
-      // Manually inject a gap to simulate updateBlockDrag result.
-      overlayKey.currentState!.injectInsertionGapForTest(
-        const BlockInsertionGap(index: 1, lineY: 100.0),
+      // Manually inject a drop position to simulate updateBlockDrag result.
+      const injectedPos = DocumentPosition(
+        nodeId: 'hr2',
+        nodePosition: BinaryNodePosition.upstream(),
       );
+      overlayKey.currentState!.injectDropPositionForTest(injectedPos);
       overlayKey.currentState!.endBlockDrag();
 
       expect(movedNodeId, 'hr1');
-      expect(movedIndex, 1);
+      expect(movedPosition, injectedPos);
     });
   });
 
@@ -271,8 +273,11 @@ void main() {
       await tester.pump();
 
       overlayKey.currentState!.startBlockDrag('hr1');
-      overlayKey.currentState!.injectInsertionGapForTest(
-        const BlockInsertionGap(index: 1, lineY: 100.0),
+      overlayKey.currentState!.injectDropPositionForTest(
+        const DocumentPosition(
+          nodeId: 'hr2',
+          nodePosition: BinaryNodePosition.upstream(),
+        ),
       );
       overlayKey.currentState!.cancelBlockDrag();
 
@@ -282,11 +287,11 @@ void main() {
   });
 
   // =========================================================================
-  // 5. Visual indicator
+  // 5. Visual indicator (ghost rectangle during drag)
   // =========================================================================
 
   group('BlockDragOverlay — visual indicator', () {
-    testWidgets('shows a colored box when insertion gap is set during drag', (tester) async {
+    testWidgets('shows a Stack with children when dragging', (tester) async {
       final doc = _twoRulesDoc();
       final controller = DocumentEditingController(document: doc);
       final layoutKey = GlobalKey<DocumentLayoutState>();
@@ -303,18 +308,16 @@ void main() {
       await tester.pump();
 
       overlayKey.currentState!.startBlockDrag('hr1');
-      overlayKey.currentState!.injectInsertionGapForTest(
-        const BlockInsertionGap(index: 1, lineY: 50.0),
-      );
       await tester.pump();
 
-      // There should be a Positioned widget containing the indicator.
+      // When dragging is active (even without a drop position), the overlay
+      // renders a Stack.
       expect(
         find.descendant(
           of: find.byKey(overlayKey),
-          matching: find.byType(Positioned),
+          matching: find.byType(Stack),
         ),
-        findsWidgets,
+        findsOneWidget,
       );
     });
   });

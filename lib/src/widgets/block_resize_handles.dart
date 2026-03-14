@@ -10,18 +10,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
-import '../model/block_alignment.dart';
 import '../model/block_layout.dart';
-import '../model/blockquote_node.dart';
-import '../model/code_block_node.dart';
 import '../model/document.dart';
 import '../model/document_editing_controller.dart';
 import '../model/document_node.dart';
 import '../model/edit_request.dart';
-import '../model/horizontal_rule_node.dart';
 import '../model/image_node.dart';
 import '../model/node_position.dart';
-import '../model/table_node.dart';
 import 'document_layout.dart';
 
 // ---------------------------------------------------------------------------
@@ -87,7 +82,7 @@ enum ResizeHandlePosition {
 /// * a single block node is fully selected (base at upstream, extent at
 ///   downstream),
 /// * and the node implements [HasBlockLayout] with
-///   [HasBlockLayout.alignment] != [BlockAlignment.stretch].
+///   [HasBlockLayout.isResizable] is `true`.
 ///
 /// During drag the [onResize] callback fires on every pointer-move for
 /// real-time feedback, and once more on pointer-up for the final value.
@@ -403,9 +398,7 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
     final node = widget.document.nodeById(nodeId);
     if (node == null) return false;
     if (node is! HasBlockLayout) return false;
-    if ((node as HasBlockLayout).alignment == BlockAlignment.stretch) {
-      return false;
-    }
+    if (!(node as HasBlockLayout).isResizable) return false;
 
     return _blockRect != null;
   }
@@ -740,9 +733,9 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
 /// Creates a [ReplaceNodeRequest] that updates [node]'s [width] and/or
 /// [height].
 ///
-/// Type-dispatches [node.copyWith] for [ImageNode], [CodeBlockNode],
-/// [BlockquoteNode], [HorizontalRuleNode], and [TableNode]. Returns `null`
-/// for node types that do not support block layout (e.g. [ParagraphNode]).
+/// Delegates to [HasBlockLayout.copyWithSize] so no type-dispatch is needed.
+/// Returns `null` for node types that do not implement [HasBlockLayout]
+/// (e.g. [ParagraphNode]).
 ///
 /// A `null` [width] or [height] argument preserves the node's current value
 /// for that dimension. Pass a non-null value to update it.
@@ -758,52 +751,14 @@ EditRequest? createResizeRequest(
   double? width,
   double? height,
 ) {
-  if (node is ImageNode) {
-    return ReplaceNodeRequest(
-      nodeId: node.id,
-      newNode: node.copyWith(
-        width: width ?? node.width,
-        height: height ?? node.height,
-      ),
-    );
-  }
-  if (node is CodeBlockNode) {
-    return ReplaceNodeRequest(
-      nodeId: node.id,
-      newNode: node.copyWith(
-        width: width ?? node.width,
-        height: height ?? node.height,
-      ),
-    );
-  }
-  if (node is BlockquoteNode) {
-    return ReplaceNodeRequest(
-      nodeId: node.id,
-      newNode: node.copyWith(
-        width: width ?? node.width,
-        height: height ?? node.height,
-      ),
-    );
-  }
-  if (node is HorizontalRuleNode) {
-    return ReplaceNodeRequest(
-      nodeId: node.id,
-      newNode: node.copyWith(
-        width: width ?? node.width,
-        height: height ?? node.height,
-      ),
-    );
-  }
-  if (node is TableNode) {
-    return ReplaceNodeRequest(
-      nodeId: node.id,
-      newNode: node.copyWith(
-        width: width ?? node.width,
-        height: height ?? node.height,
-      ),
-    );
-  }
-  return null;
+  if (node is! HasBlockLayout) return null;
+  return ReplaceNodeRequest(
+    nodeId: node.id,
+    newNode: (node as HasBlockLayout).copyWithSize(
+      width: width,
+      height: height,
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------

@@ -24,7 +24,6 @@ import '../model/text_node.dart';
 import '../model/undoable_editor.dart';
 import '../services/document_clipboard.dart';
 import 'block_drag_overlay.dart';
-import 'block_resize_handles.dart';
 import 'caret_document_overlay.dart';
 import 'component_builder.dart';
 import 'document_layout.dart';
@@ -754,25 +753,7 @@ class DocumentFieldState extends State<DocumentField> {
                 endHandleLayerLink: _endHandleLayerLink,
                 showCaret: false,
                 document: _effectiveController.document,
-                onBlockResize: (nodeId, width, height) {
-                  final node = _effectiveController.document.nodeById(nodeId);
-                  if (node == null) return;
-                  final req = createResizeRequest(node, width, height);
-                  if (req != null) _effectiveEditor.submit(req);
-                },
-                onResetImageSize: (nodeId) {
-                  final node = _effectiveController.document.nodeById(nodeId);
-                  if (node == null) return;
-                  final req = createResetImageSizeRequest(node);
-                  if (req != null) _effectiveEditor.submit(req);
-                },
-                onBlockMoved: !isReadOnly
-                    ? (nodeId, newIndex) {
-                        _effectiveEditor.submit(
-                          MoveNodeRequest(nodeId: nodeId, newIndex: newIndex),
-                        );
-                      }
-                    : null,
+                editor: !isReadOnly ? _effectiveEditor : null,
                 blockDragOverlayKey: !isReadOnly ? _blockDragOverlayKey : null,
                 child: EditableDocument(
                   controller: _effectiveController,

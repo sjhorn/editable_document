@@ -20,6 +20,9 @@
 /// - BlockquoteNode with left accent border
 /// - Property panel for editing block alignment, text wrap, and sizing
 /// - TableNode: a block-level table with editable cells and column widths
+/// - Block drag-to-move: tap a non-text block to select it, then drag it to
+///   reorder it within the document — a blue insertion indicator shows the
+///   drop position (wired automatically via DocumentSelectionOverlay)
 ///
 /// Run with: `flutter run -t example/main.dart`
 library;
@@ -150,6 +153,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
   final _layoutKey = GlobalKey<DocumentLayoutState>();
   final _startHandleLayerLink = LayerLink();
   final _endHandleLayerLink = LayerLink();
+  final _blockDragOverlayKey = GlobalKey<BlockDragOverlayState>();
   final _contextMenuController = ContextMenuController();
   final _clipboard = const DocumentClipboard();
   final _syntaxBuilder = SyntaxHighlightCodeBlockBuilder();
@@ -605,6 +609,48 @@ class _DocumentDemoState extends State<DocumentDemo> {
           'by both exclusion zones at once. Once the text descends past the shorter '
           'float, the full column width is restored for that side.',
         ),
+      ),
+      // --- Block Drag-to-Move section ---
+      //
+      // Drag-to-move is automatic: tap any non-text block (image, horizontal
+      // rule, etc.) to fully select it, then drag it vertically. A blue
+      // insertion indicator line shows where the block will land on drop.
+      // DocumentSelectionOverlay wires up BlockDragOverlay internally — no
+      // extra widget setup is needed here.
+      HorizontalRuleNode(id: 'rule-before-drag'),
+      ParagraphNode(
+        id: 'h2-drag',
+        text: AttributedText('Block Drag-to-Move'),
+        blockType: ParagraphBlockType.header2,
+      ),
+      ParagraphNode(
+        id: 'drag-intro',
+        text: AttributedText(
+          'Tap any non-text block below to select it, then drag it up or down '
+          'to reorder it within the document. A blue horizontal line shows '
+          'where the block will be inserted on drop. The feature works out of '
+          'the box for ImageNode, HorizontalRuleNode, CodeBlockNode, and '
+          'any other block whose selection state is fully binary.',
+        ),
+      ),
+      // Draggable image — tap to select, then drag vertically to reorder.
+      ImageNode(
+        id: 'img-drag-demo',
+        imageUrl: 'https://picsum.photos/seed/drag-demo/400/120',
+        altText: 'Draggable demo image — tap to select, then drag to reorder',
+        width: 400,
+        height: 120,
+        alignment: BlockAlignment.center,
+      ),
+      ParagraphNode(
+        id: 'drag-between-1',
+        text: AttributedText('Paragraph A — drag the image or rule above or below here.'),
+      ),
+      // Draggable horizontal rule — tap to select, then drag to reorder.
+      HorizontalRuleNode(id: 'rule-drag-demo'),
+      ParagraphNode(
+        id: 'drag-between-2',
+        text: AttributedText('Paragraph B — try dragging the horizontal rule past this line.'),
       ),
       // --- Table Demo section ---
       HorizontalRuleNode(id: 'rule-before-table'),
@@ -2100,8 +2146,13 @@ class _DocumentDemoState extends State<DocumentDemo> {
         document: _document,
         focusNode: _focusNode,
         onSecondaryTapDown: _showContextMenu,
+        blockDragOverlayKey: _blockDragOverlayKey,
         child: Stack(
           children: [
+            // DocumentSelectionOverlay also mounts a BlockDragOverlay
+            // internally. When a non-text block is fully selected and then
+            // dragged, a blue insertion indicator appears automatically — no
+            // additional widget wiring is needed here.
             DocumentSelectionOverlay(
               controller: _controller,
               layoutKey: _layoutKey,
@@ -2121,6 +2172,10 @@ class _DocumentDemoState extends State<DocumentDemo> {
                 final req = createResetImageSizeRequest(node);
                 if (req != null) _editor.submit(req);
               },
+              onBlockMoved: (nodeId, position) {
+                _editor.submit(MoveNodeToPositionRequest(nodeId: nodeId, position: position));
+              },
+              blockDragOverlayKey: _blockDragOverlayKey,
               child: EditableDocument(
                 controller: _controller,
                 focusNode: _focusNode,

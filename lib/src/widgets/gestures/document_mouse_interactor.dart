@@ -37,6 +37,7 @@ import 'package:flutter/gestures.dart' show kPrimaryMouseButton, PointerDeviceKi
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../model/block_layout.dart';
 import '../../model/document.dart';
 import '../../model/document_editing_controller.dart';
 import '../../model/document_position.dart';
@@ -352,21 +353,25 @@ class DocumentMouseInteractorState extends State<DocumentMouseInteractor> {
     if (BlockResizeHandles.isDragging) return;
     if (BlockDragOverlay.isDragging) return;
 
-    // Check whether the pointer is on a fully-selected binary (non-text) node
+    // Check whether the pointer is on a fully-selected draggable block node
     // that could be dragged to a new position.
     if (widget.blockDragOverlayKey != null) {
+      // Always record the pointer-down position so that late detection in
+      // _onPointerMove (via _tryDetectBlockDragCandidate) has the correct
+      // drag start offset, even when the selection isn't set yet due to the
+      // GestureDetector double-tap window delay.
+      _blockDragStartOffset = event.localPosition;
+
       final selection = widget.controller.selection;
       if (selection != null &&
           !selection.isCollapsed &&
           selection.base.nodeId == selection.extent.nodeId) {
-        final basePos = selection.base.nodePosition;
-        final extentPos = selection.extent.nodePosition;
-        if (basePos is BinaryNodePosition &&
-            extentPos is BinaryNodePosition &&
-            basePos.type == BinaryNodePositionType.upstream &&
-            extentPos.type == BinaryNodePositionType.downstream) {
-          _blockDragNodeId = selection.base.nodeId;
-          _blockDragStartOffset = event.localPosition;
+        final nodeId = selection.base.nodeId;
+        final node = widget.document.nodeById(nodeId);
+        if (node is HasBlockLayout && (node as HasBlockLayout).isDraggable) {
+          if (_isFullySelected(node, selection)) {
+            _blockDragNodeId = nodeId;
+          }
         }
       }
     }
@@ -389,10 +394,28 @@ class DocumentMouseInteractorState extends State<DocumentMouseInteractor> {
     if (!widget.enabled) return;
     if (!_isDragging) return;
     if (BlockResizeHandles.isDragging) return;
+
+    // Route active block drags before the isDragging guard — the interactor
+    // itself sets BlockDragOverlay.isDragging, so the guard must not block
+    // the interactor's own drag updates.
+    if (_isBlockDragging) {
+      _updateBlockDrag(event);
+      return;
+    }
+
+    // Another component owns the block drag — skip selection logic.
     if (BlockDragOverlay.isDragging) return;
 
+    // Late detection: if _onPointerDown ran before the selection was set
+    // (e.g. the GestureDetector's tap handler set the selection between
+    // pointer-down and this pointer-move), try to detect a block drag
+    // candidate now.
+    if (_blockDragNodeId == null && widget.blockDragOverlayKey != null) {
+      _tryDetectBlockDragCandidate(event.localPosition);
+    }
+
     // Check for block drag threshold.
-    if (_blockDragNodeId != null && !_isBlockDragging) {
+    if (_blockDragNodeId != null) {
       final startOffset = _blockDragStartOffset;
       if (startOffset != null) {
         final delta = event.localPosition - startOffset;
@@ -401,20 +424,11 @@ class DocumentMouseInteractorState extends State<DocumentMouseInteractor> {
           _isBlockDragging = true;
           BlockDragOverlay.isDragging = true;
           widget.blockDragOverlayKey?.currentState?.startBlockDrag(_blockDragNodeId!);
+          _updateBlockDrag(event);
         }
       }
-    }
-
-    if (_isBlockDragging) {
-      // Convert listener-local coordinates to layout-local coordinates.
-      final layoutBox = widget.layoutKey.currentContext?.findRenderObject() as RenderBox?;
-      final listenerBox = _listenerKey.currentContext?.findRenderObject() as RenderBox?;
-      if (layoutBox != null && listenerBox != null) {
-        final globalOffset = listenerBox.localToGlobal(event.localPosition);
-        final layoutLocal = layoutBox.globalToLocal(globalOffset);
-        widget.blockDragOverlayKey?.currentState?.updateBlockDrag(layoutLocal);
-      }
-      // Skip normal drag-selection while a block drag is in progress.
+      // Don't fall through to selection-drag while a block drag is pending
+      // — that would change the selection and deselect the image.
       return;
     }
 
@@ -423,6 +437,68 @@ class DocumentMouseInteractorState extends State<DocumentMouseInteractor> {
     final extent = _positionForOffset(event.localPosition);
     if (extent == null) return;
     widget.controller.setSelection(DocumentSelection(base: base, extent: extent));
+  }
+
+  /// Converts listener-local coordinates to layout-local and forwards to
+  /// the [BlockDragOverlayState].
+  void _updateBlockDrag(PointerMoveEvent event) {
+    final layoutBox = widget.layoutKey.currentContext?.findRenderObject() as RenderBox?;
+    final listenerBox = _listenerKey.currentContext?.findRenderObject() as RenderBox?;
+    if (layoutBox != null && listenerBox != null) {
+      final globalOffset = listenerBox.localToGlobal(event.localPosition);
+      final layoutLocal = layoutBox.globalToLocal(globalOffset);
+      widget.blockDragOverlayKey?.currentState?.updateBlockDrag(layoutLocal);
+    }
+  }
+
+  /// Returns `true` when [node] is fully selected in [selection].
+  ///
+  /// For binary nodes ([HasBlockLayout] but not [TextNode]), "fully selected"
+  /// means upstream → downstream. For text-based [HasBlockLayout] nodes (e.g.
+  /// [CodeBlockNode], [BlockquoteNode]), "fully selected" means offset 0 →
+  /// text.length.
+  bool _isFullySelected(dynamic node, DocumentSelection selection) {
+    final basePos = selection.base.nodePosition;
+    final extentPos = selection.extent.nodePosition;
+    if (node is TextNode) {
+      // Text-based HasBlockLayout: fully selected = 0 to text.length.
+      if (basePos is! TextNodePosition || extentPos is! TextNodePosition) {
+        return false;
+      }
+      return basePos.offset == 0 && extentPos.offset == node.text.text.length;
+    }
+    // Binary node: fully selected = upstream to downstream.
+    if (basePos is! BinaryNodePosition || extentPos is! BinaryNodePosition) {
+      return false;
+    }
+    return basePos.type == BinaryNodePositionType.upstream &&
+        extentPos.type == BinaryNodePositionType.downstream;
+  }
+
+  /// Checks whether the current selection has become a fully-selected draggable
+  /// block since [_onPointerDown] ran.
+  ///
+  /// This handles the timing gap where [_onTapDown] or [_onDoubleTapDown]
+  /// sets the selection after the pointer-down event (due to the double-tap
+  /// window delay).
+  void _tryDetectBlockDragCandidate(Offset currentPosition) {
+    final selection = widget.controller.selection;
+    if (selection == null || selection.isCollapsed) return;
+    if (selection.base.nodeId != selection.extent.nodeId) return;
+
+    final nodeId = selection.base.nodeId;
+    final node = widget.document.nodeById(nodeId);
+    if (node is! HasBlockLayout || !(node as HasBlockLayout).isDraggable) return;
+    if (!_isFullySelected(node, selection)) return;
+
+    // Verify the pointer is actually over the selected block.
+    final pos = _positionForOffset(currentPosition);
+    if (pos == null || pos.nodeId != nodeId) return;
+
+    _blockDragNodeId = nodeId;
+    // Use the original pointer-down position if we recorded one, otherwise
+    // use the current position as the drag start.
+    _blockDragStartOffset ??= currentPosition;
   }
 
   /// Handles raw pointer-up events.

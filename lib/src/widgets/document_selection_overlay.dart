@@ -52,6 +52,8 @@ import 'package:flutter/widgets.dart';
 import '../model/document.dart';
 import '../model/document_editing_controller.dart';
 import '../model/document_selection.dart';
+import '../model/edit_request.dart';
+import '../model/editor.dart';
 import '../rendering/render_document_caret.dart';
 import '../rendering/render_document_selection_highlight.dart';
 import 'block_drag_overlay.dart';
@@ -131,6 +133,7 @@ class DocumentSelectionOverlay extends StatefulWidget {
     this.showSelection = true,
     this.showHandles = false,
     this.document,
+    this.editor,
     this.onBlockResize,
     this.onResetImageSize,
     this.onBlockMoved,
@@ -192,9 +195,23 @@ class DocumentSelectionOverlay extends StatefulWidget {
 
   /// The document, required for block resize handles.
   ///
-  /// When both [document] and [onBlockResize] are provided, a
-  /// [BlockResizeHandles] overlay is added to the widget tree.
+  /// When both [document] and [onBlockResize] are provided (or [editor] is
+  /// provided), a [BlockResizeHandles] overlay is added to the widget tree.
   final Document? document;
+
+  /// An optional [Editor] used to auto-wire block resize and move callbacks.
+  ///
+  /// When non-null and [document] is also non-null:
+  /// - If [onBlockResize] is `null`, resize operations are submitted to this
+  ///   editor automatically using [createResizeRequest].
+  /// - If [onResetImageSize] is `null`, image reset operations are submitted
+  ///   automatically using [createResetImageSizeRequest].
+  /// - If [onBlockMoved] is `null`, block move operations are submitted
+  ///   automatically using [MoveNodeToPositionRequest].
+  ///
+  /// Explicit callbacks ([onBlockResize], [onResetImageSize], [onBlockMoved])
+  /// always take precedence over auto-wiring.
+  final Editor? editor;
 
   /// Called when the user finishes resizing a block via drag handles.
   ///
@@ -238,6 +255,7 @@ class DocumentSelectionOverlay extends StatefulWidget {
     properties.add(FlagProperty('showSelection', value: showSelection, ifTrue: 'showSelection'));
     properties.add(FlagProperty('showHandles', value: showHandles, ifTrue: 'showHandles'));
     properties.add(DiagnosticsProperty<Document?>('document', document, defaultValue: null));
+    properties.add(DiagnosticsProperty<Editor?>('editor', editor, defaultValue: null));
     properties.add(
       ObjectFlagProperty<BlockResizeCallback?>.has('onBlockResize', onBlockResize),
     );
@@ -293,10 +311,72 @@ class DocumentSelectionOverlayState extends State<DocumentSelectionOverlay> {
   ///
   /// Prefers [DocumentSelectionOverlay.blockDragOverlayKey] when provided;
   /// falls back to [_internalBlockDragOverlayKey] otherwise. Returns `null`
-  /// when neither [document] nor [onBlockMoved] is set.
+  /// when neither [document] nor an effective block-moved callback is available.
   GlobalKey<BlockDragOverlayState>? get blockDragOverlayKey {
-    if (widget.document == null || widget.onBlockMoved == null) return null;
+    if (widget.document == null) return null;
+    final hasCallback = widget.onBlockMoved != null || widget.editor != null;
+    if (!hasCallback) return null;
     return widget.blockDragOverlayKey ?? _internalBlockDragOverlayKey;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Auto-wiring helpers
+  // ---------------------------------------------------------------------------
+
+  /// Returns the effective block-resize callback.
+  ///
+  /// If [DocumentSelectionOverlay.onBlockResize] is provided, it is used.
+  /// Otherwise, if [DocumentSelectionOverlay.editor] and
+  /// [DocumentSelectionOverlay.document] are both non-null, an auto-wired
+  /// callback is returned that submits [createResizeRequest] to the editor.
+  BlockResizeCallback? get _effectiveOnBlockResize {
+    if (widget.onBlockResize != null) return widget.onBlockResize;
+    final editor = widget.editor;
+    final document = widget.document;
+    if (editor == null || document == null) return null;
+    return (nodeId, width, height) {
+      final node = document.nodeById(nodeId);
+      if (node == null) return;
+      final req = createResizeRequest(node, width, height);
+      if (req != null) editor.submit(req);
+    };
+  }
+
+  /// Returns the effective image-reset callback.
+  ///
+  /// If [DocumentSelectionOverlay.onResetImageSize] is provided, it is used.
+  /// Otherwise, if [DocumentSelectionOverlay.editor] and
+  /// [DocumentSelectionOverlay.document] are both non-null, an auto-wired
+  /// callback is returned that submits [createResetImageSizeRequest] to the
+  /// editor.
+  ValueChanged<String>? get _effectiveOnResetImageSize {
+    if (widget.onResetImageSize != null) return widget.onResetImageSize;
+    final editor = widget.editor;
+    final document = widget.document;
+    if (editor == null || document == null) return null;
+    return (nodeId) {
+      final node = document.nodeById(nodeId);
+      if (node == null) return;
+      final req = createResetImageSizeRequest(node);
+      if (req != null) editor.submit(req);
+    };
+  }
+
+  /// Returns the effective block-moved callback.
+  ///
+  /// If [DocumentSelectionOverlay.onBlockMoved] is provided, it is used.
+  /// Otherwise, if [DocumentSelectionOverlay.editor] and
+  /// [DocumentSelectionOverlay.document] are both non-null, an auto-wired
+  /// callback is returned that submits [MoveNodeToPositionRequest] to the
+  /// editor.
+  BlockMoveCallback? get _effectiveOnBlockMoved {
+    if (widget.onBlockMoved != null) return widget.onBlockMoved;
+    final editor = widget.editor;
+    final document = widget.document;
+    if (editor == null || document == null) return null;
+    return (nodeId, position) {
+      editor.submit(MoveNodeToPositionRequest(nodeId: nodeId, position: position));
+    };
   }
 
   // ---------------------------------------------------------------------------
@@ -433,27 +513,27 @@ class DocumentSelectionOverlayState extends State<DocumentSelectionOverlay> {
             ),
           ),
 
-        // 4. Block resize handles — shown for non-stretch block selection.
-        if (widget.document != null && widget.onBlockResize != null)
+        // 4. Block resize handles — shown for resizable block selection.
+        if (widget.document != null && _effectiveOnBlockResize != null)
           Positioned.fill(
             child: BlockResizeHandles(
               controller: widget.controller,
               layoutKey: widget.layoutKey,
               document: widget.document!,
-              onResize: widget.onBlockResize,
-              onResetImageSize: widget.onResetImageSize,
+              onResize: _effectiveOnBlockResize,
+              onResetImageSize: _effectiveOnResetImageSize,
             ),
           ),
 
         // 5. Block drag overlay — shown while dragging blocks to new positions.
-        if (widget.document != null && widget.onBlockMoved != null)
+        if (widget.document != null && _effectiveOnBlockMoved != null)
           Positioned.fill(
             child: BlockDragOverlay(
               key: blockDragOverlayKey,
               controller: widget.controller,
               layoutKey: widget.layoutKey,
               document: widget.document!,
-              onBlockMoved: widget.onBlockMoved,
+              onBlockMoved: _effectiveOnBlockMoved,
             ),
           ),
 
