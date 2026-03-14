@@ -23,6 +23,9 @@
 /// - Block drag-to-move: tap a non-text block to select it, then drag it to
 ///   reorder it within the document — a blue insertion indicator shows the
 ///   drop position (wired automatically via DocumentSelectionOverlay)
+/// - Editor auto-wiring for block resize and drag-to-move: passing `editor`
+///   to DocumentSelectionOverlay removes the need for manual onBlockResize,
+///   onResetImageSize, and onBlockMoved callbacks
 ///
 /// Run with: `flutter run -t example/main.dart`
 library;
@@ -2149,10 +2152,12 @@ class _DocumentDemoState extends State<DocumentDemo> {
         blockDragOverlayKey: _blockDragOverlayKey,
         child: Stack(
           children: [
-            // DocumentSelectionOverlay also mounts a BlockDragOverlay
-            // internally. When a non-text block is fully selected and then
-            // dragged, a blue insertion indicator appears automatically — no
-            // additional widget wiring is needed here.
+            // Passing editor: _editor auto-wires block resize, image reset,
+            // and drag-to-move — no manual onBlockResize, onResetImageSize,
+            // or onBlockMoved callbacks are required. BlockDragOverlay is
+            // mounted internally by DocumentSelectionOverlay; the shared
+            // _blockDragOverlayKey lets DocumentMouseInteractor coordinate
+            // drag gestures with the overlay.
             DocumentSelectionOverlay(
               controller: _controller,
               layoutKey: _layoutKey,
@@ -2160,21 +2165,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
               endHandleLayerLink: _endHandleLayerLink,
               showCaret: false,
               document: _document,
-              onBlockResize: (nodeId, width, height) {
-                final node = _document.nodeById(nodeId);
-                if (node == null) return;
-                final req = createResizeRequest(node, width, height);
-                if (req != null) _editor.submit(req);
-              },
-              onResetImageSize: (nodeId) {
-                final node = _document.nodeById(nodeId);
-                if (node == null) return;
-                final req = createResetImageSizeRequest(node);
-                if (req != null) _editor.submit(req);
-              },
-              onBlockMoved: (nodeId, position) {
-                _editor.submit(MoveNodeToPositionRequest(nodeId: nodeId, position: position));
-              },
+              editor: _editor,
               blockDragOverlayKey: _blockDragOverlayKey,
               child: EditableDocument(
                 controller: _controller,
