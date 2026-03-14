@@ -246,6 +246,46 @@ void main() {
       expect(movedNodeId, 'hr1');
       expect(movedPosition, injectedPos);
     });
+
+    testWidgets('endBlockDrag re-selects the moved block', (tester) async {
+      final doc = _twoRulesDoc();
+      final controller = DocumentEditingController(document: doc);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+      final overlayKey = GlobalKey<BlockDragOverlayState>();
+
+      await tester.pumpWidget(
+        _buildWithDragOverlay(
+          controller: controller,
+          document: doc,
+          layoutKey: layoutKey,
+          overlayKey: overlayKey,
+          onBlockMoved: (_, __) {},
+        ),
+      );
+      await tester.pump();
+
+      overlayKey.currentState!.startBlockDrag('hr1');
+      const injectedPos = DocumentPosition(
+        nodeId: 'hr2',
+        nodePosition: BinaryNodePosition.downstream(),
+      );
+      overlayKey.currentState!.injectDropPositionForTest(injectedPos);
+      overlayKey.currentState!.endBlockDrag();
+
+      // After drop the dragged block should be fully selected.
+      final selection = controller.selection;
+      expect(selection, isNotNull);
+      expect(selection!.base.nodeId, 'hr1');
+      expect(selection.extent.nodeId, 'hr1');
+      expect(
+        selection.base.nodePosition,
+        const BinaryNodePosition.upstream(),
+      );
+      expect(
+        selection.extent.nodePosition,
+        const BinaryNodePosition.downstream(),
+      );
+    });
   });
 
   // =========================================================================

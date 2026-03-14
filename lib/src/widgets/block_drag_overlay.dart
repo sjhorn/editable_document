@@ -15,6 +15,8 @@ import '../model/document_editing_controller.dart';
 import '../model/document_position.dart';
 import '../model/document_selection.dart';
 import '../model/image_node.dart';
+import '../model/node_position.dart';
+import '../model/text_node.dart';
 import '_image_provider_stub.dart' if (dart.library.io) '_image_provider_io.dart';
 import 'document_layout.dart';
 
@@ -367,6 +369,9 @@ class BlockDragOverlayState extends State<BlockDragOverlay> {
 
     if (pos != null && nodeId != null) {
       widget.onBlockMoved?.call(nodeId, pos);
+
+      // Re-select the moved block so it remains visually selected after drop.
+      _selectBlock(nodeId);
     }
 
     return pos;
@@ -397,6 +402,41 @@ class BlockDragOverlayState extends State<BlockDragOverlay> {
   // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
+
+  /// Selects the block identified by [nodeId] with a full-node selection.
+  ///
+  /// For binary nodes (images, HRs) this is upstream→downstream. For text-
+  /// based blocks (code blocks, blockquotes) it selects offset 0 to the end.
+  void _selectBlock(String nodeId) {
+    final node = widget.document.nodeById(nodeId);
+    if (node == null) return;
+
+    final DocumentSelection selection;
+    if (node is TextNode) {
+      selection = DocumentSelection(
+        base: DocumentPosition(
+          nodeId: nodeId,
+          nodePosition: const TextNodePosition(offset: 0),
+        ),
+        extent: DocumentPosition(
+          nodeId: nodeId,
+          nodePosition: TextNodePosition(offset: node.text.text.length),
+        ),
+      );
+    } else {
+      selection = DocumentSelection(
+        base: DocumentPosition(
+          nodeId: nodeId,
+          nodePosition: const BinaryNodePosition.upstream(),
+        ),
+        extent: DocumentPosition(
+          nodeId: nodeId,
+          nodePosition: const BinaryNodePosition.downstream(),
+        ),
+      );
+    }
+    widget.controller.setSelection(selection);
+  }
 
   void _resetDragState() {
     BlockDragOverlay.isDragging = false;
