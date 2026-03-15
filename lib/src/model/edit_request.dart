@@ -8,6 +8,8 @@
 /// every concrete subtype defined in this file.
 library;
 
+import 'dart:ui' show TextAlign;
+
 import 'attribution.dart';
 import 'attributed_text.dart';
 import 'document_node.dart';
@@ -266,6 +268,40 @@ class ChangeBlockTypeRequest extends EditRequest {
 
   @override
   String toString() => 'ChangeBlockTypeRequest(nodeId: $nodeId, newBlockType: $newBlockType)';
+}
+
+// ---------------------------------------------------------------------------
+// ChangeTextAlignRequest
+// ---------------------------------------------------------------------------
+
+/// Request to change the [TextAlign] of a text block node.
+///
+/// The node identified by [nodeId] must be a [ParagraphNode],
+/// [ListItemNode], or [BlockquoteNode]. Other node types will cause the
+/// corresponding command to throw a [StateError].
+class ChangeTextAlignRequest extends EditRequest {
+  /// Creates a [ChangeTextAlignRequest].
+  const ChangeTextAlignRequest({required this.nodeId, required this.newTextAlign});
+
+  /// The id of the text block node to update.
+  final String nodeId;
+
+  /// The new text alignment to apply.
+  final TextAlign newTextAlign;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is ChangeTextAlignRequest &&
+        other.nodeId == nodeId &&
+        other.newTextAlign == newTextAlign;
+  }
+
+  @override
+  int get hashCode => Object.hash(nodeId, newTextAlign);
+
+  @override
+  String toString() => 'ChangeTextAlignRequest(nodeId: $nodeId, newTextAlign: $newTextAlign)';
 }
 
 // ---------------------------------------------------------------------------

@@ -6,6 +6,8 @@
 ///   3. Assert the document state and the returned [DocumentChangeEvent]s.
 library;
 
+import 'dart:ui' show TextAlign;
+
 import 'package:editable_document/editable_document.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -1693,6 +1695,103 @@ void main() {
       expect(doc.nodeAt(1).id, 'p2');
       expect(doc.nodeAt(2), isA<ImageNode>());
       editor.dispose();
+    });
+  });
+
+  // =========================================================================
+  // ChangeTextAlignCommand
+  // =========================================================================
+
+  group('ChangeTextAlignCommand', () {
+    test('1. changes textAlign on ParagraphNode and returns NodeReplaced', () {
+      final doc = _twoParaDoc();
+      final ctx = _ctx(doc);
+      const cmd = ChangeTextAlignCommand(nodeId: 'p1', newTextAlign: TextAlign.center);
+
+      final events = cmd.execute(ctx);
+
+      final node = doc.nodeById('p1') as ParagraphNode;
+      expect(node.textAlign, TextAlign.center);
+      expect(events, [const NodeReplaced(oldNodeId: 'p1', newNodeId: 'p1')]);
+    });
+
+    test('2. changes textAlign on ListItemNode and returns NodeReplaced', () {
+      final doc = MutableDocument([
+        ListItemNode(id: 'li1', text: AttributedText('Item'), type: ListItemType.unordered),
+      ]);
+      final ctx = _ctx(doc);
+      const cmd = ChangeTextAlignCommand(nodeId: 'li1', newTextAlign: TextAlign.end);
+
+      final events = cmd.execute(ctx);
+
+      final node = doc.nodeById('li1') as ListItemNode;
+      expect(node.textAlign, TextAlign.end);
+      expect(events, [const NodeReplaced(oldNodeId: 'li1', newNodeId: 'li1')]);
+    });
+
+    test('3. changes textAlign on BlockquoteNode and returns NodeReplaced', () {
+      final doc = MutableDocument([
+        BlockquoteNode(id: 'bq1', text: AttributedText('A quote')),
+      ]);
+      final ctx = _ctx(doc);
+      const cmd = ChangeTextAlignCommand(nodeId: 'bq1', newTextAlign: TextAlign.justify);
+
+      final events = cmd.execute(ctx);
+
+      final node = doc.nodeById('bq1') as BlockquoteNode;
+      expect(node.textAlign, TextAlign.justify);
+      expect(events, [const NodeReplaced(oldNodeId: 'bq1', newNodeId: 'bq1')]);
+    });
+
+    test('4. throws StateError for unsupported node type', () {
+      final doc = MutableDocument([ImageNode(id: 'img', imageUrl: 'https://x.com/img.png')]);
+      final ctx = _ctx(doc);
+      const cmd = ChangeTextAlignCommand(nodeId: 'img', newTextAlign: TextAlign.center);
+      expect(() => cmd.execute(ctx), throwsStateError);
+    });
+
+    test('5. throws StateError for unknown nodeId', () {
+      final doc = _twoParaDoc();
+      final ctx = _ctx(doc);
+      const cmd = ChangeTextAlignCommand(nodeId: 'nope', newTextAlign: TextAlign.center);
+      expect(() => cmd.execute(ctx), throwsStateError);
+    });
+  });
+
+  // =========================================================================
+  // ConvertListItemToParagraphCommand — textAlign preservation
+  // =========================================================================
+
+  group('ConvertListItemToParagraphCommand textAlign preservation', () {
+    test('1. preserves textAlign when converting ListItemNode to ParagraphNode', () {
+      final doc = MutableDocument([
+        ListItemNode(
+          id: 'li1',
+          text: AttributedText('Item text'),
+          type: ListItemType.unordered,
+          textAlign: TextAlign.center,
+        ),
+      ]);
+      final ctx = _ctx(doc);
+      const cmd = ConvertListItemToParagraphCommand(nodeId: 'li1');
+
+      cmd.execute(ctx);
+
+      final node = doc.nodeById('li1') as ParagraphNode;
+      expect(node.textAlign, TextAlign.center);
+    });
+
+    test('2. preserves default textAlign (TextAlign.start) when converting', () {
+      final doc = MutableDocument([
+        ListItemNode(id: 'li1', text: AttributedText('Item text')),
+      ]);
+      final ctx = _ctx(doc);
+      const cmd = ConvertListItemToParagraphCommand(nodeId: 'li1');
+
+      cmd.execute(ctx);
+
+      final node = doc.nodeById('li1') as ParagraphNode;
+      expect(node.textAlign, TextAlign.start);
     });
   });
 }

@@ -1,6 +1,8 @@
 /// Tests for [Editor], [EditReaction], and [EditListener].
 library;
 
+import 'dart:ui' show TextAlign;
+
 import 'package:editable_document/editable_document.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -225,6 +227,46 @@ void main() {
       editor.submit(const UnindentListItemRequest(nodeId: 'li1'));
 
       expect((doc.nodeById('li1') as ListItemNode).indent, 0);
+      editor.dispose();
+    });
+
+    test('13. ChangeTextAlignRequest changes textAlign on ParagraphNode', () {
+      final doc = _twoParaDoc();
+      final editor = Editor(editContext: _ctx(doc));
+
+      editor.submit(
+        const ChangeTextAlignRequest(nodeId: 'p1', newTextAlign: TextAlign.center),
+      );
+
+      expect((doc.nodeById('p1') as ParagraphNode).textAlign, TextAlign.center);
+      editor.dispose();
+    });
+
+    test('14. ChangeTextAlignRequest changes textAlign on ListItemNode', () {
+      final doc = MutableDocument([
+        ListItemNode(id: 'li1', text: AttributedText('Item'), type: ListItemType.unordered),
+      ]);
+      final editor = Editor(editContext: _ctx(doc));
+
+      editor.submit(
+        const ChangeTextAlignRequest(nodeId: 'li1', newTextAlign: TextAlign.end),
+      );
+
+      expect((doc.nodeById('li1') as ListItemNode).textAlign, TextAlign.end);
+      editor.dispose();
+    });
+
+    test('15. ChangeTextAlignRequest changes textAlign on BlockquoteNode', () {
+      final doc = MutableDocument([
+        BlockquoteNode(id: 'bq1', text: AttributedText('A quote')),
+      ]);
+      final editor = Editor(editContext: _ctx(doc));
+
+      editor.submit(
+        const ChangeTextAlignRequest(nodeId: 'bq1', newTextAlign: TextAlign.justify),
+      );
+
+      expect((doc.nodeById('bq1') as BlockquoteNode).textAlign, TextAlign.justify);
       editor.dispose();
     });
   });

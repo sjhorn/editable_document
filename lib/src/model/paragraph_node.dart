@@ -4,6 +4,8 @@
 /// used for body text, headings, blockquotes, and inline code blocks.
 library;
 
+import 'dart:ui' show TextAlign;
+
 import 'package:flutter/foundation.dart';
 
 import 'attributed_text.dart';
@@ -63,30 +65,40 @@ enum ParagraphBlockType {
 /// );
 /// ```
 class ParagraphNode extends TextNode {
-  /// Creates a [ParagraphNode] with an optional [blockType].
+  /// Creates a [ParagraphNode] with an optional [blockType] and [textAlign].
   ///
   /// [blockType] defaults to [ParagraphBlockType.paragraph].
+  /// [textAlign] defaults to [TextAlign.start].
   ParagraphNode({
     required super.id,
     super.text,
     this.blockType = ParagraphBlockType.paragraph,
+    this.textAlign = TextAlign.start,
     super.metadata,
   });
 
   /// The semantic block type of this paragraph.
   final ParagraphBlockType blockType;
 
+  /// The horizontal text alignment within the paragraph.
+  ///
+  /// Defaults to [TextAlign.start], which aligns text to the leading edge for
+  /// the current text direction.
+  final TextAlign textAlign;
+
   @override
   ParagraphNode copyWith({
     String? id,
     AttributedText? text,
     ParagraphBlockType? blockType,
+    TextAlign? textAlign,
     Map<String, dynamic>? metadata,
   }) {
     return ParagraphNode(
       id: id ?? this.id,
       text: text ?? this.text,
       blockType: blockType ?? this.blockType,
+      textAlign: textAlign ?? this.textAlign,
       metadata: metadata ?? this.metadata,
     );
   }
@@ -99,6 +111,7 @@ class ParagraphNode extends TextNode {
         other.id == id &&
         other.text == text &&
         other.blockType == blockType &&
+        other.textAlign == textAlign &&
         mapEquals(other.metadata, metadata);
   }
 
@@ -107,6 +120,7 @@ class ParagraphNode extends TextNode {
         id,
         text,
         blockType,
+        textAlign,
         Object.hashAll(metadata.entries.map((e) => e)),
       );
 
@@ -114,9 +128,13 @@ class ParagraphNode extends TextNode {
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
     properties.add(EnumProperty<ParagraphBlockType>('blockType', blockType));
+    properties.add(
+      EnumProperty<TextAlign>('textAlign', textAlign, defaultValue: TextAlign.start),
+    );
   }
 
   @override
   String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) =>
-      'ParagraphNode(id: $id, blockType: $blockType, text: $text, metadata: $metadata)';
+      'ParagraphNode(id: $id, blockType: $blockType, textAlign: $textAlign, '
+      'text: $text, metadata: $metadata)';
 }

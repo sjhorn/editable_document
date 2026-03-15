@@ -1,6 +1,8 @@
 /// Tests for [EditRequest] and all concrete request subtypes.
 library;
 
+import 'dart:ui' show TextAlign;
+
 import 'package:editable_document/editable_document.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -355,6 +357,49 @@ void main() {
       expect(req.toString(), contains('ExitBlockquoteRequest'));
       expect(req.toString(), contains('bq1'));
       expect(req.toString(), contains('3'));
+    });
+  });
+
+  // =========================================================================
+  // ChangeTextAlignRequest
+  // =========================================================================
+
+  group('ChangeTextAlignRequest', () {
+    test('1. stores nodeId and newTextAlign', () {
+      const req = ChangeTextAlignRequest(nodeId: 'p1', newTextAlign: TextAlign.center);
+      expect(req.nodeId, 'p1');
+      expect(req.newTextAlign, TextAlign.center);
+    });
+
+    test('2. equality: same fields are equal', () {
+      const a = ChangeTextAlignRequest(nodeId: 'p1', newTextAlign: TextAlign.center);
+      const b = ChangeTextAlignRequest(nodeId: 'p1', newTextAlign: TextAlign.center);
+      expect(a, equals(b));
+    });
+
+    test('3. equality: different nodeId not equal', () {
+      const a = ChangeTextAlignRequest(nodeId: 'p1', newTextAlign: TextAlign.center);
+      const b = ChangeTextAlignRequest(nodeId: 'p2', newTextAlign: TextAlign.center);
+      expect(a, isNot(equals(b)));
+    });
+
+    test('4. equality: different newTextAlign not equal', () {
+      const a = ChangeTextAlignRequest(nodeId: 'p1', newTextAlign: TextAlign.start);
+      const b = ChangeTextAlignRequest(nodeId: 'p1', newTextAlign: TextAlign.center);
+      expect(a, isNot(equals(b)));
+    });
+
+    test('5. hashCode is consistent with equality', () {
+      const a = ChangeTextAlignRequest(nodeId: 'p1', newTextAlign: TextAlign.end);
+      const b = ChangeTextAlignRequest(nodeId: 'p1', newTextAlign: TextAlign.end);
+      expect(a.hashCode, equals(b.hashCode));
+    });
+
+    test('6. toString includes class name and key fields', () {
+      const req = ChangeTextAlignRequest(nodeId: 'p1', newTextAlign: TextAlign.justify);
+      expect(req.toString(), contains('ChangeTextAlignRequest'));
+      expect(req.toString(), contains('p1'));
+      expect(req.toString(), contains('justify'));
     });
   });
 }

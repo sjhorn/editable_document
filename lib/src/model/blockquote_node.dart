@@ -4,6 +4,8 @@
 /// quoted content with optional container layout properties.
 library;
 
+import 'dart:ui' show TextAlign;
+
 import 'package:flutter/foundation.dart';
 
 import 'attributed_text.dart';
@@ -36,6 +38,7 @@ class BlockquoteNode extends TextNode implements HasBlockLayout {
   ///
   /// [alignment] defaults to [BlockAlignment.stretch].
   /// [textWrap] defaults to [TextWrapMode.none].
+  /// [textAlign] defaults to [TextAlign.start].
   /// [width] and [height] default to `null` (use available / intrinsic size).
   BlockquoteNode({
     required super.id,
@@ -44,6 +47,7 @@ class BlockquoteNode extends TextNode implements HasBlockLayout {
     this.height,
     this.alignment = BlockAlignment.stretch,
     this.textWrap = TextWrapMode.none,
+    this.textAlign = TextAlign.start,
     super.metadata,
   });
 
@@ -64,6 +68,12 @@ class BlockquoteNode extends TextNode implements HasBlockLayout {
   /// [BlockAlignment.end], adjacent blocks receive reduced-width constraints
   /// so they flow beside this blockquote. Defaults to [TextWrapMode.none].
   final TextWrapMode textWrap;
+
+  /// The horizontal text alignment within this blockquote.
+  ///
+  /// Defaults to [TextAlign.start], which aligns text to the leading edge for
+  /// the current text direction.
+  final TextAlign textAlign;
 
   @override
   bool get isDraggable => true;
@@ -86,6 +96,7 @@ class BlockquoteNode extends TextNode implements HasBlockLayout {
     double? height,
     BlockAlignment? alignment,
     TextWrapMode? textWrap,
+    TextAlign? textAlign,
     Map<String, dynamic>? metadata,
   }) {
     return BlockquoteNode(
@@ -95,6 +106,7 @@ class BlockquoteNode extends TextNode implements HasBlockLayout {
       height: height ?? this.height,
       alignment: alignment ?? this.alignment,
       textWrap: textWrap ?? this.textWrap,
+      textAlign: textAlign ?? this.textAlign,
       metadata: metadata ?? this.metadata,
     );
   }
@@ -110,6 +122,7 @@ class BlockquoteNode extends TextNode implements HasBlockLayout {
         other.height == height &&
         other.alignment == alignment &&
         other.textWrap == textWrap &&
+        other.textAlign == textAlign &&
         mapEquals(other.metadata, metadata);
   }
 
@@ -121,6 +134,7 @@ class BlockquoteNode extends TextNode implements HasBlockLayout {
         height,
         alignment,
         textWrap,
+        textAlign,
         Object.hashAll(metadata.entries.map((e) => e)),
       );
 
@@ -135,10 +149,14 @@ class BlockquoteNode extends TextNode implements HasBlockLayout {
     properties.add(
       EnumProperty<TextWrapMode>('textWrap', textWrap, defaultValue: TextWrapMode.none),
     );
+    properties.add(
+      EnumProperty<TextAlign>('textAlign', textAlign, defaultValue: TextAlign.start),
+    );
   }
 
   @override
   String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) =>
       'BlockquoteNode(id: $id, text: $text, width: $width, height: $height, '
-      'alignment: ${alignment.name}, textWrap: $textWrap, metadata: $metadata)';
+      'alignment: ${alignment.name}, textWrap: $textWrap, textAlign: $textAlign, '
+      'metadata: $metadata)';
 }

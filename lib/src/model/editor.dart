@@ -144,6 +144,8 @@ class Editor {
       return MoveNodeCommand(nodeId: request.nodeId, newIndex: request.newIndex);
     } else if (request is ChangeBlockTypeRequest) {
       return ChangeBlockTypeCommand(nodeId: request.nodeId, newBlockType: request.newBlockType);
+    } else if (request is ChangeTextAlignRequest) {
+      return ChangeTextAlignCommand(nodeId: request.nodeId, newTextAlign: request.newTextAlign);
     } else if (request is ApplyAttributionRequest) {
       return ApplyAttributionCommand(
         selection: request.selection,

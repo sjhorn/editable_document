@@ -8,6 +8,8 @@
 /// reactions and listeners.
 library;
 
+import 'dart:ui' show TextAlign;
+
 import 'attribution.dart';
 import 'attributed_text.dart';
 import 'blockquote_node.dart';
@@ -490,6 +492,47 @@ class ChangeBlockTypeCommand extends EditCommand {
 }
 
 // ---------------------------------------------------------------------------
+// ChangeTextAlignCommand
+// ---------------------------------------------------------------------------
+
+/// Changes the [TextAlign] of a text block node.
+///
+/// Supports [ParagraphNode], [ListItemNode], and [BlockquoteNode].
+///
+/// Throws [StateError] when [nodeId] does not exist, or when the identified
+/// node is not one of the supported text block types.
+class ChangeTextAlignCommand extends EditCommand {
+  /// Creates a [ChangeTextAlignCommand].
+  const ChangeTextAlignCommand({required this.nodeId, required this.newTextAlign});
+
+  /// The id of the text block node to update.
+  final String nodeId;
+
+  /// The new text alignment to apply.
+  final TextAlign newTextAlign;
+
+  @override
+  List<DocumentChangeEvent> execute(EditContext context) {
+    final node = context.document.nodeById(nodeId);
+    if (node == null) {
+      throw StateError('ChangeTextAlignCommand: no node with id "$nodeId".');
+    }
+    if (node is ParagraphNode) {
+      context.document.replaceNode(nodeId, node.copyWith(textAlign: newTextAlign));
+    } else if (node is ListItemNode) {
+      context.document.replaceNode(nodeId, node.copyWith(textAlign: newTextAlign));
+    } else if (node is BlockquoteNode) {
+      context.document.replaceNode(nodeId, node.copyWith(textAlign: newTextAlign));
+    } else {
+      throw StateError(
+        'ChangeTextAlignCommand: node "$nodeId" (${node.runtimeType}) does not support textAlign.',
+      );
+    }
+    return [NodeReplaced(oldNodeId: nodeId, newNodeId: nodeId)];
+  }
+}
+
+// ---------------------------------------------------------------------------
 // ApplyAttributionCommand
 // ---------------------------------------------------------------------------
 
@@ -656,6 +699,7 @@ class ConvertListItemToParagraphCommand extends EditCommand {
     final paragraph = ParagraphNode(
       id: node.id,
       text: node.text,
+      textAlign: node.textAlign,
       metadata: node.metadata,
     );
     context.document.replaceNode(nodeId, paragraph);

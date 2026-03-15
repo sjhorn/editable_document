@@ -4,6 +4,8 @@
 /// unordered list items with nesting support.
 library;
 
+import 'dart:ui' show TextAlign;
+
 import 'package:flutter/foundation.dart';
 
 import 'attributed_text.dart';
@@ -42,12 +44,14 @@ enum ListItemType {
 class ListItemNode extends TextNode {
   /// Creates a [ListItemNode].
   ///
-  /// [type] defaults to [ListItemType.unordered] and [indent] defaults to `0`.
+  /// [type] defaults to [ListItemType.unordered], [indent] defaults to `0`,
+  /// and [textAlign] defaults to [TextAlign.start].
   ListItemNode({
     required super.id,
     super.text,
     this.type = ListItemType.unordered,
     this.indent = 0,
+    this.textAlign = TextAlign.start,
     super.metadata,
   });
 
@@ -60,12 +64,19 @@ class ListItemNode extends TextNode {
   /// indentation inside a nested list.
   final int indent;
 
+  /// The horizontal text alignment within this list item.
+  ///
+  /// Defaults to [TextAlign.start], which aligns text to the leading edge for
+  /// the current text direction.
+  final TextAlign textAlign;
+
   @override
   ListItemNode copyWith({
     String? id,
     AttributedText? text,
     ListItemType? type,
     int? indent,
+    TextAlign? textAlign,
     Map<String, dynamic>? metadata,
   }) {
     return ListItemNode(
@@ -73,6 +84,7 @@ class ListItemNode extends TextNode {
       text: text ?? this.text,
       type: type ?? this.type,
       indent: indent ?? this.indent,
+      textAlign: textAlign ?? this.textAlign,
       metadata: metadata ?? this.metadata,
     );
   }
@@ -86,6 +98,7 @@ class ListItemNode extends TextNode {
         other.text == text &&
         other.type == type &&
         other.indent == indent &&
+        other.textAlign == textAlign &&
         mapEquals(other.metadata, metadata);
   }
 
@@ -95,6 +108,7 @@ class ListItemNode extends TextNode {
         text,
         type,
         indent,
+        textAlign,
         Object.hashAll(metadata.entries.map((e) => e)),
       );
 
@@ -103,9 +117,13 @@ class ListItemNode extends TextNode {
     super.debugFillProperties(properties);
     properties.add(EnumProperty<ListItemType>('type', type));
     properties.add(IntProperty('indent', indent));
+    properties.add(
+      EnumProperty<TextAlign>('textAlign', textAlign, defaultValue: TextAlign.start),
+    );
   }
 
   @override
   String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) =>
-      'ListItemNode(id: $id, type: $type, indent: $indent, text: $text, metadata: $metadata)';
+      'ListItemNode(id: $id, type: $type, indent: $indent, textAlign: $textAlign, '
+      'text: $text, metadata: $metadata)';
 }

@@ -1,3 +1,5 @@
+import 'dart:ui' show TextAlign;
+
 import 'package:editable_document/src/model/attributed_text.dart';
 import 'package:editable_document/src/model/block_alignment.dart';
 import 'package:editable_document/src/model/blockquote_node.dart';
@@ -333,6 +335,122 @@ void main() {
       // TextNode extends DocumentNode so this must hold transitively
       // We check via TextNode which re-exports DocumentNode
       expect(BlockquoteNode(id: 'bq1'), isA<TextNode>());
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // BlockquoteNode — textAlign default value
+  // ---------------------------------------------------------------------------
+  group('BlockquoteNode textAlign default', () {
+    test('textAlign defaults to TextAlign.start', () {
+      final node = BlockquoteNode(id: 'bq1');
+      expect(node.textAlign, TextAlign.start);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // BlockquoteNode — constructor with textAlign
+  // ---------------------------------------------------------------------------
+  group('BlockquoteNode constructor with textAlign', () {
+    test('textAlign is set correctly to center', () {
+      final node = BlockquoteNode(id: 'bq1', textAlign: TextAlign.center);
+      expect(node.textAlign, TextAlign.center);
+    });
+
+    test('textAlign is set correctly to end', () {
+      final node = BlockquoteNode(id: 'bq1', textAlign: TextAlign.end);
+      expect(node.textAlign, TextAlign.end);
+    });
+
+    test('textAlign is set correctly to justify', () {
+      final node = BlockquoteNode(id: 'bq1', textAlign: TextAlign.justify);
+      expect(node.textAlign, TextAlign.justify);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // BlockquoteNode — copyWith with textAlign
+  // ---------------------------------------------------------------------------
+  group('BlockquoteNode copyWith textAlign', () {
+    test('copyWith replaces textAlign', () {
+      final node = BlockquoteNode(id: 'bq1', textAlign: TextAlign.start);
+      final copy = node.copyWith(textAlign: TextAlign.center);
+      expect(copy.textAlign, TextAlign.center);
+    });
+
+    test('copyWith preserves textAlign when not specified', () {
+      final node = BlockquoteNode(id: 'bq1', textAlign: TextAlign.end);
+      final copy = node.copyWith(id: 'bq2');
+      expect(copy.textAlign, TextAlign.end);
+    });
+
+    test('copyWith preserves other fields when only textAlign changes', () {
+      final node = BlockquoteNode(
+        id: 'bq1',
+        textAlign: TextAlign.start,
+        alignment: BlockAlignment.center,
+        width: 400.0,
+      );
+      final copy = node.copyWith(textAlign: TextAlign.justify);
+      expect(copy.id, 'bq1');
+      expect(copy.alignment, BlockAlignment.center);
+      expect(copy.width, 400.0);
+      expect(copy.textAlign, TextAlign.justify);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // BlockquoteNode — equality with textAlign
+  // ---------------------------------------------------------------------------
+  group('BlockquoteNode equality with textAlign', () {
+    test('equal when textAlign is the same', () {
+      final a = BlockquoteNode(id: 'bq1', textAlign: TextAlign.center);
+      final b = BlockquoteNode(id: 'bq1', textAlign: TextAlign.center);
+      expect(a, equals(b));
+    });
+
+    test('unequal when textAlign differs', () {
+      final a = BlockquoteNode(id: 'bq1', textAlign: TextAlign.start);
+      final b = BlockquoteNode(id: 'bq1', textAlign: TextAlign.center);
+      expect(a, isNot(equals(b)));
+    });
+
+    test('equal when textAlign is both default', () {
+      final a = BlockquoteNode(id: 'bq1');
+      final b = BlockquoteNode(id: 'bq1');
+      expect(a, equals(b));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // BlockquoteNode — hashCode consistency with textAlign
+  // ---------------------------------------------------------------------------
+  group('BlockquoteNode hashCode with textAlign', () {
+    test('hashCode matches for equal nodes with same textAlign', () {
+      final a = BlockquoteNode(id: 'bq1', textAlign: TextAlign.center);
+      final b = BlockquoteNode(id: 'bq1', textAlign: TextAlign.center);
+      expect(a.hashCode, b.hashCode);
+    });
+
+    test('hashCode differs when textAlign differs', () {
+      final a = BlockquoteNode(id: 'bq1', textAlign: TextAlign.start);
+      final b = BlockquoteNode(id: 'bq1', textAlign: TextAlign.center);
+      expect(a.hashCode, isNot(equals(b.hashCode)));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // BlockquoteNode — toString includes textAlign
+  // ---------------------------------------------------------------------------
+  group('BlockquoteNode toString with textAlign', () {
+    test('toString includes textAlign value', () {
+      final node = BlockquoteNode(id: 'bq1', textAlign: TextAlign.center);
+      expect(node.toString(), contains('center'));
+    });
+
+    test('toString still includes id', () {
+      final node = BlockquoteNode(id: 'bq-unique', textAlign: TextAlign.justify);
+      expect(node.toString(), contains('bq-unique'));
     });
   });
 }
