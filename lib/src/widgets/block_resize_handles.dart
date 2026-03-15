@@ -22,6 +22,7 @@ import '../model/edit_request.dart';
 import '../model/image_node.dart';
 import '../model/node_position.dart';
 import '../model/text_node.dart';
+import '../rendering/render_block_resize_border.dart';
 import 'document_layout.dart';
 import 'document_viewport_scope.dart';
 
@@ -744,17 +745,9 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
           onPointerMove: _onPointerMove,
           onPointerUp: _onPointerUp,
           onPointerCancel: _onPointerCancel,
-          child: Center(
-            child: SizedBox(
-              width: widget.handleSize,
-              height: widget.handleSize,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: widget.handleColor,
-                ),
-              ),
-            ),
-          ),
+          // Transparent hit target — visuals are painted by
+          // _BlockResizeBorderRenderWidget in the Stack beneath.
+          child: const SizedBox.expand(),
         ),
       ),
     );
@@ -844,26 +837,101 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
 
     return Stack(
       children: [
-        // Selection border — always shown for fully-selected block nodes.
-        Positioned(
-          left: blockRect.left,
-          top: blockRect.top,
-          width: blockRect.width,
-          height: blockRect.height,
-          child: IgnorePointer(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                border: Border.all(color: widget.borderColor),
-              ),
-            ),
+        // Paint-time border + handles — no one-frame lag during viewport resize.
+        Positioned.fill(
+          child: _BlockResizeBorderRenderWidget(
+            layoutKey: widget.layoutKey,
+            selectedNodeId: nodeId,
+            borderColor: widget.borderColor,
+            handleColor: widget.handleColor,
+            handleSize: widget.handleSize,
+            showHandles: showHandles,
+            dragPreviewRect: _activePointer != null ? _previewRect(_blockRect!) : null,
           ),
         ),
-        // Eight resize handles — only for non-stretch blocks.
+        // Transparent hit-target Listeners for drag interaction.
         if (showHandles)
           for (final pos in ResizeHandlePosition.values) _buildHandle(pos, blockRect),
         // "Reset" button — shown for ImageNode with custom dimensions only.
         if (showReset) _buildResetButton(blockRect, nodeId!),
       ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// _BlockResizeBorderRenderWidget
+// ---------------------------------------------------------------------------
+
+/// A [LeafRenderObjectWidget] that creates and updates a
+/// [RenderBlockResizeBorder].
+///
+/// Geometry is resolved at paint time by [RenderBlockResizeBorder] querying
+/// the [RenderDocumentLayout] obtained from [layoutKey]. This eliminates the
+/// one-frame lag that would occur when the block's position changes due to a
+/// viewport resize (e.g. window drag), because the render object reads fresh
+/// layout information every paint rather than relying on pre-computed widget
+/// state.
+///
+/// During an active resize drag, [dragPreviewRect] is supplied so the border
+/// tracks the pointer in real time without waiting for a layout pass.
+class _BlockResizeBorderRenderWidget extends LeafRenderObjectWidget {
+  const _BlockResizeBorderRenderWidget({
+    required this.layoutKey,
+    required this.selectedNodeId,
+    required this.borderColor,
+    required this.handleColor,
+    required this.handleSize,
+    required this.showHandles,
+    this.dragPreviewRect,
+  });
+
+  final GlobalKey<DocumentLayoutState> layoutKey;
+  final String? selectedNodeId;
+  final Color borderColor;
+  final Color handleColor;
+  final double handleSize;
+  final bool showHandles;
+  final Rect? dragPreviewRect;
+
+  @override
+  RenderBlockResizeBorder createRenderObject(BuildContext context) {
+    return RenderBlockResizeBorder(
+      documentLayout: layoutKey.currentState?.renderObject,
+      selectedNodeId: selectedNodeId,
+      borderColor: borderColor,
+      handleColor: handleColor,
+      handleSize: handleSize,
+      showHandles: showHandles,
+      dragPreviewRect: dragPreviewRect,
+    );
+  }
+
+  @override
+  void updateRenderObject(BuildContext context, RenderBlockResizeBorder renderObject) {
+    renderObject
+      ..documentLayout = layoutKey.currentState?.renderObject
+      ..selectedNodeId = selectedNodeId
+      ..borderColor = borderColor
+      ..handleColor = handleColor
+      ..handleSize = handleSize
+      ..showHandles = showHandles
+      ..dragPreviewRect = dragPreviewRect;
+  }
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties.add(
+      DiagnosticsProperty<GlobalKey<DocumentLayoutState>>('layoutKey', layoutKey),
+    );
+    properties.add(StringProperty('selectedNodeId', selectedNodeId, defaultValue: null));
+    properties.add(ColorProperty('borderColor', borderColor));
+    properties.add(ColorProperty('handleColor', handleColor));
+    properties.add(DoubleProperty('handleSize', handleSize));
+    properties.add(DiagnosticsProperty<bool>('showHandles', showHandles));
+    properties.add(
+      DiagnosticsProperty<Rect?>('dragPreviewRect', dragPreviewRect, defaultValue: null),
     );
   }
 }

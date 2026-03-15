@@ -18,7 +18,7 @@
 /// - Dragging the bottom-right corner handle calls [onResize] with both
 ///   dimensions.
 /// - Drag below [minWidth] or [minHeight] is clamped.
-/// - A [DecoratedBox] border is visible when handles are shown.
+/// - A [RenderBlockResizeBorder] is present when handles are shown.
 /// - [BlockResizeHandles.isDragging] is set during a drag.
 /// - Corner drag with [ImageNode.lockAspect] = false resizes width and height
 ///   independently.
@@ -837,7 +837,7 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('BlockResizeHandles — border', () {
-    testWidgets('a DecoratedBox with a border is present when handles are shown', (tester) async {
+    testWidgets('a RenderBlockResizeBorder is present when handles are shown', (tester) async {
       final doc = MutableDocument([
         ImageNode(
           id: 'img-1',
@@ -861,26 +861,29 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Find DecoratedBox widgets inside BlockResizeHandles that have a border.
       final blockHandlesFinder = find.byType(BlockResizeHandles);
       expect(blockHandlesFinder, findsOneWidget);
 
-      final decoratedBoxes = find.descendant(
+      // The border is now painted by a RenderBlockResizeBorder render object.
+      // Use byElementType to find only the LeafRenderObjectElement that
+      // directly owns the RenderBlockResizeBorder (not parent wrappers).
+      final borderFinder = find.descendant(
         of: blockHandlesFinder,
-        matching: find.byType(DecoratedBox),
+        matching: find.byElementPredicate(
+          (element) =>
+              element is LeafRenderObjectElement && element.renderObject is RenderBlockResizeBorder,
+        ),
       );
-      // There should be at least one DecoratedBox (the border) plus 8 handle squares.
-      expect(decoratedBoxes, findsWidgets);
+      expect(
+        borderFinder,
+        findsOneWidget,
+        reason: 'Expected a RenderBlockResizeBorder to be present '
+            'inside BlockResizeHandles when a block node is selected.',
+      );
 
-      // Verify at least one of the DecoratedBoxes has a BoxDecoration with a border.
-      final hasBorder = tester.widgetList<DecoratedBox>(decoratedBoxes).any((box) {
-        final decoration = box.decoration;
-        if (decoration is BoxDecoration) {
-          return decoration.border != null;
-        }
-        return false;
-      });
-      expect(hasBorder, isTrue, reason: 'Expected a DecoratedBox with a border to be present');
+      // The render object must have the correct selectedNodeId.
+      final renderBorder = tester.renderObject<RenderBlockResizeBorder>(borderFinder);
+      expect(renderBorder.selectedNodeId, 'img-1');
     });
 
     testWidgets('no DecoratedBox border when handles are not shown (no selection)', (tester) async {
@@ -954,25 +957,69 @@ void main() {
       );
       expect(listeners, findsNWidgets(8));
 
-      // At least one DecoratedBox with a BoxDecoration.border IS present —
-      // the selection border is drawn along with the resize handles.
-      final decoratedBoxes = find.descendant(
+      // A RenderBlockResizeBorder IS present — the selection border is drawn
+      // by the paint-time render object along with the resize handles.
+      final borderFinder = find.descendant(
         of: blockHandlesFinder,
-        matching: find.byType(DecoratedBox),
+        matching: find.byElementPredicate(
+          (element) =>
+              element is LeafRenderObjectElement && element.renderObject is RenderBlockResizeBorder,
+        ),
       );
-      final hasBorder = tester.widgetList<DecoratedBox>(decoratedBoxes).any((box) {
-        final decoration = box.decoration;
-        if (decoration is BoxDecoration) {
-          return decoration.border != null;
-        }
-        return false;
-      });
       expect(
-        hasBorder,
-        isTrue,
-        reason: 'Expected a DecoratedBox with a border inside BlockResizeHandles '
+        borderFinder,
+        findsOneWidget,
+        reason: 'Expected a RenderBlockResizeBorder inside BlockResizeHandles '
             'for a stretch-alignment image.',
       );
+    });
+
+    testWidgets('RenderBlockResizeBorder render object exists in render tree when handles shown',
+        (tester) async {
+      final doc = MutableDocument([
+        ImageNode(
+          id: 'img-1',
+          imageUrl: 'test.png',
+          width: 200.0,
+          height: 100.0,
+          alignment: BlockAlignment.center,
+        ),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      addTearDown(controller.dispose);
+
+      _selectFully(controller, 'img-1');
+
+      await tester.pumpWidget(
+        _buildWithOverlay(
+          controller: controller,
+          document: doc,
+          onBlockResize: (id, w, h) {},
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // The _BlockResizeBorderRenderWidget (private) creates a
+      // RenderBlockResizeBorder which is publicly queryable.
+      final blockHandlesFinder2 = find.byType(BlockResizeHandles);
+      final borderFinder = find.descendant(
+        of: blockHandlesFinder2,
+        matching: find.byElementPredicate(
+          (element) =>
+              element is LeafRenderObjectElement && element.renderObject is RenderBlockResizeBorder,
+        ),
+      );
+      expect(
+        borderFinder,
+        findsOneWidget,
+        reason: 'A RenderBlockResizeBorder render object should be present '
+            'in the render tree whenever BlockResizeHandles is showing.',
+      );
+
+      final render = tester.renderObject<RenderBlockResizeBorder>(borderFinder);
+      expect(render.selectedNodeId, 'img-1');
+      expect(render.showHandles, isTrue);
+      expect(render.documentLayout, isNotNull);
     });
   });
 
@@ -1552,27 +1599,44 @@ void main() {
       final blockHandlesFinder = find.byType(BlockResizeHandles);
       expect(blockHandlesFinder, findsOneWidget);
 
-      // Find the border Positioned widget and capture its left coordinate.
-      // The border is the first Positioned in the Stack returned by
-      // BlockResizeHandles.build — its `left` property equals blockRect.left.
-      Rect getBorderRect() {
-        final positioned = tester
-            .widgetList<Positioned>(
-              find.descendant(
-                of: find.byType(BlockResizeHandles),
-                matching: find.byType(Positioned),
-              ),
-            )
-            .first;
-        return Rect.fromLTWH(
-          positioned.left ?? 0,
-          positioned.top ?? 0,
-          positioned.width ?? 0,
-          positioned.height ?? 0,
+      // The border is now painted by RenderBlockResizeBorder at paint time.
+      // Verify it has the correct selectedNodeId to confirm it will query
+      // the right block geometry.
+      RenderBlockResizeBorder getResizeBorderRenderObject() {
+        final brhFinder = find.byType(BlockResizeHandles);
+        final borderFinder = find.descendant(
+          of: brhFinder,
+          matching: find.byElementPredicate(
+            (element) =>
+                element is LeafRenderObjectElement &&
+                element.renderObject is RenderBlockResizeBorder,
+          ),
         );
+        expect(borderFinder, findsOneWidget, reason: 'RenderBlockResizeBorder must be present');
+        return tester.renderObject<RenderBlockResizeBorder>(borderFinder);
       }
 
-      final rectBefore = getBorderRect();
+      // The Listener hit-target Positioned widgets still carry the blockRect
+      // coordinates. Find them by looking for Positioned with explicit width
+      // (Positioned.fill uses left/right/top/bottom but no width/height).
+      // These are the 8 handle Positioned widgets (topLeft is index 0).
+      Offset getTopLeftHandleOffset() {
+        final allPositioned = tester.widgetList<Positioned>(
+          find.descendant(
+            of: find.byType(BlockResizeHandles),
+            matching: find.byType(Positioned),
+          ),
+        );
+        // Skip Positioned.fill (width==null) — find first with explicit width.
+        final handlePositioned = allPositioned.firstWhere(
+          (p) => p.width != null,
+        );
+        return Offset(handlePositioned.left!, handlePositioned.top ?? 0);
+      }
+
+      final renderBorderBefore = getResizeBorderRenderObject();
+      expect(renderBorderBefore.selectedNodeId, 'img-1');
+      final handleOffsetBefore = getTopLeftHandleOffset();
 
       // Narrow the viewport using setState on the StatefulBuilder.
       // Because innerContent is the same object reference, the child element
@@ -1587,17 +1651,24 @@ void main() {
       // The handles should still be visible.
       expect(find.byType(BlockResizeHandles), findsOneWidget);
 
-      final rectAfter = getBorderRect();
+      // The RenderBlockResizeBorder render object still has the same nodeId —
+      // it will query layout at paint time automatically (no one-frame lag).
+      final renderBorderAfter = getResizeBorderRenderObject();
+      expect(renderBorderAfter.selectedNodeId, 'img-1');
+
+      // The Listener hit-target Positioned widgets must have moved left too
+      // (they re-query via _scheduleGeometryUpdate from didChangeDependencies).
+      final handleOffsetAfter = getTopLeftHandleOffset();
 
       // In a 600-wide container: image left = (600 - 200) / 2 = 200.
       // In a 400-wide container: image left = (400 - 200) / 2 = 100.
-      // So the outline's left coordinate should shift left by ~100px.
+      // So the handle's left coordinate should shift left by ~100px.
       expect(
-        rectAfter.left,
-        lessThan(rectBefore.left),
-        reason: 'Resize outline left edge should move left when viewport narrows '
+        handleOffsetAfter.dx,
+        lessThan(handleOffsetBefore.dx),
+        reason: 'Handle left edge should move left when viewport narrows '
             '(center-aligned image in a narrower container). '
-            'Before: ${rectBefore.left}, After: ${rectAfter.left}',
+            'Before: ${handleOffsetBefore.dx}, After: ${handleOffsetAfter.dx}',
       );
     });
   });
