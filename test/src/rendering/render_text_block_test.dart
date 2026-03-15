@@ -1299,4 +1299,107 @@ void main() {
           reason: 'tab-expanded end must match space-expanded end');
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // textAlign caret positioning — minWidth fix
+  // ---------------------------------------------------------------------------
+
+  group('RenderTextBlock textAlign caret positioning', () {
+    // Use short text and a wide block so that alignment has clear visual effect.
+    // "Hi" at fontSize 16 is much narrower than the 500px block width, leaving
+    // ~468px of available space for alignment to act on.
+    const blockWidth = 500.0;
+    const text = 'Hi';
+
+    RenderTextBlock _blockWithAlign(TextAlign align) {
+      final b = RenderTextBlock(
+        nodeId: 'align_test',
+        text: AttributedText(text),
+        textStyle: const TextStyle(fontSize: 16),
+        textAlign: align,
+      );
+      b.layout(const BoxConstraints(maxWidth: blockWidth), parentUsesSize: true);
+      return b;
+    }
+
+    test('left-aligned text: caret at offset 0 is at x == 0', () {
+      final block = _blockWithAlign(TextAlign.left);
+      final rect = block.getLocalRectForPosition(const TextNodePosition(offset: 0));
+      // Left alignment — first character starts at x=0.
+      expect(rect.left, closeTo(0.0, 1.0),
+          reason: 'caret at offset 0 of left-aligned text must be at x=0');
+    });
+
+    test('start-aligned text: caret at offset 0 is at x == 0', () {
+      final block = _blockWithAlign(TextAlign.start);
+      final rect = block.getLocalRectForPosition(const TextNodePosition(offset: 0));
+      expect(rect.left, closeTo(0.0, 1.0),
+          reason: 'caret at offset 0 of start-aligned text must be at x=0');
+    });
+
+    test('center-aligned text: caret at offset 0 is > 0', () {
+      // With minWidth == 0 (the bug), the painter shrinks to intrinsic text
+      // width and center-alignment has no space to act on: offset 0 returns
+      // x == 0.  With the fix (minWidth: maxWidth) the painter is full-width,
+      // so the first character is indented to the center.
+      final block = _blockWithAlign(TextAlign.center);
+      final rect = block.getLocalRectForPosition(const TextNodePosition(offset: 0));
+      expect(
+        rect.left,
+        greaterThan(0.0),
+        reason: 'caret at offset 0 of center-aligned text must be > 0 '
+            '(text is indented from the left edge)',
+      );
+    });
+
+    test('right-aligned text: caret at offset 0 is greater than center x', () {
+      // Right alignment: the first character is at the far right of the block.
+      // Its x must be greater than what center alignment gives.
+      final centerBlock = _blockWithAlign(TextAlign.center);
+      final rightBlock = _blockWithAlign(TextAlign.right);
+
+      final centerRect = centerBlock.getLocalRectForPosition(const TextNodePosition(offset: 0));
+      final rightRect = rightBlock.getLocalRectForPosition(const TextNodePosition(offset: 0));
+
+      expect(
+        rightRect.left,
+        greaterThan(centerRect.left),
+        reason: 'caret at offset 0 of right-aligned text must be further right '
+            'than center-aligned text',
+      );
+    });
+
+    test('center-aligned end caret x is approximately (blockWidth - textWidth) / 2', () {
+      // The caret at end-of-text for center-aligned "Hi" should be roughly at
+      // blockWidth/2.  We allow ±10px tolerance for font metric variation.
+      final block = _blockWithAlign(TextAlign.center);
+      final endRect = block.getLocalRectForPosition(
+        const TextNodePosition(offset: text.length),
+      );
+      // End caret of center-aligned short text should be near blockWidth / 2.
+      expect(
+        endRect.left,
+        greaterThan(blockWidth / 2 - 30),
+        reason: 'end caret of center-aligned text should be near the center of the block',
+      );
+      expect(
+        endRect.left,
+        lessThan(blockWidth / 2 + 30),
+        reason: 'end caret of center-aligned text should be near the center of the block',
+      );
+    });
+
+    test('right-aligned end caret x is approximately blockWidth', () {
+      // The end caret of right-aligned "Hi" should be near the right edge.
+      final block = _blockWithAlign(TextAlign.right);
+      final endRect = block.getLocalRectForPosition(
+        const TextNodePosition(offset: text.length),
+      );
+      expect(
+        endRect.left,
+        greaterThan(blockWidth - 30),
+        reason: 'end caret of right-aligned text should be near the right edge',
+      );
+    });
+  });
 }

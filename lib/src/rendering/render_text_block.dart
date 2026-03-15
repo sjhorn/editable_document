@@ -497,7 +497,7 @@ class RenderTextBlock extends RenderDocumentBlock {
         text: _buildTextSpan(),
         textDirection: _textDirection,
         textAlign: _textAlign,
-      )..layout(maxWidth: maxWidth);
+      )..layout(minWidth: maxWidth, maxWidth: maxWidth);
 
       // Find the character at exactly the exclusion top.
       final posAtTop = tempFull.getPositionForOffset(Offset(0, exclusionRect.top));
@@ -524,7 +524,7 @@ class RenderTextBlock extends RenderDocumentBlock {
           text: _buildTextSpanForRange(0, aboveEndIndex),
           textDirection: _textDirection,
           textAlign: _textAlign,
-        )..layout(maxWidth: maxWidth);
+        )..layout(minWidth: maxWidth, maxWidth: maxWidth);
         aboveHeight = abovePainter.height;
       }
     }
@@ -550,7 +550,7 @@ class RenderTextBlock extends RenderDocumentBlock {
           text: _buildTextSpanForRange(currentIndex, textLength),
           textDirection: _textDirection,
           textAlign: _textAlign,
-        )..layout(maxWidth: leftWidth);
+        )..layout(minWidth: leftWidth, maxWidth: leftWidth);
 
         final leftBound = tempLeft.getLineBoundary(const TextPosition(offset: 0));
         final leftLineMetrics = tempLeft.computeLineMetrics();
@@ -572,7 +572,7 @@ class RenderTextBlock extends RenderDocumentBlock {
           text: _buildTextSpanForRange(rightStartIndex, textLength),
           textDirection: _textDirection,
           textAlign: _textAlign,
-        )..layout(maxWidth: rightWidth);
+        )..layout(minWidth: rightWidth, maxWidth: rightWidth);
 
         final rightBound = tempRight.getLineBoundary(const TextPosition(offset: 0));
         final rightLineMetrics = tempRight.computeLineMetrics();
@@ -593,17 +593,19 @@ class RenderTextBlock extends RenderDocumentBlock {
       }
 
       // Build the painting painters for this line pair.
+      final leftEffectiveWidth = leftWidth > 0 ? leftWidth : maxWidth;
       final leftPainter = TextPainter(
         text: _buildTextSpanForRange(leftStartIndex, leftEndIndex),
         textDirection: _textDirection,
         textAlign: _textAlign,
-      )..layout(maxWidth: leftWidth > 0 ? leftWidth : maxWidth);
+      )..layout(minWidth: leftEffectiveWidth, maxWidth: leftEffectiveWidth);
 
+      final rightEffectiveWidth = rightWidth > 0 ? rightWidth : maxWidth;
       final rightPainter = TextPainter(
         text: _buildTextSpanForRange(rightStartIndex, rightEndIndex),
         textDirection: _textDirection,
         textAlign: _textAlign,
-      )..layout(maxWidth: rightWidth > 0 ? rightWidth : maxWidth);
+      )..layout(minWidth: rightEffectiveWidth, maxWidth: rightEffectiveWidth);
 
       lines.add(
         _LinePair(
@@ -648,7 +650,7 @@ class RenderTextBlock extends RenderDocumentBlock {
         text: _buildTextSpanForRange(besideEndIndex, textLength),
         textDirection: _textDirection,
         textAlign: _textAlign,
-      )..layout(maxWidth: maxWidth);
+      )..layout(minWidth: maxWidth, maxWidth: maxWidth);
       belowHeight = belowPainter.height;
     }
 
@@ -693,11 +695,12 @@ class RenderTextBlock extends RenderDocumentBlock {
   double? computeDryBaseline(covariant BoxConstraints constraints, TextBaseline baseline) {
     // Create a temporary painter with the same span and configuration to
     // compute the baseline without touching this render object's live state.
+    // Pass minWidth: maxWidth to match _layoutText so textAlign is consistent.
     final painter = TextPainter(
       text: _buildTextSpan(),
       textDirection: _textDirection,
       textAlign: _textAlign,
-    )..layout(maxWidth: constraints.maxWidth);
+    )..layout(minWidth: constraints.maxWidth, maxWidth: constraints.maxWidth);
     return painter.computeDistanceToActualBaseline(baseline);
   }
 
@@ -763,7 +766,10 @@ class RenderTextBlock extends RenderDocumentBlock {
     // attribution). Clear first to guarantee the painter accepts the new span.
     _textPainter.text = null;
     _textPainter.text = span;
-    _textPainter.layout(maxWidth: maxWidth);
+    // Pass minWidth: maxWidth so the painter always occupies the full available
+    // width.  Without this, the painter shrinks to the intrinsic text width and
+    // textAlign has no space to act on — center/right alignment has no effect.
+    _textPainter.layout(minWidth: maxWidth, maxWidth: maxWidth);
   }
 
   // ---------------------------------------------------------------------------
