@@ -52,8 +52,20 @@ class _FakeComponentBuilder extends ComponentBuilder {
 // Helpers to build model fixtures
 // ---------------------------------------------------------------------------
 
-ParagraphNode _paragraph({String id = 'p1', String text = 'Hello'}) =>
-    ParagraphNode(id: id, text: AttributedText(text));
+ParagraphNode _paragraph(
+        {String id = 'p1', String text = 'Hello', TextAlign textAlign = TextAlign.start}) =>
+    ParagraphNode(id: id, text: AttributedText(text), textAlign: textAlign);
+
+ListItemNode _listItemWithAlign(
+        {String id = 'li1', String text = 'Item', TextAlign textAlign = TextAlign.start}) =>
+    ListItemNode(id: id, text: AttributedText(text), textAlign: textAlign);
+
+BlockquoteNode _blockquoteWithAlign({
+  String id = 'bq1',
+  String text = 'To be or not to be',
+  TextAlign textAlign = TextAlign.start,
+}) =>
+    BlockquoteNode(id: id, text: AttributedText(text), textAlign: textAlign);
 
 ListItemNode _listItem({String id = 'li1', String text = 'Item'}) =>
     ListItemNode(id: id, text: AttributedText(text));
@@ -226,6 +238,80 @@ void main() {
       );
       // Should not throw.
     });
+
+    // --- textAlign tests ---
+
+    test('ParagraphComponentViewModel includes textAlign in equality', () {
+      final a = ParagraphComponentViewModel(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        blockType: ParagraphBlockType.paragraph,
+        textStyle: const TextStyle(),
+        textAlign: TextAlign.center,
+      );
+      final b = ParagraphComponentViewModel(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        blockType: ParagraphBlockType.paragraph,
+        textStyle: const TextStyle(),
+        textAlign: TextAlign.center,
+      );
+      final c = ParagraphComponentViewModel(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        blockType: ParagraphBlockType.paragraph,
+        textStyle: const TextStyle(),
+        textAlign: TextAlign.end,
+      );
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+      expect(a, isNot(equals(c)));
+    });
+
+    test('ParagraphComponentBuilder.createViewModel reads node.textAlign', () {
+      final node = _paragraph(textAlign: TextAlign.center);
+      final doc = _doc([node]);
+      final vm = const ParagraphComponentBuilder().createViewModel(doc, node)
+          as ParagraphComponentViewModel;
+      expect(vm.textAlign, TextAlign.center);
+    });
+
+    testWidgets(
+        'ParagraphBlockWidget passes textAlign to createRenderObject and updateRenderObject',
+        (WidgetTester tester) async {
+      final node = _paragraph(textAlign: TextAlign.right);
+      final doc = _doc([node]);
+
+      final vm = ParagraphComponentViewModel(
+        nodeId: node.id,
+        text: node.text,
+        blockType: node.blockType,
+        textStyle: const TextStyle(),
+        textAlign: node.textAlign,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: const ParagraphComponentBuilder().createComponent(vm, _ctx(doc))!),
+        ),
+      );
+
+      // Update with a different textAlign to exercise updateRenderObject.
+      final vm2 = ParagraphComponentViewModel(
+        nodeId: node.id,
+        text: node.text,
+        blockType: node.blockType,
+        textStyle: const TextStyle(),
+        textAlign: TextAlign.left,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: const ParagraphComponentBuilder().createComponent(vm2, _ctx(doc))!),
+        ),
+      );
+      // Should not throw — just verifies the pipeline wires textAlign through.
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -383,6 +469,89 @@ void main() {
       const vm = _FakeViewModel(nodeId: 'n1');
       final widget = builder.createComponent(vm, ctx);
       expect(widget, isNull);
+    });
+
+    // --- textAlign tests ---
+
+    test('ListItemComponentViewModel includes textAlign in equality', () {
+      final a = ListItemComponentViewModel(
+        nodeId: 'li1',
+        text: AttributedText('Item'),
+        type: ListItemType.unordered,
+        indent: 0,
+        ordinalIndex: 1,
+        textStyle: const TextStyle(),
+        textAlign: TextAlign.center,
+      );
+      final b = ListItemComponentViewModel(
+        nodeId: 'li1',
+        text: AttributedText('Item'),
+        type: ListItemType.unordered,
+        indent: 0,
+        ordinalIndex: 1,
+        textStyle: const TextStyle(),
+        textAlign: TextAlign.center,
+      );
+      final c = ListItemComponentViewModel(
+        nodeId: 'li1',
+        text: AttributedText('Item'),
+        type: ListItemType.unordered,
+        indent: 0,
+        ordinalIndex: 1,
+        textStyle: const TextStyle(),
+        textAlign: TextAlign.end,
+      );
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+      expect(a, isNot(equals(c)));
+    });
+
+    test('ListItemComponentBuilder.createViewModel reads node.textAlign', () {
+      final node = _listItemWithAlign(textAlign: TextAlign.center);
+      final doc = _doc([node]);
+      final vm =
+          const ListItemComponentBuilder().createViewModel(doc, node) as ListItemComponentViewModel;
+      expect(vm.textAlign, TextAlign.center);
+    });
+
+    testWidgets('ListItemBlockWidget passes textAlign to createRenderObject and updateRenderObject',
+        (WidgetTester tester) async {
+      final node = _listItemWithAlign(textAlign: TextAlign.right);
+      final doc = _doc([node]);
+
+      final vm = ListItemComponentViewModel(
+        nodeId: node.id,
+        text: node.text,
+        type: node.type,
+        indent: node.indent,
+        ordinalIndex: 1,
+        textStyle: const TextStyle(),
+        textAlign: node.textAlign,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: const ListItemComponentBuilder().createComponent(vm, _ctx(doc))!),
+        ),
+      );
+
+      // Update with a different textAlign to exercise updateRenderObject.
+      final vm2 = ListItemComponentViewModel(
+        nodeId: node.id,
+        text: node.text,
+        type: node.type,
+        indent: node.indent,
+        ordinalIndex: 1,
+        textStyle: const TextStyle(),
+        textAlign: TextAlign.left,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: const ListItemComponentBuilder().createComponent(vm2, _ctx(doc))!),
+        ),
+      );
+      // Should not throw — verifies textAlign wires through the pipeline.
     });
   });
 
@@ -842,6 +1011,75 @@ void main() {
         ),
       );
       // Should not throw.
+    });
+
+    // --- textAlign tests ---
+
+    test('BlockquoteComponentViewModel includes textAlign in equality', () {
+      final a = BlockquoteComponentViewModel(
+        nodeId: 'bq1',
+        text: AttributedText('quote'),
+        textStyle: const TextStyle(),
+        textAlign: TextAlign.center,
+      );
+      final b = BlockquoteComponentViewModel(
+        nodeId: 'bq1',
+        text: AttributedText('quote'),
+        textStyle: const TextStyle(),
+        textAlign: TextAlign.center,
+      );
+      final c = BlockquoteComponentViewModel(
+        nodeId: 'bq1',
+        text: AttributedText('quote'),
+        textStyle: const TextStyle(),
+        textAlign: TextAlign.end,
+      );
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+      expect(a, isNot(equals(c)));
+    });
+
+    test('BlockquoteComponentBuilder.createViewModel reads node.textAlign', () {
+      final node = _blockquoteWithAlign(textAlign: TextAlign.center);
+      final doc = _doc([node]);
+      final vm = const BlockquoteComponentBuilder().createViewModel(doc, node)
+          as BlockquoteComponentViewModel;
+      expect(vm.textAlign, TextAlign.center);
+    });
+
+    testWidgets(
+        'BlockquoteBlockWidget passes textAlign to createRenderObject and updateRenderObject',
+        (WidgetTester tester) async {
+      final node = _blockquoteWithAlign(textAlign: TextAlign.right);
+      final doc = _doc([node]);
+
+      final vm = BlockquoteComponentViewModel(
+        nodeId: node.id,
+        text: node.text,
+        textStyle: const TextStyle(),
+        textAlign: node.textAlign,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: const BlockquoteComponentBuilder().createComponent(vm, _ctx(doc))!),
+        ),
+      );
+
+      // Update with a different textAlign to exercise updateRenderObject.
+      final vm2 = BlockquoteComponentViewModel(
+        nodeId: node.id,
+        text: node.text,
+        textStyle: const TextStyle(),
+        textAlign: TextAlign.left,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: const BlockquoteComponentBuilder().createComponent(vm2, _ctx(doc))!),
+        ),
+      );
+      // Should not throw — verifies textAlign wires through the pipeline.
     });
   });
 

@@ -238,6 +238,7 @@ class ParagraphComponentViewModel extends ComponentViewModel {
     required this.text,
     required this.blockType,
     required this.textStyle,
+    this.textAlign = TextAlign.start,
     super.nodeSelection,
     super.isSelected,
   });
@@ -251,6 +252,9 @@ class ParagraphComponentViewModel extends ComponentViewModel {
   /// The base [TextStyle] to apply before block-type scaling.
   final TextStyle textStyle;
 
+  /// The text alignment for this paragraph.
+  final TextAlign textAlign;
+
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
@@ -259,12 +263,14 @@ class ParagraphComponentViewModel extends ComponentViewModel {
         other.text == text &&
         other.blockType == blockType &&
         other.textStyle == textStyle &&
+        other.textAlign == textAlign &&
         other.nodeSelection == nodeSelection &&
         other.isSelected == isSelected;
   }
 
   @override
-  int get hashCode => Object.hash(nodeId, text, blockType, textStyle, nodeSelection, isSelected);
+  int get hashCode =>
+      Object.hash(nodeId, text, blockType, textStyle, textAlign, nodeSelection, isSelected);
 }
 
 /// [ComponentBuilder] that handles [ParagraphNode].
@@ -280,6 +286,7 @@ class ParagraphComponentBuilder extends ComponentBuilder {
       text: node.text,
       blockType: node.blockType,
       textStyle: const TextStyle(),
+      textAlign: node.textAlign,
     );
   }
 
@@ -303,6 +310,7 @@ class _ParagraphBlockWidget extends LeafRenderObjectWidget {
       text: viewModel.text,
       blockType: viewModel.blockType,
       baseTextStyle: DefaultTextStyle.of(context).style.merge(viewModel.textStyle),
+      textAlign: viewModel.textAlign,
     );
   }
 
@@ -313,6 +321,7 @@ class _ParagraphBlockWidget extends LeafRenderObjectWidget {
       ..text = viewModel.text
       ..blockType = viewModel.blockType
       ..baseTextStyle = DefaultTextStyle.of(context).style.merge(viewModel.textStyle)
+      ..textAlign = viewModel.textAlign
       ..nodeSelection = viewModel.nodeSelection;
   }
 
@@ -337,6 +346,7 @@ class ListItemComponentViewModel extends ComponentViewModel {
     required this.indent,
     required this.ordinalIndex,
     required this.textStyle,
+    this.textAlign = TextAlign.start,
     super.nodeSelection,
     super.isSelected,
   });
@@ -356,6 +366,9 @@ class ListItemComponentViewModel extends ComponentViewModel {
   /// The base [TextStyle] to apply.
   final TextStyle textStyle;
 
+  /// The text alignment for this list item.
+  final TextAlign textAlign;
+
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
@@ -366,13 +379,23 @@ class ListItemComponentViewModel extends ComponentViewModel {
         other.indent == indent &&
         other.ordinalIndex == ordinalIndex &&
         other.textStyle == textStyle &&
+        other.textAlign == textAlign &&
         other.nodeSelection == nodeSelection &&
         other.isSelected == isSelected;
   }
 
   @override
-  int get hashCode =>
-      Object.hash(nodeId, text, type, indent, ordinalIndex, textStyle, nodeSelection, isSelected);
+  int get hashCode => Object.hash(
+        nodeId,
+        text,
+        type,
+        indent,
+        ordinalIndex,
+        textStyle,
+        textAlign,
+        nodeSelection,
+        isSelected,
+      );
 }
 
 /// [ComponentBuilder] that handles [ListItemNode].
@@ -391,6 +414,7 @@ class ListItemComponentBuilder extends ComponentBuilder {
       indent: node.indent,
       ordinalIndex: ordinal,
       textStyle: const TextStyle(),
+      textAlign: node.textAlign,
     );
   }
 
@@ -449,6 +473,7 @@ class _ListItemBlockWidget extends LeafRenderObjectWidget {
       indent: viewModel.indent,
       ordinalIndex: viewModel.ordinalIndex,
       textStyle: DefaultTextStyle.of(context).style.merge(viewModel.textStyle),
+      textAlign: viewModel.textAlign,
     );
   }
 
@@ -461,6 +486,7 @@ class _ListItemBlockWidget extends LeafRenderObjectWidget {
       ..indent = viewModel.indent
       ..ordinalIndex = viewModel.ordinalIndex
       ..textStyle = DefaultTextStyle.of(context).style.merge(viewModel.textStyle)
+      ..textAlign = viewModel.textAlign
       ..nodeSelection = viewModel.nodeSelection;
   }
 
@@ -985,6 +1011,7 @@ class BlockquoteComponentViewModel extends ComponentViewModel implements HasLayo
     this.height,
     this.alignment = BlockAlignment.stretch,
     this.textWrap = TextWrapMode.none,
+    this.textAlign = TextAlign.start,
     super.nodeSelection,
     super.isSelected,
   });
@@ -1011,6 +1038,9 @@ class BlockquoteComponentViewModel extends ComponentViewModel implements HasLayo
   /// Defaults to [TextWrapMode.none].
   final TextWrapMode textWrap;
 
+  /// The text alignment for this blockquote.
+  final TextAlign textAlign;
+
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
@@ -1022,6 +1052,7 @@ class BlockquoteComponentViewModel extends ComponentViewModel implements HasLayo
         other.height == height &&
         other.alignment == alignment &&
         other.textWrap == textWrap &&
+        other.textAlign == textAlign &&
         other.nodeSelection == nodeSelection &&
         other.isSelected == isSelected;
   }
@@ -1035,6 +1066,7 @@ class BlockquoteComponentViewModel extends ComponentViewModel implements HasLayo
         height,
         alignment,
         textWrap,
+        textAlign,
         nodeSelection,
         isSelected,
       );
@@ -1056,6 +1088,7 @@ class BlockquoteComponentBuilder extends ComponentBuilder {
       height: node.height,
       alignment: node.alignment,
       textWrap: node.textWrap,
+      textAlign: node.textAlign,
     );
   }
 
@@ -1082,6 +1115,7 @@ class _BlockquoteBlockWidget extends LeafRenderObjectWidget {
       requestedWidth: viewModel.width,
       requestedHeight: viewModel.height,
       textWrap: viewModel.textWrap,
+      textAlign: viewModel.textAlign,
     );
   }
 
@@ -1091,6 +1125,7 @@ class _BlockquoteBlockWidget extends LeafRenderObjectWidget {
       ..nodeId = viewModel.nodeId
       ..text = viewModel.text
       ..textStyle = DefaultTextStyle.of(context).style.merge(viewModel.textStyle)
+      ..textAlign = viewModel.textAlign
       ..nodeSelection = viewModel.nodeSelection;
     _updateBlockLayout(renderObject, viewModel);
   }
