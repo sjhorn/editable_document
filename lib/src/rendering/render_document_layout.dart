@@ -370,10 +370,49 @@ class RenderDocumentLayout extends RenderBox
             ce.floatLeft + ce.width + _kFloatGap,
             ce.bottom - yOffset,
           );
-        } else if (hasStart || hasEnd) {
-          // Narrow the block to fit beside start and/or end floats.
-          final startWidth = hasStart ? startExclusion.width : 0.0;
-          final endWidth = hasEnd ? endExclusion.width : 0.0;
+        } else if (hasStart && !hasEnd) {
+          if (child.requestedWidth == null) {
+            // Text-like stretch block beside a single start float: pass full-width
+            // constraints plus an exclusionRect so [RenderTextBlock] can split
+            // the text into above/beside/below zones and return to full width once
+            // the text content passes the float's bottom edge.
+            childMaxWidth = preferredWidth;
+            xOffset = 0.0;
+            parentData.exclusionRect = Rect.fromLTRB(
+              0,
+              max(0.0, startExclusion.top - yOffset),
+              startExclusion.width,
+              startExclusion.bottom - yOffset,
+            );
+          } else {
+            // Sized block (image, code, etc.) with an explicit requestedWidth.
+            // Narrow the available width to fit beside the float; the block
+            // clamps its requestedWidth to the reduced constraint.
+            childMaxWidth = max(0.0, preferredWidth - startExclusion.width);
+            xOffset = startExclusion.width;
+          }
+        } else if (hasEnd && !hasStart) {
+          if (child.requestedWidth == null) {
+            // Text-like stretch block beside a single end float: same treatment —
+            // full-width constraints plus a right-side exclusionRect.
+            childMaxWidth = preferredWidth;
+            xOffset = 0.0;
+            parentData.exclusionRect = Rect.fromLTRB(
+              preferredWidth - endExclusion.width,
+              max(0.0, endExclusion.top - yOffset),
+              preferredWidth,
+              endExclusion.bottom - yOffset,
+            );
+          } else {
+            // Sized block — narrow from the right.
+            childMaxWidth = max(0.0, preferredWidth - endExclusion.width);
+            xOffset = 0.0;
+          }
+        } else if (hasStart && hasEnd) {
+          // Both sides active: a single exclusionRect cannot represent two side
+          // floats simultaneously.  Fall back to the narrowed-width approach.
+          final startWidth = startExclusion.width;
+          final endWidth = endExclusion.width;
           childMaxWidth = max(0.0, preferredWidth - startWidth - endWidth);
           xOffset = startWidth;
         }

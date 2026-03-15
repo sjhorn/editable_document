@@ -596,11 +596,14 @@ void main() {
         final imgStart = layoutState.componentForNode('img1')!;
         final imgDataStart = imgStart.parentData as DocumentBlockParentData;
 
-        // With start float, text starts at same y and is pushed right.
+        // With start float, text starts at same y with exclusionRect handling
+        // the visual narrowing internally.
         expect(textDataStart.offset.dy, imgDataStart.offset.dy,
             reason: 'start: text should start at same y as float');
-        expect(textDataStart.offset.dx, greaterThan(0),
-            reason: 'start: text should be pushed right');
+        expect(textDataStart.offset.dx, 0.0,
+            reason: 'start: text block is at x=0 — exclusionRect handles visual narrowing');
+        expect(textDataStart.exclusionRect, isNotNull,
+            reason: 'start: text block must have exclusionRect from start float');
 
         // --- Change alignment to center ---
         final editor = UndoableEditor(
