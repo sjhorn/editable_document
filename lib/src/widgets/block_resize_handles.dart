@@ -23,6 +23,7 @@ import '../model/image_node.dart';
 import '../model/node_position.dart';
 import '../model/text_node.dart';
 import 'document_layout.dart';
+import 'document_viewport_scope.dart';
 
 // ---------------------------------------------------------------------------
 // BlockResizeCallback
@@ -293,6 +294,15 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
       oldWidget.controller.removeListener(_onControllerChanged);
       widget.controller.addListener(_onControllerChanged);
     }
+    _scheduleGeometryUpdate();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Depend on DocumentViewportScope so we re-query block geometry
+    // when the viewport width changes (e.g. window resize).
+    DocumentViewportScope.maybeOf(context);
     _scheduleGeometryUpdate();
   }
 

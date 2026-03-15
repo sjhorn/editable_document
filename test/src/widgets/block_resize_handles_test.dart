@@ -1471,6 +1471,138 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
+  // BlockResizeHandles — viewport resize tracking
+  // -------------------------------------------------------------------------
+
+  group('BlockResizeHandles — viewport resize tracking', () {
+    testWidgets('resize outline re-queries geometry when DocumentViewportScope width changes',
+        (tester) async {
+      // A center-aligned image of 200×100. The SizedBox container starts at
+      // 600 wide, then narrows to 400. Because the image is center-aligned,
+      // its left offset changes as the container width changes — and the
+      // resize handles must follow.
+      //
+      // This test replicates the production scenario where DocumentScrollable
+      // uses LayoutBuilder + DocumentViewportScope with the SAME child widget
+      // reference. When the viewport width changes, only the InheritedWidget
+      // value changes — the child subtree is NOT rebuilt via didUpdateWidget.
+      // BlockResizeHandles must respond via didChangeDependencies.
+      final doc = MutableDocument([
+        ImageNode(
+          id: 'img-1',
+          imageUrl: 'test.png',
+          width: 200.0,
+          height: 100.0,
+          alignment: BlockAlignment.center,
+        ),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      addTearDown(controller.dispose);
+
+      _selectFully(controller, 'img-1');
+
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+
+      // Build the inner content once. This simulates the widget.child passed to
+      // DocumentScrollable — the SAME reference is used in both DocumentViewportScope
+      // instances, so the child subtree does NOT get didUpdateWidget when the
+      // viewport changes; only InheritedWidget-registered dependents are notified.
+      final innerContent = DocumentSelectionOverlay(
+        controller: controller,
+        layoutKey: layoutKey,
+        startHandleLayerLink: LayerLink(),
+        endHandleLayerLink: LayerLink(),
+        document: doc,
+        onBlockResize: (id, w, h) {},
+        child: DocumentLayout(
+          key: layoutKey,
+          document: controller.document,
+          controller: controller,
+          componentBuilders: defaultComponentBuilders,
+        ),
+      );
+
+      // Mutable state for the StatefulBuilder.
+      double viewportWidth = 600.0;
+      late StateSetter outerSetState;
+
+      await tester.pumpWidget(
+        StatefulBuilder(
+          builder: (context, setState) {
+            outerSetState = setState;
+            return MaterialApp(
+              home: Scaffold(
+                body: SizedBox(
+                  width: viewportWidth,
+                  height: 800.0,
+                  child: DocumentViewportScope(
+                    viewportWidth: viewportWidth,
+                    // Re-use the SAME child reference — mirrors DocumentScrollable.
+                    child: innerContent,
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Verify that the resize outline is visible (handles are shown).
+      final blockHandlesFinder = find.byType(BlockResizeHandles);
+      expect(blockHandlesFinder, findsOneWidget);
+
+      // Find the border Positioned widget and capture its left coordinate.
+      // The border is the first Positioned in the Stack returned by
+      // BlockResizeHandles.build — its `left` property equals blockRect.left.
+      Rect getBorderRect() {
+        final positioned = tester
+            .widgetList<Positioned>(
+              find.descendant(
+                of: find.byType(BlockResizeHandles),
+                matching: find.byType(Positioned),
+              ),
+            )
+            .first;
+        return Rect.fromLTWH(
+          positioned.left ?? 0,
+          positioned.top ?? 0,
+          positioned.width ?? 0,
+          positioned.height ?? 0,
+        );
+      }
+
+      final rectBefore = getBorderRect();
+
+      // Narrow the viewport using setState on the StatefulBuilder.
+      // Because innerContent is the same object reference, the child element
+      // does NOT rebuild via didUpdateWidget. Only InheritedWidget-registered
+      // dependents (those that called dependOnInheritedWidgetOfExactType) are
+      // notified — this exercises the didChangeDependencies fix.
+      outerSetState(() {
+        viewportWidth = 400.0;
+      });
+      await tester.pumpAndSettle();
+
+      // The handles should still be visible.
+      expect(find.byType(BlockResizeHandles), findsOneWidget);
+
+      final rectAfter = getBorderRect();
+
+      // In a 600-wide container: image left = (600 - 200) / 2 = 200.
+      // In a 400-wide container: image left = (400 - 200) / 2 = 100.
+      // So the outline's left coordinate should shift left by ~100px.
+      expect(
+        rectAfter.left,
+        lessThan(rectBefore.left),
+        reason: 'Resize outline left edge should move left when viewport narrows '
+            '(center-aligned image in a narrower container). '
+            'Before: ${rectBefore.left}, After: ${rectAfter.left}',
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // createResetImageSizeRequest — lockAspect preservation
   // -------------------------------------------------------------------------
 
