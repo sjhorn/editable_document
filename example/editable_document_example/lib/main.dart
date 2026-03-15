@@ -14,6 +14,7 @@
 /// - Undo/redo via UndoableEditor
 /// - Clipboard (Cmd/Ctrl+C/X/V/A) and right-click context menu
 /// - JSON save/load round-trip with full attribution serialization
+/// - Text alignment (start, center, end, justify) for paragraph, list, and blockquote nodes
 /// - Block alignment (start, center, end, stretch) for container blocks
 /// - Float-style text wrapping with textWrap property
 /// - Dual concurrent floats: start + end images with text wrapping around both
@@ -847,20 +848,83 @@ class _DocumentDemoState extends State<DocumentDemo> {
     return nodes.every((n) => _nodeMatchesType(n, type));
   }
 
-  /// Creates a new [TextNode] of [type] preserving [id] and [text].
-  TextNode? _makeNode(String type, String id, AttributedText text) {
+  /// Returns the common [TextAlign] of all selected alignable nodes,
+  /// or `null` if the selection spans nodes with different alignments
+  /// or if no alignable nodes are selected.
+  TextAlign? _currentTextAlign() {
+    final selection = _controller.selection;
+    if (selection == null) return null;
+
+    final doc = _controller.document;
+    final baseIndex = doc.getNodeIndexById(selection.base.nodeId);
+    final extentIndex = doc.getNodeIndexById(selection.extent.nodeId);
+    final start = baseIndex < extentIndex ? baseIndex : extentIndex;
+    final end = baseIndex < extentIndex ? extentIndex : baseIndex;
+
+    TextAlign? common;
+    for (var i = start; i <= end; i++) {
+      final node = doc.nodeAt(i);
+      final TextAlign? nodeAlign;
+      if (node is ParagraphNode) {
+        nodeAlign = node.textAlign;
+      } else if (node is ListItemNode) {
+        nodeAlign = node.textAlign;
+      } else if (node is BlockquoteNode) {
+        nodeAlign = node.textAlign;
+      } else {
+        continue;
+      }
+      if (common == null) {
+        common = nodeAlign;
+      } else if (common != nodeAlign) {
+        return null; // mixed
+      }
+    }
+    return common;
+  }
+
+  /// Sets the [TextAlign] of all selected alignable nodes.
+  void _setTextAlign(TextAlign align) {
+    final selection = _controller.selection;
+    if (selection == null) return;
+
+    final doc = _controller.document;
+    final baseIndex = doc.getNodeIndexById(selection.base.nodeId);
+    final extentIndex = doc.getNodeIndexById(selection.extent.nodeId);
+    final start = baseIndex < extentIndex ? baseIndex : extentIndex;
+    final end = baseIndex < extentIndex ? extentIndex : baseIndex;
+
+    for (var i = start; i <= end; i++) {
+      final node = doc.nodeAt(i);
+      if (node is ParagraphNode || node is ListItemNode || node is BlockquoteNode) {
+        _editor.submit(ChangeTextAlignRequest(nodeId: node.id, newTextAlign: align));
+      }
+    }
+  }
+
+  /// Creates a new [TextNode] of [type] preserving [id], [text], and [textAlign].
+  TextNode? _makeNode(
+    String type,
+    String id,
+    AttributedText text, {
+    TextAlign textAlign = TextAlign.start,
+  }) {
     return switch (type) {
-      'paragraph' => ParagraphNode(id: id, text: text),
-      'blockquote' => BlockquoteNode(id: id, text: text),
+      'paragraph' => ParagraphNode(id: id, text: text, textAlign: textAlign),
+      'blockquote' => BlockquoteNode(id: id, text: text, textAlign: textAlign),
       'code' => CodeBlockNode(id: id, text: text),
-      'unordered' => ListItemNode(id: id, text: text, type: ListItemType.unordered),
-      'ordered' => ListItemNode(id: id, text: text, type: ListItemType.ordered),
+      'unordered' =>
+        ListItemNode(id: id, text: text, type: ListItemType.unordered, textAlign: textAlign),
+      'ordered' =>
+        ListItemNode(id: id, text: text, type: ListItemType.ordered, textAlign: textAlign),
       _ => null,
     };
   }
 
   /// Converts all selected text nodes to [type], or back to paragraph if
   /// every selected node already matches (toggle behavior).
+  ///
+  /// The [TextAlign] of each node is preserved during conversion.
   void _toggleBlockType(String type) {
     final nodes = _selectedTextNodes();
     if (nodes.isEmpty) return;
@@ -871,7 +935,14 @@ class _DocumentDemoState extends State<DocumentDemo> {
 
     for (final node in nodes) {
       if (_nodeMatchesType(node, targetType)) continue;
-      final newNode = _makeNode(targetType, node.id, node.text);
+      // Preserve the existing text alignment across the block type conversion.
+      final existingAlign = switch (node) {
+        ParagraphNode(:final textAlign) => textAlign,
+        ListItemNode(:final textAlign) => textAlign,
+        BlockquoteNode(:final textAlign) => textAlign,
+        _ => TextAlign.start,
+      };
+      final newNode = _makeNode(targetType, node.id, node.text, textAlign: existingAlign);
       if (newNode != null) {
         _editor.submit(ReplaceNodeRequest(nodeId: node.id, newNode: newNode));
       }
@@ -997,12 +1068,25 @@ class _DocumentDemoState extends State<DocumentDemo> {
         if (node.blockType != ParagraphBlockType.paragraph) {
           map['blockType'] = node.blockType.name;
         }
+        if (node.textAlign != TextAlign.start) {
+          map['textAlign'] = node.textAlign.name;
+        }
         _addAttributionSpans(map, node.text);
       } else if (node is ListItemNode) {
         map['type'] = 'listItem';
         map['text'] = node.text.text;
         map['listType'] = node.type.name;
         if (node.indent > 0) map['indent'] = node.indent;
+        if (node.textAlign != TextAlign.start) {
+          map['textAlign'] = node.textAlign.name;
+        }
+        _addAttributionSpans(map, node.text);
+      } else if (node is BlockquoteNode) {
+        map['type'] = 'blockquote';
+        map['text'] = node.text.text;
+        if (node.textAlign != TextAlign.start) {
+          map['textAlign'] = node.textAlign.name;
+        }
         _addAttributionSpans(map, node.text);
       } else if (node is CodeBlockNode) {
         map['type'] = 'codeBlock';
@@ -1139,6 +1223,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
                     orElse: () => ParagraphBlockType.paragraph,
                   )
                 : ParagraphBlockType.paragraph,
+            textAlign: _parseTextAlign(map['textAlign'] as String?),
           ));
         case 'listItem':
           final text = _textFromJson(map);
@@ -1148,6 +1233,14 @@ class _DocumentDemoState extends State<DocumentDemo> {
             text: text,
             type: listTypeName == 'ordered' ? ListItemType.ordered : ListItemType.unordered,
             indent: (map['indent'] as int?) ?? 0,
+            textAlign: _parseTextAlign(map['textAlign'] as String?),
+          ));
+        case 'blockquote':
+          final text = _textFromJson(map);
+          nodes.add(BlockquoteNode(
+            id: id,
+            text: text,
+            textAlign: _parseTextAlign(map['textAlign'] as String?),
           ));
         case 'codeBlock':
           final text = _textFromJson(map);
@@ -1175,6 +1268,16 @@ class _DocumentDemoState extends State<DocumentDemo> {
 
     _controller.clearSelection();
     _document.reset(nodes);
+  }
+
+  /// Parses a [TextAlign] from its [TextAlign.name] string, returning
+  /// [TextAlign.start] for unrecognised or null values.
+  TextAlign _parseTextAlign(String? value) {
+    if (value == null) return TextAlign.start;
+    return TextAlign.values.firstWhere(
+      (e) => e.name == value,
+      orElse: () => TextAlign.start,
+    );
   }
 
   /// Deserializes an [AttributedText] from a JSON node map.
@@ -1371,6 +1474,32 @@ class _DocumentDemoState extends State<DocumentDemo> {
                   tooltip: 'Numbered list',
                   isActive: _isBlockType('ordered'),
                   onPressed: isOnTextNode ? () => _toggleBlockType('ordered') : null,
+                ),
+                divider(),
+                // --- Text alignment ---
+                _FormatToggle(
+                  icon: Icons.format_align_left,
+                  tooltip: 'Align left',
+                  isActive: _currentTextAlign() == TextAlign.start,
+                  onPressed: isOnTextNode ? () => _setTextAlign(TextAlign.start) : null,
+                ),
+                _FormatToggle(
+                  icon: Icons.format_align_center,
+                  tooltip: 'Align center',
+                  isActive: _currentTextAlign() == TextAlign.center,
+                  onPressed: isOnTextNode ? () => _setTextAlign(TextAlign.center) : null,
+                ),
+                _FormatToggle(
+                  icon: Icons.format_align_right,
+                  tooltip: 'Align right',
+                  isActive: _currentTextAlign() == TextAlign.right,
+                  onPressed: isOnTextNode ? () => _setTextAlign(TextAlign.right) : null,
+                ),
+                _FormatToggle(
+                  icon: Icons.format_align_justify,
+                  tooltip: 'Justify',
+                  isActive: _currentTextAlign() == TextAlign.justify,
+                  onPressed: isOnTextNode ? () => _setTextAlign(TextAlign.justify) : null,
                 ),
                 divider(),
                 // --- Inline formatting ---
