@@ -1402,4 +1402,187 @@ void main() {
       );
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // lineHeightMultiplier
+  // ---------------------------------------------------------------------------
+
+  group('RenderTextBlock lineHeightMultiplier', () {
+    test('double line height is taller than single line height', () {
+      final blockSingle = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello world'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      blockSingle.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      final singleHeight = blockSingle.size.height;
+
+      final blockDouble = RenderTextBlock(
+        nodeId: 'p2',
+        text: AttributedText('Hello world'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      blockDouble.lineHeightMultiplier = 2.0;
+      blockDouble.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      final doubleHeight = blockDouble.size.height;
+
+      expect(doubleHeight, greaterThan(singleHeight));
+    });
+
+    test('setting lineHeightMultiplier triggers layout', () {
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello world'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      final heightBefore = block.size.height;
+
+      block.lineHeightMultiplier = 2.0;
+      block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+
+      expect(block.size.height, greaterThan(heightBefore));
+    });
+
+    test('null lineHeightMultiplier uses default height', () {
+      final blockDefault = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello world'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      blockDefault.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+
+      final blockExplicitNull = RenderTextBlock(
+        nodeId: 'p2',
+        text: AttributedText('Hello world'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      blockExplicitNull.lineHeightMultiplier = null;
+      blockExplicitNull.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+
+      expect(blockExplicitNull.size.height, equals(blockDefault.size.height));
+    });
+
+    test('setting same value is a no-op (idempotent)', () {
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello world'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      block.lineHeightMultiplier = 1.5;
+      block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      final heightBefore = block.size.height;
+
+      // Set the same value again — must not cause a layout pass.
+      block.lineHeightMultiplier = 1.5;
+      // Height is unchanged because no markNeedsLayout was called.
+      expect(block.lineHeightMultiplier, 1.5);
+      expect(block.size.height, heightBefore);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // indentLeft / indentRight / firstLineIndent
+  // ---------------------------------------------------------------------------
+
+  group('RenderTextBlock indent properties', () {
+    test('indentLeft reduces available text width', () {
+      const indent = 24.0;
+      const maxWidth = 400.0;
+
+      final blockNoIndent = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello world, this is some longer text to wrap'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      blockNoIndent.layout(const BoxConstraints(maxWidth: maxWidth), parentUsesSize: true);
+
+      final blockIndented = RenderTextBlock(
+        nodeId: 'p2',
+        text: AttributedText('Hello world, this is some longer text to wrap'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      blockIndented.indentLeft = indent;
+      blockIndented.layout(const BoxConstraints(maxWidth: maxWidth), parentUsesSize: true);
+
+      // An indented block has less horizontal text space, so it wraps sooner
+      // and will be taller (or at least as tall) for the same text.
+      expect(blockIndented.size.height, greaterThanOrEqualTo(blockNoIndent.size.height));
+    });
+
+    test('indentRight reduces available text width', () {
+      const indent = 24.0;
+      const maxWidth = 400.0;
+
+      final blockNoIndent = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello world, this is some longer text to wrap'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      blockNoIndent.layout(const BoxConstraints(maxWidth: maxWidth), parentUsesSize: true);
+
+      final blockIndented = RenderTextBlock(
+        nodeId: 'p2',
+        text: AttributedText('Hello world, this is some longer text to wrap'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      blockIndented.indentRight = indent;
+      blockIndented.layout(const BoxConstraints(maxWidth: maxWidth), parentUsesSize: true);
+
+      expect(blockIndented.size.height, greaterThanOrEqualTo(blockNoIndent.size.height));
+    });
+
+    test('indentLeft shifts caret x position', () {
+      const indent = 30.0;
+      const maxWidth = 400.0;
+
+      final blockNoIndent = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      blockNoIndent.layout(const BoxConstraints(maxWidth: maxWidth), parentUsesSize: true);
+      final caretNoIndent =
+          blockNoIndent.getLocalRectForPosition(const TextNodePosition(offset: 0));
+
+      final blockIndented = RenderTextBlock(
+        nodeId: 'p2',
+        text: AttributedText('Hello'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      blockIndented.indentLeft = indent;
+      blockIndented.layout(const BoxConstraints(maxWidth: maxWidth), parentUsesSize: true);
+      final caretIndented =
+          blockIndented.getLocalRectForPosition(const TextNodePosition(offset: 0));
+
+      // With left indent the caret at offset 0 should be further right.
+      expect(caretIndented.left, greaterThan(caretNoIndent.left));
+    });
+
+    test('setting same indent value is a no-op', () {
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      block.indentLeft = 20.0;
+      block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      final heightBefore = block.size.height;
+
+      block.indentLeft = 20.0;
+      expect(block.indentLeft, 20.0);
+      expect(block.size.height, heightBefore);
+    });
+
+    test('firstLineIndent is stored and retrievable', () {
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      expect(block.firstLineIndent, 0.0);
+      block.firstLineIndent = 16.0;
+      expect(block.firstLineIndent, 16.0);
+    });
+  });
 }

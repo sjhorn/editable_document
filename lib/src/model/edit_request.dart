@@ -305,6 +305,144 @@ class ChangeTextAlignRequest extends EditRequest {
 }
 
 // ---------------------------------------------------------------------------
+// ChangeLineHeightRequest
+// ---------------------------------------------------------------------------
+
+/// Request to change the line height multiplier of a text block node.
+///
+/// The node identified by [nodeId] must be a [ParagraphNode],
+/// [ListItemNode], [BlockquoteNode], or [CodeBlockNode]. Other node types
+/// will cause the corresponding command to throw a [StateError].
+///
+/// A [newLineHeight] of `null` resets the block to inherit the document
+/// default line height.
+class ChangeLineHeightRequest extends EditRequest {
+  /// Creates a [ChangeLineHeightRequest].
+  const ChangeLineHeightRequest({required this.nodeId, required this.newLineHeight});
+
+  /// The id of the text block node to update.
+  final String nodeId;
+
+  /// The new line height multiplier to apply, or `null` to inherit the
+  /// document default.
+  final double? newLineHeight;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is ChangeLineHeightRequest &&
+        other.nodeId == nodeId &&
+        other.newLineHeight == newLineHeight;
+  }
+
+  @override
+  int get hashCode => Object.hash(nodeId, newLineHeight);
+
+  @override
+  String toString() => 'ChangeLineHeightRequest(nodeId: $nodeId, newLineHeight: $newLineHeight)';
+}
+
+// ---------------------------------------------------------------------------
+// ChangeIndentRequest
+// ---------------------------------------------------------------------------
+
+/// Request to change the indent properties of a text block node.
+///
+/// The node identified by [nodeId] must be a [ParagraphNode],
+/// [ListItemNode], or [BlockquoteNode]. Only non-null values are applied.
+/// For [ListItemNode], [newFirstLineIndent] is ignored.
+class ChangeIndentRequest extends EditRequest {
+  /// Creates a [ChangeIndentRequest].
+  const ChangeIndentRequest({
+    required this.nodeId,
+    this.newIndentLeft,
+    this.newIndentRight,
+    this.newFirstLineIndent,
+  });
+
+  /// The id of the text block node to update.
+  final String nodeId;
+
+  /// The new left indent in logical pixels, or `null` to leave unchanged.
+  final double? newIndentLeft;
+
+  /// The new right indent in logical pixels, or `null` to leave unchanged.
+  final double? newIndentRight;
+
+  /// The new first-line indent in logical pixels, or `null` to leave unchanged.
+  ///
+  /// This field is ignored for [ListItemNode] targets.
+  final double? newFirstLineIndent;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is ChangeIndentRequest &&
+        other.nodeId == nodeId &&
+        other.newIndentLeft == newIndentLeft &&
+        other.newIndentRight == newIndentRight &&
+        other.newFirstLineIndent == newFirstLineIndent;
+  }
+
+  @override
+  int get hashCode => Object.hash(nodeId, newIndentLeft, newIndentRight, newFirstLineIndent);
+
+  @override
+  String toString() => 'ChangeIndentRequest(nodeId: $nodeId, '
+      'newIndentLeft: $newIndentLeft, newIndentRight: $newIndentRight, '
+      'newFirstLineIndent: $newFirstLineIndent)';
+}
+
+// ---------------------------------------------------------------------------
+// ChangeSpacingRequest
+// ---------------------------------------------------------------------------
+
+/// Request to change the spacing before and/or after a block node.
+///
+/// The node identified by [nodeId] can be any [DocumentNode] type that
+/// carries spacing fields: [ParagraphNode], [ListItemNode], [BlockquoteNode],
+/// [CodeBlockNode], [ImageNode], [HorizontalRuleNode], and [TableNode].
+///
+/// Both [newSpaceBefore] and [newSpaceAfter] are optional — only non-null
+/// values are applied. Passing `null` for a field leaves that spacing
+/// value unchanged on the target node.
+class ChangeSpacingRequest extends EditRequest {
+  /// Creates a [ChangeSpacingRequest].
+  const ChangeSpacingRequest({
+    required this.nodeId,
+    this.newSpaceBefore,
+    this.newSpaceAfter,
+  });
+
+  /// The id of the block node to update.
+  final String nodeId;
+
+  /// The new space before value in logical pixels, or `null` to leave
+  /// the current value unchanged.
+  final double? newSpaceBefore;
+
+  /// The new space after value in logical pixels, or `null` to leave
+  /// the current value unchanged.
+  final double? newSpaceAfter;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is ChangeSpacingRequest &&
+        other.nodeId == nodeId &&
+        other.newSpaceBefore == newSpaceBefore &&
+        other.newSpaceAfter == newSpaceAfter;
+  }
+
+  @override
+  int get hashCode => Object.hash(nodeId, newSpaceBefore, newSpaceAfter);
+
+  @override
+  String toString() => 'ChangeSpacingRequest(nodeId: $nodeId, '
+      'newSpaceBefore: $newSpaceBefore, newSpaceAfter: $newSpaceAfter)';
+}
+
+// ---------------------------------------------------------------------------
 // ApplyAttributionRequest
 // ---------------------------------------------------------------------------
 

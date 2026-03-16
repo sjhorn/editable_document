@@ -107,9 +107,10 @@ class RenderCodeBlock extends RenderTextBlock with BlockLayoutMixin {
         ? requestedWidth!.clamp(0.0, constraints.maxWidth)
         : constraints.maxWidth;
 
-    final textMaxWidth = (blockW - _padding * 2).clamp(0.0, double.infinity);
+    final textMaxWidth =
+        (blockW - _padding * 2 - indentLeft - indentRight).clamp(0.0, double.infinity);
     final excl = exclusionRectForLayout(
-      horizontalInset: _padding,
+      horizontalInset: _padding + indentLeft,
       verticalInset: _padding,
     );
     layoutText(textMaxWidth, exclusionRect: excl);

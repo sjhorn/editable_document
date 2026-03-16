@@ -239,6 +239,12 @@ class ParagraphComponentViewModel extends ComponentViewModel {
     required this.blockType,
     required this.textStyle,
     this.textAlign = TextAlign.start,
+    this.lineHeight,
+    this.spaceBefore,
+    this.spaceAfter,
+    this.indentLeft,
+    this.indentRight,
+    this.firstLineIndent,
     super.nodeSelection,
     super.isSelected,
   });
@@ -255,6 +261,26 @@ class ParagraphComponentViewModel extends ComponentViewModel {
   /// The text alignment for this paragraph.
   final TextAlign textAlign;
 
+  /// Line-height multiplier, or `null` to inherit the document default.
+  final double? lineHeight;
+
+  /// Extra space before this block in logical pixels, or `null` to use the
+  /// document-level default spacing.
+  final double? spaceBefore;
+
+  /// Extra space after this block in logical pixels, or `null` to use the
+  /// document-level default spacing.
+  final double? spaceAfter;
+
+  /// Left indent in logical pixels, or `null` for no extra indent.
+  final double? indentLeft;
+
+  /// Right indent in logical pixels, or `null` for no extra indent.
+  final double? indentRight;
+
+  /// First-line indent in logical pixels, or `null` for no special first-line treatment.
+  final double? firstLineIndent;
+
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
@@ -264,13 +290,32 @@ class ParagraphComponentViewModel extends ComponentViewModel {
         other.blockType == blockType &&
         other.textStyle == textStyle &&
         other.textAlign == textAlign &&
+        other.lineHeight == lineHeight &&
+        other.spaceBefore == spaceBefore &&
+        other.spaceAfter == spaceAfter &&
+        other.indentLeft == indentLeft &&
+        other.indentRight == indentRight &&
+        other.firstLineIndent == firstLineIndent &&
         other.nodeSelection == nodeSelection &&
         other.isSelected == isSelected;
   }
 
   @override
-  int get hashCode =>
-      Object.hash(nodeId, text, blockType, textStyle, textAlign, nodeSelection, isSelected);
+  int get hashCode => Object.hash(
+        nodeId,
+        text,
+        blockType,
+        textStyle,
+        textAlign,
+        lineHeight,
+        spaceBefore,
+        spaceAfter,
+        indentLeft,
+        indentRight,
+        firstLineIndent,
+        nodeSelection,
+        isSelected,
+      );
 }
 
 /// [ComponentBuilder] that handles [ParagraphNode].
@@ -287,6 +332,12 @@ class ParagraphComponentBuilder extends ComponentBuilder {
       blockType: node.blockType,
       textStyle: const TextStyle(),
       textAlign: node.textAlign,
+      lineHeight: node.lineHeight,
+      spaceBefore: node.spaceBefore,
+      spaceAfter: node.spaceAfter,
+      indentLeft: node.indentLeft,
+      indentRight: node.indentRight,
+      firstLineIndent: node.firstLineIndent,
     );
   }
 
@@ -311,7 +362,13 @@ class _ParagraphBlockWidget extends LeafRenderObjectWidget {
       blockType: viewModel.blockType,
       baseTextStyle: DefaultTextStyle.of(context).style.merge(viewModel.textStyle),
       textAlign: viewModel.textAlign,
-    );
+    )
+      ..lineHeightMultiplier = viewModel.lineHeight
+      ..spaceBefore = viewModel.spaceBefore
+      ..spaceAfter = viewModel.spaceAfter
+      ..indentLeft = viewModel.indentLeft ?? 0
+      ..indentRight = viewModel.indentRight ?? 0
+      ..firstLineIndent = viewModel.firstLineIndent ?? 0;
   }
 
   @override
@@ -322,6 +379,12 @@ class _ParagraphBlockWidget extends LeafRenderObjectWidget {
       ..blockType = viewModel.blockType
       ..baseTextStyle = DefaultTextStyle.of(context).style.merge(viewModel.textStyle)
       ..textAlign = viewModel.textAlign
+      ..lineHeightMultiplier = viewModel.lineHeight
+      ..spaceBefore = viewModel.spaceBefore
+      ..spaceAfter = viewModel.spaceAfter
+      ..indentLeft = viewModel.indentLeft ?? 0
+      ..indentRight = viewModel.indentRight ?? 0
+      ..firstLineIndent = viewModel.firstLineIndent ?? 0
       ..nodeSelection = viewModel.nodeSelection;
   }
 
@@ -347,6 +410,11 @@ class ListItemComponentViewModel extends ComponentViewModel {
     required this.ordinalIndex,
     required this.textStyle,
     this.textAlign = TextAlign.start,
+    this.lineHeight,
+    this.spaceBefore,
+    this.spaceAfter,
+    this.indentLeft,
+    this.indentRight,
     super.nodeSelection,
     super.isSelected,
   });
@@ -369,6 +437,23 @@ class ListItemComponentViewModel extends ComponentViewModel {
   /// The text alignment for this list item.
   final TextAlign textAlign;
 
+  /// Line-height multiplier, or `null` to inherit the document default.
+  final double? lineHeight;
+
+  /// Extra space before this block in logical pixels, or `null` to use the
+  /// document-level default spacing.
+  final double? spaceBefore;
+
+  /// Extra space after this block in logical pixels, or `null` to use the
+  /// document-level default spacing.
+  final double? spaceAfter;
+
+  /// Left indent in logical pixels, or `null` for no extra indent.
+  final double? indentLeft;
+
+  /// Right indent in logical pixels, or `null` for no extra indent.
+  final double? indentRight;
+
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
@@ -380,6 +465,11 @@ class ListItemComponentViewModel extends ComponentViewModel {
         other.ordinalIndex == ordinalIndex &&
         other.textStyle == textStyle &&
         other.textAlign == textAlign &&
+        other.lineHeight == lineHeight &&
+        other.spaceBefore == spaceBefore &&
+        other.spaceAfter == spaceAfter &&
+        other.indentLeft == indentLeft &&
+        other.indentRight == indentRight &&
         other.nodeSelection == nodeSelection &&
         other.isSelected == isSelected;
   }
@@ -393,6 +483,11 @@ class ListItemComponentViewModel extends ComponentViewModel {
         ordinalIndex,
         textStyle,
         textAlign,
+        lineHeight,
+        spaceBefore,
+        spaceAfter,
+        indentLeft,
+        indentRight,
         nodeSelection,
         isSelected,
       );
@@ -415,6 +510,11 @@ class ListItemComponentBuilder extends ComponentBuilder {
       ordinalIndex: ordinal,
       textStyle: const TextStyle(),
       textAlign: node.textAlign,
+      lineHeight: node.lineHeight,
+      spaceBefore: node.spaceBefore,
+      spaceAfter: node.spaceAfter,
+      indentLeft: node.indentLeft,
+      indentRight: node.indentRight,
     );
   }
 
@@ -474,7 +574,12 @@ class _ListItemBlockWidget extends LeafRenderObjectWidget {
       ordinalIndex: viewModel.ordinalIndex,
       textStyle: DefaultTextStyle.of(context).style.merge(viewModel.textStyle),
       textAlign: viewModel.textAlign,
-    );
+    )
+      ..lineHeightMultiplier = viewModel.lineHeight
+      ..spaceBefore = viewModel.spaceBefore
+      ..spaceAfter = viewModel.spaceAfter
+      ..indentLeft = viewModel.indentLeft ?? 0
+      ..indentRight = viewModel.indentRight ?? 0;
   }
 
   @override
@@ -487,6 +592,11 @@ class _ListItemBlockWidget extends LeafRenderObjectWidget {
       ..ordinalIndex = viewModel.ordinalIndex
       ..textStyle = DefaultTextStyle.of(context).style.merge(viewModel.textStyle)
       ..textAlign = viewModel.textAlign
+      ..lineHeightMultiplier = viewModel.lineHeight
+      ..spaceBefore = viewModel.spaceBefore
+      ..spaceAfter = viewModel.spaceAfter
+      ..indentLeft = viewModel.indentLeft ?? 0
+      ..indentRight = viewModel.indentRight ?? 0
       ..nodeSelection = viewModel.nodeSelection;
   }
 
@@ -512,6 +622,8 @@ class ImageComponentViewModel extends ComponentViewModel implements HasLayoutFie
     this.imageHeight,
     this.alignment = BlockAlignment.stretch,
     this.textWrap = TextWrapMode.none,
+    this.spaceBefore,
+    this.spaceAfter,
     super.nodeSelection,
     super.isSelected,
   });
@@ -538,6 +650,14 @@ class ImageComponentViewModel extends ComponentViewModel implements HasLayoutFie
   /// Defaults to [TextWrapMode.none].
   final TextWrapMode textWrap;
 
+  /// Extra space before this block in logical pixels, or `null` to use the
+  /// document-level default spacing.
+  final double? spaceBefore;
+
+  /// Extra space after this block in logical pixels, or `null` to use the
+  /// document-level default spacing.
+  final double? spaceAfter;
+
   @override
   double? get width => imageWidth;
 
@@ -555,6 +675,8 @@ class ImageComponentViewModel extends ComponentViewModel implements HasLayoutFie
         other.imageHeight == imageHeight &&
         other.alignment == alignment &&
         other.textWrap == textWrap &&
+        other.spaceBefore == spaceBefore &&
+        other.spaceAfter == spaceAfter &&
         other.nodeSelection == nodeSelection &&
         other.isSelected == isSelected;
   }
@@ -568,6 +690,8 @@ class ImageComponentViewModel extends ComponentViewModel implements HasLayoutFie
         imageHeight,
         alignment,
         textWrap,
+        spaceBefore,
+        spaceAfter,
         nodeSelection,
         isSelected,
       );
@@ -589,6 +713,8 @@ class ImageComponentBuilder extends ComponentBuilder {
       imageHeight: node.height,
       alignment: node.alignment,
       textWrap: node.textWrap,
+      spaceBefore: node.spaceBefore,
+      spaceAfter: node.spaceAfter,
     );
   }
 
@@ -717,7 +843,9 @@ class _RawImageBlockWidget extends LeafRenderObjectWidget {
       requestedWidth: viewModel.imageWidth,
       requestedHeight: viewModel.imageHeight,
       textWrap: viewModel.textWrap,
-    );
+    )
+      ..spaceBefore = viewModel.spaceBefore
+      ..spaceAfter = viewModel.spaceAfter;
   }
 
   @override
@@ -728,6 +856,8 @@ class _RawImageBlockWidget extends LeafRenderObjectWidget {
       ..imageHeight = viewModel.imageHeight
       ..altText = viewModel.altText
       ..image = image
+      ..spaceBefore = viewModel.spaceBefore
+      ..spaceAfter = viewModel.spaceAfter
       ..nodeSelection = viewModel.nodeSelection;
     _updateBlockLayout(renderObject, viewModel);
   }
@@ -757,6 +887,9 @@ class CodeBlockComponentViewModel extends ComponentViewModel implements HasLayou
     this.alignment = BlockAlignment.stretch,
     this.textWrap = TextWrapMode.none,
     this.textSpanBuilder,
+    this.lineHeight,
+    this.spaceBefore,
+    this.spaceAfter,
     super.nodeSelection,
     super.isSelected,
   });
@@ -793,6 +926,17 @@ class CodeBlockComponentViewModel extends ComponentViewModel implements HasLayou
   /// syntax-highlighting packages to provide pre-styled [TextSpan] trees.
   final TextSpanBuilder? textSpanBuilder;
 
+  /// Line-height multiplier, or `null` to inherit the document default.
+  final double? lineHeight;
+
+  /// Extra space before this block in logical pixels, or `null` to use the
+  /// document-level default spacing.
+  final double? spaceBefore;
+
+  /// Extra space after this block in logical pixels, or `null` to use the
+  /// document-level default spacing.
+  final double? spaceAfter;
+
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
@@ -805,6 +949,9 @@ class CodeBlockComponentViewModel extends ComponentViewModel implements HasLayou
         other.height == height &&
         other.alignment == alignment &&
         other.textWrap == textWrap &&
+        other.lineHeight == lineHeight &&
+        other.spaceBefore == spaceBefore &&
+        other.spaceAfter == spaceAfter &&
         other.nodeSelection == nodeSelection &&
         other.isSelected == isSelected;
   }
@@ -819,6 +966,9 @@ class CodeBlockComponentViewModel extends ComponentViewModel implements HasLayou
         height,
         alignment,
         textWrap,
+        lineHeight,
+        spaceBefore,
+        spaceAfter,
         nodeSelection,
         isSelected,
       );
@@ -841,6 +991,9 @@ class CodeBlockComponentBuilder extends ComponentBuilder {
       height: node.height,
       alignment: node.alignment,
       textWrap: node.textWrap,
+      lineHeight: node.lineHeight,
+      spaceBefore: node.spaceBefore,
+      spaceAfter: node.spaceAfter,
     );
   }
 
@@ -867,7 +1020,11 @@ class _CodeBlockWidget extends LeafRenderObjectWidget {
       requestedWidth: viewModel.width,
       requestedHeight: viewModel.height,
       textWrap: viewModel.textWrap,
-    )..textSpanBuilder = viewModel.textSpanBuilder;
+    )
+      ..textSpanBuilder = viewModel.textSpanBuilder
+      ..lineHeightMultiplier = viewModel.lineHeight
+      ..spaceBefore = viewModel.spaceBefore
+      ..spaceAfter = viewModel.spaceAfter;
   }
 
   @override
@@ -876,6 +1033,9 @@ class _CodeBlockWidget extends LeafRenderObjectWidget {
       ..nodeId = viewModel.nodeId
       ..text = viewModel.text
       ..textSpanBuilder = viewModel.textSpanBuilder
+      ..lineHeightMultiplier = viewModel.lineHeight
+      ..spaceBefore = viewModel.spaceBefore
+      ..spaceAfter = viewModel.spaceAfter
       ..nodeSelection = viewModel.nodeSelection;
     _updateBlockLayout(renderObject, viewModel);
   }
@@ -900,6 +1060,8 @@ class HorizontalRuleComponentViewModel extends ComponentViewModel implements Has
     this.width,
     this.height,
     this.textWrap = TextWrapMode.none,
+    this.spaceBefore,
+    this.spaceAfter,
     super.nodeSelection,
     super.isSelected,
   });
@@ -920,6 +1082,14 @@ class HorizontalRuleComponentViewModel extends ComponentViewModel implements Has
   /// Defaults to [TextWrapMode.none].
   final TextWrapMode textWrap;
 
+  /// Extra space before this block in logical pixels, or `null` to use the
+  /// document-level default spacing.
+  final double? spaceBefore;
+
+  /// Extra space after this block in logical pixels, or `null` to use the
+  /// document-level default spacing.
+  final double? spaceAfter;
+
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
@@ -929,13 +1099,24 @@ class HorizontalRuleComponentViewModel extends ComponentViewModel implements Has
         other.width == width &&
         other.height == height &&
         other.textWrap == textWrap &&
+        other.spaceBefore == spaceBefore &&
+        other.spaceAfter == spaceAfter &&
         other.nodeSelection == nodeSelection &&
         other.isSelected == isSelected;
   }
 
   @override
-  int get hashCode =>
-      Object.hash(nodeId, alignment, width, height, textWrap, nodeSelection, isSelected);
+  int get hashCode => Object.hash(
+        nodeId,
+        alignment,
+        width,
+        height,
+        textWrap,
+        spaceBefore,
+        spaceAfter,
+        nodeSelection,
+        isSelected,
+      );
 }
 
 /// [ComponentBuilder] that handles [HorizontalRuleNode].
@@ -952,6 +1133,8 @@ class HorizontalRuleComponentBuilder extends ComponentBuilder {
       width: node.width,
       height: node.height,
       textWrap: node.textWrap,
+      spaceBefore: node.spaceBefore,
+      spaceAfter: node.spaceAfter,
     );
   }
 
@@ -976,13 +1159,17 @@ class _HorizontalRuleBlockWidget extends LeafRenderObjectWidget {
       requestedWidth: viewModel.width,
       requestedHeight: viewModel.height,
       textWrap: viewModel.textWrap,
-    );
+    )
+      ..spaceBefore = viewModel.spaceBefore
+      ..spaceAfter = viewModel.spaceAfter;
   }
 
   @override
   void updateRenderObject(BuildContext context, RenderHorizontalRuleBlock renderObject) {
     renderObject
       ..nodeId = viewModel.nodeId
+      ..spaceBefore = viewModel.spaceBefore
+      ..spaceAfter = viewModel.spaceAfter
       ..nodeSelection = viewModel.nodeSelection;
     _updateBlockLayout(renderObject, viewModel);
   }
@@ -1012,6 +1199,12 @@ class BlockquoteComponentViewModel extends ComponentViewModel implements HasLayo
     this.alignment = BlockAlignment.stretch,
     this.textWrap = TextWrapMode.none,
     this.textAlign = TextAlign.start,
+    this.lineHeight,
+    this.spaceBefore,
+    this.spaceAfter,
+    this.indentLeft,
+    this.indentRight,
+    this.firstLineIndent,
     super.nodeSelection,
     super.isSelected,
   });
@@ -1041,6 +1234,26 @@ class BlockquoteComponentViewModel extends ComponentViewModel implements HasLayo
   /// The text alignment for this blockquote.
   final TextAlign textAlign;
 
+  /// Line-height multiplier, or `null` to inherit the document default.
+  final double? lineHeight;
+
+  /// Extra space before this block in logical pixels, or `null` to use the
+  /// document-level default spacing.
+  final double? spaceBefore;
+
+  /// Extra space after this block in logical pixels, or `null` to use the
+  /// document-level default spacing.
+  final double? spaceAfter;
+
+  /// Left indent in logical pixels, or `null` for no extra indent.
+  final double? indentLeft;
+
+  /// Right indent in logical pixels, or `null` for no extra indent.
+  final double? indentRight;
+
+  /// First-line indent in logical pixels, or `null` for no special first-line treatment.
+  final double? firstLineIndent;
+
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
@@ -1053,6 +1266,12 @@ class BlockquoteComponentViewModel extends ComponentViewModel implements HasLayo
         other.alignment == alignment &&
         other.textWrap == textWrap &&
         other.textAlign == textAlign &&
+        other.lineHeight == lineHeight &&
+        other.spaceBefore == spaceBefore &&
+        other.spaceAfter == spaceAfter &&
+        other.indentLeft == indentLeft &&
+        other.indentRight == indentRight &&
+        other.firstLineIndent == firstLineIndent &&
         other.nodeSelection == nodeSelection &&
         other.isSelected == isSelected;
   }
@@ -1067,6 +1286,12 @@ class BlockquoteComponentViewModel extends ComponentViewModel implements HasLayo
         alignment,
         textWrap,
         textAlign,
+        lineHeight,
+        spaceBefore,
+        spaceAfter,
+        indentLeft,
+        indentRight,
+        firstLineIndent,
         nodeSelection,
         isSelected,
       );
@@ -1089,6 +1314,12 @@ class BlockquoteComponentBuilder extends ComponentBuilder {
       alignment: node.alignment,
       textWrap: node.textWrap,
       textAlign: node.textAlign,
+      lineHeight: node.lineHeight,
+      spaceBefore: node.spaceBefore,
+      spaceAfter: node.spaceAfter,
+      indentLeft: node.indentLeft,
+      indentRight: node.indentRight,
+      firstLineIndent: node.firstLineIndent,
     );
   }
 
@@ -1116,7 +1347,13 @@ class _BlockquoteBlockWidget extends LeafRenderObjectWidget {
       requestedHeight: viewModel.height,
       textWrap: viewModel.textWrap,
       textAlign: viewModel.textAlign,
-    );
+    )
+      ..lineHeightMultiplier = viewModel.lineHeight
+      ..spaceBefore = viewModel.spaceBefore
+      ..spaceAfter = viewModel.spaceAfter
+      ..indentLeft = viewModel.indentLeft ?? 0
+      ..indentRight = viewModel.indentRight ?? 0
+      ..firstLineIndent = viewModel.firstLineIndent ?? 0;
   }
 
   @override
@@ -1126,6 +1363,12 @@ class _BlockquoteBlockWidget extends LeafRenderObjectWidget {
       ..text = viewModel.text
       ..textStyle = DefaultTextStyle.of(context).style.merge(viewModel.textStyle)
       ..textAlign = viewModel.textAlign
+      ..lineHeightMultiplier = viewModel.lineHeight
+      ..spaceBefore = viewModel.spaceBefore
+      ..spaceAfter = viewModel.spaceAfter
+      ..indentLeft = viewModel.indentLeft ?? 0
+      ..indentRight = viewModel.indentRight ?? 0
+      ..firstLineIndent = viewModel.firstLineIndent ?? 0
       ..nodeSelection = viewModel.nodeSelection;
     _updateBlockLayout(renderObject, viewModel);
   }
@@ -1162,6 +1405,7 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
   /// [alignment] is the horizontal alignment within the layout.
   /// [textWrap] controls how surrounding text interacts with this block.
   /// [requestedWidth] and [requestedHeight] are optional explicit dimensions.
+  /// [spaceBefore] and [spaceAfter] are optional spacing overrides.
   TableComponentViewModel({
     required super.nodeId,
     required this.rowCount,
@@ -1176,6 +1420,8 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
     this.textWrap = TextWrapMode.none,
     this.requestedWidth,
     this.requestedHeight,
+    this.spaceBefore,
+    this.spaceAfter,
     super.nodeSelection,
     super.isSelected,
   });
@@ -1237,6 +1483,14 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
   /// Preferred display height in logical pixels, or `null` to use intrinsic height.
   final double? requestedHeight;
 
+  /// Extra space before this block in logical pixels, or `null` to use the
+  /// document-level default spacing.
+  final double? spaceBefore;
+
+  /// Extra space after this block in logical pixels, or `null` to use the
+  /// document-level default spacing.
+  final double? spaceAfter;
+
   @override
   double? get width => requestedWidth;
 
@@ -1258,6 +1512,8 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
         other.textWrap != textWrap ||
         other.requestedWidth != requestedWidth ||
         other.requestedHeight != requestedHeight ||
+        other.spaceBefore != spaceBefore ||
+        other.spaceAfter != spaceAfter ||
         other.nodeSelection != nodeSelection ||
         other.isSelected != isSelected) {
       return false;
@@ -1297,6 +1553,8 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
       textWrap,
       requestedWidth,
       requestedHeight,
+      spaceBefore,
+      spaceAfter,
       nodeSelection,
       isSelected,
     );
@@ -1329,6 +1587,8 @@ class TableComponentBuilder extends ComponentBuilder {
       textWrap: node.textWrap,
       requestedWidth: node.width,
       requestedHeight: node.height,
+      spaceBefore: node.spaceBefore,
+      spaceAfter: node.spaceAfter,
     );
   }
 
@@ -1362,7 +1622,9 @@ class _TableBlockWidget extends LeafRenderObjectWidget {
       requestedWidth: viewModel.requestedWidth,
       requestedHeight: viewModel.requestedHeight,
       textWrap: viewModel.textWrap,
-    );
+    )
+      ..spaceBefore = viewModel.spaceBefore
+      ..spaceAfter = viewModel.spaceAfter;
   }
 
   @override
@@ -1378,6 +1640,8 @@ class _TableBlockWidget extends LeafRenderObjectWidget {
       ..cellPadding = viewModel.cellPadding
       ..borderWidth = viewModel.borderWidth
       ..borderColor = viewModel.borderColor
+      ..spaceBefore = viewModel.spaceBefore
+      ..spaceAfter = viewModel.spaceAfter
       ..nodeSelection = viewModel.nodeSelection;
     _updateBlockLayout(renderObject, viewModel);
   }

@@ -39,17 +39,21 @@ import 'text_wrap_mode.dart';
 /// ```
 class HorizontalRuleNode extends DocumentNode implements HasBlockLayout {
   /// Creates a [HorizontalRuleNode] with the given [id], optional [metadata],
-  /// optional [alignment], optional [width], optional [height], and optional
-  /// [textWrap].
+  /// optional [alignment], optional [width], optional [height], optional
+  /// [textWrap], optional [spaceBefore], and optional [spaceAfter].
   ///
   /// [alignment] defaults to [BlockAlignment.stretch].
   /// [textWrap] defaults to [TextWrapMode.none].
+  /// [spaceBefore] and [spaceAfter] default to `null` (use document-level
+  /// default spacing).
   HorizontalRuleNode({
     required super.id,
     this.width,
     this.height,
     this.alignment = BlockAlignment.stretch,
     this.textWrap = TextWrapMode.none,
+    this.spaceBefore,
+    this.spaceAfter,
     super.metadata,
   });
 
@@ -73,6 +77,14 @@ class HorizontalRuleNode extends DocumentNode implements HasBlockLayout {
   /// (similar to CSS `float`).
   final TextWrapMode textWrap;
 
+  /// Extra space before this block in logical pixels, or `null` to use the
+  /// document-level default spacing.
+  final double? spaceBefore;
+
+  /// Extra space after this block in logical pixels, or `null` to use the
+  /// document-level default spacing.
+  final double? spaceAfter;
+
   @override
   bool get isDraggable => true;
 
@@ -93,6 +105,8 @@ class HorizontalRuleNode extends DocumentNode implements HasBlockLayout {
     double? height,
     BlockAlignment? alignment,
     TextWrapMode? textWrap,
+    double? spaceBefore,
+    double? spaceAfter,
     Map<String, dynamic>? metadata,
   }) {
     return HorizontalRuleNode(
@@ -101,6 +115,8 @@ class HorizontalRuleNode extends DocumentNode implements HasBlockLayout {
       height: height ?? this.height,
       alignment: alignment ?? this.alignment,
       textWrap: textWrap ?? this.textWrap,
+      spaceBefore: spaceBefore ?? this.spaceBefore,
+      spaceAfter: spaceAfter ?? this.spaceAfter,
       metadata: metadata ?? this.metadata,
     );
   }
@@ -115,6 +131,8 @@ class HorizontalRuleNode extends DocumentNode implements HasBlockLayout {
         other.height == height &&
         other.alignment == alignment &&
         other.textWrap == textWrap &&
+        other.spaceBefore == spaceBefore &&
+        other.spaceAfter == spaceAfter &&
         mapEquals(other.metadata, metadata);
   }
 
@@ -125,6 +143,8 @@ class HorizontalRuleNode extends DocumentNode implements HasBlockLayout {
         height,
         alignment,
         textWrap,
+        spaceBefore,
+        spaceAfter,
         Object.hashAll(metadata.entries.map((e) => e)),
       );
 
@@ -139,10 +159,13 @@ class HorizontalRuleNode extends DocumentNode implements HasBlockLayout {
     properties.add(
       EnumProperty<TextWrapMode>('textWrap', textWrap, defaultValue: TextWrapMode.none),
     );
+    properties.add(DoubleProperty('spaceBefore', spaceBefore, defaultValue: null));
+    properties.add(DoubleProperty('spaceAfter', spaceAfter, defaultValue: null));
   }
 
   @override
   String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) =>
       'HorizontalRuleNode(id: $id, width: $width, height: $height, '
-      'alignment: ${alignment.name}, textWrap: $textWrap, metadata: $metadata)';
+      'alignment: ${alignment.name}, textWrap: $textWrap, '
+      'spaceBefore: $spaceBefore, spaceAfter: $spaceAfter, metadata: $metadata)';
 }

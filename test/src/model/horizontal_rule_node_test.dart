@@ -1,9 +1,11 @@
-/// Tests for [HorizontalRuleNode] — width, height, and textWrap fields.
+/// Tests for [HorizontalRuleNode] — width, height, textWrap, spaceBefore,
+/// and spaceAfter fields.
 library;
 
 import 'package:editable_document/src/model/block_alignment.dart';
 import 'package:editable_document/src/model/horizontal_rule_node.dart';
 import 'package:editable_document/src/model/text_wrap_mode.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -206,6 +208,108 @@ void main() {
       expect(s, contains('width: 128.0'));
       expect(s, contains('height: 1.0'));
       expect(s, contains('textWrap: TextWrapMode.wrap'));
+    });
+
+    // -------------------------------------------------------------------------
+    // spaceBefore — default value
+    // -------------------------------------------------------------------------
+
+    test('spaceBefore defaults to null', () {
+      final node = HorizontalRuleNode(id: 'hr-16');
+      expect(node.spaceBefore, isNull);
+    });
+
+    // -------------------------------------------------------------------------
+    // spaceAfter — default value
+    // -------------------------------------------------------------------------
+
+    test('spaceAfter defaults to null', () {
+      final node = HorizontalRuleNode(id: 'hr-17');
+      expect(node.spaceAfter, isNull);
+    });
+
+    // -------------------------------------------------------------------------
+    // spaceBefore/spaceAfter — constructor
+    // -------------------------------------------------------------------------
+
+    test('constructor stores spaceBefore', () {
+      final node = HorizontalRuleNode(id: 'hr-18', spaceBefore: 8.0);
+      expect(node.spaceBefore, 8.0);
+    });
+
+    test('constructor stores spaceAfter', () {
+      final node = HorizontalRuleNode(id: 'hr-19', spaceAfter: 16.0);
+      expect(node.spaceAfter, 16.0);
+    });
+
+    // -------------------------------------------------------------------------
+    // spaceBefore/spaceAfter — copyWith
+    // -------------------------------------------------------------------------
+
+    test('copyWith preserves spaceBefore when not overridden', () {
+      final original = HorizontalRuleNode(id: 'hr-20', spaceBefore: 8.0);
+      final copy = original.copyWith(id: 'hr-20-copy');
+      expect(copy.spaceBefore, 8.0);
+    });
+
+    test('copyWith preserves spaceAfter when not overridden', () {
+      final original = HorizontalRuleNode(id: 'hr-21', spaceAfter: 16.0);
+      final copy = original.copyWith(id: 'hr-21-copy');
+      expect(copy.spaceAfter, 16.0);
+    });
+
+    test('copyWith replaces spaceBefore', () {
+      final original = HorizontalRuleNode(id: 'hr-22', spaceBefore: 8.0);
+      final copy = original.copyWith(spaceBefore: 24.0);
+      expect(copy.spaceBefore, 24.0);
+    });
+
+    test('copyWith replaces spaceAfter', () {
+      final original = HorizontalRuleNode(id: 'hr-23', spaceAfter: 16.0);
+      final copy = original.copyWith(spaceAfter: 32.0);
+      expect(copy.spaceAfter, 32.0);
+    });
+
+    // -------------------------------------------------------------------------
+    // spaceBefore/spaceAfter — equality
+    // -------------------------------------------------------------------------
+
+    test('nodes with different spaceBefore are not equal', () {
+      final a = HorizontalRuleNode(id: 'hr-24', spaceBefore: 8.0);
+      final b = HorizontalRuleNode(id: 'hr-24', spaceBefore: 16.0);
+      expect(a, isNot(equals(b)));
+    });
+
+    test('nodes with different spaceAfter are not equal', () {
+      final a = HorizontalRuleNode(id: 'hr-25', spaceAfter: 8.0);
+      final b = HorizontalRuleNode(id: 'hr-25', spaceAfter: 16.0);
+      expect(a, isNot(equals(b)));
+    });
+
+    // -------------------------------------------------------------------------
+    // debugFillProperties — includes spaceBefore/spaceAfter
+    // -------------------------------------------------------------------------
+
+    test('debugFillProperties includes spaceBefore when non-null', () {
+      final node = HorizontalRuleNode(id: 'hr-26', spaceBefore: 8.0);
+      final builder = DiagnosticPropertiesBuilder();
+      node.debugFillProperties(builder);
+      final prop = builder.properties.whereType<DoubleProperty>().firstWhere(
+            (p) => p.name == 'spaceBefore',
+            orElse: () => throw StateError('spaceBefore property not found'),
+          );
+      expect(prop.value, 8.0);
+    });
+
+    test('debugFillProperties includes spaceAfter when non-null', () {
+      final node = HorizontalRuleNode(id: 'hr-27', spaceAfter: 16.0);
+      final builder = DiagnosticPropertiesBuilder();
+      node.debugFillProperties(builder);
+      final prop = builder.properties.whereType<DoubleProperty>().firstWhere(
+            (p) => p.name == 'spaceAfter',
+            orElse: () => throw StateError('spaceAfter property not found'),
+          );
+      expect(prop.value, 16.0);
     });
   });
 }

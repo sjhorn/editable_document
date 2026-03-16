@@ -40,7 +40,10 @@ class CodeBlockNode extends TextNode implements HasBlockLayout {
   ///
   /// [alignment] defaults to [BlockAlignment.stretch].
   /// [textWrap] defaults to [TextWrapMode.none].
+  /// [lineHeight] defaults to `null` (inherit document default).
   /// [width] and [height] default to `null` (use available / intrinsic size).
+  /// [spaceBefore] and [spaceAfter] default to `null` (use document-level
+  /// default spacing).
   CodeBlockNode({
     required super.id,
     super.text,
@@ -49,6 +52,9 @@ class CodeBlockNode extends TextNode implements HasBlockLayout {
     this.height,
     this.alignment = BlockAlignment.stretch,
     this.textWrap = TextWrapMode.none,
+    this.lineHeight,
+    this.spaceBefore,
+    this.spaceAfter,
     super.metadata,
   });
 
@@ -76,6 +82,22 @@ class CodeBlockNode extends TextNode implements HasBlockLayout {
   /// vertical row. Use [TextWrapMode.wrap] to enable float-like layout.
   final TextWrapMode textWrap;
 
+  /// Line-height multiplier for this code block, or `null` to inherit the
+  /// document default.
+  ///
+  /// A value of `1.0` uses the font's natural line height. `1.5` adds
+  /// 50 % extra leading. `null` defers to whatever default the renderer
+  /// applies for the document as a whole.
+  final double? lineHeight;
+
+  /// Extra space before this block in logical pixels, or `null` to use the
+  /// document-level default spacing.
+  final double? spaceBefore;
+
+  /// Extra space after this block in logical pixels, or `null` to use the
+  /// document-level default spacing.
+  final double? spaceAfter;
+
   @override
   bool get isDraggable => true;
 
@@ -98,6 +120,9 @@ class CodeBlockNode extends TextNode implements HasBlockLayout {
     double? height,
     BlockAlignment? alignment,
     TextWrapMode? textWrap,
+    double? lineHeight,
+    double? spaceBefore,
+    double? spaceAfter,
     Map<String, dynamic>? metadata,
   }) {
     return CodeBlockNode(
@@ -108,6 +133,9 @@ class CodeBlockNode extends TextNode implements HasBlockLayout {
       height: height ?? this.height,
       alignment: alignment ?? this.alignment,
       textWrap: textWrap ?? this.textWrap,
+      lineHeight: lineHeight ?? this.lineHeight,
+      spaceBefore: spaceBefore ?? this.spaceBefore,
+      spaceAfter: spaceAfter ?? this.spaceAfter,
       metadata: metadata ?? this.metadata,
     );
   }
@@ -124,6 +152,9 @@ class CodeBlockNode extends TextNode implements HasBlockLayout {
         other.height == height &&
         other.alignment == alignment &&
         other.textWrap == textWrap &&
+        other.lineHeight == lineHeight &&
+        other.spaceBefore == spaceBefore &&
+        other.spaceAfter == spaceAfter &&
         mapEquals(other.metadata, metadata);
   }
 
@@ -136,6 +167,9 @@ class CodeBlockNode extends TextNode implements HasBlockLayout {
         height,
         alignment,
         textWrap,
+        lineHeight,
+        spaceBefore,
+        spaceAfter,
         Object.hashAll(metadata.entries.map((e) => e)),
       );
 
@@ -151,10 +185,15 @@ class CodeBlockNode extends TextNode implements HasBlockLayout {
     properties.add(
       EnumProperty<TextWrapMode>('textWrap', textWrap, defaultValue: TextWrapMode.none),
     );
+    properties.add(DoubleProperty('lineHeight', lineHeight, defaultValue: null));
+    properties.add(DoubleProperty('spaceBefore', spaceBefore, defaultValue: null));
+    properties.add(DoubleProperty('spaceAfter', spaceAfter, defaultValue: null));
   }
 
   @override
   String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) =>
       'CodeBlockNode(id: $id, language: $language, width: $width, height: $height, '
-      'alignment: ${alignment.name}, textWrap: $textWrap, text: $text, metadata: $metadata)';
+      'alignment: ${alignment.name}, textWrap: $textWrap, lineHeight: $lineHeight, '
+      'spaceBefore: $spaceBefore, spaceAfter: $spaceAfter, '
+      'text: $text, metadata: $metadata)';
 }

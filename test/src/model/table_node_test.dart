@@ -10,6 +10,7 @@ import 'package:editable_document/src/model/document_node.dart';
 import 'package:editable_document/src/model/node_position.dart';
 import 'package:editable_document/src/model/table_node.dart';
 import 'package:editable_document/src/model/text_wrap_mode.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // ---------------------------------------------------------------------------
@@ -837,6 +838,209 @@ void main() {
         ],
       );
       expect(node, isA<DocumentNode>());
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // TableNode — spaceBefore / spaceAfter
+  // ---------------------------------------------------------------------------
+  group('TableNode spaceBefore default', () {
+    test('spaceBefore defaults to null', () {
+      final node = TableNode(
+        id: 'tbl-sp1',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+      );
+      expect(node.spaceBefore, isNull);
+    });
+  });
+
+  group('TableNode spaceAfter default', () {
+    test('spaceAfter defaults to null', () {
+      final node = TableNode(
+        id: 'tbl-sp2',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+      );
+      expect(node.spaceAfter, isNull);
+    });
+  });
+
+  group('TableNode constructor with spaceBefore/spaceAfter', () {
+    test('spaceBefore is set correctly', () {
+      final node = TableNode(
+        id: 'tbl-sp3',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        spaceBefore: 8.0,
+      );
+      expect(node.spaceBefore, 8.0);
+    });
+
+    test('spaceAfter is set correctly', () {
+      final node = TableNode(
+        id: 'tbl-sp4',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        spaceAfter: 16.0,
+      );
+      expect(node.spaceAfter, 16.0);
+    });
+  });
+
+  group('TableNode copyWith spaceBefore/spaceAfter', () {
+    test('copyWith preserves spaceBefore when not specified', () {
+      final node = TableNode(
+        id: 'tbl-sp5',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        spaceBefore: 8.0,
+      );
+      final copy = node.copyWith(id: 'tbl-sp5-copy');
+      expect(copy.spaceBefore, 8.0);
+    });
+
+    test('copyWith preserves spaceAfter when not specified', () {
+      final node = TableNode(
+        id: 'tbl-sp6',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        spaceAfter: 16.0,
+      );
+      final copy = node.copyWith(id: 'tbl-sp6-copy');
+      expect(copy.spaceAfter, 16.0);
+    });
+
+    test('copyWith replaces spaceBefore', () {
+      final node = TableNode(
+        id: 'tbl-sp7',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        spaceBefore: 8.0,
+      );
+      final copy = node.copyWith(spaceBefore: 24.0);
+      expect(copy.spaceBefore, 24.0);
+    });
+
+    test('copyWith replaces spaceAfter', () {
+      final node = TableNode(
+        id: 'tbl-sp8',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        spaceAfter: 16.0,
+      );
+      final copy = node.copyWith(spaceAfter: 32.0);
+      expect(copy.spaceAfter, 32.0);
+    });
+  });
+
+  group('TableNode equality with spaceBefore/spaceAfter', () {
+    test('nodes with different spaceBefore are not equal', () {
+      final a = TableNode(
+        id: 'tbl-sp9',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        spaceBefore: 8.0,
+      );
+      final b = TableNode(
+        id: 'tbl-sp9',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        spaceBefore: 16.0,
+      );
+      expect(a, isNot(equals(b)));
+    });
+
+    test('nodes with different spaceAfter are not equal', () {
+      final a = TableNode(
+        id: 'tbl-sp10',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        spaceAfter: 8.0,
+      );
+      final b = TableNode(
+        id: 'tbl-sp10',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        spaceAfter: 16.0,
+      );
+      expect(a, isNot(equals(b)));
+    });
+  });
+
+  group('TableNode debugFillProperties with spaceBefore/spaceAfter', () {
+    test('debugFillProperties includes spaceBefore when non-null', () {
+      final node = TableNode(
+        id: 'tbl-sp11',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        spaceBefore: 8.0,
+      );
+      final builder = DiagnosticPropertiesBuilder();
+      node.debugFillProperties(builder);
+      final prop = builder.properties.whereType<DoubleProperty>().firstWhere(
+            (p) => p.name == 'spaceBefore',
+            orElse: () => throw StateError('spaceBefore property not found'),
+          );
+      expect(prop.value, 8.0);
+    });
+
+    test('debugFillProperties includes spaceAfter when non-null', () {
+      final node = TableNode(
+        id: 'tbl-sp12',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        spaceAfter: 16.0,
+      );
+      final builder = DiagnosticPropertiesBuilder();
+      node.debugFillProperties(builder);
+      final prop = builder.properties.whereType<DoubleProperty>().firstWhere(
+            (p) => p.name == 'spaceAfter',
+            orElse: () => throw StateError('spaceAfter property not found'),
+          );
+      expect(prop.value, 16.0);
     });
   });
 

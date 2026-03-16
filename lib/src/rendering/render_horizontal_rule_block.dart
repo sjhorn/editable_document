@@ -64,6 +64,8 @@ class RenderHorizontalRuleBlock extends RenderDocumentBlock with BlockLayoutMixi
   double _thickness;
   double _verticalPadding;
   DocumentSelection? _nodeSelection;
+  double? _spaceBefore;
+  double? _spaceAfter;
 
   // ---------------------------------------------------------------------------
   // RenderDocumentBlock — nodeId
@@ -135,6 +137,36 @@ class RenderHorizontalRuleBlock extends RenderDocumentBlock with BlockLayoutMixi
   /// active float exclusion zone.
   @override
   bool get clearsFloat => requestedWidth == null;
+
+  /// Extra space before this block in logical pixels, or `null` for default.
+  ///
+  /// When non-null, [RenderDocumentLayout] uses this value instead of
+  /// [RenderDocumentLayout.blockSpacing] for the gap above this block.
+  @override
+  // ignore: diagnostic_describe_all_properties
+  double? get spaceBefore => _spaceBefore;
+
+  /// Sets [spaceBefore] and notifies the parent layout when the value changes.
+  set spaceBefore(double? value) {
+    if (_spaceBefore == value) return;
+    _spaceBefore = value;
+    if (parent is RenderObject) (parent!).markNeedsLayout();
+  }
+
+  /// Extra space after this block in logical pixels, or `null` for default.
+  ///
+  /// When non-null, [RenderDocumentLayout] uses this value instead of
+  /// [RenderDocumentLayout.blockSpacing] for the gap below this block.
+  @override
+  // ignore: diagnostic_describe_all_properties
+  double? get spaceAfter => _spaceAfter;
+
+  /// Sets [spaceAfter] and notifies the parent layout when the value changes.
+  set spaceAfter(double? value) {
+    if (_spaceAfter == value) return;
+    _spaceAfter = value;
+    if (parent is RenderObject) (parent!).markNeedsLayout();
+  }
 
   // ---------------------------------------------------------------------------
   // Intrinsic sizes
@@ -235,6 +267,8 @@ class RenderHorizontalRuleBlock extends RenderDocumentBlock with BlockLayoutMixi
     properties.add(ColorProperty('color', _color));
     properties.add(DoubleProperty('thickness', _thickness));
     properties.add(DoubleProperty('verticalPadding', _verticalPadding));
+    properties.add(DoubleProperty('spaceBefore', _spaceBefore, defaultValue: null));
+    properties.add(DoubleProperty('spaceAfter', _spaceAfter, defaultValue: null));
     debugFillBlockLayoutProperties(properties);
   }
 }

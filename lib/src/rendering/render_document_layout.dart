@@ -328,7 +328,16 @@ class RenderDocumentLayout extends RenderBox
       parentData.exclusionRect = null;
 
       if (childIndex > 0) {
-        yOffset += _blockSpacing;
+        // Per-block spacing: use max(prevSpaceAfter, curSpaceBefore).
+        // When both are null, fall back to _blockSpacing.
+        final prevChild = childBefore(child);
+        final prevSpaceAfter = prevChild?.spaceAfter;
+        final curSpaceBefore = child.spaceBefore;
+        if (prevSpaceAfter != null || curSpaceBefore != null) {
+          yOffset += max(prevSpaceAfter ?? 0, curSpaceBefore ?? 0);
+        } else {
+          yOffset += _blockSpacing;
+        }
       }
 
       // Clear each exclusion zone independently when yOffset passes its bottom.

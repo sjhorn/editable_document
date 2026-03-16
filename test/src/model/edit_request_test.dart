@@ -402,4 +402,180 @@ void main() {
       expect(req.toString(), contains('justify'));
     });
   });
+
+  // =========================================================================
+  // ChangeLineHeightRequest
+  // =========================================================================
+
+  group('ChangeLineHeightRequest', () {
+    test('1. stores nodeId and newLineHeight', () {
+      const req = ChangeLineHeightRequest(nodeId: 'p1', newLineHeight: 1.5);
+      expect(req.nodeId, 'p1');
+      expect(req.newLineHeight, 1.5);
+    });
+
+    test('2. stores null newLineHeight', () {
+      const req = ChangeLineHeightRequest(nodeId: 'p1', newLineHeight: null);
+      expect(req.nodeId, 'p1');
+      expect(req.newLineHeight, isNull);
+    });
+
+    test('3. equality: same fields are equal', () {
+      const a = ChangeLineHeightRequest(nodeId: 'p1', newLineHeight: 1.5);
+      const b = ChangeLineHeightRequest(nodeId: 'p1', newLineHeight: 1.5);
+      expect(a, equals(b));
+    });
+
+    test('4. equality: different nodeId not equal', () {
+      const a = ChangeLineHeightRequest(nodeId: 'p1', newLineHeight: 1.5);
+      const b = ChangeLineHeightRequest(nodeId: 'p2', newLineHeight: 1.5);
+      expect(a, isNot(equals(b)));
+    });
+
+    test('5. equality: different newLineHeight not equal', () {
+      const a = ChangeLineHeightRequest(nodeId: 'p1', newLineHeight: 1.0);
+      const b = ChangeLineHeightRequest(nodeId: 'p1', newLineHeight: 1.5);
+      expect(a, isNot(equals(b)));
+    });
+
+    test('6. hashCode is consistent with equality', () {
+      const a = ChangeLineHeightRequest(nodeId: 'p1', newLineHeight: 2.0);
+      const b = ChangeLineHeightRequest(nodeId: 'p1', newLineHeight: 2.0);
+      expect(a.hashCode, equals(b.hashCode));
+    });
+
+    test('7. toString includes class name and key fields', () {
+      const req = ChangeLineHeightRequest(nodeId: 'p1', newLineHeight: 1.5);
+      expect(req.toString(), contains('ChangeLineHeightRequest'));
+      expect(req.toString(), contains('p1'));
+      expect(req.toString(), contains('1.5'));
+    });
+  });
+
+  // =========================================================================
+  // ChangeIndentRequest
+  // =========================================================================
+
+  group('ChangeIndentRequest', () {
+    test('1. stores nodeId and indent values', () {
+      const req = ChangeIndentRequest(
+        nodeId: 'p1',
+        newIndentLeft: 16.0,
+        newIndentRight: 8.0,
+        newFirstLineIndent: 24.0,
+      );
+      expect(req.nodeId, 'p1');
+      expect(req.newIndentLeft, 16.0);
+      expect(req.newIndentRight, 8.0);
+      expect(req.newFirstLineIndent, 24.0);
+    });
+
+    test('2. accepts all null indent values', () {
+      const req = ChangeIndentRequest(nodeId: 'p1');
+      expect(req.newIndentLeft, isNull);
+      expect(req.newIndentRight, isNull);
+      expect(req.newFirstLineIndent, isNull);
+    });
+
+    test('3. equality: same fields are equal', () {
+      const a = ChangeIndentRequest(nodeId: 'p1', newIndentLeft: 16.0, newIndentRight: 8.0);
+      const b = ChangeIndentRequest(nodeId: 'p1', newIndentLeft: 16.0, newIndentRight: 8.0);
+      expect(a, equals(b));
+    });
+
+    test('4. equality: different nodeId not equal', () {
+      const a = ChangeIndentRequest(nodeId: 'p1', newIndentLeft: 16.0);
+      const b = ChangeIndentRequest(nodeId: 'p2', newIndentLeft: 16.0);
+      expect(a, isNot(equals(b)));
+    });
+
+    test('5. equality: different newIndentLeft not equal', () {
+      const a = ChangeIndentRequest(nodeId: 'p1', newIndentLeft: 8.0);
+      const b = ChangeIndentRequest(nodeId: 'p1', newIndentLeft: 16.0);
+      expect(a, isNot(equals(b)));
+    });
+
+    test('6. equality: different newIndentRight not equal', () {
+      const a = ChangeIndentRequest(nodeId: 'p1', newIndentRight: 4.0);
+      const b = ChangeIndentRequest(nodeId: 'p1', newIndentRight: 8.0);
+      expect(a, isNot(equals(b)));
+    });
+
+    test('7. equality: different newFirstLineIndent not equal', () {
+      const a = ChangeIndentRequest(nodeId: 'p1', newFirstLineIndent: 16.0);
+      const b = ChangeIndentRequest(nodeId: 'p1', newFirstLineIndent: 24.0);
+      expect(a, isNot(equals(b)));
+    });
+
+    test('8. hashCode is consistent with equality', () {
+      const a = ChangeIndentRequest(nodeId: 'p1', newIndentLeft: 16.0, newIndentRight: 8.0);
+      const b = ChangeIndentRequest(nodeId: 'p1', newIndentLeft: 16.0, newIndentRight: 8.0);
+      expect(a.hashCode, equals(b.hashCode));
+    });
+
+    test('9. toString includes class name and key fields', () {
+      const req = ChangeIndentRequest(nodeId: 'p1', newIndentLeft: 16.0, newIndentRight: 8.0);
+      expect(req.toString(), contains('ChangeIndentRequest'));
+      expect(req.toString(), contains('p1'));
+      expect(req.toString(), contains('16.0'));
+      expect(req.toString(), contains('8.0'));
+    });
+  });
+
+  // =========================================================================
+  // ChangeSpacingRequest
+  // =========================================================================
+
+  group('ChangeSpacingRequest', () {
+    test('1. stores nodeId and spacing values', () {
+      const req = ChangeSpacingRequest(nodeId: 'p1', newSpaceBefore: 8.0, newSpaceAfter: 16.0);
+      expect(req.nodeId, 'p1');
+      expect(req.newSpaceBefore, 8.0);
+      expect(req.newSpaceAfter, 16.0);
+    });
+
+    test('2. accepts null spacing values', () {
+      const req = ChangeSpacingRequest(nodeId: 'p1');
+      expect(req.newSpaceBefore, isNull);
+      expect(req.newSpaceAfter, isNull);
+    });
+
+    test('3. equality: same fields are equal', () {
+      const a = ChangeSpacingRequest(nodeId: 'p1', newSpaceBefore: 8.0, newSpaceAfter: 16.0);
+      const b = ChangeSpacingRequest(nodeId: 'p1', newSpaceBefore: 8.0, newSpaceAfter: 16.0);
+      expect(a, equals(b));
+    });
+
+    test('4. equality: different nodeId not equal', () {
+      const a = ChangeSpacingRequest(nodeId: 'p1', newSpaceBefore: 8.0);
+      const b = ChangeSpacingRequest(nodeId: 'p2', newSpaceBefore: 8.0);
+      expect(a, isNot(equals(b)));
+    });
+
+    test('5. equality: different newSpaceBefore not equal', () {
+      const a = ChangeSpacingRequest(nodeId: 'p1', newSpaceBefore: 4.0);
+      const b = ChangeSpacingRequest(nodeId: 'p1', newSpaceBefore: 8.0);
+      expect(a, isNot(equals(b)));
+    });
+
+    test('6. equality: different newSpaceAfter not equal', () {
+      const a = ChangeSpacingRequest(nodeId: 'p1', newSpaceAfter: 4.0);
+      const b = ChangeSpacingRequest(nodeId: 'p1', newSpaceAfter: 8.0);
+      expect(a, isNot(equals(b)));
+    });
+
+    test('7. hashCode is consistent with equality', () {
+      const a = ChangeSpacingRequest(nodeId: 'p1', newSpaceBefore: 8.0, newSpaceAfter: 16.0);
+      const b = ChangeSpacingRequest(nodeId: 'p1', newSpaceBefore: 8.0, newSpaceAfter: 16.0);
+      expect(a.hashCode, equals(b.hashCode));
+    });
+
+    test('8. toString includes class name and key fields', () {
+      const req = ChangeSpacingRequest(nodeId: 'p1', newSpaceBefore: 8.0, newSpaceAfter: 16.0);
+      expect(req.toString(), contains('ChangeSpacingRequest'));
+      expect(req.toString(), contains('p1'));
+      expect(req.toString(), contains('8.0'));
+      expect(req.toString(), contains('16.0'));
+    });
+  });
 }

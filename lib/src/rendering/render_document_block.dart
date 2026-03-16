@@ -128,6 +128,28 @@ abstract class RenderDocumentBlock extends RenderBox {
   /// notion of a natural content size is meaningful (e.g. [RenderImageBlock]).
   Size? get intrinsicContentSize => null;
 
+  /// Extra space before this block in logical pixels, or `null` for default.
+  ///
+  /// When non-null, [RenderDocumentLayout] uses this value instead of
+  /// [RenderDocumentLayout.blockSpacing] for the gap above this block.
+  /// When both [spaceBefore] on the current block and [spaceAfter] on the
+  /// previous block are set, the maximum of the two is used.
+  ///
+  /// Defaults to `null`.  Concrete subclasses that support per-block spacing
+  /// should override this getter and store a [double?] field.
+  double? get spaceBefore => null;
+
+  /// Extra space after this block in logical pixels, or `null` for default.
+  ///
+  /// When non-null, [RenderDocumentLayout] uses this value instead of
+  /// [RenderDocumentLayout.blockSpacing] for the gap below this block.
+  /// When both [spaceAfter] on the current block and [spaceBefore] on the
+  /// next block are set, the maximum of the two is used.
+  ///
+  /// Defaults to `null`.  Concrete subclasses that support per-block spacing
+  /// should override this getter and store a [double?] field.
+  double? get spaceAfter => null;
+
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
@@ -141,5 +163,7 @@ abstract class RenderDocumentBlock extends RenderBox {
     properties.add(DiagnosticsProperty<bool>('clearsFloat', clearsFloat));
     properties.add(DiagnosticsProperty<Size?>('intrinsicContentSize', intrinsicContentSize,
         defaultValue: null));
+    properties.add(DoubleProperty('spaceBefore', spaceBefore, defaultValue: null));
+    properties.add(DoubleProperty('spaceAfter', spaceAfter, defaultValue: null));
   }
 }

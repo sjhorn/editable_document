@@ -127,6 +127,8 @@ class RenderImageBlock extends RenderDocumentBlock with BlockLayoutMixin {
   Color _placeholderColor;
   String? _altText;
   DocumentSelection? _nodeSelection;
+  double? _spaceBefore;
+  double? _spaceAfter;
 
   // ---------------------------------------------------------------------------
   // RenderDocumentBlock — nodeId
@@ -245,6 +247,36 @@ class RenderImageBlock extends RenderDocumentBlock with BlockLayoutMixin {
   Size? get intrinsicContentSize {
     if (_image == null) return null;
     return Size(_image!.width.toDouble(), _image!.height.toDouble());
+  }
+
+  /// Extra space before this block in logical pixels, or `null` for default.
+  ///
+  /// When non-null, [RenderDocumentLayout] uses this value instead of
+  /// [RenderDocumentLayout.blockSpacing] for the gap above this block.
+  @override
+  // ignore: diagnostic_describe_all_properties
+  double? get spaceBefore => _spaceBefore;
+
+  /// Sets [spaceBefore] and notifies the parent layout when the value changes.
+  set spaceBefore(double? value) {
+    if (_spaceBefore == value) return;
+    _spaceBefore = value;
+    if (parent is RenderObject) (parent!).markNeedsLayout();
+  }
+
+  /// Extra space after this block in logical pixels, or `null` for default.
+  ///
+  /// When non-null, [RenderDocumentLayout] uses this value instead of
+  /// [RenderDocumentLayout.blockSpacing] for the gap below this block.
+  @override
+  // ignore: diagnostic_describe_all_properties
+  double? get spaceAfter => _spaceAfter;
+
+  /// Sets [spaceAfter] and notifies the parent layout when the value changes.
+  set spaceAfter(double? value) {
+    if (_spaceAfter == value) return;
+    _spaceAfter = value;
+    if (parent is RenderObject) (parent!).markNeedsLayout();
   }
 
   /// Sets the alt text and schedules a semantics update.
@@ -406,6 +438,8 @@ class RenderImageBlock extends RenderDocumentBlock with BlockLayoutMixin {
     properties.add(ColorProperty('placeholderColor', _placeholderColor));
     properties.add(StringProperty('altText', _altText, defaultValue: null));
     properties.add(DiagnosticsProperty<ui.Image?>('image', _image, defaultValue: null));
+    properties.add(DoubleProperty('spaceBefore', _spaceBefore, defaultValue: null));
+    properties.add(DoubleProperty('spaceAfter', _spaceAfter, defaultValue: null));
     debugFillBlockLayoutProperties(properties);
   }
 }

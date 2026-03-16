@@ -105,9 +105,11 @@ class RenderListItemBlock extends RenderTextBlock {
 
   @override
   void performLayout() {
-    // Layout the text in the remaining width after the marker area.
-    final textMaxWidth = (constraints.maxWidth - _textIndentOffset).clamp(0.0, double.infinity);
-    final excl = exclusionRectForLayout(horizontalInset: _textIndentOffset);
+    // Layout the text in the remaining width after the marker area and any
+    // per-block indent ([indentLeft] + [indentRight] from [RenderTextBlock]).
+    final totalInset = _textIndentOffset + indentLeft + indentRight;
+    final textMaxWidth = (constraints.maxWidth - totalInset).clamp(0.0, double.infinity);
+    final excl = exclusionRectForLayout(horizontalInset: _textIndentOffset + indentLeft);
     layoutText(textMaxWidth, exclusionRect: excl);
     size = Size(constraints.maxWidth, layoutTextHeight);
   }

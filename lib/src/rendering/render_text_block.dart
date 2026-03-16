@@ -203,6 +203,12 @@ class RenderTextBlock extends RenderDocumentBlock {
   Color _selectionColor;
   TextSpanBuilder? _textSpanBuilder;
   DocumentSelection? _nodeSelection;
+  double? _lineHeightMultiplier;
+  double _indentLeft = 0;
+  double _indentRight = 0;
+  double _firstLineIndent = 0;
+  double? _spaceBefore;
+  double? _spaceAfter;
 
   final TextPainter _textPainter;
 
@@ -314,6 +320,113 @@ class RenderTextBlock extends RenderDocumentBlock {
     if (_textSpanBuilder == value) return;
     _textSpanBuilder = value;
     markNeedsLayout();
+  }
+
+  // ---------------------------------------------------------------------------
+  // lineHeightMultiplier
+  // ---------------------------------------------------------------------------
+
+  /// The line height multiplier applied to text, or `null` to use the default.
+  ///
+  /// When non-null, the [TextStyle.height] is set to this value, spacing
+  /// lines of text proportionally. A value of `1.0` is single-spaced, `2.0`
+  /// is double-spaced.
+  // ignore: diagnostic_describe_all_properties
+  double? get lineHeightMultiplier => _lineHeightMultiplier;
+
+  /// Sets [lineHeightMultiplier] and schedules a layout pass when the value
+  /// changes.
+  set lineHeightMultiplier(double? value) {
+    if (_lineHeightMultiplier == value) return;
+    _lineHeightMultiplier = value;
+    markNeedsLayout();
+  }
+
+  // ---------------------------------------------------------------------------
+  // indentLeft / indentRight / firstLineIndent
+  // ---------------------------------------------------------------------------
+
+  /// Left indent in logical pixels.
+  ///
+  /// Reduces the available text width and shifts the text painting rightward.
+  /// Additive with any block-type-specific indent (e.g. list item markers).
+  // ignore: diagnostic_describe_all_properties
+  double get indentLeft => _indentLeft;
+
+  /// Sets [indentLeft] and schedules a layout pass when the value changes.
+  set indentLeft(double value) {
+    if (_indentLeft == value) return;
+    _indentLeft = value;
+    markNeedsLayout();
+  }
+
+  /// Right indent in logical pixels.
+  ///
+  /// Reduces the available text width from the right side.
+  // ignore: diagnostic_describe_all_properties
+  double get indentRight => _indentRight;
+
+  /// Sets [indentRight] and schedules a layout pass when the value changes.
+  set indentRight(double value) {
+    if (_indentRight == value) return;
+    _indentRight = value;
+    markNeedsLayout();
+  }
+
+  /// First-line indent in logical pixels.
+  ///
+  /// Positive values indent the first line further than [indentLeft].
+  /// Negative values create a hanging indent where all lines except the first
+  /// are indented by the absolute value.
+  ///
+  /// Currently stored for the widget layer to persist; visual rendering of
+  /// first-line indent is applied in a future step.
+  // ignore: diagnostic_describe_all_properties
+  double get firstLineIndent => _firstLineIndent;
+
+  /// Sets [firstLineIndent] and schedules a layout pass when the value changes.
+  set firstLineIndent(double value) {
+    if (_firstLineIndent == value) return;
+    _firstLineIndent = value;
+    markNeedsLayout();
+  }
+
+  // ---------------------------------------------------------------------------
+  // spaceBefore / spaceAfter
+  // ---------------------------------------------------------------------------
+
+  /// Extra space before this block in logical pixels, or `null` for default.
+  ///
+  /// When non-null, [RenderDocumentLayout] uses this value instead of
+  /// [RenderDocumentLayout.blockSpacing] for the gap above this block.
+  /// When both [spaceBefore] on the current block and [spaceAfter] on the
+  /// previous block are set, the maximum of the two is used.
+  @override
+  // ignore: diagnostic_describe_all_properties
+  double? get spaceBefore => _spaceBefore;
+
+  /// Sets [spaceBefore] and notifies the parent layout when the value changes.
+  set spaceBefore(double? value) {
+    if (_spaceBefore == value) return;
+    _spaceBefore = value;
+    if (parent is RenderObject) (parent!).markNeedsLayout();
+  }
+
+  /// Extra space after this block in logical pixels, or `null` for default.
+  ///
+  /// When non-null, [RenderDocumentLayout] uses this value instead of
+  /// [RenderDocumentLayout.blockSpacing] for the gap below this block.
+  /// When both [spaceAfter] on the current block and [spaceBefore] on the
+  /// next block are set, the maximum of the two is used.
+  @override
+  // ignore: diagnostic_describe_all_properties
+  double? get spaceAfter => _spaceAfter;
+
+  /// Sets [spaceAfter] and notifies the parent layout when the value changes.
+  set spaceAfter(double? value) {
+    if (_spaceAfter == value) return;
+    _spaceAfter = value;
+    if (parent is RenderObject) (parent!).markNeedsLayout();
   }
 
   // ---------------------------------------------------------------------------
@@ -465,7 +578,9 @@ class RenderTextBlock extends RenderDocumentBlock {
   @override
   void performLayout() {
     final excl = exclusionRectForLayout();
-    layoutText(constraints.maxWidth, exclusionRect: excl);
+    final textWidth = max(0.0, constraints.maxWidth - _indentLeft - _indentRight);
+    final adjustedExcl = excl != null ? excl.translate(-_indentLeft, 0) : null;
+    layoutText(textWidth, exclusionRect: adjustedExcl);
     size = Size(constraints.maxWidth, layoutTextHeight);
   }
 
@@ -695,12 +810,13 @@ class RenderTextBlock extends RenderDocumentBlock {
   double? computeDryBaseline(covariant BoxConstraints constraints, TextBaseline baseline) {
     // Create a temporary painter with the same span and configuration to
     // compute the baseline without touching this render object's live state.
-    // Pass minWidth: maxWidth to match _layoutText so textAlign is consistent.
+    // Pass minWidth: effectiveWidth to match _layoutText so textAlign is consistent.
+    final effectiveWidth = max(0.0, constraints.maxWidth - _indentLeft - _indentRight);
     final painter = TextPainter(
       text: _buildTextSpan(),
       textDirection: _textDirection,
       textAlign: _textAlign,
-    )..layout(minWidth: constraints.maxWidth, maxWidth: constraints.maxWidth);
+    )..layout(minWidth: effectiveWidth, maxWidth: effectiveWidth);
     return painter.computeDistanceToActualBaseline(baseline);
   }
 
@@ -778,6 +894,7 @@ class RenderTextBlock extends RenderDocumentBlock {
 
   @override
   void paint(PaintingContext context, Offset offset) {
+    final textOffset = offset + Offset(_indentLeft, 0);
     final excl = _exclusionLayout;
     if (excl != null) {
       // Paint selection highlights behind the text.
@@ -786,23 +903,23 @@ class RenderTextBlock extends RenderDocumentBlock {
       }
       // Above zone.
       if (excl.abovePainter != null) {
-        excl.abovePainter!.paint(context.canvas, offset);
+        excl.abovePainter!.paint(context.canvas, textOffset);
       }
       // Beside zone — Z-pattern lines.
       for (final line in excl.lines) {
         final lineOffset = Offset(0, excl.aboveHeight + line.yOffset);
         if (excl.leftWidth > 0) {
-          line.leftPainter.paint(context.canvas, offset + lineOffset);
+          line.leftPainter.paint(context.canvas, textOffset + lineOffset);
         }
         if (excl.rightWidth > 0) {
           final rightOffset = Offset(excl.exclusionRect.right, excl.aboveHeight + line.yOffset);
-          line.rightPainter.paint(context.canvas, offset + rightOffset);
+          line.rightPainter.paint(context.canvas, textOffset + rightOffset);
         }
       }
       // Below zone.
       if (excl.belowPainter != null) {
         final belowOffset = Offset(0, excl.aboveHeight + excl.besideHeight);
-        excl.belowPainter!.paint(context.canvas, offset + belowOffset);
+        excl.belowPainter!.paint(context.canvas, textOffset + belowOffset);
       }
       return;
     }
@@ -811,7 +928,7 @@ class RenderTextBlock extends RenderDocumentBlock {
     if (_nodeSelection != null) {
       _paintSelectionHighlight(context.canvas, offset);
     }
-    _textPainter.paint(context.canvas, offset);
+    _textPainter.paint(context.canvas, textOffset);
   }
 
   void _paintSelectionHighlight(Canvas canvas, Offset offset) {
@@ -905,7 +1022,12 @@ class RenderTextBlock extends RenderDocumentBlock {
       // not the trailing empty line — producing a mismatch between caretOffset
       // and box.top.  Use caretOffset + preferredLineHeight directly instead.
       if (tp.offset >= textLength && _text.text.endsWith('\n')) {
-        return Rect.fromLTWH(caretOffset.dx, caretOffset.dy, 0, _textPainter.preferredLineHeight);
+        return Rect.fromLTWH(
+          _indentLeft + caretOffset.dx,
+          caretOffset.dy,
+          0,
+          _textPainter.preferredLineHeight,
+        );
       }
       final start = tp.offset >= textLength ? textLength - 1 : tp.offset;
       final end = (start + 1).clamp(0, textLength);
@@ -917,14 +1039,22 @@ class RenderTextBlock extends RenderDocumentBlock {
       );
       if (boxes.isNotEmpty) {
         final box = boxes.first.toRect();
-        return Rect.fromLTWH(caretOffset.dx, box.top, 0, box.height);
+        return Rect.fromLTWH(_indentLeft + caretOffset.dx, box.top, 0, box.height);
       }
     }
 
-    return Rect.fromLTWH(caretOffset.dx, caretOffset.dy, 0, _textPainter.preferredLineHeight);
+    return Rect.fromLTWH(
+      _indentLeft + caretOffset.dx,
+      caretOffset.dy,
+      0,
+      _textPainter.preferredLineHeight,
+    );
   }
 
   /// Returns the caret rect for [position] when [_exclusionLayout] is active.
+  ///
+  /// All returned rects are shifted by [_indentLeft] so they are in this
+  /// block's local coordinate space (same as the paint origin).
   Rect _getLocalRectForPositionExclusion(TextNodePosition position, _ExclusionLayout excl) {
     final charIndex = position.offset;
 
@@ -932,7 +1062,7 @@ class RenderTextBlock extends RenderDocumentBlock {
     if (charIndex < excl.aboveEndIndex) {
       final painter = excl.abovePainter;
       if (painter == null) {
-        return Rect.fromLTWH(0, 0, 0, _textPainter.preferredLineHeight);
+        return Rect.fromLTWH(_indentLeft, 0, 0, _textPainter.preferredLineHeight);
       }
       // Above painter covers [0, aboveEndIndex) — model offsets = global offsets.
       final visualCharIndex = _m2v(charIndex);
@@ -949,10 +1079,11 @@ class RenderTextBlock extends RenderDocumentBlock {
         );
         if (boxes.isNotEmpty) {
           final box = boxes.first.toRect();
-          return Rect.fromLTWH(caretOffset.dx, box.top, 0, box.height);
+          return Rect.fromLTWH(_indentLeft + caretOffset.dx, box.top, 0, box.height);
         }
       }
-      return Rect.fromLTWH(caretOffset.dx, caretOffset.dy, 0, painter.preferredLineHeight);
+      return Rect.fromLTWH(
+          _indentLeft + caretOffset.dx, caretOffset.dy, 0, painter.preferredLineHeight);
     }
 
     // Below zone.
@@ -972,7 +1103,7 @@ class RenderTextBlock extends RenderDocumentBlock {
         // directly rather than querying the box for the '\n' character.
         if (localIndex >= belowLength && _text.text.endsWith('\n')) {
           return Rect.fromLTWH(
-              caretOffset.dx, baseY + caretOffset.dy, 0, painter.preferredLineHeight);
+              _indentLeft + caretOffset.dx, baseY + caretOffset.dy, 0, painter.preferredLineHeight);
         }
         final start = localIndex >= belowLength ? belowLength - 1 : localIndex;
         final visualStart = _m2vLocal(start, excl.besideEndIndex);
@@ -983,10 +1114,11 @@ class RenderTextBlock extends RenderDocumentBlock {
         );
         if (boxes.isNotEmpty) {
           final box = boxes.first.toRect();
-          return Rect.fromLTWH(caretOffset.dx, baseY + box.top, 0, box.height);
+          return Rect.fromLTWH(_indentLeft + caretOffset.dx, baseY + box.top, 0, box.height);
         }
       }
-      return Rect.fromLTWH(caretOffset.dx, baseY + caretOffset.dy, 0, painter.preferredLineHeight);
+      return Rect.fromLTWH(
+          _indentLeft + caretOffset.dx, baseY + caretOffset.dy, 0, painter.preferredLineHeight);
     }
 
     // Beside zone — find which line pair contains this index.
@@ -1013,11 +1145,11 @@ class RenderTextBlock extends RenderDocumentBlock {
           );
           if (boxes.isNotEmpty) {
             final box = boxes.first.toRect();
-            return Rect.fromLTWH(caretOffset.dx, baseY + box.top, 0, box.height);
+            return Rect.fromLTWH(_indentLeft + caretOffset.dx, baseY + box.top, 0, box.height);
           }
         }
         return Rect.fromLTWH(
-            caretOffset.dx, baseY + caretOffset.dy, 0, painter.preferredLineHeight);
+            _indentLeft + caretOffset.dx, baseY + caretOffset.dy, 0, painter.preferredLineHeight);
       }
 
       // Check right column.
@@ -1039,11 +1171,12 @@ class RenderTextBlock extends RenderDocumentBlock {
           );
           if (boxes.isNotEmpty) {
             final box = boxes.first.toRect();
-            return Rect.fromLTWH(rightBaseX + caretOffset.dx, baseY + box.top, 0, box.height);
+            return Rect.fromLTWH(
+                _indentLeft + rightBaseX + caretOffset.dx, baseY + box.top, 0, box.height);
           }
         }
         return Rect.fromLTWH(
-          rightBaseX + caretOffset.dx,
+          _indentLeft + rightBaseX + caretOffset.dx,
           baseY + caretOffset.dy,
           0,
           painter.preferredLineHeight,
@@ -1052,7 +1185,7 @@ class RenderTextBlock extends RenderDocumentBlock {
     }
 
     // Fallback — return a rect at the beginning of the block.
-    return Rect.fromLTWH(0, 0, 0, _textPainter.preferredLineHeight);
+    return Rect.fromLTWH(_indentLeft, 0, 0, _textPainter.preferredLineHeight);
   }
 
   @override
@@ -1060,12 +1193,14 @@ class RenderTextBlock extends RenderDocumentBlock {
     final excl = _exclusionLayout;
     if (excl != null) {
       final y = localOffset.dy;
-      final x = localOffset.dx;
+      // Translate from block-local to text-painter-local by removing indent.
+      final x = localOffset.dx - _indentLeft;
+      final textLocalOffset = Offset(x, y);
 
       // Above zone.
       if (y < excl.aboveHeight) {
         if (excl.abovePainter != null) {
-          final tp = excl.abovePainter!.getPositionForOffset(localOffset);
+          final tp = excl.abovePainter!.getPositionForOffset(textLocalOffset);
           // Above painter uses visual offsets; convert to model offsets.
           return TextNodePosition(
             offset: _v2m(tp.offset).clamp(0, excl.aboveEndIndex),
@@ -1148,7 +1283,9 @@ class RenderTextBlock extends RenderDocumentBlock {
       }
     }
 
-    final tp = _textPainter.getPositionForOffset(localOffset);
+    // Translate from block-local to text-painter-local by removing indent.
+    final textLocalOffset = Offset(localOffset.dx - _indentLeft, localOffset.dy);
+    final tp = _textPainter.getPositionForOffset(textLocalOffset);
     return TextNodePosition(offset: _v2m(tp.offset), affinity: tp.affinity);
   }
 
@@ -1250,7 +1387,9 @@ class RenderTextBlock extends RenderDocumentBlock {
       TextSelection(baseOffset: _m2v(selStart), extentOffset: _m2v(selEnd)),
       boxHeightStyle: ui.BoxHeightStyle.max,
     );
-    return boxes.map((box) => box.toRect()).toList();
+    // Shift selection rects rightward by _indentLeft to match painting origin.
+    if (_indentLeft == 0) return boxes.map((box) => box.toRect()).toList();
+    return boxes.map((box) => box.toRect().shift(Offset(_indentLeft, 0))).toList();
   }
 
   /// Collects selection rects across all zones when [_exclusionLayout] is active.
@@ -1261,6 +1400,10 @@ class RenderTextBlock extends RenderDocumentBlock {
   ) {
     final rects = <Rect>[];
 
+    // All rects are shifted by [_indentLeft] so they match the text painting
+    // origin (which is also offset by [_indentLeft]).
+    final indentShift = Offset(_indentLeft, 0);
+
     // Above zone.
     if (excl.abovePainter != null && selStart < excl.aboveEndIndex) {
       final zoneStart = selStart.clamp(0, excl.aboveEndIndex);
@@ -1270,7 +1413,7 @@ class RenderTextBlock extends RenderDocumentBlock {
           TextSelection(baseOffset: _m2v(zoneStart), extentOffset: _m2v(zoneEnd)),
           boxHeightStyle: ui.BoxHeightStyle.max,
         );
-        rects.addAll(boxes.map((box) => box.toRect()));
+        rects.addAll(boxes.map((box) => box.toRect().shift(indentShift)));
       }
     }
 
@@ -1292,7 +1435,7 @@ class RenderTextBlock extends RenderDocumentBlock {
             ),
             boxHeightStyle: ui.BoxHeightStyle.max,
           );
-          rects.addAll(boxes.map((box) => box.toRect().shift(Offset(0, baseY))));
+          rects.addAll(boxes.map((box) => box.toRect().shift(indentShift + Offset(0, baseY))));
         }
       }
 
@@ -1311,7 +1454,9 @@ class RenderTextBlock extends RenderDocumentBlock {
             boxHeightStyle: ui.BoxHeightStyle.max,
           );
           rects.addAll(
-            boxes.map((box) => box.toRect().shift(Offset(excl.exclusionRect.right, baseY))),
+            boxes.map(
+              (box) => box.toRect().shift(indentShift + Offset(excl.exclusionRect.right, baseY)),
+            ),
           );
         }
       }
@@ -1336,7 +1481,7 @@ class RenderTextBlock extends RenderDocumentBlock {
           ),
           boxHeightStyle: ui.BoxHeightStyle.max,
         );
-        rects.addAll(boxes.map((box) => box.toRect().shift(Offset(0, baseY))));
+        rects.addAll(boxes.map((box) => box.toRect().shift(indentShift + Offset(0, baseY))));
       }
     }
 
@@ -1347,27 +1492,39 @@ class RenderTextBlock extends RenderDocumentBlock {
   // Attribution → TextSpan
   // ---------------------------------------------------------------------------
 
+  /// Returns the effective [TextStyle] merging [_lineHeightMultiplier] into
+  /// [_textStyle] when it is non-null.
+  ///
+  /// All [TextSpan] root nodes use this style so that [TextStyle.height] is
+  /// applied consistently regardless of whether a custom [textSpanBuilder] is
+  /// supplied.
+  TextStyle get _effectiveTextStyle {
+    if (_lineHeightMultiplier == null) return _textStyle;
+    return _textStyle.copyWith(height: _lineHeightMultiplier);
+  }
+
   /// Builds a [TextSpan] for the character range [start]..[end) (exclusive),
   /// preserving any attributions that overlap the range.
   ///
   /// Used by the exclusion-zone layout to create per-zone painters.
   TextSpan _buildTextSpanForRange(int start, int end) {
+    final effectiveStyle = _effectiveTextStyle;
     if (_textSpanBuilder != null) {
-      return _expandTabs(_textSpanBuilder!(_text.copyText(start, end), _textStyle));
+      return _expandTabs(_textSpanBuilder!(_text.copyText(start, end), effectiveStyle));
     }
     final rawText = _text.text;
     if (start >= end || start >= rawText.length) {
-      return TextSpan(text: '', style: _textStyle);
+      return TextSpan(text: '', style: effectiveStyle);
     }
     final clampedEnd = end.clamp(0, rawText.length);
     if (clampedEnd <= start) {
-      return TextSpan(text: '', style: _textStyle);
+      return TextSpan(text: '', style: effectiveStyle);
     }
     final substring = rawText.substring(start, clampedEnd);
 
     final spans = _text.getAttributionSpansInRange(start, clampedEnd - 1).toList();
     if (spans.isEmpty) {
-      return TextSpan(text: substring.replaceAll('\t', '    '), style: _textStyle);
+      return TextSpan(text: substring.replaceAll('\t', '    '), style: effectiveStyle);
     }
 
     // Collect all boundary offsets relative to the substring.
@@ -1391,7 +1548,7 @@ class RenderTextBlock extends RenderDocumentBlock {
           .add(TextSpan(text: substring.substring(s, e).replaceAll('\t', '    '), style: style));
     }
 
-    return TextSpan(style: _textStyle, children: children);
+    return TextSpan(style: effectiveStyle, children: children);
   }
 
   /// Converts [_text] and its attributions into an [InlineSpan] tree suitable
@@ -1401,15 +1558,16 @@ class RenderTextBlock extends RenderDocumentBlock {
   /// Otherwise the text is split into runs at attribution boundaries and each
   /// run receives a merged [TextStyle].
   TextSpan _buildTextSpan() {
-    if (_textSpanBuilder != null) return _expandTabs(_textSpanBuilder!(_text, _textStyle));
+    final effectiveStyle = _effectiveTextStyle;
+    if (_textSpanBuilder != null) return _expandTabs(_textSpanBuilder!(_text, effectiveStyle));
     final rawText = _text.text;
     if (rawText.isEmpty) {
-      return TextSpan(text: '', style: _textStyle);
+      return TextSpan(text: '', style: effectiveStyle);
     }
 
     final spans = _text.getAttributionSpansInRange(0, rawText.length - 1).toList();
     if (spans.isEmpty) {
-      return TextSpan(text: rawText.replaceAll('\t', '    '), style: _textStyle);
+      return TextSpan(text: rawText.replaceAll('\t', '    '), style: effectiveStyle);
     }
 
     // Collect all boundary offsets.
@@ -1432,7 +1590,7 @@ class RenderTextBlock extends RenderDocumentBlock {
           TextSpan(text: rawText.substring(start, end).replaceAll('\t', '    '), style: style));
     }
 
-    return TextSpan(style: _textStyle, children: children);
+    return TextSpan(style: effectiveStyle, children: children);
   }
 
   /// Recursively replaces tab characters with 4 spaces in a [TextSpan] tree.
@@ -1558,5 +1716,12 @@ class RenderTextBlock extends RenderDocumentBlock {
     properties.add(EnumProperty('textAlign', _textAlign));
     properties.add(ColorProperty('selectionColor', _selectionColor));
     properties.add(ObjectFlagProperty<TextSpanBuilder?>.has('textSpanBuilder', _textSpanBuilder));
+    properties
+        .add(DoubleProperty('lineHeightMultiplier', _lineHeightMultiplier, defaultValue: null));
+    properties.add(DoubleProperty('indentLeft', _indentLeft, defaultValue: 0.0));
+    properties.add(DoubleProperty('indentRight', _indentRight, defaultValue: 0.0));
+    properties.add(DoubleProperty('firstLineIndent', _firstLineIndent, defaultValue: 0.0));
+    properties.add(DoubleProperty('spaceBefore', _spaceBefore, defaultValue: null));
+    properties.add(DoubleProperty('spaceAfter', _spaceAfter, defaultValue: null));
   }
 }

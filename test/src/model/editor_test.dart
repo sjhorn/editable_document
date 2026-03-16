@@ -269,6 +269,127 @@ void main() {
       expect((doc.nodeById('bq1') as BlockquoteNode).textAlign, TextAlign.justify);
       editor.dispose();
     });
+
+    test('16. ChangeLineHeightRequest changes lineHeight on ParagraphNode', () {
+      final doc = _twoParaDoc();
+      final editor = Editor(editContext: _ctx(doc));
+
+      editor.submit(const ChangeLineHeightRequest(nodeId: 'p1', newLineHeight: 1.5));
+
+      expect((doc.nodeById('p1') as ParagraphNode).lineHeight, 1.5);
+      editor.dispose();
+    });
+
+    test('17. ChangeLineHeightRequest changes lineHeight on ListItemNode', () {
+      final doc = MutableDocument([
+        ListItemNode(id: 'li1', text: AttributedText('Item'), type: ListItemType.unordered),
+      ]);
+      final editor = Editor(editContext: _ctx(doc));
+
+      editor.submit(const ChangeLineHeightRequest(nodeId: 'li1', newLineHeight: 2.0));
+
+      expect((doc.nodeById('li1') as ListItemNode).lineHeight, 2.0);
+      editor.dispose();
+    });
+
+    test('18. ChangeLineHeightRequest changes lineHeight on CodeBlockNode', () {
+      final doc = MutableDocument([
+        CodeBlockNode(id: 'cb1', text: AttributedText('code')),
+      ]);
+      final editor = Editor(editContext: _ctx(doc));
+
+      editor.submit(const ChangeLineHeightRequest(nodeId: 'cb1', newLineHeight: 1.8));
+
+      expect((doc.nodeById('cb1') as CodeBlockNode).lineHeight, 1.8);
+      editor.dispose();
+    });
+
+    test('19. ChangeSpacingRequest changes spaceBefore and spaceAfter on ParagraphNode', () {
+      final doc = _twoParaDoc();
+      final editor = Editor(editContext: _ctx(doc));
+
+      editor.submit(
+        const ChangeSpacingRequest(nodeId: 'p1', newSpaceBefore: 8.0, newSpaceAfter: 16.0),
+      );
+
+      final node = doc.nodeById('p1') as ParagraphNode;
+      expect(node.spaceBefore, 8.0);
+      expect(node.spaceAfter, 16.0);
+      editor.dispose();
+    });
+
+    test('20. ChangeSpacingRequest changes spacing on ImageNode', () {
+      final doc = MutableDocument([
+        ImageNode(id: 'img', imageUrl: 'https://x.com/img.png'),
+      ]);
+      final editor = Editor(editContext: _ctx(doc));
+
+      editor.submit(
+        const ChangeSpacingRequest(nodeId: 'img', newSpaceBefore: 10.0, newSpaceAfter: 10.0),
+      );
+
+      final node = doc.nodeById('img') as ImageNode;
+      expect(node.spaceBefore, 10.0);
+      expect(node.spaceAfter, 10.0);
+      editor.dispose();
+    });
+
+    test('21. ChangeIndentRequest changes indent on ParagraphNode', () {
+      final doc = _twoParaDoc();
+      final editor = Editor(editContext: _ctx(doc));
+
+      editor.submit(
+        const ChangeIndentRequest(nodeId: 'p1', newIndentLeft: 16.0, newIndentRight: 8.0),
+      );
+
+      final node = doc.nodeById('p1') as ParagraphNode;
+      expect(node.indentLeft, 16.0);
+      expect(node.indentRight, 8.0);
+      editor.dispose();
+    });
+
+    test('22. ChangeIndentRequest changes indent on ListItemNode (firstLineIndent ignored)', () {
+      final doc = MutableDocument([
+        ListItemNode(id: 'li1', text: AttributedText('Item'), type: ListItemType.unordered),
+      ]);
+      final editor = Editor(editContext: _ctx(doc));
+
+      editor.submit(
+        const ChangeIndentRequest(
+          nodeId: 'li1',
+          newIndentLeft: 16.0,
+          newIndentRight: 8.0,
+          newFirstLineIndent: 24.0, // must be ignored
+        ),
+      );
+
+      final node = doc.nodeById('li1') as ListItemNode;
+      expect(node.indentLeft, 16.0);
+      expect(node.indentRight, 8.0);
+      editor.dispose();
+    });
+
+    test('23. ChangeIndentRequest changes indent on BlockquoteNode', () {
+      final doc = MutableDocument([
+        BlockquoteNode(id: 'bq1', text: AttributedText('A quote')),
+      ]);
+      final editor = Editor(editContext: _ctx(doc));
+
+      editor.submit(
+        const ChangeIndentRequest(
+          nodeId: 'bq1',
+          newIndentLeft: 20.0,
+          newIndentRight: 10.0,
+          newFirstLineIndent: -16.0,
+        ),
+      );
+
+      final node = doc.nodeById('bq1') as BlockquoteNode;
+      expect(node.indentLeft, 20.0);
+      expect(node.indentRight, 10.0);
+      expect(node.firstLineIndent, -16.0);
+      editor.dispose();
+    });
   });
 
   // =========================================================================

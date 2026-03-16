@@ -19,6 +19,8 @@ import 'document_node.dart';
 import 'document_position.dart';
 import 'document_selection.dart';
 import 'edit_context.dart';
+import 'horizontal_rule_node.dart';
+import 'image_node.dart';
 import 'list_item_node.dart';
 import 'node_position.dart';
 import 'paragraph_node.dart';
@@ -526,6 +528,237 @@ class ChangeTextAlignCommand extends EditCommand {
     } else {
       throw StateError(
         'ChangeTextAlignCommand: node "$nodeId" (${node.runtimeType}) does not support textAlign.',
+      );
+    }
+    return [NodeReplaced(oldNodeId: nodeId, newNodeId: nodeId)];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ChangeLineHeightCommand
+// ---------------------------------------------------------------------------
+
+/// Changes the [lineHeight] multiplier of the text block identified by
+/// [nodeId].
+///
+/// Supports [ParagraphNode], [ListItemNode], [BlockquoteNode], and
+/// [CodeBlockNode].
+///
+/// Throws [StateError] when [nodeId] does not exist, or when the identified
+/// node is not one of the supported text block types.
+class ChangeLineHeightCommand extends EditCommand {
+  /// Creates a [ChangeLineHeightCommand].
+  const ChangeLineHeightCommand({required this.nodeId, required this.newLineHeight});
+
+  /// The id of the text block node to update.
+  final String nodeId;
+
+  /// The new line height multiplier to apply, or `null` to reset to the
+  /// document default.
+  final double? newLineHeight;
+
+  @override
+  List<DocumentChangeEvent> execute(EditContext context) {
+    final node = context.document.nodeById(nodeId);
+    if (node == null) {
+      throw StateError('ChangeLineHeightCommand: no node with id "$nodeId".');
+    }
+    if (node is ParagraphNode) {
+      context.document.replaceNode(nodeId, node.copyWith(lineHeight: newLineHeight));
+    } else if (node is ListItemNode) {
+      context.document.replaceNode(nodeId, node.copyWith(lineHeight: newLineHeight));
+    } else if (node is BlockquoteNode) {
+      context.document.replaceNode(nodeId, node.copyWith(lineHeight: newLineHeight));
+    } else if (node is CodeBlockNode) {
+      context.document.replaceNode(nodeId, node.copyWith(lineHeight: newLineHeight));
+    } else {
+      throw StateError(
+        'ChangeLineHeightCommand: node "$nodeId" (${node.runtimeType}) does not support lineHeight.',
+      );
+    }
+    return [NodeReplaced(oldNodeId: nodeId, newNodeId: nodeId)];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ChangeSpacingCommand
+// ---------------------------------------------------------------------------
+
+/// Changes the [spaceBefore] and/or [spaceAfter] of the block identified by
+/// [nodeId].
+///
+/// Supports all block node types that carry spacing fields:
+/// [ParagraphNode], [ListItemNode], [BlockquoteNode], [CodeBlockNode],
+/// [ImageNode], [HorizontalRuleNode], and [TableNode].
+///
+/// Only non-null values in [newSpaceBefore] and [newSpaceAfter] are applied;
+/// `null` values leave the corresponding spacing field unchanged on the node.
+///
+/// Throws [StateError] when [nodeId] does not exist.
+class ChangeSpacingCommand extends EditCommand {
+  /// Creates a [ChangeSpacingCommand].
+  const ChangeSpacingCommand({
+    required this.nodeId,
+    this.newSpaceBefore,
+    this.newSpaceAfter,
+  });
+
+  /// The id of the block node to update.
+  final String nodeId;
+
+  /// The new space before value in logical pixels, or `null` to leave
+  /// the current value unchanged.
+  final double? newSpaceBefore;
+
+  /// The new space after value in logical pixels, or `null` to leave
+  /// the current value unchanged.
+  final double? newSpaceAfter;
+
+  @override
+  List<DocumentChangeEvent> execute(EditContext context) {
+    final node = context.document.nodeById(nodeId);
+    if (node == null) {
+      throw StateError('ChangeSpacingCommand: no node with id "$nodeId".');
+    }
+    if (node is ParagraphNode) {
+      context.document.replaceNode(
+        nodeId,
+        node.copyWith(
+          spaceBefore: newSpaceBefore ?? node.spaceBefore,
+          spaceAfter: newSpaceAfter ?? node.spaceAfter,
+        ),
+      );
+    } else if (node is ListItemNode) {
+      context.document.replaceNode(
+        nodeId,
+        node.copyWith(
+          spaceBefore: newSpaceBefore ?? node.spaceBefore,
+          spaceAfter: newSpaceAfter ?? node.spaceAfter,
+        ),
+      );
+    } else if (node is BlockquoteNode) {
+      context.document.replaceNode(
+        nodeId,
+        node.copyWith(
+          spaceBefore: newSpaceBefore ?? node.spaceBefore,
+          spaceAfter: newSpaceAfter ?? node.spaceAfter,
+        ),
+      );
+    } else if (node is CodeBlockNode) {
+      context.document.replaceNode(
+        nodeId,
+        node.copyWith(
+          spaceBefore: newSpaceBefore ?? node.spaceBefore,
+          spaceAfter: newSpaceAfter ?? node.spaceAfter,
+        ),
+      );
+    } else if (node is ImageNode) {
+      context.document.replaceNode(
+        nodeId,
+        node.copyWith(
+          spaceBefore: newSpaceBefore ?? node.spaceBefore,
+          spaceAfter: newSpaceAfter ?? node.spaceAfter,
+        ),
+      );
+    } else if (node is HorizontalRuleNode) {
+      context.document.replaceNode(
+        nodeId,
+        node.copyWith(
+          spaceBefore: newSpaceBefore ?? node.spaceBefore,
+          spaceAfter: newSpaceAfter ?? node.spaceAfter,
+        ),
+      );
+    } else if (node is TableNode) {
+      context.document.replaceNode(
+        nodeId,
+        node.copyWith(
+          spaceBefore: newSpaceBefore ?? node.spaceBefore,
+          spaceAfter: newSpaceAfter ?? node.spaceAfter,
+        ),
+      );
+    } else {
+      throw StateError(
+        'ChangeSpacingCommand: node "$nodeId" (${node.runtimeType}) does not support spacing.',
+      );
+    }
+    return [NodeReplaced(oldNodeId: nodeId, newNodeId: nodeId)];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ChangeIndentCommand
+// ---------------------------------------------------------------------------
+
+/// Changes the indent properties of the text block identified by [nodeId].
+///
+/// Supports [ParagraphNode], [ListItemNode], and [BlockquoteNode].
+///
+/// Only non-null values in [newIndentLeft], [newIndentRight], and
+/// [newFirstLineIndent] are applied; `null` values leave the corresponding
+/// field unchanged on the node. For [ListItemNode] targets, [newFirstLineIndent]
+/// is always ignored.
+///
+/// Throws [StateError] when [nodeId] does not exist, or when the identified
+/// node is not one of the supported text block types.
+class ChangeIndentCommand extends EditCommand {
+  /// Creates a [ChangeIndentCommand].
+  const ChangeIndentCommand({
+    required this.nodeId,
+    this.newIndentLeft,
+    this.newIndentRight,
+    this.newFirstLineIndent,
+  });
+
+  /// The id of the text block node to update.
+  final String nodeId;
+
+  /// The new left indent in logical pixels, or `null` to leave unchanged.
+  final double? newIndentLeft;
+
+  /// The new right indent in logical pixels, or `null` to leave unchanged.
+  final double? newIndentRight;
+
+  /// The new first-line indent in logical pixels, or `null` to leave unchanged.
+  ///
+  /// Ignored for [ListItemNode] targets.
+  final double? newFirstLineIndent;
+
+  @override
+  List<DocumentChangeEvent> execute(EditContext context) {
+    final node = context.document.nodeById(nodeId);
+    if (node == null) {
+      throw StateError('ChangeIndentCommand: no node with id "$nodeId".');
+    }
+    if (node is ParagraphNode) {
+      context.document.replaceNode(
+        nodeId,
+        node.copyWith(
+          indentLeft: newIndentLeft ?? node.indentLeft,
+          indentRight: newIndentRight ?? node.indentRight,
+          firstLineIndent: newFirstLineIndent ?? node.firstLineIndent,
+        ),
+      );
+    } else if (node is ListItemNode) {
+      // firstLineIndent is not applicable to list items (marker alignment).
+      context.document.replaceNode(
+        nodeId,
+        node.copyWith(
+          indentLeft: newIndentLeft ?? node.indentLeft,
+          indentRight: newIndentRight ?? node.indentRight,
+        ),
+      );
+    } else if (node is BlockquoteNode) {
+      context.document.replaceNode(
+        nodeId,
+        node.copyWith(
+          indentLeft: newIndentLeft ?? node.indentLeft,
+          indentRight: newIndentRight ?? node.indentRight,
+          firstLineIndent: newFirstLineIndent ?? node.firstLineIndent,
+        ),
+      );
+    } else {
+      throw StateError(
+        'ChangeIndentCommand: node "$nodeId" (${node.runtimeType}) does not support indent.',
       );
     }
     return [NodeReplaced(oldNodeId: nodeId, newNodeId: nodeId)];

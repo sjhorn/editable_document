@@ -45,13 +45,21 @@ class ListItemNode extends TextNode {
   /// Creates a [ListItemNode].
   ///
   /// [type] defaults to [ListItemType.unordered], [indent] defaults to `0`,
-  /// and [textAlign] defaults to [TextAlign.start].
+  /// [textAlign] defaults to [TextAlign.start], [lineHeight] defaults to
+  /// `null` (inherit document default), [spaceBefore] / [spaceAfter]
+  /// default to `null` (use document-level default spacing), and
+  /// [indentLeft] / [indentRight] default to `null` (no extra indent).
   ListItemNode({
     required super.id,
     super.text,
     this.type = ListItemType.unordered,
     this.indent = 0,
     this.textAlign = TextAlign.start,
+    this.lineHeight,
+    this.spaceBefore,
+    this.spaceAfter,
+    this.indentLeft,
+    this.indentRight,
     super.metadata,
   });
 
@@ -70,6 +78,28 @@ class ListItemNode extends TextNode {
   /// the current text direction.
   final TextAlign textAlign;
 
+  /// Line-height multiplier for this list item, or `null` to inherit the
+  /// document default.
+  ///
+  /// A value of `1.0` uses the font's natural line height. `1.5` adds
+  /// 50 % extra leading. `null` defers to whatever default the renderer
+  /// applies for the document as a whole.
+  final double? lineHeight;
+
+  /// Extra space before this block in logical pixels, or `null` to use the
+  /// document-level default spacing.
+  final double? spaceBefore;
+
+  /// Extra space after this block in logical pixels, or `null` to use the
+  /// document-level default spacing.
+  final double? spaceAfter;
+
+  /// Left indent in logical pixels, or `null` for no extra indent.
+  final double? indentLeft;
+
+  /// Right indent in logical pixels, or `null` for no extra indent.
+  final double? indentRight;
+
   @override
   ListItemNode copyWith({
     String? id,
@@ -77,6 +107,11 @@ class ListItemNode extends TextNode {
     ListItemType? type,
     int? indent,
     TextAlign? textAlign,
+    double? lineHeight,
+    double? spaceBefore,
+    double? spaceAfter,
+    double? indentLeft,
+    double? indentRight,
     Map<String, dynamic>? metadata,
   }) {
     return ListItemNode(
@@ -85,6 +120,11 @@ class ListItemNode extends TextNode {
       type: type ?? this.type,
       indent: indent ?? this.indent,
       textAlign: textAlign ?? this.textAlign,
+      lineHeight: lineHeight ?? this.lineHeight,
+      spaceBefore: spaceBefore ?? this.spaceBefore,
+      spaceAfter: spaceAfter ?? this.spaceAfter,
+      indentLeft: indentLeft ?? this.indentLeft,
+      indentRight: indentRight ?? this.indentRight,
       metadata: metadata ?? this.metadata,
     );
   }
@@ -99,6 +139,11 @@ class ListItemNode extends TextNode {
         other.type == type &&
         other.indent == indent &&
         other.textAlign == textAlign &&
+        other.lineHeight == lineHeight &&
+        other.spaceBefore == spaceBefore &&
+        other.spaceAfter == spaceAfter &&
+        other.indentLeft == indentLeft &&
+        other.indentRight == indentRight &&
         mapEquals(other.metadata, metadata);
   }
 
@@ -109,6 +154,11 @@ class ListItemNode extends TextNode {
         type,
         indent,
         textAlign,
+        lineHeight,
+        spaceBefore,
+        spaceAfter,
+        indentLeft,
+        indentRight,
         Object.hashAll(metadata.entries.map((e) => e)),
       );
 
@@ -120,10 +170,17 @@ class ListItemNode extends TextNode {
     properties.add(
       EnumProperty<TextAlign>('textAlign', textAlign, defaultValue: TextAlign.start),
     );
+    properties.add(DoubleProperty('lineHeight', lineHeight, defaultValue: null));
+    properties.add(DoubleProperty('spaceBefore', spaceBefore, defaultValue: null));
+    properties.add(DoubleProperty('spaceAfter', spaceAfter, defaultValue: null));
+    properties.add(DoubleProperty('indentLeft', indentLeft, defaultValue: null));
+    properties.add(DoubleProperty('indentRight', indentRight, defaultValue: null));
   }
 
   @override
   String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) =>
       'ListItemNode(id: $id, type: $type, indent: $indent, textAlign: $textAlign, '
+      'lineHeight: $lineHeight, spaceBefore: $spaceBefore, spaceAfter: $spaceAfter, '
+      'indentLeft: $indentLeft, indentRight: $indentRight, '
       'text: $text, metadata: $metadata)';
 }

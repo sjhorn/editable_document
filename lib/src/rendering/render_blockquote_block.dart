@@ -116,8 +116,9 @@ class RenderBlockquoteBlock extends RenderTextBlock with BlockLayoutMixin {
     final availableWidth = requestedWidth != null
         ? requestedWidth!.clamp(0.0, constraints.maxWidth)
         : constraints.maxWidth;
-    final textMaxWidth = (availableWidth - _kBorderInset).clamp(0.0, double.infinity);
-    final excl = exclusionRectForLayout(horizontalInset: _kBorderInset);
+    final textMaxWidth =
+        (availableWidth - _kBorderInset - indentLeft - indentRight).clamp(0.0, double.infinity);
+    final excl = exclusionRectForLayout(horizontalInset: _kBorderInset + indentLeft);
     layoutText(textMaxWidth, exclusionRect: excl);
     final blockWidth = requestedWidth != null ? availableWidth : constraints.maxWidth;
     final blockHeight = requestedHeight ?? layoutTextHeight;

@@ -146,6 +146,21 @@ class Editor {
       return ChangeBlockTypeCommand(nodeId: request.nodeId, newBlockType: request.newBlockType);
     } else if (request is ChangeTextAlignRequest) {
       return ChangeTextAlignCommand(nodeId: request.nodeId, newTextAlign: request.newTextAlign);
+    } else if (request is ChangeLineHeightRequest) {
+      return ChangeLineHeightCommand(nodeId: request.nodeId, newLineHeight: request.newLineHeight);
+    } else if (request is ChangeSpacingRequest) {
+      return ChangeSpacingCommand(
+        nodeId: request.nodeId,
+        newSpaceBefore: request.newSpaceBefore,
+        newSpaceAfter: request.newSpaceAfter,
+      );
+    } else if (request is ChangeIndentRequest) {
+      return ChangeIndentCommand(
+        nodeId: request.nodeId,
+        newIndentLeft: request.newIndentLeft,
+        newIndentRight: request.newIndentRight,
+        newFirstLineIndent: request.newFirstLineIndent,
+      );
     } else if (request is ApplyAttributionRequest) {
       return ApplyAttributionCommand(
         selection: request.selection,

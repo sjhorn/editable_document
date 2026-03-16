@@ -39,7 +39,12 @@ class BlockquoteNode extends TextNode implements HasBlockLayout {
   /// [alignment] defaults to [BlockAlignment.stretch].
   /// [textWrap] defaults to [TextWrapMode.none].
   /// [textAlign] defaults to [TextAlign.start].
+  /// [lineHeight] defaults to `null` (inherit document default).
   /// [width] and [height] default to `null` (use available / intrinsic size).
+  /// [spaceBefore] and [spaceAfter] default to `null` (use document-level
+  /// default spacing).
+  /// [indentLeft], [indentRight], and [firstLineIndent] default to `null`
+  /// (no extra indent applied).
   BlockquoteNode({
     required super.id,
     super.text,
@@ -48,6 +53,12 @@ class BlockquoteNode extends TextNode implements HasBlockLayout {
     this.alignment = BlockAlignment.stretch,
     this.textWrap = TextWrapMode.none,
     this.textAlign = TextAlign.start,
+    this.lineHeight,
+    this.spaceBefore,
+    this.spaceAfter,
+    this.indentLeft,
+    this.indentRight,
+    this.firstLineIndent,
     super.metadata,
   });
 
@@ -75,6 +86,34 @@ class BlockquoteNode extends TextNode implements HasBlockLayout {
   /// the current text direction.
   final TextAlign textAlign;
 
+  /// Line-height multiplier for this blockquote, or `null` to inherit the
+  /// document default.
+  ///
+  /// A value of `1.0` uses the font's natural line height. `1.5` adds
+  /// 50 % extra leading. `null` defers to whatever default the renderer
+  /// applies for the document as a whole.
+  final double? lineHeight;
+
+  /// Extra space before this block in logical pixels, or `null` to use the
+  /// document-level default spacing.
+  final double? spaceBefore;
+
+  /// Extra space after this block in logical pixels, or `null` to use the
+  /// document-level default spacing.
+  final double? spaceAfter;
+
+  /// Left indent in logical pixels, or `null` for no extra indent.
+  final double? indentLeft;
+
+  /// Right indent in logical pixels, or `null` for no extra indent.
+  final double? indentRight;
+
+  /// First-line indent in logical pixels, or `null` for no special first-line treatment.
+  ///
+  /// Positive values indent the first line further. Negative values create a
+  /// hanging indent (all lines except the first are indented).
+  final double? firstLineIndent;
+
   @override
   bool get isDraggable => true;
 
@@ -97,6 +136,12 @@ class BlockquoteNode extends TextNode implements HasBlockLayout {
     BlockAlignment? alignment,
     TextWrapMode? textWrap,
     TextAlign? textAlign,
+    double? lineHeight,
+    double? spaceBefore,
+    double? spaceAfter,
+    double? indentLeft,
+    double? indentRight,
+    double? firstLineIndent,
     Map<String, dynamic>? metadata,
   }) {
     return BlockquoteNode(
@@ -107,6 +152,12 @@ class BlockquoteNode extends TextNode implements HasBlockLayout {
       alignment: alignment ?? this.alignment,
       textWrap: textWrap ?? this.textWrap,
       textAlign: textAlign ?? this.textAlign,
+      lineHeight: lineHeight ?? this.lineHeight,
+      spaceBefore: spaceBefore ?? this.spaceBefore,
+      spaceAfter: spaceAfter ?? this.spaceAfter,
+      indentLeft: indentLeft ?? this.indentLeft,
+      indentRight: indentRight ?? this.indentRight,
+      firstLineIndent: firstLineIndent ?? this.firstLineIndent,
       metadata: metadata ?? this.metadata,
     );
   }
@@ -123,6 +174,12 @@ class BlockquoteNode extends TextNode implements HasBlockLayout {
         other.alignment == alignment &&
         other.textWrap == textWrap &&
         other.textAlign == textAlign &&
+        other.lineHeight == lineHeight &&
+        other.spaceBefore == spaceBefore &&
+        other.spaceAfter == spaceAfter &&
+        other.indentLeft == indentLeft &&
+        other.indentRight == indentRight &&
+        other.firstLineIndent == firstLineIndent &&
         mapEquals(other.metadata, metadata);
   }
 
@@ -135,6 +192,12 @@ class BlockquoteNode extends TextNode implements HasBlockLayout {
         alignment,
         textWrap,
         textAlign,
+        lineHeight,
+        spaceBefore,
+        spaceAfter,
+        indentLeft,
+        indentRight,
+        firstLineIndent,
         Object.hashAll(metadata.entries.map((e) => e)),
       );
 
@@ -152,11 +215,19 @@ class BlockquoteNode extends TextNode implements HasBlockLayout {
     properties.add(
       EnumProperty<TextAlign>('textAlign', textAlign, defaultValue: TextAlign.start),
     );
+    properties.add(DoubleProperty('lineHeight', lineHeight, defaultValue: null));
+    properties.add(DoubleProperty('spaceBefore', spaceBefore, defaultValue: null));
+    properties.add(DoubleProperty('spaceAfter', spaceAfter, defaultValue: null));
+    properties.add(DoubleProperty('indentLeft', indentLeft, defaultValue: null));
+    properties.add(DoubleProperty('indentRight', indentRight, defaultValue: null));
+    properties.add(DoubleProperty('firstLineIndent', firstLineIndent, defaultValue: null));
   }
 
   @override
   String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) =>
       'BlockquoteNode(id: $id, text: $text, width: $width, height: $height, '
       'alignment: ${alignment.name}, textWrap: $textWrap, textAlign: $textAlign, '
+      'lineHeight: $lineHeight, spaceBefore: $spaceBefore, spaceAfter: $spaceAfter, '
+      'indentLeft: $indentLeft, indentRight: $indentRight, firstLineIndent: $firstLineIndent, '
       'metadata: $metadata)';
 }

@@ -1794,4 +1794,385 @@ void main() {
       expect(node.textAlign, TextAlign.start);
     });
   });
+
+  // =========================================================================
+  // ChangeLineHeightCommand
+  // =========================================================================
+
+  group('ChangeLineHeightCommand', () {
+    test('1. changes lineHeight on ParagraphNode and returns NodeReplaced', () {
+      final doc = _twoParaDoc();
+      final ctx = _ctx(doc);
+      const cmd = ChangeLineHeightCommand(nodeId: 'p1', newLineHeight: 1.5);
+
+      final events = cmd.execute(ctx);
+
+      final node = doc.nodeById('p1') as ParagraphNode;
+      expect(node.lineHeight, 1.5);
+      expect(events, [const NodeReplaced(oldNodeId: 'p1', newNodeId: 'p1')]);
+    });
+
+    test('2. changes lineHeight on ListItemNode and returns NodeReplaced', () {
+      final doc = MutableDocument([
+        ListItemNode(id: 'li1', text: AttributedText('Item'), type: ListItemType.unordered),
+      ]);
+      final ctx = _ctx(doc);
+      const cmd = ChangeLineHeightCommand(nodeId: 'li1', newLineHeight: 2.0);
+
+      final events = cmd.execute(ctx);
+
+      final node = doc.nodeById('li1') as ListItemNode;
+      expect(node.lineHeight, 2.0);
+      expect(events, [const NodeReplaced(oldNodeId: 'li1', newNodeId: 'li1')]);
+    });
+
+    test('3. changes lineHeight on BlockquoteNode and returns NodeReplaced', () {
+      final doc = MutableDocument([
+        BlockquoteNode(id: 'bq1', text: AttributedText('A quote')),
+      ]);
+      final ctx = _ctx(doc);
+      const cmd = ChangeLineHeightCommand(nodeId: 'bq1', newLineHeight: 1.2);
+
+      final events = cmd.execute(ctx);
+
+      final node = doc.nodeById('bq1') as BlockquoteNode;
+      expect(node.lineHeight, 1.2);
+      expect(events, [const NodeReplaced(oldNodeId: 'bq1', newNodeId: 'bq1')]);
+    });
+
+    test('4. changes lineHeight on CodeBlockNode and returns NodeReplaced', () {
+      final doc = MutableDocument([
+        CodeBlockNode(id: 'cb1', text: AttributedText('code here')),
+      ]);
+      final ctx = _ctx(doc);
+      const cmd = ChangeLineHeightCommand(nodeId: 'cb1', newLineHeight: 1.8);
+
+      final events = cmd.execute(ctx);
+
+      final node = doc.nodeById('cb1') as CodeBlockNode;
+      expect(node.lineHeight, 1.8);
+      expect(events, [const NodeReplaced(oldNodeId: 'cb1', newNodeId: 'cb1')]);
+    });
+
+    test('5. throws StateError for unsupported node type (ImageNode)', () {
+      final doc = MutableDocument([ImageNode(id: 'img', imageUrl: 'https://x.com/img.png')]);
+      final ctx = _ctx(doc);
+      const cmd = ChangeLineHeightCommand(nodeId: 'img', newLineHeight: 1.5);
+      expect(() => cmd.execute(ctx), throwsStateError);
+    });
+
+    test('6. throws StateError for unsupported node type (HorizontalRuleNode)', () {
+      final doc = MutableDocument([HorizontalRuleNode(id: 'hr1')]);
+      final ctx = _ctx(doc);
+      const cmd = ChangeLineHeightCommand(nodeId: 'hr1', newLineHeight: 1.5);
+      expect(() => cmd.execute(ctx), throwsStateError);
+    });
+
+    test('7. throws StateError for unknown nodeId', () {
+      final doc = _twoParaDoc();
+      final ctx = _ctx(doc);
+      const cmd = ChangeLineHeightCommand(nodeId: 'nope', newLineHeight: 1.5);
+      expect(() => cmd.execute(ctx), throwsStateError);
+    });
+
+    test('8. null newLineHeight is a no-op on existing lineHeight', () {
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('Hello'), lineHeight: 1.5),
+      ]);
+      final ctx = _ctx(doc);
+      const cmd = ChangeLineHeightCommand(nodeId: 'p1', newLineHeight: null);
+
+      cmd.execute(ctx);
+
+      // null means "keep existing" because copyWith(lineHeight: null) falls back.
+      final node = doc.nodeById('p1') as ParagraphNode;
+      expect(node.lineHeight, 1.5);
+    });
+  });
+
+  // =========================================================================
+  // ChangeSpacingCommand
+  // =========================================================================
+
+  group('ChangeSpacingCommand', () {
+    test('1. changes spaceBefore and spaceAfter on ParagraphNode', () {
+      final doc = _twoParaDoc();
+      final ctx = _ctx(doc);
+      const cmd = ChangeSpacingCommand(nodeId: 'p1', newSpaceBefore: 8.0, newSpaceAfter: 16.0);
+
+      final events = cmd.execute(ctx);
+
+      final node = doc.nodeById('p1') as ParagraphNode;
+      expect(node.spaceBefore, 8.0);
+      expect(node.spaceAfter, 16.0);
+      expect(events, [const NodeReplaced(oldNodeId: 'p1', newNodeId: 'p1')]);
+    });
+
+    test('2. changes spaceBefore and spaceAfter on ListItemNode', () {
+      final doc = MutableDocument([
+        ListItemNode(id: 'li1', text: AttributedText('Item'), type: ListItemType.unordered),
+      ]);
+      final ctx = _ctx(doc);
+      const cmd = ChangeSpacingCommand(nodeId: 'li1', newSpaceBefore: 4.0, newSpaceAfter: 4.0);
+
+      final events = cmd.execute(ctx);
+
+      final node = doc.nodeById('li1') as ListItemNode;
+      expect(node.spaceBefore, 4.0);
+      expect(node.spaceAfter, 4.0);
+      expect(events, [const NodeReplaced(oldNodeId: 'li1', newNodeId: 'li1')]);
+    });
+
+    test('3. changes spaceBefore and spaceAfter on BlockquoteNode', () {
+      final doc = MutableDocument([
+        BlockquoteNode(id: 'bq1', text: AttributedText('A quote')),
+      ]);
+      final ctx = _ctx(doc);
+      const cmd = ChangeSpacingCommand(nodeId: 'bq1', newSpaceBefore: 12.0, newSpaceAfter: 12.0);
+
+      final events = cmd.execute(ctx);
+
+      final node = doc.nodeById('bq1') as BlockquoteNode;
+      expect(node.spaceBefore, 12.0);
+      expect(node.spaceAfter, 12.0);
+      expect(events, [const NodeReplaced(oldNodeId: 'bq1', newNodeId: 'bq1')]);
+    });
+
+    test('4. changes spaceBefore and spaceAfter on CodeBlockNode', () {
+      final doc = MutableDocument([
+        CodeBlockNode(id: 'cb1', text: AttributedText('code')),
+      ]);
+      final ctx = _ctx(doc);
+      const cmd = ChangeSpacingCommand(nodeId: 'cb1', newSpaceBefore: 6.0, newSpaceAfter: 6.0);
+
+      final events = cmd.execute(ctx);
+
+      final node = doc.nodeById('cb1') as CodeBlockNode;
+      expect(node.spaceBefore, 6.0);
+      expect(node.spaceAfter, 6.0);
+      expect(events, [const NodeReplaced(oldNodeId: 'cb1', newNodeId: 'cb1')]);
+    });
+
+    test('5. changes spaceBefore and spaceAfter on ImageNode', () {
+      final doc = MutableDocument([
+        ImageNode(id: 'img', imageUrl: 'https://x.com/img.png'),
+      ]);
+      final ctx = _ctx(doc);
+      const cmd = ChangeSpacingCommand(nodeId: 'img', newSpaceBefore: 10.0, newSpaceAfter: 10.0);
+
+      final events = cmd.execute(ctx);
+
+      final node = doc.nodeById('img') as ImageNode;
+      expect(node.spaceBefore, 10.0);
+      expect(node.spaceAfter, 10.0);
+      expect(events, [const NodeReplaced(oldNodeId: 'img', newNodeId: 'img')]);
+    });
+
+    test('6. changes spaceBefore and spaceAfter on HorizontalRuleNode', () {
+      final doc = MutableDocument([HorizontalRuleNode(id: 'hr1')]);
+      final ctx = _ctx(doc);
+      const cmd = ChangeSpacingCommand(nodeId: 'hr1', newSpaceBefore: 20.0, newSpaceAfter: 20.0);
+
+      final events = cmd.execute(ctx);
+
+      final node = doc.nodeById('hr1') as HorizontalRuleNode;
+      expect(node.spaceBefore, 20.0);
+      expect(node.spaceAfter, 20.0);
+      expect(events, [const NodeReplaced(oldNodeId: 'hr1', newNodeId: 'hr1')]);
+    });
+
+    test('7. changes spaceBefore and spaceAfter on TableNode', () {
+      final doc = MutableDocument([
+        TableNode(
+          id: 'tbl1',
+          rowCount: 1,
+          columnCount: 1,
+          cells: [
+            [AttributedText('cell')],
+          ],
+        ),
+      ]);
+      final ctx = _ctx(doc);
+      const cmd = ChangeSpacingCommand(nodeId: 'tbl1', newSpaceBefore: 5.0, newSpaceAfter: 5.0);
+
+      final events = cmd.execute(ctx);
+
+      final node = doc.nodeById('tbl1') as TableNode;
+      expect(node.spaceBefore, 5.0);
+      expect(node.spaceAfter, 5.0);
+      expect(events, [const NodeReplaced(oldNodeId: 'tbl1', newNodeId: 'tbl1')]);
+    });
+
+    test('8. only spaceBefore is applied when newSpaceAfter is null', () {
+      final doc = _twoParaDoc();
+      final ctx = _ctx(doc);
+      const cmd = ChangeSpacingCommand(nodeId: 'p1', newSpaceBefore: 8.0);
+
+      cmd.execute(ctx);
+
+      final node = doc.nodeById('p1') as ParagraphNode;
+      expect(node.spaceBefore, 8.0);
+      expect(node.spaceAfter, isNull);
+    });
+
+    test('9. only spaceAfter is applied when newSpaceBefore is null', () {
+      final doc = _twoParaDoc();
+      final ctx = _ctx(doc);
+      const cmd = ChangeSpacingCommand(nodeId: 'p1', newSpaceAfter: 16.0);
+
+      cmd.execute(ctx);
+
+      final node = doc.nodeById('p1') as ParagraphNode;
+      expect(node.spaceBefore, isNull);
+      expect(node.spaceAfter, 16.0);
+    });
+
+    test('10. throws StateError for unknown nodeId', () {
+      final doc = _twoParaDoc();
+      final ctx = _ctx(doc);
+      const cmd = ChangeSpacingCommand(nodeId: 'nope', newSpaceBefore: 8.0);
+      expect(() => cmd.execute(ctx), throwsStateError);
+    });
+  });
+
+  // =========================================================================
+  // ChangeIndentCommand
+  // =========================================================================
+
+  group('ChangeIndentCommand', () {
+    test('1. changes indentLeft, indentRight, and firstLineIndent on ParagraphNode', () {
+      final doc = _twoParaDoc();
+      final ctx = _ctx(doc);
+      const cmd = ChangeIndentCommand(
+        nodeId: 'p1',
+        newIndentLeft: 16.0,
+        newIndentRight: 8.0,
+        newFirstLineIndent: 24.0,
+      );
+
+      final events = cmd.execute(ctx);
+
+      final node = doc.nodeById('p1') as ParagraphNode;
+      expect(node.indentLeft, 16.0);
+      expect(node.indentRight, 8.0);
+      expect(node.firstLineIndent, 24.0);
+      expect(events, [const NodeReplaced(oldNodeId: 'p1', newNodeId: 'p1')]);
+    });
+
+    test('2. changes indentLeft and indentRight on ListItemNode (no firstLineIndent)', () {
+      final doc = MutableDocument([
+        ListItemNode(id: 'li1', text: AttributedText('Item'), type: ListItemType.unordered),
+      ]);
+      final ctx = _ctx(doc);
+      const cmd = ChangeIndentCommand(
+        nodeId: 'li1',
+        newIndentLeft: 16.0,
+        newIndentRight: 8.0,
+        newFirstLineIndent: 24.0, // must be ignored for ListItemNode
+      );
+
+      final events = cmd.execute(ctx);
+
+      final node = doc.nodeById('li1') as ListItemNode;
+      expect(node.indentLeft, 16.0);
+      expect(node.indentRight, 8.0);
+      expect(events, [const NodeReplaced(oldNodeId: 'li1', newNodeId: 'li1')]);
+    });
+
+    test('3. changes indentLeft, indentRight, and firstLineIndent on BlockquoteNode', () {
+      final doc = MutableDocument([
+        BlockquoteNode(id: 'bq1', text: AttributedText('A quote')),
+      ]);
+      final ctx = _ctx(doc);
+      const cmd = ChangeIndentCommand(
+        nodeId: 'bq1',
+        newIndentLeft: 20.0,
+        newIndentRight: 10.0,
+        newFirstLineIndent: -16.0,
+      );
+
+      final events = cmd.execute(ctx);
+
+      final node = doc.nodeById('bq1') as BlockquoteNode;
+      expect(node.indentLeft, 20.0);
+      expect(node.indentRight, 10.0);
+      expect(node.firstLineIndent, -16.0);
+      expect(events, [const NodeReplaced(oldNodeId: 'bq1', newNodeId: 'bq1')]);
+    });
+
+    test('4. only indentLeft is applied when others are null', () {
+      final doc = _twoParaDoc();
+      final ctx = _ctx(doc);
+      const cmd = ChangeIndentCommand(nodeId: 'p1', newIndentLeft: 16.0);
+
+      cmd.execute(ctx);
+
+      final node = doc.nodeById('p1') as ParagraphNode;
+      expect(node.indentLeft, 16.0);
+      expect(node.indentRight, isNull);
+      expect(node.firstLineIndent, isNull);
+    });
+
+    test('5. only indentRight is applied when others are null', () {
+      final doc = _twoParaDoc();
+      final ctx = _ctx(doc);
+      const cmd = ChangeIndentCommand(nodeId: 'p1', newIndentRight: 8.0);
+
+      cmd.execute(ctx);
+
+      final node = doc.nodeById('p1') as ParagraphNode;
+      expect(node.indentLeft, isNull);
+      expect(node.indentRight, 8.0);
+      expect(node.firstLineIndent, isNull);
+    });
+
+    test('6. only firstLineIndent is applied on ParagraphNode when others are null', () {
+      final doc = _twoParaDoc();
+      final ctx = _ctx(doc);
+      const cmd = ChangeIndentCommand(nodeId: 'p1', newFirstLineIndent: 24.0);
+
+      cmd.execute(ctx);
+
+      final node = doc.nodeById('p1') as ParagraphNode;
+      expect(node.indentLeft, isNull);
+      expect(node.indentRight, isNull);
+      expect(node.firstLineIndent, 24.0);
+    });
+
+    test('7. preserves existing indent values when new values are null', () {
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', indentLeft: 16.0, indentRight: 8.0, firstLineIndent: 24.0),
+      ]);
+      final ctx = _ctx(doc);
+      const cmd = ChangeIndentCommand(nodeId: 'p1', newIndentLeft: 32.0);
+
+      cmd.execute(ctx);
+
+      final node = doc.nodeById('p1') as ParagraphNode;
+      expect(node.indentLeft, 32.0);
+      expect(node.indentRight, 8.0);
+      expect(node.firstLineIndent, 24.0);
+    });
+
+    test('8. throws StateError for unsupported node type (CodeBlockNode)', () {
+      final doc = MutableDocument([CodeBlockNode(id: 'cb1', text: AttributedText('code'))]);
+      final ctx = _ctx(doc);
+      const cmd = ChangeIndentCommand(nodeId: 'cb1', newIndentLeft: 16.0);
+      expect(() => cmd.execute(ctx), throwsStateError);
+    });
+
+    test('9. throws StateError for unsupported node type (ImageNode)', () {
+      final doc = MutableDocument([ImageNode(id: 'img', imageUrl: 'https://x.com/img.png')]);
+      final ctx = _ctx(doc);
+      const cmd = ChangeIndentCommand(nodeId: 'img', newIndentLeft: 16.0);
+      expect(() => cmd.execute(ctx), throwsStateError);
+    });
+
+    test('10. throws StateError for unknown nodeId', () {
+      final doc = _twoParaDoc();
+      final ctx = _ctx(doc);
+      const cmd = ChangeIndentCommand(nodeId: 'nope', newIndentLeft: 16.0);
+      expect(() => cmd.execute(ctx), throwsStateError);
+    });
+  });
 }

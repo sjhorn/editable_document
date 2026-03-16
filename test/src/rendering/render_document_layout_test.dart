@@ -3393,4 +3393,84 @@ void main() {
       }
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Per-block spaceBefore / spaceAfter
+  // ---------------------------------------------------------------------------
+
+  group('RenderDocumentLayout per-block spacing', () {
+    /// Helper to read the y-offset of a child from its parent data.
+    double blockTop(RenderDocumentBlock block) =>
+        (block.parentData as DocumentBlockParentData).offset.dy;
+
+    test('spaceBefore on second block overrides blockSpacing', () {
+      // With blockSpacing=12 and no per-block spacing, two text blocks have
+      // their tops separated by block1Height + 12.
+      final b1 = _textBlock('p1', 'Block one');
+      final b2 = _textBlock('p2', 'Block two');
+      final layoutDefault = _layout(children: [b1, b2], blockSpacing: 12.0);
+
+      final b1Default = layoutDefault.getComponentByNodeId('p1')!;
+      final b2Default = layoutDefault.getComponentByNodeId('p2')!;
+      final gapDefault = blockTop(b2Default) - (blockTop(b1Default) + b1Default.size.height);
+
+      expect(gapDefault, closeTo(12.0, 0.01),
+          reason: 'default gap between blocks should be blockSpacing');
+
+      // Now set spaceBefore=30 on the second block; the gap should be 30.
+      final c1 = _textBlock('p1', 'Block one');
+      final c2 = _textBlock('p2', 'Block two');
+      c2.spaceBefore = 30.0;
+      final layoutCustom = _layout(children: [c1, c2], blockSpacing: 12.0);
+
+      final c1Layout = layoutCustom.getComponentByNodeId('p1')!;
+      final c2Layout = layoutCustom.getComponentByNodeId('p2')!;
+      final gapCustom = blockTop(c2Layout) - (blockTop(c1Layout) + c1Layout.size.height);
+
+      expect(gapCustom, closeTo(30.0, 0.01),
+          reason: 'spaceBefore=30 should override the default blockSpacing=12');
+    });
+
+    test('spaceAfter on first block overrides blockSpacing', () {
+      final b1 = _textBlock('p1', 'Block one');
+      final b2 = _textBlock('p2', 'Block two');
+      b1.spaceAfter = 40.0;
+      final layout = _layout(children: [b1, b2], blockSpacing: 12.0);
+
+      final l1 = layout.getComponentByNodeId('p1')!;
+      final l2 = layout.getComponentByNodeId('p2')!;
+      final gap = blockTop(l2) - (blockTop(l1) + l1.size.height);
+
+      expect(gap, closeTo(40.0, 0.01),
+          reason: 'spaceAfter=40 on first block should produce a 40px gap');
+    });
+
+    test('max(spaceAfter, spaceBefore) wins when both are set', () {
+      final b1 = _textBlock('p1', 'Block one');
+      final b2 = _textBlock('p2', 'Block two');
+      b1.spaceAfter = 20.0;
+      b2.spaceBefore = 50.0;
+      final layout = _layout(children: [b1, b2], blockSpacing: 12.0);
+
+      final l1 = layout.getComponentByNodeId('p1')!;
+      final l2 = layout.getComponentByNodeId('p2')!;
+      final gap = blockTop(l2) - (blockTop(l1) + l1.size.height);
+
+      expect(gap, closeTo(50.0, 0.01),
+          reason: 'max(spaceAfter=20, spaceBefore=50) = 50 should be the gap');
+    });
+
+    test('blockSpacing used when neither spaceBefore nor spaceAfter is set', () {
+      final b1 = _textBlock('p1', 'Block one');
+      final b2 = _textBlock('p2', 'Block two');
+      final layout = _layout(children: [b1, b2], blockSpacing: 24.0);
+
+      final l1 = layout.getComponentByNodeId('p1')!;
+      final l2 = layout.getComponentByNodeId('p2')!;
+      final gap = blockTop(l2) - (blockTop(l1) + l1.size.height);
+
+      expect(gap, closeTo(24.0, 0.01),
+          reason: 'blockSpacing=24 should be used when no per-block spacing is set');
+    });
+  });
 }

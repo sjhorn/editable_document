@@ -56,6 +56,101 @@ ParagraphNode _paragraph(
         {String id = 'p1', String text = 'Hello', TextAlign textAlign = TextAlign.start}) =>
     ParagraphNode(id: id, text: AttributedText(text), textAlign: textAlign);
 
+ParagraphNode _paragraphFull({
+  String id = 'p1',
+  String text = 'Hello',
+  double? lineHeight,
+  double? spaceBefore,
+  double? spaceAfter,
+  double? indentLeft,
+  double? indentRight,
+  double? firstLineIndent,
+}) =>
+    ParagraphNode(
+      id: id,
+      text: AttributedText(text),
+      lineHeight: lineHeight,
+      spaceBefore: spaceBefore,
+      spaceAfter: spaceAfter,
+      indentLeft: indentLeft,
+      indentRight: indentRight,
+      firstLineIndent: firstLineIndent,
+    );
+
+ListItemNode _listItemFull({
+  String id = 'li1',
+  String text = 'Item',
+  double? lineHeight,
+  double? spaceBefore,
+  double? spaceAfter,
+  double? indentLeft,
+  double? indentRight,
+}) =>
+    ListItemNode(
+      id: id,
+      text: AttributedText(text),
+      lineHeight: lineHeight,
+      spaceBefore: spaceBefore,
+      spaceAfter: spaceAfter,
+      indentLeft: indentLeft,
+      indentRight: indentRight,
+    );
+
+BlockquoteNode _blockquoteFull({
+  String id = 'bq1',
+  String text = 'quote',
+  double? lineHeight,
+  double? spaceBefore,
+  double? spaceAfter,
+  double? indentLeft,
+  double? indentRight,
+  double? firstLineIndent,
+}) =>
+    BlockquoteNode(
+      id: id,
+      text: AttributedText(text),
+      lineHeight: lineHeight,
+      spaceBefore: spaceBefore,
+      spaceAfter: spaceAfter,
+      indentLeft: indentLeft,
+      indentRight: indentRight,
+      firstLineIndent: firstLineIndent,
+    );
+
+CodeBlockNode _codeBlockFull({
+  String id = 'cb1',
+  String text = 'void main() {}',
+  double? lineHeight,
+  double? spaceBefore,
+  double? spaceAfter,
+}) =>
+    CodeBlockNode(
+      id: id,
+      text: AttributedText(text),
+      lineHeight: lineHeight,
+      spaceBefore: spaceBefore,
+      spaceAfter: spaceAfter,
+    );
+
+ImageNode _imageFull({
+  String id = 'img1',
+  double? spaceBefore,
+  double? spaceAfter,
+}) =>
+    ImageNode(
+      id: id,
+      imageUrl: 'https://example.com/img.png',
+      spaceBefore: spaceBefore,
+      spaceAfter: spaceAfter,
+    );
+
+HorizontalRuleNode _ruleFull({
+  String id = 'hr1',
+  double? spaceBefore,
+  double? spaceAfter,
+}) =>
+    HorizontalRuleNode(id: id, spaceBefore: spaceBefore, spaceAfter: spaceAfter);
+
 ListItemNode _listItemWithAlign(
         {String id = 'li1', String text = 'Item', TextAlign textAlign = TextAlign.start}) =>
     ListItemNode(id: id, text: AttributedText(text), textAlign: textAlign);
@@ -1080,6 +1175,593 @@ void main() {
         ),
       );
       // Should not throw — verifies textAlign wires through the pipeline.
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // ParagraphComponentBuilder — lineHeight, spaceBefore, spaceAfter,
+  // indentLeft, indentRight, firstLineIndent
+  // -------------------------------------------------------------------------
+
+  group('ParagraphComponentBuilder — spacing and indent fields', () {
+    test('createViewModel copies lineHeight from ParagraphNode', () {
+      final node = _paragraphFull(lineHeight: 1.5);
+      final doc = _doc([node]);
+      final vm = const ParagraphComponentBuilder().createViewModel(doc, node)
+          as ParagraphComponentViewModel;
+      expect(vm.lineHeight, 1.5);
+    });
+
+    test('createViewModel copies spaceBefore and spaceAfter from ParagraphNode', () {
+      final node = _paragraphFull(spaceBefore: 8.0, spaceAfter: 16.0);
+      final doc = _doc([node]);
+      final vm = const ParagraphComponentBuilder().createViewModel(doc, node)
+          as ParagraphComponentViewModel;
+      expect(vm.spaceBefore, 8.0);
+      expect(vm.spaceAfter, 16.0);
+    });
+
+    test('createViewModel copies indentLeft, indentRight, firstLineIndent from ParagraphNode', () {
+      final node = _paragraphFull(indentLeft: 24.0, indentRight: 12.0, firstLineIndent: 32.0);
+      final doc = _doc([node]);
+      final vm = const ParagraphComponentBuilder().createViewModel(doc, node)
+          as ParagraphComponentViewModel;
+      expect(vm.indentLeft, 24.0);
+      expect(vm.indentRight, 12.0);
+      expect(vm.firstLineIndent, 32.0);
+    });
+
+    test('createViewModel defaults spacing and indent fields to null', () {
+      final node = _paragraph();
+      final doc = _doc([node]);
+      final vm = const ParagraphComponentBuilder().createViewModel(doc, node)
+          as ParagraphComponentViewModel;
+      expect(vm.lineHeight, isNull);
+      expect(vm.spaceBefore, isNull);
+      expect(vm.spaceAfter, isNull);
+      expect(vm.indentLeft, isNull);
+      expect(vm.indentRight, isNull);
+      expect(vm.firstLineIndent, isNull);
+    });
+
+    test('ParagraphComponentViewModel equality considers lineHeight', () {
+      final a = ParagraphComponentViewModel(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        blockType: ParagraphBlockType.paragraph,
+        textStyle: const TextStyle(),
+        lineHeight: 1.5,
+      );
+      final b = ParagraphComponentViewModel(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        blockType: ParagraphBlockType.paragraph,
+        textStyle: const TextStyle(),
+        lineHeight: 1.5,
+      );
+      final c = ParagraphComponentViewModel(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        blockType: ParagraphBlockType.paragraph,
+        textStyle: const TextStyle(),
+        lineHeight: 2.0,
+      );
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+      expect(a, isNot(equals(c)));
+    });
+
+    test('ParagraphComponentViewModel equality considers spaceBefore/spaceAfter', () {
+      final a = ParagraphComponentViewModel(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        blockType: ParagraphBlockType.paragraph,
+        textStyle: const TextStyle(),
+        spaceBefore: 8.0,
+        spaceAfter: 16.0,
+      );
+      final b = ParagraphComponentViewModel(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        blockType: ParagraphBlockType.paragraph,
+        textStyle: const TextStyle(),
+        spaceBefore: 8.0,
+        spaceAfter: 16.0,
+      );
+      final c = ParagraphComponentViewModel(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        blockType: ParagraphBlockType.paragraph,
+        textStyle: const TextStyle(),
+        spaceBefore: 4.0,
+      );
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+      expect(a, isNot(equals(c)));
+    });
+
+    test('ParagraphComponentViewModel equality considers indent fields', () {
+      final a = ParagraphComponentViewModel(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        blockType: ParagraphBlockType.paragraph,
+        textStyle: const TextStyle(),
+        indentLeft: 24.0,
+        indentRight: 12.0,
+        firstLineIndent: 32.0,
+      );
+      final b = ParagraphComponentViewModel(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        blockType: ParagraphBlockType.paragraph,
+        textStyle: const TextStyle(),
+        indentLeft: 24.0,
+        indentRight: 12.0,
+        firstLineIndent: 32.0,
+      );
+      final c = ParagraphComponentViewModel(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        blockType: ParagraphBlockType.paragraph,
+        textStyle: const TextStyle(),
+        indentLeft: 0.0,
+      );
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+      expect(a, isNot(equals(c)));
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // ListItemComponentBuilder — lineHeight, spaceBefore, spaceAfter,
+  // indentLeft, indentRight
+  // -------------------------------------------------------------------------
+
+  group('ListItemComponentBuilder — spacing and indent fields', () {
+    test('createViewModel copies lineHeight from ListItemNode', () {
+      final node = _listItemFull(lineHeight: 1.5);
+      final doc = _doc([node]);
+      final vm =
+          const ListItemComponentBuilder().createViewModel(doc, node) as ListItemComponentViewModel;
+      expect(vm.lineHeight, 1.5);
+    });
+
+    test('createViewModel copies spaceBefore and spaceAfter from ListItemNode', () {
+      final node = _listItemFull(spaceBefore: 4.0, spaceAfter: 8.0);
+      final doc = _doc([node]);
+      final vm =
+          const ListItemComponentBuilder().createViewModel(doc, node) as ListItemComponentViewModel;
+      expect(vm.spaceBefore, 4.0);
+      expect(vm.spaceAfter, 8.0);
+    });
+
+    test('createViewModel copies indentLeft and indentRight from ListItemNode', () {
+      final node = _listItemFull(indentLeft: 20.0, indentRight: 10.0);
+      final doc = _doc([node]);
+      final vm =
+          const ListItemComponentBuilder().createViewModel(doc, node) as ListItemComponentViewModel;
+      expect(vm.indentLeft, 20.0);
+      expect(vm.indentRight, 10.0);
+    });
+
+    test('createViewModel defaults spacing and indent fields to null', () {
+      final node = _listItem();
+      final doc = _doc([node]);
+      final vm =
+          const ListItemComponentBuilder().createViewModel(doc, node) as ListItemComponentViewModel;
+      expect(vm.lineHeight, isNull);
+      expect(vm.spaceBefore, isNull);
+      expect(vm.spaceAfter, isNull);
+      expect(vm.indentLeft, isNull);
+      expect(vm.indentRight, isNull);
+    });
+
+    test('ListItemComponentViewModel equality considers lineHeight and spacing', () {
+      final a = ListItemComponentViewModel(
+        nodeId: 'li1',
+        text: AttributedText('Item'),
+        type: ListItemType.unordered,
+        indent: 0,
+        ordinalIndex: 1,
+        textStyle: const TextStyle(),
+        lineHeight: 1.5,
+        spaceBefore: 4.0,
+        spaceAfter: 8.0,
+      );
+      final b = ListItemComponentViewModel(
+        nodeId: 'li1',
+        text: AttributedText('Item'),
+        type: ListItemType.unordered,
+        indent: 0,
+        ordinalIndex: 1,
+        textStyle: const TextStyle(),
+        lineHeight: 1.5,
+        spaceBefore: 4.0,
+        spaceAfter: 8.0,
+      );
+      final c = ListItemComponentViewModel(
+        nodeId: 'li1',
+        text: AttributedText('Item'),
+        type: ListItemType.unordered,
+        indent: 0,
+        ordinalIndex: 1,
+        textStyle: const TextStyle(),
+        lineHeight: 2.0,
+      );
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+      expect(a, isNot(equals(c)));
+    });
+
+    test('ListItemComponentViewModel equality considers indentLeft and indentRight', () {
+      final a = ListItemComponentViewModel(
+        nodeId: 'li1',
+        text: AttributedText('Item'),
+        type: ListItemType.unordered,
+        indent: 0,
+        ordinalIndex: 1,
+        textStyle: const TextStyle(),
+        indentLeft: 20.0,
+        indentRight: 10.0,
+      );
+      final b = ListItemComponentViewModel(
+        nodeId: 'li1',
+        text: AttributedText('Item'),
+        type: ListItemType.unordered,
+        indent: 0,
+        ordinalIndex: 1,
+        textStyle: const TextStyle(),
+        indentLeft: 20.0,
+        indentRight: 10.0,
+      );
+      final c = ListItemComponentViewModel(
+        nodeId: 'li1',
+        text: AttributedText('Item'),
+        type: ListItemType.unordered,
+        indent: 0,
+        ordinalIndex: 1,
+        textStyle: const TextStyle(),
+        indentLeft: 5.0,
+      );
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+      expect(a, isNot(equals(c)));
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // BlockquoteComponentBuilder — lineHeight, spaceBefore, spaceAfter,
+  // indentLeft, indentRight, firstLineIndent
+  // -------------------------------------------------------------------------
+
+  group('BlockquoteComponentBuilder — spacing and indent fields', () {
+    test('createViewModel copies lineHeight from BlockquoteNode', () {
+      final node = _blockquoteFull(lineHeight: 1.8);
+      final doc = _doc([node]);
+      final vm = const BlockquoteComponentBuilder().createViewModel(doc, node)
+          as BlockquoteComponentViewModel;
+      expect(vm.lineHeight, 1.8);
+    });
+
+    test('createViewModel copies spaceBefore and spaceAfter from BlockquoteNode', () {
+      final node = _blockquoteFull(spaceBefore: 12.0, spaceAfter: 24.0);
+      final doc = _doc([node]);
+      final vm = const BlockquoteComponentBuilder().createViewModel(doc, node)
+          as BlockquoteComponentViewModel;
+      expect(vm.spaceBefore, 12.0);
+      expect(vm.spaceAfter, 24.0);
+    });
+
+    test('createViewModel copies indentLeft, indentRight, firstLineIndent from BlockquoteNode', () {
+      final node = _blockquoteFull(indentLeft: 16.0, indentRight: 8.0, firstLineIndent: 20.0);
+      final doc = _doc([node]);
+      final vm = const BlockquoteComponentBuilder().createViewModel(doc, node)
+          as BlockquoteComponentViewModel;
+      expect(vm.indentLeft, 16.0);
+      expect(vm.indentRight, 8.0);
+      expect(vm.firstLineIndent, 20.0);
+    });
+
+    test('createViewModel defaults spacing and indent fields to null', () {
+      final node = _blockquote();
+      final doc = _doc([node]);
+      final vm = const BlockquoteComponentBuilder().createViewModel(doc, node)
+          as BlockquoteComponentViewModel;
+      expect(vm.lineHeight, isNull);
+      expect(vm.spaceBefore, isNull);
+      expect(vm.spaceAfter, isNull);
+      expect(vm.indentLeft, isNull);
+      expect(vm.indentRight, isNull);
+      expect(vm.firstLineIndent, isNull);
+    });
+
+    test('BlockquoteComponentViewModel equality considers lineHeight and spacing', () {
+      final a = BlockquoteComponentViewModel(
+        nodeId: 'bq1',
+        text: AttributedText('quote'),
+        textStyle: const TextStyle(),
+        lineHeight: 1.8,
+        spaceBefore: 12.0,
+        spaceAfter: 24.0,
+      );
+      final b = BlockquoteComponentViewModel(
+        nodeId: 'bq1',
+        text: AttributedText('quote'),
+        textStyle: const TextStyle(),
+        lineHeight: 1.8,
+        spaceBefore: 12.0,
+        spaceAfter: 24.0,
+      );
+      final c = BlockquoteComponentViewModel(
+        nodeId: 'bq1',
+        text: AttributedText('quote'),
+        textStyle: const TextStyle(),
+        lineHeight: 1.0,
+      );
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+      expect(a, isNot(equals(c)));
+    });
+
+    test('BlockquoteComponentViewModel equality considers indent fields', () {
+      final a = BlockquoteComponentViewModel(
+        nodeId: 'bq1',
+        text: AttributedText('quote'),
+        textStyle: const TextStyle(),
+        indentLeft: 16.0,
+        indentRight: 8.0,
+        firstLineIndent: 20.0,
+      );
+      final b = BlockquoteComponentViewModel(
+        nodeId: 'bq1',
+        text: AttributedText('quote'),
+        textStyle: const TextStyle(),
+        indentLeft: 16.0,
+        indentRight: 8.0,
+        firstLineIndent: 20.0,
+      );
+      final c = BlockquoteComponentViewModel(
+        nodeId: 'bq1',
+        text: AttributedText('quote'),
+        textStyle: const TextStyle(),
+        firstLineIndent: 5.0,
+      );
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+      expect(a, isNot(equals(c)));
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // CodeBlockComponentBuilder — lineHeight, spaceBefore, spaceAfter
+  // -------------------------------------------------------------------------
+
+  group('CodeBlockComponentBuilder — spacing fields', () {
+    test('createViewModel copies lineHeight from CodeBlockNode', () {
+      final node = _codeBlockFull(lineHeight: 1.6);
+      final doc = _doc([node]);
+      final vm = const CodeBlockComponentBuilder().createViewModel(doc, node)
+          as CodeBlockComponentViewModel;
+      expect(vm.lineHeight, 1.6);
+    });
+
+    test('createViewModel copies spaceBefore and spaceAfter from CodeBlockNode', () {
+      final node = _codeBlockFull(spaceBefore: 10.0, spaceAfter: 20.0);
+      final doc = _doc([node]);
+      final vm = const CodeBlockComponentBuilder().createViewModel(doc, node)
+          as CodeBlockComponentViewModel;
+      expect(vm.spaceBefore, 10.0);
+      expect(vm.spaceAfter, 20.0);
+    });
+
+    test('createViewModel defaults lineHeight and spacing to null', () {
+      final node = _codeBlock();
+      final doc = _doc([node]);
+      final vm = const CodeBlockComponentBuilder().createViewModel(doc, node)
+          as CodeBlockComponentViewModel;
+      expect(vm.lineHeight, isNull);
+      expect(vm.spaceBefore, isNull);
+      expect(vm.spaceAfter, isNull);
+    });
+
+    test('CodeBlockComponentViewModel equality considers lineHeight', () {
+      final a = CodeBlockComponentViewModel(
+        nodeId: 'cb1',
+        text: AttributedText('code'),
+        textStyle: const TextStyle(),
+        lineHeight: 1.6,
+      );
+      final b = CodeBlockComponentViewModel(
+        nodeId: 'cb1',
+        text: AttributedText('code'),
+        textStyle: const TextStyle(),
+        lineHeight: 1.6,
+      );
+      final c = CodeBlockComponentViewModel(
+        nodeId: 'cb1',
+        text: AttributedText('code'),
+        textStyle: const TextStyle(),
+        lineHeight: 2.0,
+      );
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+      expect(a, isNot(equals(c)));
+    });
+
+    test('CodeBlockComponentViewModel equality considers spaceBefore and spaceAfter', () {
+      final a = CodeBlockComponentViewModel(
+        nodeId: 'cb1',
+        text: AttributedText('code'),
+        textStyle: const TextStyle(),
+        spaceBefore: 10.0,
+        spaceAfter: 20.0,
+      );
+      final b = CodeBlockComponentViewModel(
+        nodeId: 'cb1',
+        text: AttributedText('code'),
+        textStyle: const TextStyle(),
+        spaceBefore: 10.0,
+        spaceAfter: 20.0,
+      );
+      final c = CodeBlockComponentViewModel(
+        nodeId: 'cb1',
+        text: AttributedText('code'),
+        textStyle: const TextStyle(),
+        spaceBefore: 5.0,
+      );
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+      expect(a, isNot(equals(c)));
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // ImageComponentBuilder — spaceBefore, spaceAfter
+  // -------------------------------------------------------------------------
+
+  group('ImageComponentBuilder — spacing fields', () {
+    test('createViewModel copies spaceBefore and spaceAfter from ImageNode', () {
+      final node = _imageFull(spaceBefore: 6.0, spaceAfter: 12.0);
+      final doc = _doc([node]);
+      final vm =
+          const ImageComponentBuilder().createViewModel(doc, node) as ImageComponentViewModel;
+      expect(vm.spaceBefore, 6.0);
+      expect(vm.spaceAfter, 12.0);
+    });
+
+    test('createViewModel defaults spaceBefore and spaceAfter to null', () {
+      final node = _image();
+      final doc = _doc([node]);
+      final vm =
+          const ImageComponentBuilder().createViewModel(doc, node) as ImageComponentViewModel;
+      expect(vm.spaceBefore, isNull);
+      expect(vm.spaceAfter, isNull);
+    });
+
+    test('ImageComponentViewModel equality considers spaceBefore and spaceAfter', () {
+      const a = ImageComponentViewModel(
+        nodeId: 'img1',
+        imageUrl: 'https://example.com/img.png',
+        spaceBefore: 6.0,
+        spaceAfter: 12.0,
+      );
+      const b = ImageComponentViewModel(
+        nodeId: 'img1',
+        imageUrl: 'https://example.com/img.png',
+        spaceBefore: 6.0,
+        spaceAfter: 12.0,
+      );
+      const c = ImageComponentViewModel(
+        nodeId: 'img1',
+        imageUrl: 'https://example.com/img.png',
+        spaceBefore: 3.0,
+      );
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+      expect(a, isNot(equals(c)));
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // HorizontalRuleComponentBuilder — spaceBefore, spaceAfter
+  // -------------------------------------------------------------------------
+
+  group('HorizontalRuleComponentBuilder — spacing fields', () {
+    test('createViewModel copies spaceBefore and spaceAfter from HorizontalRuleNode', () {
+      final node = _ruleFull(spaceBefore: 8.0, spaceAfter: 16.0);
+      final doc = _doc([node]);
+      final vm = const HorizontalRuleComponentBuilder().createViewModel(doc, node)
+          as HorizontalRuleComponentViewModel;
+      expect(vm.spaceBefore, 8.0);
+      expect(vm.spaceAfter, 16.0);
+    });
+
+    test('createViewModel defaults spaceBefore and spaceAfter to null', () {
+      final node = _rule();
+      final doc = _doc([node]);
+      final vm = const HorizontalRuleComponentBuilder().createViewModel(doc, node)
+          as HorizontalRuleComponentViewModel;
+      expect(vm.spaceBefore, isNull);
+      expect(vm.spaceAfter, isNull);
+    });
+
+    test('HorizontalRuleComponentViewModel equality considers spaceBefore and spaceAfter', () {
+      const a = HorizontalRuleComponentViewModel(nodeId: 'hr1', spaceBefore: 8.0, spaceAfter: 16.0);
+      const b = HorizontalRuleComponentViewModel(nodeId: 'hr1', spaceBefore: 8.0, spaceAfter: 16.0);
+      const c = HorizontalRuleComponentViewModel(nodeId: 'hr1', spaceBefore: 4.0);
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+      expect(a, isNot(equals(c)));
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // TableComponentBuilder — spaceBefore, spaceAfter
+  // -------------------------------------------------------------------------
+
+  group('TableComponentBuilder — spacing fields', () {
+    TableNode _tableWithSpacing({double? spaceBefore, double? spaceAfter}) => TableNode(
+          id: 't1',
+          rowCount: 1,
+          columnCount: 1,
+          cells: [
+            [AttributedText('cell')],
+          ],
+          spaceBefore: spaceBefore,
+          spaceAfter: spaceAfter,
+        );
+
+    test('createViewModel copies spaceBefore and spaceAfter from TableNode', () {
+      final node = _tableWithSpacing(spaceBefore: 5.0, spaceAfter: 10.0);
+      final doc = _doc([node]);
+      final vm =
+          const TableComponentBuilder().createViewModel(doc, node) as TableComponentViewModel;
+      expect(vm.spaceBefore, 5.0);
+      expect(vm.spaceAfter, 10.0);
+    });
+
+    test('createViewModel defaults spaceBefore and spaceAfter to null', () {
+      final node = _tableWithSpacing();
+      final doc = _doc([node]);
+      final vm =
+          const TableComponentBuilder().createViewModel(doc, node) as TableComponentViewModel;
+      expect(vm.spaceBefore, isNull);
+      expect(vm.spaceAfter, isNull);
+    });
+
+    test('TableComponentViewModel equality considers spaceBefore and spaceAfter', () {
+      final a = TableComponentViewModel(
+        nodeId: 't1',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('cell')],
+        ],
+        spaceBefore: 5.0,
+        spaceAfter: 10.0,
+      );
+      final b = TableComponentViewModel(
+        nodeId: 't1',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('cell')],
+        ],
+        spaceBefore: 5.0,
+        spaceAfter: 10.0,
+      );
+      final c = TableComponentViewModel(
+        nodeId: 't1',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('cell')],
+        ],
+        spaceBefore: 2.0,
+      );
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+      expect(a, isNot(equals(c)));
     });
   });
 

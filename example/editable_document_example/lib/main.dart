@@ -19,7 +19,10 @@
 /// - Float-style text wrapping with textWrap property
 /// - Dual concurrent floats: start + end images with text wrapping around both
 /// - BlockquoteNode with left accent border
-/// - Property panel for editing block alignment, text wrap, and sizing
+/// - Scrollable property panel shown for ALL block types with sections for:
+///   text alignment, line height, spacing (before/after), indent (left/right/first-line),
+///   and block layout (alignment, text wrap, dimensions) for container blocks
+/// - Document Settings panel (when nothing selected): block spacing and default line height
 /// - TableNode: a block-level table with editable cells and column widths
 /// - Block drag-to-move: tap a non-text block to select it, then drag it to
 ///   reorder it within the document — a blue insertion indicator shows the
@@ -168,6 +171,9 @@ class _DocumentDemoState extends State<DocumentDemo> {
   /// Vertical spacing between document blocks.
   double _blockSpacing = 0.0;
 
+  /// Document-level default line height multiplier.
+  double _defaultLineHeight = 1.0;
+
   /// The node ID for which the floating property panel is shown, or `null`
   /// when the panel is hidden.
   String? _propertyPanelNodeId;
@@ -218,10 +224,11 @@ class _DocumentDemoState extends State<DocumentDemo> {
   void _onDocumentChanged() {
     _contextMenuController.remove();
     // Auto-show/hide the property panel based on selection.
+    // Show the panel for ANY selected block node, not just container blocks.
     final sel = _controller.selection;
     final node = sel != null ? _document.nodeById(sel.extent.nodeId) : null;
-    if (_isContainerBlock(node)) {
-      _propertyPanelNodeId = node!.id;
+    if (node != null) {
+      _propertyPanelNodeId = node.id;
     } else {
       _propertyPanelNodeId = null;
     }
@@ -1071,6 +1078,12 @@ class _DocumentDemoState extends State<DocumentDemo> {
         if (node.textAlign != TextAlign.start) {
           map['textAlign'] = node.textAlign.name;
         }
+        if (node.lineHeight != null) map['lineHeight'] = node.lineHeight;
+        if (node.spaceBefore != null) map['spaceBefore'] = node.spaceBefore;
+        if (node.spaceAfter != null) map['spaceAfter'] = node.spaceAfter;
+        if (node.indentLeft != null) map['indentLeft'] = node.indentLeft;
+        if (node.indentRight != null) map['indentRight'] = node.indentRight;
+        if (node.firstLineIndent != null) map['firstLineIndent'] = node.firstLineIndent;
         _addAttributionSpans(map, node.text);
       } else if (node is ListItemNode) {
         map['type'] = 'listItem';
@@ -1080,6 +1093,11 @@ class _DocumentDemoState extends State<DocumentDemo> {
         if (node.textAlign != TextAlign.start) {
           map['textAlign'] = node.textAlign.name;
         }
+        if (node.lineHeight != null) map['lineHeight'] = node.lineHeight;
+        if (node.spaceBefore != null) map['spaceBefore'] = node.spaceBefore;
+        if (node.spaceAfter != null) map['spaceAfter'] = node.spaceAfter;
+        if (node.indentLeft != null) map['indentLeft'] = node.indentLeft;
+        if (node.indentRight != null) map['indentRight'] = node.indentRight;
         _addAttributionSpans(map, node.text);
       } else if (node is BlockquoteNode) {
         map['type'] = 'blockquote';
@@ -1087,17 +1105,30 @@ class _DocumentDemoState extends State<DocumentDemo> {
         if (node.textAlign != TextAlign.start) {
           map['textAlign'] = node.textAlign.name;
         }
+        if (node.lineHeight != null) map['lineHeight'] = node.lineHeight;
+        if (node.spaceBefore != null) map['spaceBefore'] = node.spaceBefore;
+        if (node.spaceAfter != null) map['spaceAfter'] = node.spaceAfter;
+        if (node.indentLeft != null) map['indentLeft'] = node.indentLeft;
+        if (node.indentRight != null) map['indentRight'] = node.indentRight;
+        if (node.firstLineIndent != null) map['firstLineIndent'] = node.firstLineIndent;
         _addAttributionSpans(map, node.text);
       } else if (node is CodeBlockNode) {
         map['type'] = 'codeBlock';
         map['text'] = node.text.text;
         if (node.language != null) map['language'] = node.language;
+        if (node.lineHeight != null) map['lineHeight'] = node.lineHeight;
+        if (node.spaceBefore != null) map['spaceBefore'] = node.spaceBefore;
+        if (node.spaceAfter != null) map['spaceAfter'] = node.spaceAfter;
       } else if (node is ImageNode) {
         map['type'] = 'image';
         map['imageUrl'] = node.imageUrl;
         if (node.altText != null) map['altText'] = node.altText;
+        if (node.spaceBefore != null) map['spaceBefore'] = node.spaceBefore;
+        if (node.spaceAfter != null) map['spaceAfter'] = node.spaceAfter;
       } else if (node is HorizontalRuleNode) {
         map['type'] = 'horizontalRule';
+        if (node.spaceBefore != null) map['spaceBefore'] = node.spaceBefore;
+        if (node.spaceAfter != null) map['spaceAfter'] = node.spaceAfter;
       }
       nodes.add(map);
     }
@@ -1224,6 +1255,12 @@ class _DocumentDemoState extends State<DocumentDemo> {
                   )
                 : ParagraphBlockType.paragraph,
             textAlign: _parseTextAlign(map['textAlign'] as String?),
+            lineHeight: (map['lineHeight'] as num?)?.toDouble(),
+            spaceBefore: (map['spaceBefore'] as num?)?.toDouble(),
+            spaceAfter: (map['spaceAfter'] as num?)?.toDouble(),
+            indentLeft: (map['indentLeft'] as num?)?.toDouble(),
+            indentRight: (map['indentRight'] as num?)?.toDouble(),
+            firstLineIndent: (map['firstLineIndent'] as num?)?.toDouble(),
           ));
         case 'listItem':
           final text = _textFromJson(map);
@@ -1234,6 +1271,11 @@ class _DocumentDemoState extends State<DocumentDemo> {
             type: listTypeName == 'ordered' ? ListItemType.ordered : ListItemType.unordered,
             indent: (map['indent'] as int?) ?? 0,
             textAlign: _parseTextAlign(map['textAlign'] as String?),
+            lineHeight: (map['lineHeight'] as num?)?.toDouble(),
+            spaceBefore: (map['spaceBefore'] as num?)?.toDouble(),
+            spaceAfter: (map['spaceAfter'] as num?)?.toDouble(),
+            indentLeft: (map['indentLeft'] as num?)?.toDouble(),
+            indentRight: (map['indentRight'] as num?)?.toDouble(),
           ));
         case 'blockquote':
           final text = _textFromJson(map);
@@ -1241,6 +1283,12 @@ class _DocumentDemoState extends State<DocumentDemo> {
             id: id,
             text: text,
             textAlign: _parseTextAlign(map['textAlign'] as String?),
+            lineHeight: (map['lineHeight'] as num?)?.toDouble(),
+            spaceBefore: (map['spaceBefore'] as num?)?.toDouble(),
+            spaceAfter: (map['spaceAfter'] as num?)?.toDouble(),
+            indentLeft: (map['indentLeft'] as num?)?.toDouble(),
+            indentRight: (map['indentRight'] as num?)?.toDouble(),
+            firstLineIndent: (map['firstLineIndent'] as num?)?.toDouble(),
           ));
         case 'codeBlock':
           final text = _textFromJson(map);
@@ -1248,15 +1296,24 @@ class _DocumentDemoState extends State<DocumentDemo> {
             id: id,
             text: text,
             language: map['language'] as String?,
+            lineHeight: (map['lineHeight'] as num?)?.toDouble(),
+            spaceBefore: (map['spaceBefore'] as num?)?.toDouble(),
+            spaceAfter: (map['spaceAfter'] as num?)?.toDouble(),
           ));
         case 'image':
           nodes.add(ImageNode(
             id: id,
             imageUrl: map['imageUrl'] as String? ?? '',
             altText: map['altText'] as String?,
+            spaceBefore: (map['spaceBefore'] as num?)?.toDouble(),
+            spaceAfter: (map['spaceAfter'] as num?)?.toDouble(),
           ));
         case 'horizontalRule':
-          nodes.add(HorizontalRuleNode(id: id));
+          nodes.add(HorizontalRuleNode(
+            id: id,
+            spaceBefore: (map['spaceBefore'] as num?)?.toDouble(),
+            spaceAfter: (map['spaceAfter'] as num?)?.toDouble(),
+          ));
         default:
           nodes.add(ParagraphNode(
             id: id,
@@ -1760,34 +1817,6 @@ class _DocumentDemoState extends State<DocumentDemo> {
                 divider(),
                 // --- Insert menu ---
                 _buildInsertMenu(hasCursor),
-                divider(),
-                // --- Line spacing ---
-                PopupMenuButton<double>(
-                  tooltip: 'Line spacing',
-                  offset: const Offset(0, 36),
-                  onSelected: (value) => setState(() => _blockSpacing = value),
-                  itemBuilder: (context) => [
-                    for (final entry in {0.0: 'Single', 6.0: '1.5 lines', 12.0: 'Double'}.entries)
-                      PopupMenuItem(
-                        value: entry.key,
-                        child: Row(
-                          children: [
-                            if (_blockSpacing == entry.key)
-                              const Icon(Icons.check, size: 16)
-                            else
-                              const SizedBox(width: 16),
-                            const SizedBox(width: 8),
-                            Text(entry.value),
-                          ],
-                        ),
-                      ),
-                  ],
-                  child: const SizedBox(
-                    height: 32,
-                    width: 32,
-                    child: Icon(Icons.format_line_spacing, size: 18),
-                  ),
-                ),
               ],
             ),
           ),
@@ -2080,6 +2109,305 @@ class _DocumentDemoState extends State<DocumentDemo> {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Line height, spacing, and indent helpers
+  // ---------------------------------------------------------------------------
+
+  /// Returns the line height multiplier of [node], or `null` if the node type
+  /// does not support it.
+  double? _getLineHeight(DocumentNode node) {
+    return switch (node) {
+      ParagraphNode(:final lineHeight) => lineHeight,
+      ListItemNode(:final lineHeight) => lineHeight,
+      BlockquoteNode(:final lineHeight) => lineHeight,
+      CodeBlockNode(:final lineHeight) => lineHeight,
+      _ => null,
+    };
+  }
+
+  /// Sets the line height multiplier of [node].  Passing `null` resets to the
+  /// document default.
+  void _updateLineHeight(DocumentNode node, double? value) {
+    _editor.submit(ChangeLineHeightRequest(nodeId: node.id, newLineHeight: value));
+  }
+
+  /// Returns the spaceBefore value of [node], or `null` when not supported.
+  double? _getSpaceBefore(DocumentNode node) {
+    return switch (node) {
+      ParagraphNode(:final spaceBefore) => spaceBefore,
+      ListItemNode(:final spaceBefore) => spaceBefore,
+      BlockquoteNode(:final spaceBefore) => spaceBefore,
+      CodeBlockNode(:final spaceBefore) => spaceBefore,
+      ImageNode(:final spaceBefore) => spaceBefore,
+      HorizontalRuleNode(:final spaceBefore) => spaceBefore,
+      TableNode(:final spaceBefore) => spaceBefore,
+      _ => null,
+    };
+  }
+
+  /// Returns the spaceAfter value of [node], or `null` when not supported.
+  double? _getSpaceAfter(DocumentNode node) {
+    return switch (node) {
+      ParagraphNode(:final spaceAfter) => spaceAfter,
+      ListItemNode(:final spaceAfter) => spaceAfter,
+      BlockquoteNode(:final spaceAfter) => spaceAfter,
+      CodeBlockNode(:final spaceAfter) => spaceAfter,
+      ImageNode(:final spaceAfter) => spaceAfter,
+      HorizontalRuleNode(:final spaceAfter) => spaceAfter,
+      TableNode(:final spaceAfter) => spaceAfter,
+      _ => null,
+    };
+  }
+
+  /// Whether [node] supports spaceBefore / spaceAfter properties.
+  bool _hasSpacingProperties(DocumentNode node) {
+    return node is ParagraphNode ||
+        node is ListItemNode ||
+        node is BlockquoteNode ||
+        node is CodeBlockNode ||
+        node is ImageNode ||
+        node is HorizontalRuleNode ||
+        node is TableNode;
+  }
+
+  /// Sets spaceBefore and/or spaceAfter on [node].  Non-null values replace
+  /// the current value; to clear a value, use [_clearSpaceBefore] or
+  /// [_clearSpaceAfter].
+  void _updateSpacing(DocumentNode node, {double? spaceBefore, double? spaceAfter}) {
+    _editor.submit(ChangeSpacingRequest(
+      nodeId: node.id,
+      newSpaceBefore: spaceBefore,
+      newSpaceAfter: spaceAfter,
+    ));
+  }
+
+  /// Clears spaceBefore to `null` for [node] using a full node replacement.
+  void _clearSpaceBefore(DocumentNode node) {
+    _replaceNodeWithSpacing(node, spaceBefore: null, spaceAfter: _getSpaceAfter(node));
+  }
+
+  /// Clears spaceAfter to `null` for [node] using a full node replacement.
+  void _clearSpaceAfter(DocumentNode node) {
+    _replaceNodeWithSpacing(node, spaceBefore: _getSpaceBefore(node), spaceAfter: null);
+  }
+
+  /// Replaces [node] with an updated copy that has explicit spacing values.
+  ///
+  /// This helper is needed because [ChangeSpacingCommand] treats `null` as
+  /// "leave unchanged" — it cannot clear a value to `null`.  Direct node
+  /// construction is used so that `null` correctly resets spacing to the
+  /// document default.
+  void _replaceNodeWithSpacing(
+    DocumentNode node, {
+    required double? spaceBefore,
+    required double? spaceAfter,
+  }) {
+    final DocumentNode updated;
+    if (node is ParagraphNode) {
+      updated = ParagraphNode(
+        id: node.id,
+        text: node.text,
+        blockType: node.blockType,
+        textAlign: node.textAlign,
+        lineHeight: node.lineHeight,
+        spaceBefore: spaceBefore,
+        spaceAfter: spaceAfter,
+        indentLeft: node.indentLeft,
+        indentRight: node.indentRight,
+        firstLineIndent: node.firstLineIndent,
+        metadata: node.metadata,
+      );
+    } else if (node is ListItemNode) {
+      updated = ListItemNode(
+        id: node.id,
+        text: node.text,
+        type: node.type,
+        indent: node.indent,
+        textAlign: node.textAlign,
+        lineHeight: node.lineHeight,
+        spaceBefore: spaceBefore,
+        spaceAfter: spaceAfter,
+        indentLeft: node.indentLeft,
+        indentRight: node.indentRight,
+        metadata: node.metadata,
+      );
+    } else if (node is BlockquoteNode) {
+      updated = BlockquoteNode(
+        id: node.id,
+        text: node.text,
+        width: node.width,
+        height: node.height,
+        alignment: node.alignment,
+        textWrap: node.textWrap,
+        textAlign: node.textAlign,
+        lineHeight: node.lineHeight,
+        spaceBefore: spaceBefore,
+        spaceAfter: spaceAfter,
+        indentLeft: node.indentLeft,
+        indentRight: node.indentRight,
+        firstLineIndent: node.firstLineIndent,
+        metadata: node.metadata,
+      );
+    } else if (node is CodeBlockNode) {
+      updated = CodeBlockNode(
+        id: node.id,
+        text: node.text,
+        language: node.language,
+        width: node.width,
+        height: node.height,
+        alignment: node.alignment,
+        textWrap: node.textWrap,
+        lineHeight: node.lineHeight,
+        spaceBefore: spaceBefore,
+        spaceAfter: spaceAfter,
+        metadata: node.metadata,
+      );
+    } else if (node is ImageNode) {
+      updated = ImageNode(
+        id: node.id,
+        imageUrl: node.imageUrl,
+        altText: node.altText,
+        width: node.width,
+        height: node.height,
+        alignment: node.alignment,
+        textWrap: node.textWrap,
+        lockAspect: node.lockAspect,
+        spaceBefore: spaceBefore,
+        spaceAfter: spaceAfter,
+        metadata: node.metadata,
+      );
+    } else if (node is HorizontalRuleNode) {
+      updated = HorizontalRuleNode(
+        id: node.id,
+        width: node.width,
+        height: node.height,
+        alignment: node.alignment,
+        textWrap: node.textWrap,
+        spaceBefore: spaceBefore,
+        spaceAfter: spaceAfter,
+        metadata: node.metadata,
+      );
+    } else if (node is TableNode) {
+      // Reconstruct the cells grid from public cellAt accessor since _cells is private.
+      final cells = [
+        for (var r = 0; r < node.rowCount; r++)
+          [for (var c = 0; c < node.columnCount; c++) node.cellAt(r, c)],
+      ];
+      updated = TableNode(
+        id: node.id,
+        rowCount: node.rowCount,
+        columnCount: node.columnCount,
+        cells: cells,
+        columnWidths: node.columnWidths,
+        alignment: node.alignment,
+        spaceBefore: spaceBefore,
+        spaceAfter: spaceAfter,
+        metadata: node.metadata,
+      );
+    } else {
+      return;
+    }
+    _editor.submit(ReplaceNodeRequest(nodeId: node.id, newNode: updated));
+  }
+
+  /// Returns the indentLeft value of [node], or `null` when not supported.
+  double? _getIndentLeft(DocumentNode node) {
+    return switch (node) {
+      ParagraphNode(:final indentLeft) => indentLeft,
+      ListItemNode(:final indentLeft) => indentLeft,
+      BlockquoteNode(:final indentLeft) => indentLeft,
+      _ => null,
+    };
+  }
+
+  /// Returns the indentRight value of [node], or `null` when not supported.
+  double? _getIndentRight(DocumentNode node) {
+    return switch (node) {
+      ParagraphNode(:final indentRight) => indentRight,
+      ListItemNode(:final indentRight) => indentRight,
+      BlockquoteNode(:final indentRight) => indentRight,
+      _ => null,
+    };
+  }
+
+  /// Returns the firstLineIndent value of [node], or `null` when not supported
+  /// (includes [ListItemNode] which does not use first-line indent).
+  double? _getFirstLineIndent(DocumentNode node) {
+    return switch (node) {
+      ParagraphNode(:final firstLineIndent) => firstLineIndent,
+      BlockquoteNode(:final firstLineIndent) => firstLineIndent,
+      _ => null,
+    };
+  }
+
+  /// Whether [node] supports indentLeft / indentRight properties.
+  bool _hasIndentProperties(DocumentNode node) {
+    return node is ParagraphNode || node is ListItemNode || node is BlockquoteNode;
+  }
+
+  /// Replaces [node] with an updated copy that has explicit indent values.
+  ///
+  /// Direct node construction is used so that `null` correctly resets indent
+  /// to the document default (since [copyWith] uses `??` and cannot clear
+  /// nullable fields to `null`).
+  void _replaceNodeWithIndent(
+    DocumentNode node, {
+    required double? indentLeft,
+    required double? indentRight,
+    required double? firstLineIndent,
+  }) {
+    final DocumentNode updated;
+    if (node is ParagraphNode) {
+      updated = ParagraphNode(
+        id: node.id,
+        text: node.text,
+        blockType: node.blockType,
+        textAlign: node.textAlign,
+        lineHeight: node.lineHeight,
+        spaceBefore: node.spaceBefore,
+        spaceAfter: node.spaceAfter,
+        indentLeft: indentLeft,
+        indentRight: indentRight,
+        firstLineIndent: firstLineIndent,
+        metadata: node.metadata,
+      );
+    } else if (node is ListItemNode) {
+      updated = ListItemNode(
+        id: node.id,
+        text: node.text,
+        type: node.type,
+        indent: node.indent,
+        textAlign: node.textAlign,
+        lineHeight: node.lineHeight,
+        spaceBefore: node.spaceBefore,
+        spaceAfter: node.spaceAfter,
+        indentLeft: indentLeft,
+        indentRight: indentRight,
+        metadata: node.metadata,
+      );
+    } else if (node is BlockquoteNode) {
+      updated = BlockquoteNode(
+        id: node.id,
+        text: node.text,
+        width: node.width,
+        height: node.height,
+        alignment: node.alignment,
+        textWrap: node.textWrap,
+        textAlign: node.textAlign,
+        lineHeight: node.lineHeight,
+        spaceBefore: node.spaceBefore,
+        spaceAfter: node.spaceAfter,
+        indentLeft: indentLeft,
+        indentRight: indentRight,
+        firstLineIndent: firstLineIndent,
+        metadata: node.metadata,
+      );
+    } else {
+      return;
+    }
+    _editor.submit(ReplaceNodeRequest(nodeId: node.id, newNode: updated));
+  }
+
   Future<void> _pickImageFile(DocumentNode node) async {
     if (node is! ImageNode) return;
     final controller = TextEditingController();
@@ -2112,181 +2440,454 @@ class _DocumentDemoState extends State<DocumentDemo> {
     _updateImageUrl(node, path.trim());
   }
 
+  /// Builds a labelled section for the property panel.
+  Widget _buildPropertySection(String title, List<Widget> children) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 12),
+        Text(title, style: Theme.of(context).textTheme.labelMedium),
+        const SizedBox(height: 4),
+        ...children,
+      ],
+    );
+  }
+
   Widget _buildFloatingPropertyPanel() {
-    if (_propertyPanelNodeId == null || _isDragSelecting) {
-      return const SizedBox.shrink();
+    if (_isDragSelecting) return const SizedBox.shrink();
+
+    final colorScheme = Theme.of(context).colorScheme;
+    const panelWidth = 220.0;
+
+    // When no node is selected, show the Document Settings panel.
+    if (_propertyPanelNodeId == null) {
+      return Positioned(
+        right: 8,
+        top: 8,
+        bottom: 8,
+        child: Material(
+          elevation: 8,
+          borderRadius: BorderRadius.circular(8),
+          color: colorScheme.surfaceContainerLow,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: double.infinity),
+            child: SingleChildScrollView(
+              child: Container(
+                width: panelWidth,
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Document Settings',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    _buildPropertySection('Block Spacing', [
+                      DropdownButtonHideUnderline(
+                        child: DropdownButton<double>(
+                          value: _blockSpacing,
+                          isExpanded: true,
+                          isDense: true,
+                          style: Theme.of(context).textTheme.bodySmall,
+                          onChanged: (value) {
+                            if (value != null) setState(() => _blockSpacing = value);
+                          },
+                          items: const [
+                            DropdownMenuItem(value: 0.0, child: Text('Single')),
+                            DropdownMenuItem(value: 6.0, child: Text('1.5 lines')),
+                            DropdownMenuItem(value: 12.0, child: Text('Double')),
+                          ],
+                        ),
+                      ),
+                    ]),
+                    _buildPropertySection('Default Line Height', [
+                      DropdownButtonHideUnderline(
+                        child: DropdownButton<double>(
+                          value: _defaultLineHeight,
+                          isExpanded: true,
+                          isDense: true,
+                          style: Theme.of(context).textTheme.bodySmall,
+                          onChanged: (value) {
+                            if (value != null) setState(() => _defaultLineHeight = value);
+                          },
+                          items: const [
+                            DropdownMenuItem(value: 1.0, child: Text('Single')),
+                            DropdownMenuItem(value: 1.15, child: Text('1.15')),
+                            DropdownMenuItem(value: 1.5, child: Text('1.5 lines')),
+                            DropdownMenuItem(value: 2.0, child: Text('Double')),
+                          ],
+                        ),
+                      ),
+                    ]),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
     }
 
     final node = _document.nodeById(_propertyPanelNodeId!);
-    if (!_isContainerBlock(node)) return const SizedBox.shrink();
+    if (node == null) return const SizedBox.shrink();
 
-    final colorScheme = Theme.of(context).colorScheme;
-    final alignment = _getBlockAlignment(node!);
-    final hasSizing = _hasSizingProperties(node);
-    const panelWidth = 220.0;
+    final isTextNode = node is ParagraphNode || node is ListItemNode || node is BlockquoteNode;
+    final isTextOrCode = isTextNode || node is CodeBlockNode;
+    final isContainerBlock = _isContainerBlock(node);
 
     return Positioned(
       right: 8,
       top: 8,
+      bottom: 8,
       child: Material(
         elevation: 8,
         borderRadius: BorderRadius.circular(8),
         color: colorScheme.surfaceContainerLow,
-        child: Container(
-          width: panelWidth,
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: double.infinity),
+          child: SingleChildScrollView(
+            child: Container(
+              width: panelWidth,
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Expanded(
-                    child: Text(
-                      _currentBlockLabel(),
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                  ),
-                  SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: IconButton(
-                      icon: const Icon(Icons.close, size: 16),
-                      padding: EdgeInsets.zero,
-                      onPressed: _dismissPropertyPanel,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              // --- Alignment ---
-              Text('Alignment', style: Theme.of(context).textTheme.labelMedium),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  for (final entry in {
-                    BlockAlignment.start: Icons.align_horizontal_left,
-                    BlockAlignment.center: Icons.align_horizontal_center,
-                    BlockAlignment.end: Icons.align_horizontal_right,
-                    BlockAlignment.stretch: Icons.expand,
-                  }.entries)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 4),
-                      child: IconButton(
-                        icon: entry.key == BlockAlignment.stretch
-                            ? const RotatedBox(
-                                quarterTurns: 1,
-                                child: Icon(Icons.expand, size: 20),
-                              )
-                            : Icon(entry.value, size: 20),
-                        isSelected: alignment == entry.key,
-                        style: IconButton.styleFrom(
-                          backgroundColor:
-                              alignment == entry.key ? colorScheme.primaryContainer : null,
-                          minimumSize: const Size(36, 36),
-                          padding: EdgeInsets.zero,
-                        ),
-                        tooltip: entry.key.name,
-                        onPressed: () => _updateBlockAlignment(node, entry.key),
-                      ),
-                    ),
-                ],
-              ),
-              if (hasSizing) ...[
-                const SizedBox(height: 12),
-                // --- Text Wrap ---
-                Text('Text Wrap', style: Theme.of(context).textTheme.labelMedium),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    for (final entry in {
-                      TextWrapMode.none: Icons.close,
-                      TextWrapMode.wrap: Icons.wrap_text,
-                      TextWrapMode.behindText: Icons.flip_to_back,
-                      TextWrapMode.inFrontOfText: Icons.flip_to_front,
-                    }.entries)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 4),
-                        child: IconButton(
-                          icon: Icon(entry.value, size: 20),
-                          isSelected: _getTextWrap(node) == entry.key,
-                          style: IconButton.styleFrom(
-                            backgroundColor: _getTextWrap(node) == entry.key
-                                ? colorScheme.primaryContainer
-                                : null,
-                            minimumSize: const Size(36, 36),
-                            padding: EdgeInsets.zero,
-                          ),
-                          tooltip: entry.key.name,
-                          onPressed: () => _updateTextWrap(node, entry.key),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                // --- Width x Height ---
-                Text('Width x Height', style: Theme.of(context).textTheme.labelMedium),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _DimensionField(
-                        key: ValueKey('${node.id}-w'),
-                        value: _getWidth(node),
-                        onChanged: (value) => _updateWidth(node, value),
-                      ),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 6),
-                      child: Text('\u00d7'), // ×
-                    ),
-                    Expanded(
-                      child: _DimensionField(
-                        key: ValueKey('${node.id}-h'),
-                        value: _getHeight(node),
-                        onChanged: (value) => _updateHeight(node, value),
-                      ),
-                    ),
-                  ],
-                ),
-                if (node is ImageNode) ...[
-                  const SizedBox(height: 8),
-                  // --- Lock Aspect ---
+                  // --- Header row ---
                   Row(
                     children: [
                       Expanded(
                         child: Text(
-                          'Lock Aspect',
-                          style: Theme.of(context).textTheme.bodyMedium,
+                          _currentBlockLabel(),
+                          style: Theme.of(context).textTheme.titleSmall,
                         ),
                       ),
-                      Checkbox(
-                        value: node.lockAspect,
-                        onChanged: (value) => _updateLockAspect(node, value ?? true),
+                      SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: IconButton(
+                          icon: const Icon(Icons.close, size: 16),
+                          padding: EdgeInsets.zero,
+                          onPressed: _dismissPropertyPanel,
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
-                  Text('Image URL', style: Theme.of(context).textTheme.labelMedium),
-                  const SizedBox(height: 4),
-                  _UrlField(
-                    key: ValueKey('${node.id}-url'),
-                    value: node.imageUrl,
-                    onChanged: (url) => _updateImageUrl(node, url),
-                  ),
-                  const SizedBox(height: 4),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 32,
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.folder_open, size: 16),
-                      label: const Text('Choose File'),
-                      onPressed: () => _pickImageFile(node),
-                    ),
-                  ),
+
+                  // --- Text section (alignment) for text-bearing nodes ---
+                  if (isTextNode) ...[
+                    _buildPropertySection('Text Alignment', [
+                      Row(
+                        children: [
+                          for (final entry in {
+                            TextAlign.start: Icons.format_align_left,
+                            TextAlign.center: Icons.format_align_center,
+                            TextAlign.right: Icons.format_align_right,
+                            TextAlign.justify: Icons.format_align_justify,
+                          }.entries)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 4),
+                              child: IconButton(
+                                icon: Icon(entry.value, size: 20),
+                                isSelected: _currentTextAlign() == entry.key,
+                                style: IconButton.styleFrom(
+                                  backgroundColor: _currentTextAlign() == entry.key
+                                      ? colorScheme.primaryContainer
+                                      : null,
+                                  minimumSize: const Size(36, 36),
+                                  padding: EdgeInsets.zero,
+                                ),
+                                tooltip: entry.key.name,
+                                onPressed: () => _setTextAlign(entry.key),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ]),
+                  ],
+
+                  // --- Line Height section for text-bearing + code nodes ---
+                  if (isTextOrCode) ...[
+                    _buildPropertySection('Line Height', [
+                      DropdownButtonHideUnderline(
+                        child: DropdownButton<double?>(
+                          value: _getLineHeight(node),
+                          isExpanded: true,
+                          isDense: true,
+                          style: Theme.of(context).textTheme.bodySmall,
+                          onChanged: (value) => _updateLineHeight(node, value),
+                          items: const [
+                            DropdownMenuItem(value: null, child: Text('Default')),
+                            DropdownMenuItem(value: 1.0, child: Text('1.0')),
+                            DropdownMenuItem(value: 1.15, child: Text('1.15')),
+                            DropdownMenuItem(value: 1.5, child: Text('1.5')),
+                            DropdownMenuItem(value: 2.0, child: Text('2.0')),
+                          ],
+                        ),
+                      ),
+                    ]),
+                  ],
+
+                  // --- Spacing section for all block types that support it ---
+                  if (_hasSpacingProperties(node)) ...[
+                    _buildPropertySection('Spacing', [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Before',
+                                  style: Theme.of(context).textTheme.labelSmall,
+                                ),
+                                const SizedBox(height: 2),
+                                _DimensionField(
+                                  key: ValueKey('${node.id}-sb'),
+                                  value: _getSpaceBefore(node),
+                                  onChanged: (value) {
+                                    if (value == null) {
+                                      _clearSpaceBefore(node);
+                                    } else {
+                                      _updateSpacing(node, spaceBefore: value);
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'After',
+                                  style: Theme.of(context).textTheme.labelSmall,
+                                ),
+                                const SizedBox(height: 2),
+                                _DimensionField(
+                                  key: ValueKey('${node.id}-sa'),
+                                  value: _getSpaceAfter(node),
+                                  onChanged: (value) {
+                                    if (value == null) {
+                                      _clearSpaceAfter(node);
+                                    } else {
+                                      _updateSpacing(node, spaceAfter: value);
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ]),
+                  ],
+
+                  // --- Indent section for text nodes (Paragraph, ListItem, Blockquote) ---
+                  if (_hasIndentProperties(node)) ...[
+                    _buildPropertySection('Indent', [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Left',
+                                  style: Theme.of(context).textTheme.labelSmall,
+                                ),
+                                const SizedBox(height: 2),
+                                _DimensionField(
+                                  key: ValueKey('${node.id}-il'),
+                                  value: _getIndentLeft(node),
+                                  onChanged: (value) => _replaceNodeWithIndent(
+                                    node,
+                                    indentLeft: value,
+                                    indentRight: _getIndentRight(node),
+                                    firstLineIndent: _getFirstLineIndent(node),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Right',
+                                  style: Theme.of(context).textTheme.labelSmall,
+                                ),
+                                const SizedBox(height: 2),
+                                _DimensionField(
+                                  key: ValueKey('${node.id}-ir'),
+                                  value: _getIndentRight(node),
+                                  onChanged: (value) => _replaceNodeWithIndent(
+                                    node,
+                                    indentLeft: _getIndentLeft(node),
+                                    indentRight: value,
+                                    firstLineIndent: _getFirstLineIndent(node),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      // First-line indent (not for ListItemNode)
+                      if (node is! ListItemNode) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          'First Line',
+                          style: Theme.of(context).textTheme.labelSmall,
+                        ),
+                        const SizedBox(height: 2),
+                        _DimensionField(
+                          key: ValueKey('${node.id}-fli'),
+                          value: _getFirstLineIndent(node),
+                          onChanged: (value) => _replaceNodeWithIndent(
+                            node,
+                            indentLeft: _getIndentLeft(node),
+                            indentRight: _getIndentRight(node),
+                            firstLineIndent: value,
+                          ),
+                        ),
+                      ],
+                    ]),
+                  ],
+
+                  // --- Layout section for container blocks ---
+                  if (isContainerBlock) ...[
+                    _buildPropertySection('Block Alignment', [
+                      Row(
+                        children: [
+                          for (final entry in {
+                            BlockAlignment.start: Icons.align_horizontal_left,
+                            BlockAlignment.center: Icons.align_horizontal_center,
+                            BlockAlignment.end: Icons.align_horizontal_right,
+                            BlockAlignment.stretch: Icons.expand,
+                          }.entries)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 4),
+                              child: IconButton(
+                                icon: entry.key == BlockAlignment.stretch
+                                    ? const RotatedBox(
+                                        quarterTurns: 1,
+                                        child: Icon(Icons.expand, size: 20),
+                                      )
+                                    : Icon(entry.value, size: 20),
+                                isSelected: _getBlockAlignment(node) == entry.key,
+                                style: IconButton.styleFrom(
+                                  backgroundColor: _getBlockAlignment(node) == entry.key
+                                      ? colorScheme.primaryContainer
+                                      : null,
+                                  minimumSize: const Size(36, 36),
+                                  padding: EdgeInsets.zero,
+                                ),
+                                tooltip: entry.key.name,
+                                onPressed: () => _updateBlockAlignment(node, entry.key),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ]),
+                    if (_hasSizingProperties(node)) ...[
+                      _buildPropertySection('Text Wrap', [
+                        Row(
+                          children: [
+                            for (final entry in {
+                              TextWrapMode.none: Icons.close,
+                              TextWrapMode.wrap: Icons.wrap_text,
+                              TextWrapMode.behindText: Icons.flip_to_back,
+                              TextWrapMode.inFrontOfText: Icons.flip_to_front,
+                            }.entries)
+                              Padding(
+                                padding: const EdgeInsets.only(right: 4),
+                                child: IconButton(
+                                  icon: Icon(entry.value, size: 20),
+                                  isSelected: _getTextWrap(node) == entry.key,
+                                  style: IconButton.styleFrom(
+                                    backgroundColor: _getTextWrap(node) == entry.key
+                                        ? colorScheme.primaryContainer
+                                        : null,
+                                    minimumSize: const Size(36, 36),
+                                    padding: EdgeInsets.zero,
+                                  ),
+                                  tooltip: entry.key.name,
+                                  onPressed: () => _updateTextWrap(node, entry.key),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ]),
+                      _buildPropertySection('Width \u00d7 Height', [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _DimensionField(
+                                key: ValueKey('${node.id}-w'),
+                                value: _getWidth(node),
+                                onChanged: (value) => _updateWidth(node, value),
+                              ),
+                            ),
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 6),
+                              child: Text('\u00d7'), // ×
+                            ),
+                            Expanded(
+                              child: _DimensionField(
+                                key: ValueKey('${node.id}-h'),
+                                value: _getHeight(node),
+                                onChanged: (value) => _updateHeight(node, value),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ]),
+                      if (node is ImageNode) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Lock Aspect',
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                            ),
+                            Checkbox(
+                              value: node.lockAspect,
+                              onChanged: (value) => _updateLockAspect(node, value ?? true),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text('Image URL', style: Theme.of(context).textTheme.labelMedium),
+                        const SizedBox(height: 4),
+                        _UrlField(
+                          key: ValueKey('${node.id}-url'),
+                          value: node.imageUrl,
+                          onChanged: (url) => _updateImageUrl(node, url),
+                        ),
+                        const SizedBox(height: 4),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 32,
+                          child: OutlinedButton.icon(
+                            icon: const Icon(Icons.folder_open, size: 16),
+                            label: const Text('Choose File'),
+                            onPressed: () => _pickImageFile(node),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ],
                 ],
-              ],
-            ],
+              ),
+            ),
           ),
         ),
       ),
@@ -2329,6 +2930,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
                 autofocus: true,
                 editor: _editor,
                 blockSpacing: _blockSpacing,
+                style: TextStyle(height: _defaultLineHeight),
                 componentBuilders: [
                   _syntaxBuilder,
                   ...defaultComponentBuilders.where((b) => b is! CodeBlockComponentBuilder),

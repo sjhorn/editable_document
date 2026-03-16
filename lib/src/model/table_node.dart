@@ -57,6 +57,8 @@ class TableNode extends DocumentNode implements HasBlockLayout {
   /// [alignment] defaults to [BlockAlignment.stretch].
   /// [textWrap] defaults to [TextWrapMode.none].
   /// [width] and [height] default to `null` (use available / intrinsic size).
+  /// [spaceBefore] and [spaceAfter] default to `null` (use document-level
+  /// default spacing).
   TableNode({
     required super.id,
     required this.rowCount,
@@ -67,6 +69,8 @@ class TableNode extends DocumentNode implements HasBlockLayout {
     this.textWrap = TextWrapMode.none,
     this.width,
     this.height,
+    this.spaceBefore,
+    this.spaceAfter,
     super.metadata,
   })  : _cells = List<List<AttributedText>>.unmodifiable(
           cells.map((row) => List<AttributedText>.unmodifiable(row)),
@@ -108,6 +112,14 @@ class TableNode extends DocumentNode implements HasBlockLayout {
   @override
   final double? height;
 
+  /// Extra space before this block in logical pixels, or `null` to use the
+  /// document-level default spacing.
+  final double? spaceBefore;
+
+  /// Extra space after this block in logical pixels, or `null` to use the
+  /// document-level default spacing.
+  final double? spaceAfter;
+
   /// Internal unmodifiable storage of the 2D cell grid.
   final List<List<AttributedText>> _cells;
 
@@ -141,6 +153,8 @@ class TableNode extends DocumentNode implements HasBlockLayout {
     TextWrapMode? textWrap,
     double? width,
     double? height,
+    double? spaceBefore,
+    double? spaceAfter,
     Map<String, dynamic>? metadata,
   }) {
     return TableNode(
@@ -154,6 +168,8 @@ class TableNode extends DocumentNode implements HasBlockLayout {
       textWrap: textWrap ?? this.textWrap,
       width: width ?? this.width,
       height: height ?? this.height,
+      spaceBefore: spaceBefore ?? this.spaceBefore,
+      spaceAfter: spaceAfter ?? this.spaceAfter,
       metadata: metadata ?? this.metadata,
     );
   }
@@ -170,6 +186,8 @@ class TableNode extends DocumentNode implements HasBlockLayout {
         other.textWrap != textWrap ||
         other.width != width ||
         other.height != height ||
+        other.spaceBefore != spaceBefore ||
+        other.spaceAfter != spaceAfter ||
         !mapEquals(other.metadata, metadata)) {
       return false;
     }
@@ -203,6 +221,8 @@ class TableNode extends DocumentNode implements HasBlockLayout {
       textWrap,
       width,
       height,
+      spaceBefore,
+      spaceAfter,
       Object.hashAll(metadata.entries.map((e) => e)),
     );
   }
@@ -223,13 +243,16 @@ class TableNode extends DocumentNode implements HasBlockLayout {
     properties.add(
       IterableProperty<double?>('columnWidths', columnWidths, defaultValue: null),
     );
+    properties.add(DoubleProperty('spaceBefore', spaceBefore, defaultValue: null));
+    properties.add(DoubleProperty('spaceAfter', spaceAfter, defaultValue: null));
   }
 
   @override
   String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) =>
       'TableNode(id: $id, rowCount: $rowCount, columnCount: $columnCount, '
       'alignment: ${alignment.name}, textWrap: $textWrap, '
-      'width: $width, height: $height, metadata: $metadata)';
+      'width: $width, height: $height, '
+      'spaceBefore: $spaceBefore, spaceAfter: $spaceAfter, metadata: $metadata)';
 }
 
 // ---------------------------------------------------------------------------
