@@ -1699,6 +1699,215 @@ void main() {
   });
 
   // =========================================================================
+  // InsertNodeAtPositionCommand
+  // =========================================================================
+
+  group('InsertNodeAtPositionCommand', () {
+    test('1. insert at end (no position) — node appended at doc.nodeCount', () {
+      final doc = _twoParaDoc();
+      final ctx = _ctx(doc);
+      final newNode = HorizontalRuleNode(id: 'hr1');
+      final cmd = InsertNodeAtPositionCommand(node: newNode);
+
+      final events = cmd.execute(ctx);
+
+      expect(doc.nodeCount, 3);
+      expect(doc.nodeAt(2), isA<HorizontalRuleNode>());
+      expect(doc.nodeAt(2).id, 'hr1');
+      expect(events, [const NodeInserted(nodeId: 'hr1', index: 2)]);
+    });
+
+    test('2. insert before text node at offset 0 — node inserted before target', () {
+      final doc = _twoParaDoc();
+      final ctx = _ctx(doc);
+      final newNode = HorizontalRuleNode(id: 'hr1');
+      final cmd = InsertNodeAtPositionCommand(
+        node: newNode,
+        position: const DocumentPosition(
+          nodeId: 'p1',
+          nodePosition: TextNodePosition(offset: 0),
+        ),
+      );
+
+      final events = cmd.execute(ctx);
+
+      expect(doc.nodeCount, 3);
+      expect(doc.nodeAt(0), isA<HorizontalRuleNode>());
+      expect(doc.nodeAt(0).id, 'hr1');
+      expect(doc.nodeAt(1).id, 'p1');
+      expect(doc.nodeAt(2).id, 'p2');
+      expect(events, [const NodeInserted(nodeId: 'hr1', index: 0)]);
+    });
+
+    test('3. insert after text node at offset == text.length — node inserted after target', () {
+      final doc = _twoParaDoc();
+      final ctx = _ctx(doc);
+      // 'Hello world' has length 11.
+      final newNode = HorizontalRuleNode(id: 'hr1');
+      final cmd = InsertNodeAtPositionCommand(
+        node: newNode,
+        position: const DocumentPosition(
+          nodeId: 'p1',
+          nodePosition: TextNodePosition(offset: 11),
+        ),
+      );
+
+      final events = cmd.execute(ctx);
+
+      expect(doc.nodeCount, 3);
+      expect(doc.nodeAt(0).id, 'p1');
+      expect(doc.nodeAt(1), isA<HorizontalRuleNode>());
+      expect(doc.nodeAt(1).id, 'hr1');
+      expect(doc.nodeAt(2).id, 'p2');
+      expect(events, [const NodeInserted(nodeId: 'hr1', index: 1)]);
+    });
+
+    test('4. insert mid-text — splits paragraph, node inserted between halves', () {
+      // p1: "Hello world" split at offset 5 → "Hello" | node | " world"
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('Hello world')),
+      ]);
+      final ctx = _ctx(doc);
+      final newNode = HorizontalRuleNode(id: 'hr1');
+      final cmd = InsertNodeAtPositionCommand(
+        node: newNode,
+        position: const DocumentPosition(
+          nodeId: 'p1',
+          nodePosition: TextNodePosition(offset: 5),
+        ),
+      );
+
+      final events = cmd.execute(ctx);
+
+      expect(doc.nodeCount, 3);
+
+      final first = doc.nodeAt(0) as ParagraphNode;
+      expect(first.id, 'p1');
+      expect(first.text.text, 'Hello');
+
+      expect(doc.nodeAt(1), isA<HorizontalRuleNode>());
+      expect(doc.nodeAt(1).id, 'hr1');
+
+      final third = doc.nodeAt(2) as ParagraphNode;
+      expect(third.text.text, ' world');
+
+      expect(events.any((e) => e is TextChanged && (e).nodeId == 'p1'), isTrue);
+      expect(events.any((e) => e is NodeInserted && (e).nodeId == 'hr1'), isTrue);
+      expect(events.any((e) => e is NodeInserted && (e).nodeId != 'hr1'), isTrue);
+    });
+
+    test('5. insert at BinaryNodePosition upstream — node inserted before target', () {
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('Hello')),
+        HorizontalRuleNode(id: 'hr1'),
+        ParagraphNode(id: 'p2', text: AttributedText('World')),
+      ]);
+      final ctx = _ctx(doc);
+      final newNode = ImageNode(id: 'img1', imageUrl: 'https://example.com/img.png');
+      final cmd = InsertNodeAtPositionCommand(
+        node: newNode,
+        position: const DocumentPosition(
+          nodeId: 'hr1',
+          nodePosition: BinaryNodePosition.upstream(),
+        ),
+      );
+
+      final events = cmd.execute(ctx);
+
+      expect(doc.nodeCount, 4);
+      expect(doc.nodeAt(0).id, 'p1');
+      expect(doc.nodeAt(1), isA<ImageNode>());
+      expect(doc.nodeAt(1).id, 'img1');
+      expect(doc.nodeAt(2).id, 'hr1');
+      expect(doc.nodeAt(3).id, 'p2');
+      expect(events, [const NodeInserted(nodeId: 'img1', index: 1)]);
+    });
+
+    test('5b. insert at BinaryNodePosition downstream — node inserted after target', () {
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('Hello')),
+        HorizontalRuleNode(id: 'hr1'),
+        ParagraphNode(id: 'p2', text: AttributedText('World')),
+      ]);
+      final ctx = _ctx(doc);
+      final newNode = ImageNode(id: 'img1', imageUrl: 'https://example.com/img.png');
+      final cmd = InsertNodeAtPositionCommand(
+        node: newNode,
+        position: const DocumentPosition(
+          nodeId: 'hr1',
+          nodePosition: BinaryNodePosition.downstream(),
+        ),
+      );
+
+      final events = cmd.execute(ctx);
+
+      expect(doc.nodeCount, 4);
+      expect(doc.nodeAt(0).id, 'p1');
+      expect(doc.nodeAt(1).id, 'hr1');
+      expect(doc.nodeAt(2), isA<ImageNode>());
+      expect(doc.nodeAt(2).id, 'img1');
+      expect(doc.nodeAt(3).id, 'p2');
+      expect(events, [const NodeInserted(nodeId: 'img1', index: 2)]);
+    });
+
+    test('6. insert with followOnNode — follow-on inserted immediately after main node', () {
+      final doc = _twoParaDoc();
+      final ctx = _ctx(doc);
+      final newNode = HorizontalRuleNode(id: 'hr1');
+      final followOn = ParagraphNode(id: 'follow', text: AttributedText(''));
+      final cmd = InsertNodeAtPositionCommand(
+        node: newNode,
+        followOnNode: followOn,
+      );
+
+      final events = cmd.execute(ctx);
+
+      expect(doc.nodeCount, 4);
+      expect(doc.nodeAt(2), isA<HorizontalRuleNode>());
+      expect(doc.nodeAt(2).id, 'hr1');
+      expect(doc.nodeAt(3).id, 'follow');
+      expect(events.length, 2);
+      expect(events[0], const NodeInserted(nodeId: 'hr1', index: 2));
+      expect(events[1], const NodeInserted(nodeId: 'follow', index: 3));
+    });
+
+    test('7. error: target node not found → StateError', () {
+      final doc = _twoParaDoc();
+      final ctx = _ctx(doc);
+      final newNode = HorizontalRuleNode(id: 'hr1');
+      final cmd = InsertNodeAtPositionCommand(
+        node: newNode,
+        position: const DocumentPosition(
+          nodeId: 'nope',
+          nodePosition: TextNodePosition(offset: 0),
+        ),
+      );
+      expect(() => cmd.execute(ctx), throwsStateError);
+    });
+
+    test('8. via Editor.submit dispatches correctly', () {
+      final doc = _twoParaDoc();
+      final ctx = _ctx(doc);
+      final editor = Editor(editContext: ctx);
+
+      editor.submit(
+        InsertNodeAtPositionRequest(
+          node: HorizontalRuleNode(id: 'hr1'),
+          position: const DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 11),
+          ),
+        ),
+      );
+
+      expect(doc.nodeAt(0).id, 'p1');
+      expect(doc.nodeAt(1), isA<HorizontalRuleNode>());
+      expect(doc.nodeAt(2).id, 'p2');
+      editor.dispose();
+    });
+  });
+
+  // =========================================================================
   // ChangeTextAlignCommand
   // =========================================================================
 

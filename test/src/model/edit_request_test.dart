@@ -578,4 +578,90 @@ void main() {
       expect(req.toString(), contains('16.0'));
     });
   });
+
+  // =========================================================================
+  // InsertNodeAtPositionRequest
+  // =========================================================================
+
+  group('InsertNodeAtPositionRequest', () {
+    test('1. toString includes class name and key fields', () {
+      final node = HorizontalRuleNode(id: 'hr1');
+      final req = InsertNodeAtPositionRequest(
+        node: node,
+        position: const DocumentPosition(
+          nodeId: 'p1',
+          nodePosition: TextNodePosition(offset: 3),
+        ),
+      );
+      expect(req.toString(), contains('InsertNodeAtPositionRequest'));
+      expect(req.toString(), contains('hr1'));
+    });
+
+    test('2. equality: same fields are equal', () {
+      final node = HorizontalRuleNode(id: 'hr1');
+      final pos = const DocumentPosition(
+        nodeId: 'p1',
+        nodePosition: TextNodePosition(offset: 3),
+      );
+      final a = InsertNodeAtPositionRequest(node: node, position: pos);
+      final b = InsertNodeAtPositionRequest(node: node, position: pos);
+      expect(a, equals(b));
+    });
+
+    test('3. equality: different node not equal', () {
+      final pos = const DocumentPosition(
+        nodeId: 'p1',
+        nodePosition: TextNodePosition(offset: 3),
+      );
+      final a = InsertNodeAtPositionRequest(
+        node: HorizontalRuleNode(id: 'hr1'),
+        position: pos,
+      );
+      final b = InsertNodeAtPositionRequest(
+        node: HorizontalRuleNode(id: 'hr2'),
+        position: pos,
+      );
+      expect(a, isNot(equals(b)));
+    });
+
+    test('4. equality: different position not equal', () {
+      final node = HorizontalRuleNode(id: 'hr1');
+      final a = InsertNodeAtPositionRequest(
+        node: node,
+        position: const DocumentPosition(
+          nodeId: 'p1',
+          nodePosition: TextNodePosition(offset: 0),
+        ),
+      );
+      final b = InsertNodeAtPositionRequest(
+        node: node,
+        position: const DocumentPosition(
+          nodeId: 'p2',
+          nodePosition: TextNodePosition(offset: 0),
+        ),
+      );
+      expect(a, isNot(equals(b)));
+    });
+
+    test('5. equality: different followOnNode not equal', () {
+      final node = HorizontalRuleNode(id: 'hr1');
+      final a = InsertNodeAtPositionRequest(node: node);
+      final b = InsertNodeAtPositionRequest(
+        node: node,
+        followOnNode: ParagraphNode(id: 'follow', text: AttributedText('')),
+      );
+      expect(a, isNot(equals(b)));
+    });
+
+    test('6. hashCode is consistent with equality', () {
+      final node = HorizontalRuleNode(id: 'hr1');
+      final pos = const DocumentPosition(
+        nodeId: 'p1',
+        nodePosition: TextNodePosition(offset: 3),
+      );
+      final a = InsertNodeAtPositionRequest(node: node, position: pos);
+      final b = InsertNodeAtPositionRequest(node: node, position: pos);
+      expect(a.hashCode, equals(b.hashCode));
+    });
+  });
 }

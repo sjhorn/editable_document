@@ -911,3 +911,52 @@ class MoveNodeToPositionRequest extends EditRequest {
   @override
   String toString() => 'MoveNodeToPositionRequest(nodeId: $nodeId, position: $position)';
 }
+
+// ---------------------------------------------------------------------------
+// InsertNodeAtPositionRequest
+// ---------------------------------------------------------------------------
+
+/// Request to insert a new [DocumentNode] at a [DocumentPosition] within the
+/// document.
+///
+/// When [position] falls mid-text, the text node is split at that offset and
+/// the new node is inserted between the two halves. When [position] is `null`,
+/// the node is appended at the end of the document.
+///
+/// If [followOnNode] is provided, it is inserted immediately after [node].
+/// This is useful for non-text block insertions where an empty paragraph
+/// should follow so the cursor has somewhere to land.
+class InsertNodeAtPositionRequest extends EditRequest {
+  /// Creates an [InsertNodeAtPositionRequest].
+  InsertNodeAtPositionRequest({
+    required this.node,
+    this.position,
+    this.followOnNode,
+  });
+
+  /// The new node to insert.
+  final DocumentNode node;
+
+  /// Where to insert. If null, append to end of document.
+  final DocumentPosition? position;
+
+  /// Optional node to insert immediately after [node] (e.g. an empty
+  /// paragraph so the cursor has somewhere to land after a non-text block).
+  final DocumentNode? followOnNode;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is InsertNodeAtPositionRequest &&
+        other.node == node &&
+        other.position == position &&
+        other.followOnNode == followOnNode;
+  }
+
+  @override
+  int get hashCode => Object.hash(node, position, followOnNode);
+
+  @override
+  String toString() => 'InsertNodeAtPositionRequest(node: $node, position: $position, '
+      'followOnNode: $followOnNode)';
+}

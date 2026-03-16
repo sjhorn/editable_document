@@ -213,6 +213,12 @@ class Editor {
       return DeleteTableCommand(nodeId: request.nodeId);
     } else if (request is MoveNodeToPositionRequest) {
       return MoveNodeToPositionCommand(nodeId: request.nodeId, position: request.position);
+    } else if (request is InsertNodeAtPositionRequest) {
+      return InsertNodeAtPositionCommand(
+        node: request.node,
+        position: request.position,
+        followOnNode: request.followOnNode,
+      );
     }
     throw ArgumentError('No command registered for request type ${request.runtimeType}.');
   }

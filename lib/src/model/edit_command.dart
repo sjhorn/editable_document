@@ -20,6 +20,7 @@ import 'document_position.dart';
 import 'document_selection.dart';
 import 'edit_context.dart';
 import 'horizontal_rule_node.dart';
+import 'mutable_document.dart';
 import 'image_node.dart';
 import 'list_item_node.dart';
 import 'node_position.dart';
@@ -1716,5 +1717,148 @@ class MoveNodeToPositionCommand extends EditCommand {
     }
 
     return events;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// InsertNodeAtPositionCommand
+// ---------------------------------------------------------------------------
+
+/// Inserts a new [DocumentNode] at the document location described by
+/// [position].
+///
+/// ### Algorithm
+///
+/// 1. If [position] is `null`, append [node] at the end of the document.
+/// 2. Validate [position.nodeId] exists; throw [StateError] otherwise.
+/// 3. Determine the insertion index based on [position]:
+///    - **[BinaryNodePosition.upstream]** — insert before the target node.
+///    - **[BinaryNodePosition.downstream]** — insert after the target node.
+///    - **[TextNodePosition] at offset 0** — insert before the target node.
+///    - **[TextNodePosition] at offset >= text.length** — insert after the
+///      target node.
+///    - **[TextNodePosition] at mid-text offset** — split the target text
+///      node at that offset, then insert the node between the two halves.
+/// 4. If [followOnNode] is non-null, insert it immediately after [node].
+class InsertNodeAtPositionCommand extends EditCommand {
+  /// Creates an [InsertNodeAtPositionCommand].
+  InsertNodeAtPositionCommand({
+    required this.node,
+    this.position,
+    this.followOnNode,
+  });
+
+  /// The new node to insert.
+  final DocumentNode node;
+
+  /// Where to insert. If null, append to end of document.
+  final DocumentPosition? position;
+
+  /// Optional follow-on node inserted immediately after [node].
+  final DocumentNode? followOnNode;
+
+  @override
+  List<DocumentChangeEvent> execute(EditContext context) {
+    final doc = context.document;
+    final events = <DocumentChangeEvent>[];
+
+    // 1. No position — append at end.
+    if (position == null) {
+      final insertIndex = doc.nodeCount;
+      doc.insertNode(insertIndex, node);
+      events.add(NodeInserted(nodeId: node.id, index: insertIndex));
+      _insertFollowOn(doc, events, insertIndex + 1);
+      return events;
+    }
+
+    // 2. Validate the target position node.
+    final targetNode = doc.nodeById(position!.nodeId);
+    if (targetNode == null) {
+      throw StateError(
+        'InsertNodeAtPositionCommand: target node "${position!.nodeId}" not found.',
+      );
+    }
+
+    final targetIndex = doc.getNodeIndexById(position!.nodeId);
+    final nodePosition = position!.nodePosition;
+
+    if (nodePosition is BinaryNodePosition) {
+      final insertIndex =
+          nodePosition.type == BinaryNodePositionType.upstream ? targetIndex : targetIndex + 1;
+      doc.insertNode(insertIndex, node);
+      events.add(NodeInserted(nodeId: node.id, index: insertIndex));
+      _insertFollowOn(doc, events, insertIndex + 1);
+    } else if (nodePosition is TextNodePosition) {
+      final textOffset = nodePosition.offset;
+
+      if (targetNode is! TextNode) {
+        // Target is not a text node — treat as inserting after.
+        final insertIndex = targetIndex + 1;
+        doc.insertNode(insertIndex, node);
+        events.add(NodeInserted(nodeId: node.id, index: insertIndex));
+        _insertFollowOn(doc, events, insertIndex + 1);
+      } else {
+        final textLength = targetNode.text.length;
+
+        if (textOffset <= 0) {
+          // Insert before target node.
+          doc.insertNode(targetIndex, node);
+          events.add(NodeInserted(nodeId: node.id, index: targetIndex));
+          _insertFollowOn(doc, events, targetIndex + 1);
+        } else if (textOffset >= textLength) {
+          // Insert after target node.
+          final insertIndex = targetIndex + 1;
+          doc.insertNode(insertIndex, node);
+          events.add(NodeInserted(nodeId: node.id, index: insertIndex));
+          _insertFollowOn(doc, events, insertIndex + 1);
+        } else {
+          // Mid-text: split the target node, then insert the new node between
+          // the two halves.
+          final firstText = targetNode.text.copyText(0, textOffset);
+          final secondText = targetNode.text.copyText(textOffset);
+
+          // Truncate the original node to text before the offset.
+          doc.updateNode(
+            position!.nodeId,
+            (n) => (n as TextNode).copyWith(text: firstText),
+          );
+          events.add(TextChanged(nodeId: position!.nodeId));
+
+          // Insert the new node immediately after the (now truncated) target.
+          final blockInsertIndex = targetIndex + 1;
+          doc.insertNode(blockInsertIndex, node);
+          events.add(NodeInserted(nodeId: node.id, index: blockInsertIndex));
+
+          // Follow-on node goes right after the main node.
+          final followOnIndex = blockInsertIndex + 1;
+          _insertFollowOn(doc, events, followOnIndex);
+
+          // New paragraph with remaining text after follow-on (or after main node).
+          final newId = generateNodeId();
+          final newParagraph = ParagraphNode(id: newId, text: secondText);
+          final paragraphInsertIndex = followOnNode != null ? followOnIndex + 1 : followOnIndex;
+          doc.insertNode(paragraphInsertIndex, newParagraph);
+          events.add(NodeInserted(nodeId: newId, index: paragraphInsertIndex));
+        }
+      }
+    } else {
+      // Unknown position type — fall back to appending at the end.
+      final insertIndex = doc.nodeCount;
+      doc.insertNode(insertIndex, node);
+      events.add(NodeInserted(nodeId: node.id, index: insertIndex));
+      _insertFollowOn(doc, events, insertIndex + 1);
+    }
+
+    return events;
+  }
+
+  void _insertFollowOn(
+    MutableDocument doc,
+    List<DocumentChangeEvent> events,
+    int index,
+  ) {
+    if (followOnNode == null) return;
+    doc.insertNode(index, followOnNode!);
+    events.add(NodeInserted(nodeId: followOnNode!.id, index: index));
   }
 }
