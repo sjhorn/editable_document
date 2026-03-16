@@ -113,6 +113,18 @@ abstract class RenderDocumentBlock extends RenderBox {
   /// (e.g. horizontal rules without an explicit [requestedWidth]).
   bool get clearsFloat => false;
 
+  /// Whether this block prefers narrowed-width constraints beside a float
+  /// instead of receiving full-width constraints with an [exclusionRect].
+  ///
+  /// Blocks with opaque backgrounds (such as [RenderCodeBlock]) should
+  /// override this to return `true` so their background does not extend
+  /// behind the float image.  When `true` and [requestedWidth] is `null`,
+  /// the document layout routes the block through the narrowed-width path
+  /// (offset + reduced width) instead of the exclusion-rect path.
+  ///
+  /// Defaults to `false`.
+  bool get prefersNarrowedFloat => false;
+
   /// The natural/intrinsic content size of this block in logical pixels,
   /// or `null` if the concept does not apply to this block type.
   ///
@@ -161,6 +173,8 @@ abstract class RenderDocumentBlock extends RenderBox {
     properties
         .add(EnumProperty<TextWrapMode>('textWrap', textWrap, defaultValue: TextWrapMode.none));
     properties.add(DiagnosticsProperty<bool>('clearsFloat', clearsFloat));
+    properties.add(DiagnosticsProperty<bool>('prefersNarrowedFloat', prefersNarrowedFloat,
+        defaultValue: false));
     properties.add(DiagnosticsProperty<Size?>('intrinsicContentSize', intrinsicContentSize,
         defaultValue: null));
     properties.add(DoubleProperty('spaceBefore', spaceBefore, defaultValue: null));

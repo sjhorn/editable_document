@@ -100,6 +100,9 @@ class RenderCodeBlock extends RenderTextBlock with BlockLayoutMixin {
   // ---------------------------------------------------------------------------
 
   @override
+  bool get prefersNarrowedFloat => true;
+
+  @override
   void performLayout() {
     // When requestedWidth is set, use it as the block width (clamped to
     // constraints).  Otherwise fill the available width.

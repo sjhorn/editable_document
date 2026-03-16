@@ -1471,6 +1471,51 @@ void main() {
         reason: 'block too wide to fit beside float should clear it',
       );
     });
+
+    test(
+        'float start: stretch code block (no requestedWidth) gets narrowed width, not exclusionRect',
+        () {
+      // A RenderCodeBlock with blockAlignment: stretch and NO requestedWidth
+      // has prefersNarrowedFloat == true, so the layout should route it through
+      // the narrowed-width path (offset to the right of the float, reduced
+      // width) instead of the exclusion-rect path (full width + exclusionRect).
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: floatWidth,
+        requestedHeight: floatHeight,
+        blockAlignment: BlockAlignment.start,
+        textWrap: TextWrapMode.wrap,
+      );
+      final codeBlock = RenderCodeBlock(
+        nodeId: 'code1',
+        text: AttributedText('print("hello")'),
+        blockAlignment: BlockAlignment.stretch,
+        // No requestedWidth — default stretch behavior.
+      );
+      _layout(children: [image, codeBlock], maxWidth: maxWidth, blockSpacing: 0.0);
+
+      const floatGap = 8.0;
+      final codeData = codeBlock.parentData as DocumentBlockParentData;
+
+      // Code block x-offset must equal floatWidth + gap.
+      expect(
+        codeData.offset.dx,
+        closeTo(floatWidth + floatGap, 0.5),
+        reason: 'stretch code block should be offset to the right of the float',
+      );
+      // Code block width must be narrowed (maxWidth - floatWidth - gap).
+      expect(
+        codeBlock.size.width,
+        closeTo(maxWidth - floatWidth - floatGap, 0.5),
+        reason: 'stretch code block should be narrowed, not full width',
+      );
+      // No exclusionRect — the block uses the narrowed-width path.
+      expect(
+        codeData.exclusionRect,
+        isNull,
+        reason: 'stretch code block with prefersNarrowedFloat should not get an exclusionRect',
+      );
+    });
   });
 
   // ---------------------------------------------------------------------------

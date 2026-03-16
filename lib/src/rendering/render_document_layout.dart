@@ -380,7 +380,7 @@ class RenderDocumentLayout extends RenderBox
             ce.bottom - yOffset,
           );
         } else if (hasStart && !hasEnd) {
-          if (child.requestedWidth == null) {
+          if (child.requestedWidth == null && !child.prefersNarrowedFloat) {
             // Text-like stretch block beside a single start float: pass full-width
             // constraints plus an exclusionRect so [RenderTextBlock] can split
             // the text into above/beside/below zones and return to full width once
@@ -394,14 +394,16 @@ class RenderDocumentLayout extends RenderBox
               startExclusion.bottom - yOffset,
             );
           } else {
-            // Sized block (image, code, etc.) with an explicit requestedWidth.
-            // Narrow the available width to fit beside the float; the block
-            // clamps its requestedWidth to the reduced constraint.
+            // Sized block (image, code, etc.) with an explicit requestedWidth,
+            // or a block that prefers narrowed-width constraints (e.g. a code
+            // block with an opaque background).  Narrow the available width to
+            // fit beside the float; the block clamps its width to the reduced
+            // constraint.
             childMaxWidth = max(0.0, preferredWidth - startExclusion.width);
             xOffset = startExclusion.width;
           }
         } else if (hasEnd && !hasStart) {
-          if (child.requestedWidth == null) {
+          if (child.requestedWidth == null && !child.prefersNarrowedFloat) {
             // Text-like stretch block beside a single end float: same treatment —
             // full-width constraints plus a right-side exclusionRect.
             childMaxWidth = preferredWidth;
