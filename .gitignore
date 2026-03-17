@@ -40,3 +40,4 @@ example/*/pubspec.lock
 /macos/
 /windows/
 /web/
+.flutter_src/
