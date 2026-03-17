@@ -988,6 +988,25 @@ class DocumentKeyboardHandler {
     if (selection == null || selection.isExpanded) return false;
     final node = _document.nodeById(selection.extent.nodeId);
 
+    // Table cell: insert a newline character within the cell.
+    if (node is TableNode) {
+      final cellPos = selection.extent.nodePosition;
+      if (cellPos is! TableCellPosition) return false;
+      final cellText = node.cellAt(cellPos.row, cellPos.col).text;
+      final newText =
+          cellText.substring(0, cellPos.offset) + '\n' + cellText.substring(cellPos.offset);
+      _requestHandler(
+        UpdateTableCellRequest(
+          nodeId: node.id,
+          row: cellPos.row,
+          col: cellPos.col,
+          newText: AttributedText(newText),
+          newCursorOffset: cellPos.offset + 1,
+        ),
+      );
+      return true;
+    }
+
     // Empty list item → convert to paragraph.
     if (node is ListItemNode && node.text.text.isEmpty) {
       _requestHandler(ConvertListItemToParagraphRequest(nodeId: node.id));
