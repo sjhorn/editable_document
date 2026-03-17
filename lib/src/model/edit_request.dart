@@ -803,6 +803,11 @@ class InsertTableRequest extends EditRequest {
 /// The [TableNode] identified by [nodeId] must exist and the [row] and [col]
 /// indices must be within bounds. The cell at ([row], [col]) is replaced with
 /// [newText].
+///
+/// When [newCursorOffset] is non-null, the controller selection is collapsed
+/// to that character offset within the cell after the update. The offset is
+/// clamped to `[0, newText.length]` so out-of-range values are safe to pass.
+/// When [newCursorOffset] is `null`, the selection is left unchanged.
 class UpdateTableCellRequest extends EditRequest {
   /// Creates an [UpdateTableCellRequest].
   const UpdateTableCellRequest({
@@ -810,6 +815,7 @@ class UpdateTableCellRequest extends EditRequest {
     required this.row,
     required this.col,
     required this.newText,
+    this.newCursorOffset,
   });
 
   /// The id of the target [TableNode].
@@ -824,6 +830,10 @@ class UpdateTableCellRequest extends EditRequest {
   /// The new text content for the cell.
   final AttributedText newText;
 
+  /// The character offset within the cell to place the cursor after the update,
+  /// or `null` to leave the selection unchanged.
+  final int? newCursorOffset;
+
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
@@ -831,15 +841,16 @@ class UpdateTableCellRequest extends EditRequest {
         other.nodeId == nodeId &&
         other.row == row &&
         other.col == col &&
-        other.newText == newText;
+        other.newText == newText &&
+        other.newCursorOffset == newCursorOffset;
   }
 
   @override
-  int get hashCode => Object.hash(nodeId, row, col, newText);
+  int get hashCode => Object.hash(nodeId, row, col, newText, newCursorOffset);
 
   @override
   String toString() => 'UpdateTableCellRequest(nodeId: $nodeId, row: $row, '
-      'col: $col, newText: $newText)';
+      'col: $col, newText: $newText, newCursorOffset: $newCursorOffset)';
 }
 
 // ---------------------------------------------------------------------------

@@ -419,6 +419,7 @@ class DocumentImeSerializer {
           row: target.row,
           col: target.col,
           newText: AttributedText(newText),
+          newCursorOffset: delta.selection.extentOffset,
         ),
       );
     }

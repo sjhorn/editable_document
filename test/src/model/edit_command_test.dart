@@ -2421,4 +2421,114 @@ void main() {
       expect(() => cmd.execute(ctx), throwsStateError);
     });
   });
+
+  // =========================================================================
+  // UpdateTableCellCommand — cursor advancement
+  // =========================================================================
+
+  group('UpdateTableCellCommand cursor advancement', () {
+    /// Builds a document with a 2x2 [TableNode].
+    MutableDocument _tableDoc() => MutableDocument([
+          TableNode(
+            id: 'tbl1',
+            rowCount: 2,
+            columnCount: 2,
+            cells: [
+              [AttributedText('ab'), AttributedText('cd')],
+              [AttributedText('ef'), AttributedText('gh')],
+            ],
+          ),
+        ]);
+
+    test('1. advances cursor to newCursorOffset after cell update', () {
+      final doc = _tableDoc();
+      final ctx = _ctx(doc);
+
+      // Place the selection at offset 0 in cell (0, 0).
+      ctx.controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'tbl1',
+            nodePosition: TableCellPosition(row: 0, col: 0, offset: 0),
+          ),
+        ),
+      );
+
+      final cmd = UpdateTableCellCommand(
+        nodeId: 'tbl1',
+        row: 0,
+        col: 0,
+        newText: AttributedText('hello'),
+        newCursorOffset: 5,
+      );
+      final events = cmd.execute(ctx);
+
+      // The cell text must be updated.
+      final node = doc.nodeById('tbl1') as TableNode;
+      expect(node.cellAt(0, 0).text, 'hello');
+
+      // The selection must have moved to offset 5.
+      final sel = ctx.controller.selection;
+      expect(sel, isNotNull);
+      expect(sel!.isCollapsed, isTrue);
+      expect(
+        sel.extent,
+        const DocumentPosition(
+          nodeId: 'tbl1',
+          nodePosition: TableCellPosition(row: 0, col: 0, offset: 5),
+        ),
+      );
+
+      // Command must still return the NodeReplaced event.
+      expect(events, [const NodeReplaced(oldNodeId: 'tbl1', newNodeId: 'tbl1')]);
+    });
+
+    test('2. clamps newCursorOffset to text length when offset exceeds length', () {
+      final doc = _tableDoc();
+      final ctx = _ctx(doc);
+
+      final cmd = UpdateTableCellCommand(
+        nodeId: 'tbl1',
+        row: 0,
+        col: 0,
+        newText: AttributedText('hi'),
+        newCursorOffset: 99,
+      );
+      cmd.execute(ctx);
+
+      final sel = ctx.controller.selection;
+      expect(sel, isNotNull);
+      final pos = sel!.extent.nodePosition as TableCellPosition;
+      expect(pos.offset, 2); // clamped to text.length == 2
+    });
+
+    test('3. null newCursorOffset leaves selection unchanged', () {
+      final doc = _tableDoc();
+      final ctx = _ctx(doc);
+
+      // Place the selection at offset 1 in cell (1, 1).
+      ctx.controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'tbl1',
+            nodePosition: TableCellPosition(row: 1, col: 1, offset: 1),
+          ),
+        ),
+      );
+
+      final selBefore = ctx.controller.selection;
+
+      final cmd = UpdateTableCellCommand(
+        nodeId: 'tbl1',
+        row: 0,
+        col: 0,
+        newText: AttributedText('updated'),
+        // newCursorOffset omitted → null
+      );
+      cmd.execute(ctx);
+
+      // Selection must be unchanged.
+      expect(ctx.controller.selection, selBefore);
+    });
+  });
 }

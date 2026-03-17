@@ -1486,6 +1486,11 @@ class InsertTableCommand extends EditCommand {
 /// Replaces the [AttributedText] at ([row], [col]) of the [TableNode]
 /// identified by [nodeId] with [newText]. All other cells are unchanged.
 ///
+/// When [newCursorOffset] is non-null, the controller selection is collapsed
+/// to that character offset within the updated cell. The offset is clamped to
+/// `[0, newText.length]`. When [newCursorOffset] is `null`, the selection is
+/// left unchanged.
+///
 /// Throws [StateError] when [nodeId] does not exist or is not a [TableNode].
 class UpdateTableCellCommand extends EditCommand {
   /// Creates an [UpdateTableCellCommand].
@@ -1494,6 +1499,7 @@ class UpdateTableCellCommand extends EditCommand {
     required this.row,
     required this.col,
     required this.newText,
+    this.newCursorOffset,
   });
 
   /// The id of the target [TableNode].
@@ -1507,6 +1513,10 @@ class UpdateTableCellCommand extends EditCommand {
 
   /// The replacement text.
   final AttributedText newText;
+
+  /// The character offset within the cell to place the cursor after the update,
+  /// or `null` to leave the selection unchanged.
+  final int? newCursorOffset;
 
   @override
   List<DocumentChangeEvent> execute(EditContext context) {
@@ -1529,6 +1539,23 @@ class UpdateTableCellCommand extends EditCommand {
     );
 
     doc.replaceNode(nodeId, node.copyWith(cells: newCells));
+
+    // Update the cursor position within the cell if requested.
+    if (newCursorOffset != null) {
+      context.controller.setSelection(
+        DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: nodeId,
+            nodePosition: TableCellPosition(
+              row: row,
+              col: col,
+              offset: newCursorOffset!.clamp(0, newText.length),
+            ),
+          ),
+        ),
+      );
+    }
+
     return [NodeReplaced(oldNodeId: nodeId, newNodeId: nodeId)];
   }
 }

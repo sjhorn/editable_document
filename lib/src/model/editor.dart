@@ -208,6 +208,7 @@ class Editor {
         row: request.row,
         col: request.col,
         newText: request.newText,
+        newCursorOffset: request.newCursorOffset,
       );
     } else if (request is DeleteTableRequest) {
       return DeleteTableCommand(nodeId: request.nodeId);
