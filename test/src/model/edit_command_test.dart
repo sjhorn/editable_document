@@ -1871,6 +1871,43 @@ void main() {
       expect(events[1], const NodeInserted(nodeId: 'follow', index: 3));
     });
 
+    test('6b. mid-text split with followOnNode — followOn skipped, remaining text preserved', () {
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('Hello world')),
+      ]);
+      final ctx = _ctx(doc);
+      final newNode = HorizontalRuleNode(id: 'hr1');
+      final followOn = ParagraphNode(id: 'follow', text: AttributedText(''));
+      final cmd = InsertNodeAtPositionCommand(
+        node: newNode,
+        position: const DocumentPosition(
+          nodeId: 'p1',
+          nodePosition: TextNodePosition(offset: 5),
+        ),
+        followOnNode: followOn,
+      );
+
+      final events = cmd.execute(ctx);
+
+      // Result: ["Hello"] [HR] [" world"] — no empty follow-on paragraph.
+      expect(doc.nodeCount, 3);
+
+      final first = doc.nodeAt(0) as ParagraphNode;
+      expect(first.id, 'p1');
+      expect(first.text.text, 'Hello');
+
+      expect(doc.nodeAt(1), isA<HorizontalRuleNode>());
+      expect(doc.nodeAt(1).id, 'hr1');
+
+      final third = doc.nodeAt(2) as ParagraphNode;
+      expect(third.text.text, ' world');
+      // followOn node 'follow' should NOT be in the document.
+      expect(doc.nodeById('follow'), isNull);
+
+      expect(events.any((e) => e is TextChanged && (e).nodeId == 'p1'), isTrue);
+      expect(events.any((e) => e is NodeInserted && (e).nodeId == 'hr1'), isTrue);
+    });
+
     test('7. error: target node not found → StateError', () {
       final doc = _twoParaDoc();
       final ctx = _ctx(doc);

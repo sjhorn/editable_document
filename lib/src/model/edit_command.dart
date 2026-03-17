@@ -1739,7 +1739,9 @@ class MoveNodeToPositionCommand extends EditCommand {
 ///      target node.
 ///    - **[TextNodePosition] at mid-text offset** — split the target text
 ///      node at that offset, then insert the node between the two halves.
-/// 4. If [followOnNode] is non-null, insert it immediately after [node].
+/// 4. If [followOnNode] is non-null, insert it immediately after [node] — except
+///    in the mid-text split case, where the remaining-text paragraph already
+///    serves as a cursor landing spot.
 class InsertNodeAtPositionCommand extends EditCommand {
   /// Creates an [InsertNodeAtPositionCommand].
   InsertNodeAtPositionCommand({
@@ -1813,7 +1815,8 @@ class InsertNodeAtPositionCommand extends EditCommand {
           _insertFollowOn(doc, events, insertIndex + 1);
         } else {
           // Mid-text: split the target node, then insert the new node between
-          // the two halves.
+          // the two halves. The remaining-text paragraph serves as the cursor
+          // landing spot, so followOnNode is intentionally skipped here.
           final firstText = targetNode.text.copyText(0, textOffset);
           final secondText = targetNode.text.copyText(textOffset);
 
@@ -1829,14 +1832,10 @@ class InsertNodeAtPositionCommand extends EditCommand {
           doc.insertNode(blockInsertIndex, node);
           events.add(NodeInserted(nodeId: node.id, index: blockInsertIndex));
 
-          // Follow-on node goes right after the main node.
-          final followOnIndex = blockInsertIndex + 1;
-          _insertFollowOn(doc, events, followOnIndex);
-
-          // New paragraph with remaining text after follow-on (or after main node).
+          // New paragraph with remaining text.
           final newId = generateNodeId();
           final newParagraph = ParagraphNode(id: newId, text: secondText);
-          final paragraphInsertIndex = followOnNode != null ? followOnIndex + 1 : followOnIndex;
+          final paragraphInsertIndex = blockInsertIndex + 1;
           doc.insertNode(paragraphInsertIndex, newParagraph);
           events.add(NodeInserted(nodeId: newId, index: paragraphInsertIndex));
         }
