@@ -44,28 +44,22 @@ test/src/services/
 
 1. Write failing test first. Run. Confirm RED.
 2. Implement minimum. Run. Confirm GREEN.
-3. Ask the `qa` agent: `scripts/ci/ci_gate.sh test/src/services/` — zero issues.
+3. Ask the `qa` agent to run the gate for the services layer — zero issues.
 4. Ask the `qa` agent for coverage: `scripts/ci/coverage.sh test/src/services/ 100` — **must be 100% branch coverage.**
 5. Commit: `feat(services):`, `fix(services):`, or `test(services):`.
 
-## Quality checks — ALWAYS use scripts/ci/
+**Never call `mcp__dart__*` tools directly for quality checks — always delegate to the `qa` agent.**
+
+## Quality checks — ALWAYS delegate to the qa agent
 
 **NEVER run `flutter test`, `flutter analyze`, `dart format`, `dart fix`, or `sed` directly.**
-Always use the scripts in `scripts/ci/`. They handle output capture internally — no `2>&1` or redirects needed. Use `scripts/ci/sed.sh <args>` instead of raw `sed`.
+**NEVER call `mcp__dart__*` tools directly for quality checks.**
+Always ask the `qa` agent to run checks. Use `scripts/ci/sed.sh <args>` instead of raw `sed`.
 
+For coverage enforcement (no MCP equivalent):
 ```bash
-scripts/ci/ci_gate.sh                          # full gate
-scripts/ci/ci_gate.sh test/src/services/       # gate scoped to services layer
-scripts/ci/flutter_test.sh test/src/services/  # run services tests only
-scripts/ci/flutter_analyze.sh                  # run analyzer (info breakdown by rule)
-scripts/ci/flutter_analyze.sh --verbose        # analyzer with full output
-scripts/ci/dart_format.sh check                # check formatting
-scripts/ci/dart_format.sh fix                  # apply formatting
-scripts/ci/dart_fix.sh apply                   # auto-fix lint issues (prefer_const, etc.)
 scripts/ci/coverage.sh test/src/services/ 100  # coverage (must be 100%)
 ```
-
-All scripts accept `--verbose` to show full output. Default is summary only.
 
 ## The IME bridge — the hardest engineering problem in this package
 

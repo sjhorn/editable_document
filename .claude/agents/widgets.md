@@ -59,27 +59,17 @@ test/goldens/widgets/
 
 1. Write failing test first. Confirm RED.
 2. Implement minimum. Confirm GREEN.
-3. Ask the `qa` agent: `scripts/ci/ci_gate.sh test/src/widgets/` — zero issues.
-4. For visual changes: ask the `qa` agent to run `scripts/ci/flutter_test.sh --update-goldens test/src/widgets/` on Linux only.
+3. Ask the `qa` agent to run the gate for the widgets layer — zero issues.
+4. For visual changes: ask the `qa` agent to update goldens via `scripts/ci/flutter_test.sh --update-goldens test/src/widgets/` on Linux only (MCP has no `--update-goldens` flag).
 5. Commit: `feat(widgets):`, `fix(widgets):`, or `test(widgets):`.
 
-## Quality checks — ALWAYS use scripts/ci/
+**Never call `mcp__dart__*` tools directly for quality checks — always delegate to the `qa` agent.**
+
+## Quality checks — ALWAYS delegate to the qa agent
 
 **NEVER run `flutter test`, `flutter analyze`, `dart format`, `dart fix`, or `sed` directly.**
-Always use the scripts in `scripts/ci/`. They handle output capture internally — no `2>&1` or redirects needed. Use `scripts/ci/sed.sh <args>` instead of raw `sed`.
-
-```bash
-scripts/ci/ci_gate.sh                         # full gate
-scripts/ci/ci_gate.sh test/src/widgets/       # gate scoped to widgets layer
-scripts/ci/flutter_test.sh test/src/widgets/  # run widget tests only
-scripts/ci/flutter_analyze.sh                 # run analyzer (info breakdown by rule)
-scripts/ci/flutter_analyze.sh --verbose       # analyzer with full output
-scripts/ci/dart_format.sh check               # check formatting
-scripts/ci/dart_format.sh fix                 # apply formatting
-scripts/ci/dart_fix.sh apply                  # auto-fix lint issues (prefer_const, etc.)
-```
-
-All scripts accept `--verbose` to show full output. Default is summary only.
+**NEVER call `mcp__dart__*` tools directly for quality checks.**
+Always ask the `qa` agent to run checks. Use `scripts/ci/sed.sh <args>` instead of raw `sed`.
 
 ## EditableDocument parameter surface — mirror EditableText exactly
 

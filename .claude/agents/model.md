@@ -47,20 +47,11 @@ test/src/model/
 
 1. Write the failing test first. Run it. Confirm RED.
 2. Write minimum implementation. Run it. Confirm GREEN.
-3. Run `scripts/ci/ci_gate.sh test/src/model/` — zero issues. **Never add `2>&1` or other redirects** — the scripts capture verbose output to `/tmp/ed_*.txt` internally and print only a summary to stdout.
-4. Refactor. Rerun tests.
+3. Ask the `qa` agent to run the gate for the model layer — zero issues.
+4. Refactor. Rerun tests via the `qa` agent.
 5. Commit: `feat(model): <description>` or `test(model): <description>` or `fix(model): <description>`.
 
-### Running individual scripts (no redirects needed)
-
-```bash
-scripts/ci/flutter_test.sh test/src/model/   # run model tests
-scripts/ci/flutter_analyze.sh                # run analyzer
-scripts/ci/dart_format.sh check              # check formatting
-scripts/ci/dart_format.sh fix                # apply formatting
-scripts/ci/log_tail.sh summary              # read all summaries
-scripts/ci/log_tail.sh failures             # see only failures
-```
+**Never call `mcp__dart__*` tools directly for quality checks — always delegate to the `qa` agent.**
 
 ## Key classes to implement
 
@@ -120,23 +111,11 @@ class DocumentSelection {
 ### DocumentEditingController
 Analogous to `TextEditingController`. Extends `ChangeNotifier`. Holds `MutableDocument document`, `DocumentSelection? selection`, `ComposerPreferences preferences`. Method `buildNodeSpan(DocumentNode node)` analogous to `TextEditingController.buildTextSpan`.
 
-## Quality checks — ALWAYS use scripts/ci/
+## Quality checks — ALWAYS delegate to the qa agent
 
 **NEVER run `flutter test`, `flutter analyze`, `dart format`, `dart fix`, or `sed` directly.**
-Always use the scripts in `scripts/ci/`. They handle output capture internally — no `2>&1` or redirects needed. Use `scripts/ci/sed.sh <args>` instead of raw `sed`.
-
-```bash
-scripts/ci/ci_gate.sh                        # full gate (analyze + format + test)
-scripts/ci/ci_gate.sh test/src/model/        # gate scoped to model layer
-scripts/ci/flutter_test.sh test/src/model/   # run model tests only
-scripts/ci/flutter_analyze.sh                # run analyzer (info breakdown by rule)
-scripts/ci/flutter_analyze.sh --verbose      # analyzer with full output
-scripts/ci/dart_format.sh check              # check formatting
-scripts/ci/dart_format.sh fix                # apply formatting
-scripts/ci/dart_fix.sh apply                 # auto-fix lint issues (prefer_const, etc.)
-```
-
-All scripts accept `--verbose` to show full output. Default is summary only.
+**NEVER call `mcp__dart__*` tools directly for quality checks.**
+Always ask the `qa` agent to run checks. Use `scripts/ci/sed.sh <args>` instead of raw `sed`.
 
 ## Code style
 

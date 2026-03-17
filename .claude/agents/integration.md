@@ -131,27 +131,26 @@ void main() {
 
 ## Run integration tests
 
-Always via the `qa` agent using `flutter_test.sh`, which handles all output piping:
+Always delegate to the `qa` agent, which uses MCP tools for test execution:
 
+```
+# Desktop (fast, no device needed) — qa agent uses:
+mcp__dart__run_tests (path: "integration_test/caret_placement_test.dart")
+
+# All integration tests:
+mcp__dart__run_tests (path: "integration_test/")
+```
+
+**Bash fallback for device-specific runs** (MCP has no `--device-id` flag):
 ```bash
-# Desktop (fast, no device needed)
-scripts/ci/flutter_test.sh integration_test/caret_placement_test.dart
-
 # iOS simulator
 scripts/ci/flutter_test.sh integration_test/ --device-id <ios-simulator-id>
 
 # Android emulator
 scripts/ci/flutter_test.sh integration_test/ --device-id <android-emulator-id>
-
-# With performance profiling (profile mode via flutter drive — qa agent runs this directly)
-scripts/ci/flutter_test.sh integration_test/scroll_test.dart --profile
 ```
 
-Then read results:
-```bash
-scripts/ci/log_tail.sh summary
-scripts/ci/log_tail.sh failures
-```
+MCP tools return results directly — no log files to read.
 
 ## Commit prefix
 

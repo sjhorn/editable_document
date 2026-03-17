@@ -95,20 +95,20 @@ Each agent owns its directory exclusively. **No agent may write files outside it
 | `integration` | `integration_test/` | `lib/` (read only) |
 | `benchmark` | `benchmark/` | `lib/` (read only) |
 | `docs` | `doc/`, `example/`, `README.md`, `CHANGELOG.md` | `lib/`, `test/` |
-| `qa` | runs `scripts/ci/`, reads `/tmp/ed_*.txt` | `lib/`, `test/` (read only) |
+| `qa` | runs MCP tools (`mcp__dart__*`, `mcp__server-git__*`), `scripts/ci/coverage.sh`, `scripts/ci/benchmark.sh` | `lib/`, `test/` (read only) |
 
 ---
 
 ## Non-negotiable rules
 
 1. **TDD is mandatory.** Write failing test first. Implement minimum. Refactor. Commit.
-2. **The `qa` agent must give PASS before any commit.** Never run `flutter analyze`, `flutter test`, or `dart format` directly — always use the `qa` agent and its `scripts/ci/` wrappers.
+2. **The `qa` agent must give PASS before any commit.** Never run `flutter analyze`, `flutter test`, or `dart format` directly — always use the `qa` agent (which uses MCP tools `mcp__dart__*`).
 3. **Every public symbol has `///` dartdoc.** `dart doc` must produce zero warnings.
 4. **Zero external dependencies.** Flutter SDK only.
 5. **100 % branch coverage on `lib/src/services/`.** ≥ 90 % overall.
-6. **Golden tests** for all pixel-drawing code. Update only via the `qa` agent on Linux (`scripts/ci/flutter_test.sh --update-goldens`).
+6. **Golden tests** for all pixel-drawing code. Update only via the `qa` agent on Linux (`scripts/ci/flutter_test.sh --update-goldens` — this is the one case where the script is still needed, as MCP has no `--update-goldens` flag).
 7. **Commit messages:** `type(scope): description` — one ROADMAP checkbox per commit maximum.
-8. **No `$()` in Bash tool calls.** Claude Code blocks command substitution `$()` in Bash tool arguments. Never use `$()` in any Bash tool call — write intermediate values to temp files instead. For git commits: write the message to `/tmp/ed_commit_msg.txt` first, then `git commit -F /tmp/ed_commit_msg.txt`. (`$()` inside `.sh` script files is fine — the restriction only applies to Bash tool call arguments.)
+8. **No `$()` in Bash tool calls.** Claude Code blocks command substitution `$()` in Bash tool arguments. Never use `$()` in any Bash tool call — write intermediate values to temp files instead. (`$()` inside `.sh` script files is fine — the restriction only applies to Bash tool call arguments.)
 9. **Use `scripts/ci/sed.sh` instead of raw `sed`.** Never call `sed` directly in Bash tool calls — use `scripts/ci/sed.sh <args>` instead. The wrapper is in the permission allowlist so it runs without interactive prompts.
 
 ---
@@ -132,25 +132,74 @@ model  ←  rendering  ←  services  ←  widgets
 
 ## Quick-start
 
-```bash
-# 1. Orient yourself
-cat ROADMAP.md                          # find next unchecked checkbox
-
-# 2. Identify and invoke the right agent
-#    e.g. "use the model agent to implement DocumentNode"
-
-# 3. After implementation, always run the gate via qa agent
-#    e.g. "use the qa agent to run the full gate"
-scripts/ci/ci_gate.sh --fix
-scripts/ci/log_tail.sh summary
-
-# 4. Inspect any failures
-scripts/ci/log_tail.sh failures
+```
+1. Read ROADMAP.md → find next unchecked checkbox
+2. Identify and invoke the right agent
+   e.g. "use the model agent to implement DocumentNode"
+3. After implementation, always run the gate via qa agent
+   e.g. "use the qa agent to run the full gate"
+   The qa agent runs: mcp__dart__analyze_files → mcp__dart__dart_format → mcp__dart__run_tests
+4. The qa agent reports PASS/FAIL with diagnosis — no log files to inspect
 ```
 
 **Never type `flutter test`, `flutter analyze`, or `dart format` directly. Always go through the `qa` agent.**
 
+**Prefer MCP tools (`mcp__dart__*`) over shell commands** for testing, analysis, formatting, and fixes. MCP tools return results directly — no `/tmp` log files or shell redirect workarounds needed.
+
 **Run benchmarks via `scripts/ci/benchmark.sh`.** The script handles pipe redirections and output capture internally — agents should never use raw `flutter test` for benchmarks.
+
+---
+
+## Dart MCP tools
+
+The Dart MCP server provides native tool calls for development tasks. The `qa` agent uses these for quality gates; other agents should delegate to the `qa` agent rather than calling them directly.
+
+| MCP tool | Purpose |
+|----------|---------|
+| `mcp__dart__run_tests` | Run tests (supports path, coverage, name filter, fail-fast) |
+| `mcp__dart__analyze_files` | Static analysis (supports path scoping) |
+| `mcp__dart__dart_format` | Check/apply formatting (respects `page_width: 100`) |
+| `mcp__dart__dart_fix` | Apply dart fix auto-corrections |
+| `mcp__dart__hover` | Get type/doc info at a source location |
+| `mcp__dart__resolve_workspace_symbol` | Find symbols by name across the workspace |
+| `mcp__dart__pub` | Run pub commands (get, upgrade, etc.) |
+| `mcp__dart__pub_dev_search` | Search pub.dev for packages |
+| `mcp__dart__launch_app` | Launch the app on a device |
+| `mcp__dart__hot_reload` / `hot_restart` | Hot reload/restart a running app |
+| `mcp__dart__get_widget_tree` | Inspect the widget tree of a running app |
+
+## Git MCP tools
+
+The git MCP server provides native tool calls for local git operations. **Prefer these over `git` CLI commands** — especially `mcp__server-git__git_commit` which accepts the message as a parameter (no temp file workaround needed).
+
+| MCP tool | Purpose |
+|----------|---------|
+| `mcp__server-git__git_status` | Working tree status |
+| `mcp__server-git__git_add` | Stage files |
+| `mcp__server-git__git_commit` | Commit with message parameter |
+| `mcp__server-git__git_diff` | Diff between branches/commits |
+| `mcp__server-git__git_diff_staged` | Show staged changes |
+| `mcp__server-git__git_diff_unstaged` | Show unstaged changes |
+| `mcp__server-git__git_log` | Commit history |
+| `mcp__server-git__git_show` | Show commit contents |
+| `mcp__server-git__git_reset` | Unstage all |
+| `mcp__server-git__git_branch` | List branches |
+| `mcp__server-git__git_create_branch` | Create branch |
+| `mcp__server-git__git_checkout` | Switch branches |
+
+## GitHub MCP tools
+
+The GitHub MCP server provides native tool calls for remote repository operations. Use these instead of `gh` CLI commands.
+
+| MCP tool | Purpose |
+|----------|---------|
+| `mcp__github__create_pull_request` | Create a PR |
+| `mcp__github__list_pull_requests` | List PRs |
+| `mcp__github__pull_request_read` | Read PR details |
+| `mcp__github__add_issue_comment` | Comment on an issue |
+| `mcp__github__issue_read` / `issue_write` | Read/create issues |
+| `mcp__github__search_code` | Search code across repos |
+| `mcp__github__list_commits` | List recent commits |
 
 ---
 

@@ -83,8 +83,7 @@ scripts/ci/benchmark.sh layout
 scripts/ci/benchmark.sh baseline_comparison
 ```
 
-Output files:
-- `/tmp/ed_benchmark_full.txt` — complete benchmark output
+Output:
 - `benchmark/results/latest.json` — results metadata
 
 ## Commit prefix

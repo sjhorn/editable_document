@@ -92,13 +92,9 @@ Use `Material` on Android/Windows/Linux, `Cupertino` on iOS/macOS.
 
 ## Verify docs build
 
-**NEVER run `dart doc` directly.** Use:
+**NEVER run `dart doc` directly.** Ask the `qa` agent to run the full gate (analyze + format + test).
 
-```bash
-scripts/ci/ci_gate.sh   # includes analyze + format + test
-```
-
-For doc-specific validation, `dart doc --validate-links` is acceptable as there is no CI script wrapper for it yet.
+For doc-specific validation, `dart doc --validate-links` is acceptable as there is no MCP tool or CI script wrapper for it yet.
 
 Zero warnings required before committing documentation changes.
 
