@@ -21,6 +21,7 @@ import '../../model/document_editing_controller.dart';
 import '../../model/document_position.dart';
 import '../../model/document_selection.dart';
 import '../../model/node_position.dart';
+import '../../model/table_node.dart';
 import '../../model/text_node.dart';
 import '../document_layout.dart';
 import 'android_document_magnifier.dart';
@@ -177,7 +178,7 @@ class AndroidDocumentGestureControllerState extends State<AndroidDocumentGesture
     // For non-text nodes (images, HRs), select the whole block so the
     // highlight is visible and delete/backspace work immediately.
     final node = widget.document.nodeById(pos.nodeId);
-    if (node is! TextNode) {
+    if (node is! TextNode && node is! TableNode) {
       widget.controller.setSelection(
         DocumentSelection(
           base: DocumentPosition(

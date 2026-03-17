@@ -1384,6 +1384,251 @@ void main() {
   });
 
   // =========================================================================
+  // Tab — table cell navigation
+  // =========================================================================
+
+  group('Tab — table cell navigation', () {
+    /// Builds a 2×3 [TableNode] (2 rows, 3 cols) with id 'tbl1'.
+    TableNode _makeTable() {
+      return TableNode(
+        id: 'tbl1',
+        rowCount: 2,
+        columnCount: 3,
+        cells: [
+          [AttributedText('r0c0'), AttributedText('r0c1'), AttributedText('r0c2')],
+          [AttributedText('r1c0'), AttributedText('r1c1'), AttributedText('r1c2')],
+        ],
+      );
+    }
+
+    /// Collapsed selection at the given cell.
+    DocumentSelection _tableCell(int row, int col) {
+      return DocumentSelection.collapsed(
+        position: DocumentPosition(
+          nodeId: 'tbl1',
+          nodePosition: TableCellPosition(row: row, col: col, offset: 0),
+        ),
+      );
+    }
+
+    test('Tab moves to next cell in same row', () {
+      final table = _makeTable();
+      final doc = MutableDocument([table]);
+      final controller = DocumentEditingController(
+        document: doc,
+        selection: _tableCell(0, 0),
+      );
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.tab));
+
+      expect(result, true);
+      expect(requests, isEmpty);
+      final sel = controller.selection!;
+      expect(sel.extent.nodeId, equals('tbl1'));
+      final pos = sel.extent.nodePosition as TableCellPosition;
+      expect(pos.row, equals(0));
+      expect(pos.col, equals(1));
+    });
+
+    test('Tab wraps to next row when at last column', () {
+      final table = _makeTable();
+      final doc = MutableDocument([table]);
+      final controller = DocumentEditingController(
+        document: doc,
+        selection: _tableCell(0, 2),
+      );
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.tab));
+
+      expect(result, true);
+      expect(requests, isEmpty);
+      final sel = controller.selection!;
+      expect(sel.extent.nodeId, equals('tbl1'));
+      final pos = sel.extent.nodePosition as TableCellPosition;
+      expect(pos.row, equals(1));
+      expect(pos.col, equals(0));
+    });
+
+    test('Tab at last cell stays put', () {
+      final table = _makeTable();
+      final doc = MutableDocument([table]);
+      final controller = DocumentEditingController(
+        document: doc,
+        selection: _tableCell(1, 2),
+      );
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.tab));
+
+      expect(result, true);
+      expect(requests, isEmpty);
+      // Selection unchanged — still at (1,2).
+      final sel = controller.selection!;
+      final pos = sel.extent.nodePosition as TableCellPosition;
+      expect(pos.row, equals(1));
+      expect(pos.col, equals(2));
+    });
+
+    test('Tab returns false when extent nodePosition is not TableCellPosition', () {
+      final table = _makeTable();
+      final doc = MutableDocument([table]);
+      // Use a TextNodePosition — not a valid position for a TableNode, but
+      // exercises the guard branch.
+      final controller = DocumentEditingController(
+        document: doc,
+        selection: const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'tbl1',
+            nodePosition: TextNodePosition(offset: 0),
+          ),
+        ),
+      );
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.tab));
+
+      expect(result, false);
+    });
+  });
+
+  // =========================================================================
+  // Shift+Tab — table cell navigation
+  // =========================================================================
+
+  group('Shift+Tab — table cell navigation', () {
+    /// Builds a 2×3 [TableNode] with id 'tbl1'.
+    TableNode _makeTable() {
+      return TableNode(
+        id: 'tbl1',
+        rowCount: 2,
+        columnCount: 3,
+        cells: [
+          [AttributedText('r0c0'), AttributedText('r0c1'), AttributedText('r0c2')],
+          [AttributedText('r1c0'), AttributedText('r1c1'), AttributedText('r1c2')],
+        ],
+      );
+    }
+
+    DocumentSelection _tableCell(int row, int col) {
+      return DocumentSelection.collapsed(
+        position: DocumentPosition(
+          nodeId: 'tbl1',
+          nodePosition: TableCellPosition(row: row, col: col, offset: 0),
+        ),
+      );
+    }
+
+    testWidgets('Shift+Tab moves to previous cell in same row', (tester) async {
+      final table = _makeTable();
+      final doc = MutableDocument([table]);
+      final controller = DocumentEditingController(
+        document: doc,
+        selection: _tableCell(0, 1),
+      );
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);
+
+      expect(requests, isEmpty);
+      final sel = controller.selection!;
+      expect(sel.extent.nodeId, equals('tbl1'));
+      final pos = sel.extent.nodePosition as TableCellPosition;
+      expect(pos.row, equals(0));
+      expect(pos.col, equals(0));
+    });
+
+    testWidgets('Shift+Tab wraps to previous row when at first column', (tester) async {
+      final table = _makeTable();
+      final doc = MutableDocument([table]);
+      final controller = DocumentEditingController(
+        document: doc,
+        selection: _tableCell(1, 0),
+      );
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);
+
+      expect(requests, isEmpty);
+      final sel = controller.selection!;
+      expect(sel.extent.nodeId, equals('tbl1'));
+      final pos = sel.extent.nodePosition as TableCellPosition;
+      expect(pos.row, equals(0));
+      expect(pos.col, equals(2));
+    });
+
+    testWidgets('Shift+Tab at first cell stays put', (tester) async {
+      final table = _makeTable();
+      final doc = MutableDocument([table]);
+      final controller = DocumentEditingController(
+        document: doc,
+        selection: _tableCell(0, 0),
+      );
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);
+
+      // Selection unchanged — still at (0,0).
+      final sel = controller.selection!;
+      final pos = sel.extent.nodePosition as TableCellPosition;
+      expect(pos.row, equals(0));
+      expect(pos.col, equals(0));
+    });
+
+    testWidgets('Shift+Tab returns false when extent is not TableCellPosition', (tester) async {
+      final table = _makeTable();
+      final doc = MutableDocument([table]);
+      final controller = DocumentEditingController(
+        document: doc,
+        selection: const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'tbl1',
+            nodePosition: TextNodePosition(offset: 0),
+          ),
+        ),
+      );
+      final requests = <EditRequest>[];
+      final handler = _makeHandler(doc, controller, requests);
+
+      await tester.pumpWidget(_testScaffold(handler));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);
+
+      expect(requests, isEmpty);
+    });
+  });
+
+  // =========================================================================
   // Unknown keys
   // =========================================================================
 

@@ -45,6 +45,7 @@ import '../../model/document_selection.dart';
 import '../../model/node_position.dart';
 import '../block_drag_overlay.dart';
 import '../block_resize_handles.dart';
+import '../../model/table_node.dart';
 import '../../model/text_node.dart';
 import '../document_layout.dart';
 
@@ -589,7 +590,7 @@ class DocumentMouseInteractorState extends State<DocumentMouseInteractor> {
       // Plain tap — for non-text nodes (images, HRs), select the whole block
       // so the highlight is visible and delete/backspace work immediately.
       final node = widget.document.nodeById(pos.nodeId);
-      if (node is! TextNode) {
+      if (node is! TextNode && node is! TableNode) {
         widget.controller.setSelection(
           DocumentSelection(
             base: DocumentPosition(

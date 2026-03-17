@@ -653,8 +653,12 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
 
   @override
   Rect getLocalRectForPosition(NodePosition position) {
-    assert(position is TableCellPosition, 'RenderTableBlock expects TableCellPosition');
-    final pos = position as TableCellPosition;
+    if (position is! TableCellPosition) {
+      // Gracefully return a zero-rect when position type is unexpected
+      // (e.g. BinaryNodePosition from cross-node selection).
+      return Rect.fromLTWH(0, 0, 0, _cellLayouts?.first.first.painter.preferredLineHeight ?? 16);
+    }
+    final pos = position;
     final layouts = _cellLayouts;
     assert(layouts != null, 'getLocalRectForPosition called before layout');
 
@@ -731,10 +735,13 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
 
   @override
   List<Rect> getEndpointsForSelection(NodePosition base, NodePosition extent) {
-    assert(base is TableCellPosition, 'RenderTableBlock expects TableCellPosition for base');
-    assert(extent is TableCellPosition, 'RenderTableBlock expects TableCellPosition for extent');
-    final from = base as TableCellPosition;
-    final to = extent as TableCellPosition;
+    if (base is! TableCellPosition || extent is! TableCellPosition) {
+      // Gracefully return empty when positions are not TableCellPosition
+      // (e.g. cross-node selection with BinaryNodePosition endpoints).
+      return const [];
+    }
+    final from = base;
+    final to = extent;
     final layouts = _cellLayouts;
     assert(layouts != null, 'getEndpointsForSelection called before layout');
 

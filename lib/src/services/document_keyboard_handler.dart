@@ -20,6 +20,7 @@ import '../model/edit_request.dart';
 import '../model/list_item_node.dart';
 import '../model/node_position.dart';
 import '../model/paragraph_node.dart';
+import '../model/table_node.dart';
 import '../model/text_node.dart';
 
 // ---------------------------------------------------------------------------
@@ -86,9 +87,11 @@ typedef LineMoveResolver = DocumentPosition? Function({
 /// * **Shift + Page Up/Down** — extend the selection by one viewport height.
 /// * **Delete** — forward-delete one character (or delete current selection).
 /// * **Backspace** (fallback) — backward-delete one character.
-/// * **Tab** — [IndentListItemRequest] when cursor is in a [ListItemNode];
-///   otherwise ignored (returns `false`).
-/// * **Shift + Tab** — [UnindentListItemRequest] when in a [ListItemNode].
+/// * **Tab** — when cursor is in a [TableNode], moves to the next cell
+///   (left-to-right, top-to-bottom); [IndentListItemRequest] when cursor
+///   is in a [ListItemNode]; otherwise inserts a literal tab character.
+/// * **Shift + Tab** — when cursor is in a [TableNode], moves to the
+///   previous cell; [UnindentListItemRequest] when in a [ListItemNode].
 /// * **Escape** — collapse an expanded selection to its extent.
 /// * **Primary modifier + C** — invokes [onCopy] when non-null; passes
 ///   through (`false`) when `null`.
@@ -785,10 +788,43 @@ class DocumentKeyboardHandler {
   // Tab
   // -------------------------------------------------------------------------
 
+  /// Handles the Tab key.
+  ///
+  /// When the cursor is inside a [TableNode], moves to the next cell
+  /// (left-to-right, top-to-bottom). If already at the last cell, stays put
+  /// and returns `true` (consumed). When in a [ListItemNode], dispatches
+  /// [IndentListItemRequest]. For other [TextNode]s with a collapsed selection,
+  /// inserts a literal tab character. Returns `false` otherwise.
   bool _handleTab() {
     final selection = _controller.selection;
     if (selection == null) return false;
     final node = _document.nodeById(selection.extent.nodeId);
+
+    // Table cell navigation: Tab moves to the next cell.
+    if (node is TableNode) {
+      final pos = selection.extent.nodePosition;
+      if (pos is! TableCellPosition) return false;
+      int nextRow = pos.row;
+      int nextCol = pos.col + 1;
+      if (nextCol >= node.columnCount) {
+        nextCol = 0;
+        nextRow++;
+      }
+      if (nextRow >= node.rowCount) {
+        // Already at last cell — stay put.
+        return true;
+      }
+      _controller.setSelection(
+        DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: node.id,
+            nodePosition: TableCellPosition(row: nextRow, col: nextCol, offset: 0),
+          ),
+        ),
+      );
+      return true;
+    }
+
     if (node is ListItemNode) {
       _requestHandler(IndentListItemRequest(nodeId: node.id));
       return true;
@@ -811,10 +847,42 @@ class DocumentKeyboardHandler {
   // Shift+Tab
   // -------------------------------------------------------------------------
 
+  /// Handles the Shift+Tab key combination.
+  ///
+  /// When the cursor is inside a [TableNode], moves to the previous cell
+  /// (right-to-left, bottom-to-top). If already at the first cell, stays put
+  /// and returns `true` (consumed). When in a [ListItemNode], dispatches
+  /// [UnindentListItemRequest]. Returns `false` otherwise.
   bool _handleShiftTab() {
     final selection = _controller.selection;
     if (selection == null) return false;
     final node = _document.nodeById(selection.extent.nodeId);
+
+    // Table cell navigation: Shift+Tab moves to the previous cell.
+    if (node is TableNode) {
+      final pos = selection.extent.nodePosition;
+      if (pos is! TableCellPosition) return false;
+      int prevRow = pos.row;
+      int prevCol = pos.col - 1;
+      if (prevCol < 0) {
+        prevCol = node.columnCount - 1;
+        prevRow--;
+      }
+      if (prevRow < 0) {
+        // Already at first cell — stay put.
+        return true;
+      }
+      _controller.setSelection(
+        DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: node.id,
+            nodePosition: TableCellPosition(row: prevRow, col: prevCol, offset: 0),
+          ),
+        ),
+      );
+      return true;
+    }
+
     if (node is ListItemNode) {
       _requestHandler(UnindentListItemRequest(nodeId: node.id));
       return true;
