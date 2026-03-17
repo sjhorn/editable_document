@@ -413,6 +413,11 @@ class DocumentImeSerializer {
         continue;
       }
 
+      // Skip if the keyboard handler already modified the cell before this
+      // IME delta arrived. The delta's oldText reflects the pre-edit state;
+      // if the cell text no longer matches, the edit was already applied.
+      if (delta.oldText != currentText) continue;
+
       requests.add(
         UpdateTableCellRequest(
           nodeId: target.nodeId,
