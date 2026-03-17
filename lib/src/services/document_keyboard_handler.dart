@@ -672,6 +672,26 @@ class DocumentKeyboardHandler {
           ),
         );
       }
+    } else if (node is TableNode) {
+      final cellPos = extentPos.nodePosition;
+      if (cellPos is! TableCellPosition) return false;
+      final cellText = node.cellAt(cellPos.row, cellPos.col).text;
+      if (cellPos.offset >= cellText.length) {
+        // At the end of a cell — do nothing (don't delete the table).
+        return true;
+      }
+      // Delete one character forward within the cell.
+      final newText =
+          cellText.substring(0, cellPos.offset) + cellText.substring(cellPos.offset + 1);
+      _requestHandler(
+        UpdateTableCellRequest(
+          nodeId: node.id,
+          row: cellPos.row,
+          col: cellPos.col,
+          newText: AttributedText(newText),
+          newCursorOffset: cellPos.offset,
+        ),
+      );
     } else {
       _requestHandler(
         DeleteContentRequest(
@@ -764,6 +784,26 @@ class DocumentKeyboardHandler {
           ),
         );
       }
+    } else if (node is TableNode) {
+      final cellPos = extentPos.nodePosition;
+      if (cellPos is! TableCellPosition) return false;
+      if (cellPos.offset == 0) {
+        // At the start of a cell — do nothing (don't delete the table).
+        return true;
+      }
+      // Delete one character backward within the cell.
+      final cellText = node.cellAt(cellPos.row, cellPos.col).text;
+      final newText =
+          cellText.substring(0, cellPos.offset - 1) + cellText.substring(cellPos.offset);
+      _requestHandler(
+        UpdateTableCellRequest(
+          nodeId: node.id,
+          row: cellPos.row,
+          col: cellPos.col,
+          newText: AttributedText(newText),
+          newCursorOffset: cellPos.offset - 1,
+        ),
+      );
     } else {
       _requestHandler(
         DeleteContentRequest(

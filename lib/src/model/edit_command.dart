@@ -159,6 +159,42 @@ class DeleteContentCommand extends EditCommand {
             ),
           ),
         );
+      } else if (node is TableNode &&
+          startPos.nodePosition is TableCellPosition &&
+          endPos.nodePosition is TableCellPosition) {
+        // Table cell deletion — delete selected text within the same cell.
+        final startCell = startPos.nodePosition as TableCellPosition;
+        final endCell = endPos.nodePosition as TableCellPosition;
+        if (startCell.row == endCell.row && startCell.col == endCell.col) {
+          final cellText = node.cellAt(startCell.row, startCell.col).text;
+          final newCellText =
+              cellText.substring(0, startCell.offset) + cellText.substring(endCell.offset);
+          final newCells = List<List<AttributedText>>.generate(
+            node.rowCount,
+            (r) => List<AttributedText>.generate(
+              node.columnCount,
+              (c) => (r == startCell.row && c == startCell.col)
+                  ? AttributedText(newCellText)
+                  : node.cellAt(r, c),
+            ),
+          );
+          doc.replaceNode(startPos.nodeId, node.copyWith(cells: newCells));
+          events.add(NodeReplaced(oldNodeId: startPos.nodeId, newNodeId: startPos.nodeId));
+
+          context.controller.setSelection(
+            DocumentSelection.collapsed(
+              position: DocumentPosition(
+                nodeId: startPos.nodeId,
+                nodePosition: TableCellPosition(
+                  row: startCell.row,
+                  col: startCell.col,
+                  offset: startCell.offset,
+                ),
+              ),
+            ),
+          );
+        }
+        // Cross-cell deletion is not supported — fall through to no-op.
       } else {
         // Binary / block node (e.g. HorizontalRuleNode, ImageNode) — delete
         // the whole node and move the selection to the nearest surviving node.
