@@ -219,6 +219,24 @@ class AndroidDocumentGestureControllerState extends State<AndroidDocumentGesture
           ),
         ),
       );
+    } else if (node is TableNode) {
+      final cellPos = pos.nodePosition;
+      if (cellPos is TableCellPosition) {
+        final cellText = node.cellAt(cellPos.row, cellPos.col).text;
+        final (start, end) = _wordBoundaryAt(cellText, cellPos.offset);
+        widget.controller.setSelection(
+          DocumentSelection(
+            base: DocumentPosition(
+              nodeId: pos.nodeId,
+              nodePosition: TableCellPosition(row: cellPos.row, col: cellPos.col, offset: start),
+            ),
+            extent: DocumentPosition(
+              nodeId: pos.nodeId,
+              nodePosition: TableCellPosition(row: cellPos.row, col: cellPos.col, offset: end),
+            ),
+          ),
+        );
+      }
     } else {
       widget.controller.setSelection(
         DocumentSelection(
