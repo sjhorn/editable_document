@@ -589,7 +589,16 @@ class DocumentKeyboardHandler {
     } else {
       final node = _document.nodeById(extentPos.nodeId);
       if (node == null) return false;
-      newExtent = _startOfNode(node);
+      // For table cells, Home goes to start of the current cell.
+      if (node is TableNode && extentPos.nodePosition is TableCellPosition) {
+        final cellPos = extentPos.nodePosition as TableCellPosition;
+        newExtent = DocumentPosition(
+          nodeId: node.id,
+          nodePosition: cellPos.copyWith(offset: 0),
+        );
+      } else {
+        newExtent = _startOfNode(node);
+      }
     }
 
     _updateSelection(newExtent, extend: shift);
@@ -613,7 +622,18 @@ class DocumentKeyboardHandler {
     } else {
       final node = _document.nodeById(extentPos.nodeId);
       if (node == null) return false;
-      newExtent = _endOfNode(node);
+      // For table cells, End goes to end of the current cell.
+      if (node is TableNode && extentPos.nodePosition is TableCellPosition) {
+        final cellPos = extentPos.nodePosition as TableCellPosition;
+        newExtent = DocumentPosition(
+          nodeId: node.id,
+          nodePosition: cellPos.copyWith(
+            offset: node.cellAt(cellPos.row, cellPos.col).text.length,
+          ),
+        );
+      } else {
+        newExtent = _endOfNode(node);
+      }
     }
 
     _updateSelection(newExtent, extend: shift);
@@ -858,7 +878,11 @@ class DocumentKeyboardHandler {
         DocumentSelection.collapsed(
           position: DocumentPosition(
             nodeId: node.id,
-            nodePosition: TableCellPosition(row: nextRow, col: nextCol, offset: 0),
+            nodePosition: TableCellPosition(
+              row: nextRow,
+              col: nextCol,
+              offset: node.cellAt(nextRow, nextCol).text.length,
+            ),
           ),
         ),
       );
@@ -916,7 +940,11 @@ class DocumentKeyboardHandler {
         DocumentSelection.collapsed(
           position: DocumentPosition(
             nodeId: node.id,
-            nodePosition: TableCellPosition(row: prevRow, col: prevCol, offset: 0),
+            nodePosition: TableCellPosition(
+              row: prevRow,
+              col: prevCol,
+              offset: node.cellAt(prevRow, prevCol).text.length,
+            ),
           ),
         ),
       );
@@ -1146,6 +1174,12 @@ class DocumentKeyboardHandler {
         nodePosition: const TextNodePosition(offset: 0),
       );
     }
+    if (node is TableNode) {
+      return DocumentPosition(
+        nodeId: node.id,
+        nodePosition: const TableCellPosition(row: 0, col: 0, offset: 0),
+      );
+    }
     return DocumentPosition(
       nodeId: node.id,
       nodePosition: const BinaryNodePosition.upstream(),
@@ -1158,6 +1192,18 @@ class DocumentKeyboardHandler {
       return DocumentPosition(
         nodeId: node.id,
         nodePosition: TextNodePosition(offset: node.text.text.length),
+      );
+    }
+    if (node is TableNode) {
+      final lastRow = node.rowCount - 1;
+      final lastCol = node.columnCount - 1;
+      return DocumentPosition(
+        nodeId: node.id,
+        nodePosition: TableCellPosition(
+          row: lastRow,
+          col: lastCol,
+          offset: node.cellAt(lastRow, lastCol).text.length,
+        ),
       );
     }
     return DocumentPosition(
@@ -1185,6 +1231,34 @@ class DocumentKeyboardHandler {
           nodePosition: TextNodePosition(offset: offset - 1),
         );
       }
+      final prev = _document.nodeBefore(node.id);
+      if (prev != null) return _endOfNode(prev);
+    } else if (node is TableNode && pos.nodePosition is TableCellPosition) {
+      final cellPos = pos.nodePosition as TableCellPosition;
+      if (cellPos.offset > 0) {
+        return DocumentPosition(
+          nodeId: node.id,
+          nodePosition: cellPos.copyWith(offset: cellPos.offset - 1),
+        );
+      }
+      // At start of cell — move to end of previous cell.
+      int prevRow = cellPos.row;
+      int prevCol = cellPos.col - 1;
+      if (prevCol < 0) {
+        prevCol = node.columnCount - 1;
+        prevRow--;
+      }
+      if (prevRow >= 0) {
+        return DocumentPosition(
+          nodeId: node.id,
+          nodePosition: TableCellPosition(
+            row: prevRow,
+            col: prevCol,
+            offset: node.cellAt(prevRow, prevCol).text.length,
+          ),
+        );
+      }
+      // At the very first cell — wrap to previous node.
       final prev = _document.nodeBefore(node.id);
       if (prev != null) return _endOfNode(prev);
     } else if (pos.nodePosition is BinaryNodePosition) {
@@ -1222,6 +1296,31 @@ class DocumentKeyboardHandler {
       }
       final next = _document.nodeAfter(node.id);
       if (next != null) return _startOfNode(next);
+    } else if (node is TableNode && pos.nodePosition is TableCellPosition) {
+      final cellPos = pos.nodePosition as TableCellPosition;
+      final cellText = node.cellAt(cellPos.row, cellPos.col).text;
+      if (cellPos.offset < cellText.length) {
+        return DocumentPosition(
+          nodeId: node.id,
+          nodePosition: cellPos.copyWith(offset: cellPos.offset + 1),
+        );
+      }
+      // At end of cell — move to start of next cell.
+      int nextRow = cellPos.row;
+      int nextCol = cellPos.col + 1;
+      if (nextCol >= node.columnCount) {
+        nextCol = 0;
+        nextRow++;
+      }
+      if (nextRow < node.rowCount) {
+        return DocumentPosition(
+          nodeId: node.id,
+          nodePosition: TableCellPosition(row: nextRow, col: nextCol, offset: 0),
+        );
+      }
+      // At the very last cell — wrap to next node.
+      final next = _document.nodeAfter(node.id);
+      if (next != null) return _startOfNode(next);
     } else if (pos.nodePosition is BinaryNodePosition) {
       final binaryPos = pos.nodePosition as BinaryNodePosition;
       if (binaryPos.type == BinaryNodePositionType.upstream) {
@@ -1238,6 +1337,21 @@ class DocumentKeyboardHandler {
 
   /// Moves to the start of the current word (or node start for non-text nodes).
   DocumentPosition _moveToWordStart(DocumentPosition pos, DocumentNode node) {
+    if (node is TableNode && pos.nodePosition is TableCellPosition) {
+      final cellPos = pos.nodePosition as TableCellPosition;
+      final text = node.cellAt(cellPos.row, cellPos.col).text;
+      var offset = cellPos.offset;
+      while (offset > 0 && text[offset - 1] == ' ') {
+        offset--;
+      }
+      while (offset > 0 && text[offset - 1] != ' ') {
+        offset--;
+      }
+      return DocumentPosition(
+        nodeId: node.id,
+        nodePosition: cellPos.copyWith(offset: offset),
+      );
+    }
     if (node is! TextNode) return _startOfNode(node);
     final text = node.text.text;
     var offset = (pos.nodePosition as TextNodePosition).offset;
@@ -1255,6 +1369,21 @@ class DocumentKeyboardHandler {
 
   /// Moves to the end of the current word (or node end for non-text nodes).
   DocumentPosition _moveToWordEnd(DocumentPosition pos, DocumentNode node) {
+    if (node is TableNode && pos.nodePosition is TableCellPosition) {
+      final cellPos = pos.nodePosition as TableCellPosition;
+      final text = node.cellAt(cellPos.row, cellPos.col).text;
+      var offset = cellPos.offset;
+      while (offset < text.length && text[offset] == ' ') {
+        offset++;
+      }
+      while (offset < text.length && text[offset] != ' ') {
+        offset++;
+      }
+      return DocumentPosition(
+        nodeId: node.id,
+        nodePosition: cellPos.copyWith(offset: offset),
+      );
+    }
     if (node is! TextNode) return _endOfNode(node);
     final text = node.text.text;
     var offset = (pos.nodePosition as TextNodePosition).offset;
