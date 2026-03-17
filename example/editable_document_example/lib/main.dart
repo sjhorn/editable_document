@@ -178,12 +178,6 @@ class _DocumentDemoState extends State<DocumentDemo> {
   /// when the panel is hidden.
   String? _propertyPanelNodeId;
 
-  /// Whether a pointer drag is in progress over the editor area.
-  ///
-  /// While `true`, the floating property panel is suppressed so it doesn't
-  /// interfere with drag-selection focus.
-  bool _isDragSelecting = false;
-
   /// Preset color swatches for text-color and background-color pickers.
   ///
   /// Keys are ARGB 32-bit integer values; values are display labels.
@@ -720,56 +714,34 @@ class _DocumentDemoState extends State<DocumentDemo> {
   // Insert helpers
   // ---------------------------------------------------------------------------
 
-  /// Returns the insert index after the currently selected node, or the end
-  /// of the document if nothing is selected.
-  int _insertIndex() {
-    final sel = _controller.selection;
-    if (sel != null) {
-      final idx = _document.getNodeIndexById(sel.extent.nodeId);
-      if (idx >= 0) return idx + 1;
-    }
-    return _document.nodeCount;
-  }
-
   String _newId() => 'dynamic-${_nextNodeId++}';
 
   void _insertNode(DocumentNode node) {
     final sel = _controller.selection;
-    // Capture the selected node before any mutations so we can match its
-    // type when creating a follow-on block.
-    final selectedNode = sel != null ? _document.nodeById(sel.extent.nodeId) : null;
-    String? emptyNodeId;
-    if (selectedNode is TextNode && selectedNode.text.text.isEmpty) {
-      emptyNodeId = selectedNode.id;
-    }
 
-    _document.insertNode(_insertIndex(), node);
+    // Build the follow-on node for non-text insertions.
+    final sourceNode = sel != null ? _document.nodeById(sel.extent.nodeId) : null;
+    final followOn = node is TextNode ? null : _emptyBlockLike(sourceNode);
 
-    if (emptyNodeId != null) {
-      _document.deleteNode(emptyNodeId);
-    }
+    _editor.submit(InsertNodeAtPositionRequest(
+      node: node,
+      position: sel?.extent,
+      followOnNode: followOn,
+    ));
 
-    if (node is TextNode) {
-      _controller.setSelection(DocumentSelection.collapsed(
-        position: DocumentPosition(
-          nodeId: node.id,
-          nodePosition: const TextNodePosition(offset: 0),
-        ),
-      ));
-    } else {
-      // Insert an empty block after the non-text node, matching the type
-      // of the block the user was in when they triggered the insertion.
-      final idx = _document.getNodeIndexById(node.id);
-      if (idx < 0) return;
-      final emptyBlock = _emptyBlockLike(selectedNode);
-      _document.insertNode(idx + 1, emptyBlock);
-      _controller.setSelection(DocumentSelection.collapsed(
-        position: DocumentPosition(
-          nodeId: emptyBlock.id,
-          nodePosition: const TextNodePosition(offset: 0),
-        ),
-      ));
-    }
+    // Place cursor on the block after the inserted node. In a mid-text split
+    // the command skips the follow-on and creates a remaining-text paragraph
+    // instead, so we always resolve the target by index lookup.
+    final nodeIndex = _document.getNodeIndexById(node.id);
+    final cursorTarget = (nodeIndex >= 0 && nodeIndex + 1 < _document.nodeCount)
+        ? _document.nodeAt(nodeIndex + 1)
+        : node;
+    _controller.setSelection(DocumentSelection.collapsed(
+      position: DocumentPosition(
+        nodeId: cursorTarget.id,
+        nodePosition: const TextNodePosition(offset: 0),
+      ),
+    ));
   }
 
   /// Returns a new empty text block matching the type of [source].
@@ -1409,23 +1381,11 @@ class _DocumentDemoState extends State<DocumentDemo> {
         children: [
           _buildToolbar(),
           Expanded(
-            child: Listener(
-              onPointerDown: (_) {
-                if (!_isDragSelecting) setState(() => _isDragSelecting = true);
-              },
-              onPointerUp: (_) {
-                if (_isDragSelecting) setState(() => _isDragSelecting = false);
-              },
-              onPointerCancel: (_) {
-                if (_isDragSelecting) setState(() => _isDragSelecting = false);
-              },
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  _buildEditor(),
-                  _buildFloatingPropertyPanel(),
-                ],
-              ),
+            child: Row(
+              children: [
+                Expanded(child: _buildEditor()),
+                _buildPropertyPanel(),
+              ],
             ),
           ),
           _buildStatusBar(),
@@ -1531,6 +1491,25 @@ class _DocumentDemoState extends State<DocumentDemo> {
                   tooltip: 'Numbered list',
                   isActive: _isBlockType('ordered'),
                   onPressed: isOnTextNode ? () => _toggleBlockType('ordered') : null,
+                ),
+                // --- Insert block buttons ---
+                IconButton(
+                  icon: const Icon(Icons.horizontal_rule, size: iconSize),
+                  onPressed: hasCursor ? () => _insertNode(HorizontalRuleNode(id: _newId())) : null,
+                  tooltip: 'Horizontal rule',
+                  style: buttonStyle,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.image_outlined, size: iconSize),
+                  onPressed: hasCursor
+                      ? () => _insertNode(ImageNode(
+                            id: _newId(),
+                            imageUrl: 'https://picsum.photos/600/200',
+                            altText: 'Inserted image',
+                          ))
+                      : null,
+                  tooltip: 'Image',
+                  style: buttonStyle,
                 ),
                 divider(),
                 // --- Text alignment ---
@@ -1814,54 +1793,9 @@ class _DocumentDemoState extends State<DocumentDemo> {
                   tooltip: 'Unindent',
                   style: buttonStyle,
                 ),
-                divider(),
-                // --- Insert menu ---
-                _buildInsertMenu(hasCursor),
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInsertMenu(bool enabled) {
-    return PopupMenuButton<String>(
-      tooltip: 'Insert',
-      enabled: enabled,
-      offset: const Offset(0, 36),
-      onSelected: (value) {
-        switch (value) {
-          case 'hr':
-            _insertNode(HorizontalRuleNode(id: _newId()));
-          case 'image':
-            _insertNode(ImageNode(
-              id: _newId(),
-              imageUrl: 'https://picsum.photos/600/200',
-              altText: 'Inserted image',
-            ));
-        }
-      },
-      itemBuilder: (context) => const [
-        PopupMenuItem(value: 'hr', child: Text('Horizontal rule')),
-        PopupMenuItem(value: 'image', child: Text('Image')),
-      ],
-      child: Container(
-        height: 32,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        alignment: Alignment.center,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.add, size: 18, color: enabled ? null : Theme.of(context).disabledColor),
-            const SizedBox(width: 4),
-            Text(
-              'Insert',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: enabled ? null : Theme.of(context).disabledColor,
-                  ),
-            ),
-          ],
         ),
       ),
     );
@@ -2453,440 +2387,417 @@ class _DocumentDemoState extends State<DocumentDemo> {
     );
   }
 
-  Widget _buildFloatingPropertyPanel() {
-    if (_isDragSelecting) return const SizedBox.shrink();
-
+  Widget _buildPropertyPanel() {
     final colorScheme = Theme.of(context).colorScheme;
-    const panelWidth = 220.0;
+    const panelWidth = 240.0;
+
+    final List<Widget> content;
 
     // When no node is selected, show the Document Settings panel.
     if (_propertyPanelNodeId == null) {
-      return Positioned(
-        right: 8,
-        top: 8,
-        bottom: 8,
-        child: Material(
-          elevation: 8,
-          borderRadius: BorderRadius.circular(8),
-          color: colorScheme.surfaceContainerLow,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: double.infinity),
-            child: SingleChildScrollView(
-              child: Container(
-                width: panelWidth,
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Document Settings',
-                      style: Theme.of(context).textTheme.titleSmall,
+      content = [
+        Text(
+          'Document Settings',
+          style: Theme.of(context).textTheme.titleSmall,
+        ),
+        _buildPropertySection('Block Spacing', [
+          DropdownButtonHideUnderline(
+            child: DropdownButton<double>(
+              value: _blockSpacing,
+              isExpanded: true,
+              isDense: true,
+              style: Theme.of(context).textTheme.bodySmall,
+              onChanged: (value) {
+                if (value != null) setState(() => _blockSpacing = value);
+              },
+              items: const [
+                DropdownMenuItem(value: 0.0, child: Text('Single')),
+                DropdownMenuItem(value: 6.0, child: Text('1.5 lines')),
+                DropdownMenuItem(value: 12.0, child: Text('Double')),
+              ],
+            ),
+          ),
+        ]),
+        _buildPropertySection('Default Line Height', [
+          DropdownButtonHideUnderline(
+            child: DropdownButton<double>(
+              value: _defaultLineHeight,
+              isExpanded: true,
+              isDense: true,
+              style: Theme.of(context).textTheme.bodySmall,
+              onChanged: (value) {
+                if (value != null) setState(() => _defaultLineHeight = value);
+              },
+              items: const [
+                DropdownMenuItem(value: 1.0, child: Text('Single')),
+                DropdownMenuItem(value: 1.15, child: Text('1.15')),
+                DropdownMenuItem(value: 1.5, child: Text('1.5 lines')),
+                DropdownMenuItem(value: 2.0, child: Text('Double')),
+              ],
+            ),
+          ),
+        ]),
+      ];
+    } else {
+      final node = _document.nodeById(_propertyPanelNodeId!);
+      if (node == null) {
+        content = [];
+      } else {
+        final isTextNode = node is ParagraphNode || node is ListItemNode || node is BlockquoteNode;
+        final isTextOrCode = isTextNode || node is CodeBlockNode;
+        final isContainerBlock = _isContainerBlock(node);
+
+        content = [
+          // --- Header row ---
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _currentBlockLabel(),
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+              ),
+              SizedBox(
+                width: 24,
+                height: 24,
+                child: IconButton(
+                  icon: const Icon(Icons.close, size: 16),
+                  padding: EdgeInsets.zero,
+                  onPressed: _dismissPropertyPanel,
+                ),
+              ),
+            ],
+          ),
+
+          // --- Text section (alignment) for text-bearing nodes ---
+          if (isTextNode) ...[
+            _buildPropertySection('Text Alignment', [
+              Row(
+                children: [
+                  for (final entry in {
+                    TextAlign.start: Icons.format_align_left,
+                    TextAlign.center: Icons.format_align_center,
+                    TextAlign.right: Icons.format_align_right,
+                    TextAlign.justify: Icons.format_align_justify,
+                  }.entries)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: IconButton(
+                        icon: Icon(entry.value, size: 20),
+                        isSelected: _currentTextAlign() == entry.key,
+                        style: IconButton.styleFrom(
+                          backgroundColor: _currentTextAlign() == entry.key
+                              ? colorScheme.primaryContainer
+                              : null,
+                          minimumSize: const Size(36, 36),
+                          padding: EdgeInsets.zero,
+                        ),
+                        tooltip: entry.key.name,
+                        onPressed: () => _setTextAlign(entry.key),
+                      ),
                     ),
-                    _buildPropertySection('Block Spacing', [
-                      DropdownButtonHideUnderline(
-                        child: DropdownButton<double>(
-                          value: _blockSpacing,
-                          isExpanded: true,
-                          isDense: true,
-                          style: Theme.of(context).textTheme.bodySmall,
-                          onChanged: (value) {
-                            if (value != null) setState(() => _blockSpacing = value);
-                          },
-                          items: const [
-                            DropdownMenuItem(value: 0.0, child: Text('Single')),
-                            DropdownMenuItem(value: 6.0, child: Text('1.5 lines')),
-                            DropdownMenuItem(value: 12.0, child: Text('Double')),
-                          ],
-                        ),
-                      ),
-                    ]),
-                    _buildPropertySection('Default Line Height', [
-                      DropdownButtonHideUnderline(
-                        child: DropdownButton<double>(
-                          value: _defaultLineHeight,
-                          isExpanded: true,
-                          isDense: true,
-                          style: Theme.of(context).textTheme.bodySmall,
-                          onChanged: (value) {
-                            if (value != null) setState(() => _defaultLineHeight = value);
-                          },
-                          items: const [
-                            DropdownMenuItem(value: 1.0, child: Text('Single')),
-                            DropdownMenuItem(value: 1.15, child: Text('1.15')),
-                            DropdownMenuItem(value: 1.5, child: Text('1.5 lines')),
-                            DropdownMenuItem(value: 2.0, child: Text('Double')),
-                          ],
-                        ),
-                      ),
-                    ]),
+                ],
+              ),
+            ]),
+          ],
+
+          // --- Line Height section for text-bearing + code nodes ---
+          if (isTextOrCode) ...[
+            _buildPropertySection('Line Height', [
+              DropdownButtonHideUnderline(
+                child: DropdownButton<double?>(
+                  value: _getLineHeight(node),
+                  isExpanded: true,
+                  isDense: true,
+                  style: Theme.of(context).textTheme.bodySmall,
+                  onChanged: (value) => _updateLineHeight(node, value),
+                  items: const [
+                    DropdownMenuItem(value: null, child: Text('Default')),
+                    DropdownMenuItem(value: 1.0, child: Text('1.0')),
+                    DropdownMenuItem(value: 1.15, child: Text('1.15')),
+                    DropdownMenuItem(value: 1.5, child: Text('1.5')),
+                    DropdownMenuItem(value: 2.0, child: Text('2.0')),
                   ],
                 ),
               ),
-            ),
-          ),
-        ),
-      );
-    }
+            ]),
+          ],
 
-    final node = _document.nodeById(_propertyPanelNodeId!);
-    if (node == null) return const SizedBox.shrink();
-
-    final isTextNode = node is ParagraphNode || node is ListItemNode || node is BlockquoteNode;
-    final isTextOrCode = isTextNode || node is CodeBlockNode;
-    final isContainerBlock = _isContainerBlock(node);
-
-    return Positioned(
-      right: 8,
-      top: 8,
-      bottom: 8,
-      child: Material(
-        elevation: 8,
-        borderRadius: BorderRadius.circular(8),
-        color: colorScheme.surfaceContainerLow,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: double.infinity),
-          child: SingleChildScrollView(
-            child: Container(
-              width: panelWidth,
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
+          // --- Spacing section for all block types that support it ---
+          if (_hasSpacingProperties(node)) ...[
+            _buildPropertySection('Spacing', [
+              Row(
                 children: [
-                  // --- Header row ---
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _currentBlockLabel(),
-                          style: Theme.of(context).textTheme.titleSmall,
-                        ),
-                      ),
-                      SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: IconButton(
-                          icon: const Icon(Icons.close, size: 16),
-                          padding: EdgeInsets.zero,
-                          onPressed: _dismissPropertyPanel,
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  // --- Text section (alignment) for text-bearing nodes ---
-                  if (isTextNode) ...[
-                    _buildPropertySection('Text Alignment', [
-                      Row(
-                        children: [
-                          for (final entry in {
-                            TextAlign.start: Icons.format_align_left,
-                            TextAlign.center: Icons.format_align_center,
-                            TextAlign.right: Icons.format_align_right,
-                            TextAlign.justify: Icons.format_align_justify,
-                          }.entries)
-                            Padding(
-                              padding: const EdgeInsets.only(right: 4),
-                              child: IconButton(
-                                icon: Icon(entry.value, size: 20),
-                                isSelected: _currentTextAlign() == entry.key,
-                                style: IconButton.styleFrom(
-                                  backgroundColor: _currentTextAlign() == entry.key
-                                      ? colorScheme.primaryContainer
-                                      : null,
-                                  minimumSize: const Size(36, 36),
-                                  padding: EdgeInsets.zero,
-                                ),
-                                tooltip: entry.key.name,
-                                onPressed: () => _setTextAlign(entry.key),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ]),
-                  ],
-
-                  // --- Line Height section for text-bearing + code nodes ---
-                  if (isTextOrCode) ...[
-                    _buildPropertySection('Line Height', [
-                      DropdownButtonHideUnderline(
-                        child: DropdownButton<double?>(
-                          value: _getLineHeight(node),
-                          isExpanded: true,
-                          isDense: true,
-                          style: Theme.of(context).textTheme.bodySmall,
-                          onChanged: (value) => _updateLineHeight(node, value),
-                          items: const [
-                            DropdownMenuItem(value: null, child: Text('Default')),
-                            DropdownMenuItem(value: 1.0, child: Text('1.0')),
-                            DropdownMenuItem(value: 1.15, child: Text('1.15')),
-                            DropdownMenuItem(value: 1.5, child: Text('1.5')),
-                            DropdownMenuItem(value: 2.0, child: Text('2.0')),
-                          ],
-                        ),
-                      ),
-                    ]),
-                  ],
-
-                  // --- Spacing section for all block types that support it ---
-                  if (_hasSpacingProperties(node)) ...[
-                    _buildPropertySection('Spacing', [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Before',
-                                  style: Theme.of(context).textTheme.labelSmall,
-                                ),
-                                const SizedBox(height: 2),
-                                _DimensionField(
-                                  key: ValueKey('${node.id}-sb'),
-                                  value: _getSpaceBefore(node),
-                                  onChanged: (value) {
-                                    if (value == null) {
-                                      _clearSpaceBefore(node);
-                                    } else {
-                                      _updateSpacing(node, spaceBefore: value);
-                                    }
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'After',
-                                  style: Theme.of(context).textTheme.labelSmall,
-                                ),
-                                const SizedBox(height: 2),
-                                _DimensionField(
-                                  key: ValueKey('${node.id}-sa'),
-                                  value: _getSpaceAfter(node),
-                                  onChanged: (value) {
-                                    if (value == null) {
-                                      _clearSpaceAfter(node);
-                                    } else {
-                                      _updateSpacing(node, spaceAfter: value);
-                                    }
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ]),
-                  ],
-
-                  // --- Indent section for text nodes (Paragraph, ListItem, Blockquote) ---
-                  if (_hasIndentProperties(node)) ...[
-                    _buildPropertySection('Indent', [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Left',
-                                  style: Theme.of(context).textTheme.labelSmall,
-                                ),
-                                const SizedBox(height: 2),
-                                _DimensionField(
-                                  key: ValueKey('${node.id}-il'),
-                                  value: _getIndentLeft(node),
-                                  onChanged: (value) => _replaceNodeWithIndent(
-                                    node,
-                                    indentLeft: value,
-                                    indentRight: _getIndentRight(node),
-                                    firstLineIndent: _getFirstLineIndent(node),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Right',
-                                  style: Theme.of(context).textTheme.labelSmall,
-                                ),
-                                const SizedBox(height: 2),
-                                _DimensionField(
-                                  key: ValueKey('${node.id}-ir'),
-                                  value: _getIndentRight(node),
-                                  onChanged: (value) => _replaceNodeWithIndent(
-                                    node,
-                                    indentLeft: _getIndentLeft(node),
-                                    indentRight: value,
-                                    firstLineIndent: _getFirstLineIndent(node),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      // First-line indent (not for ListItemNode)
-                      if (node is! ListItemNode) ...[
-                        const SizedBox(height: 6),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          'First Line',
+                          'Before',
                           style: Theme.of(context).textTheme.labelSmall,
                         ),
                         const SizedBox(height: 2),
                         _DimensionField(
-                          key: ValueKey('${node.id}-fli'),
-                          value: _getFirstLineIndent(node),
+                          key: ValueKey('${node.id}-sb'),
+                          value: _getSpaceBefore(node),
+                          onChanged: (value) {
+                            if (value == null) {
+                              _clearSpaceBefore(node);
+                            } else {
+                              _updateSpacing(node, spaceBefore: value);
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'After',
+                          style: Theme.of(context).textTheme.labelSmall,
+                        ),
+                        const SizedBox(height: 2),
+                        _DimensionField(
+                          key: ValueKey('${node.id}-sa'),
+                          value: _getSpaceAfter(node),
+                          onChanged: (value) {
+                            if (value == null) {
+                              _clearSpaceAfter(node);
+                            } else {
+                              _updateSpacing(node, spaceAfter: value);
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ]),
+          ],
+
+          // --- Indent section for text nodes (Paragraph, ListItem, Blockquote) ---
+          if (_hasIndentProperties(node)) ...[
+            _buildPropertySection('Indent', [
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Left',
+                          style: Theme.of(context).textTheme.labelSmall,
+                        ),
+                        const SizedBox(height: 2),
+                        _DimensionField(
+                          key: ValueKey('${node.id}-il'),
+                          value: _getIndentLeft(node),
+                          onChanged: (value) => _replaceNodeWithIndent(
+                            node,
+                            indentLeft: value,
+                            indentRight: _getIndentRight(node),
+                            firstLineIndent: _getFirstLineIndent(node),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Right',
+                          style: Theme.of(context).textTheme.labelSmall,
+                        ),
+                        const SizedBox(height: 2),
+                        _DimensionField(
+                          key: ValueKey('${node.id}-ir'),
+                          value: _getIndentRight(node),
                           onChanged: (value) => _replaceNodeWithIndent(
                             node,
                             indentLeft: _getIndentLeft(node),
-                            indentRight: _getIndentRight(node),
-                            firstLineIndent: value,
+                            indentRight: value,
+                            firstLineIndent: _getFirstLineIndent(node),
                           ),
                         ),
                       ],
-                    ]),
-                  ],
-
-                  // --- Layout section for container blocks ---
-                  if (isContainerBlock) ...[
-                    _buildPropertySection('Block Alignment', [
-                      Row(
-                        children: [
-                          for (final entry in {
-                            BlockAlignment.start: Icons.align_horizontal_left,
-                            BlockAlignment.center: Icons.align_horizontal_center,
-                            BlockAlignment.end: Icons.align_horizontal_right,
-                            BlockAlignment.stretch: Icons.expand,
-                          }.entries)
-                            Padding(
-                              padding: const EdgeInsets.only(right: 4),
-                              child: IconButton(
-                                icon: entry.key == BlockAlignment.stretch
-                                    ? const RotatedBox(
-                                        quarterTurns: 1,
-                                        child: Icon(Icons.expand, size: 20),
-                                      )
-                                    : Icon(entry.value, size: 20),
-                                isSelected: _getBlockAlignment(node) == entry.key,
-                                style: IconButton.styleFrom(
-                                  backgroundColor: _getBlockAlignment(node) == entry.key
-                                      ? colorScheme.primaryContainer
-                                      : null,
-                                  minimumSize: const Size(36, 36),
-                                  padding: EdgeInsets.zero,
-                                ),
-                                tooltip: entry.key.name,
-                                onPressed: () => _updateBlockAlignment(node, entry.key),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ]),
-                    if (_hasSizingProperties(node)) ...[
-                      _buildPropertySection('Text Wrap', [
-                        Row(
-                          children: [
-                            for (final entry in {
-                              TextWrapMode.none: Icons.close,
-                              TextWrapMode.wrap: Icons.wrap_text,
-                              TextWrapMode.behindText: Icons.flip_to_back,
-                              TextWrapMode.inFrontOfText: Icons.flip_to_front,
-                            }.entries)
-                              Padding(
-                                padding: const EdgeInsets.only(right: 4),
-                                child: IconButton(
-                                  icon: Icon(entry.value, size: 20),
-                                  isSelected: _getTextWrap(node) == entry.key,
-                                  style: IconButton.styleFrom(
-                                    backgroundColor: _getTextWrap(node) == entry.key
-                                        ? colorScheme.primaryContainer
-                                        : null,
-                                    minimumSize: const Size(36, 36),
-                                    padding: EdgeInsets.zero,
-                                  ),
-                                  tooltip: entry.key.name,
-                                  onPressed: () => _updateTextWrap(node, entry.key),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ]),
-                      _buildPropertySection('Width \u00d7 Height', [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _DimensionField(
-                                key: ValueKey('${node.id}-w'),
-                                value: _getWidth(node),
-                                onChanged: (value) => _updateWidth(node, value),
-                              ),
-                            ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 6),
-                              child: Text('\u00d7'), // ×
-                            ),
-                            Expanded(
-                              child: _DimensionField(
-                                key: ValueKey('${node.id}-h'),
-                                value: _getHeight(node),
-                                onChanged: (value) => _updateHeight(node, value),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ]),
-                      if (node is ImageNode) ...[
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                'Lock Aspect',
-                                style: Theme.of(context).textTheme.bodyMedium,
-                              ),
-                            ),
-                            Checkbox(
-                              value: node.lockAspect,
-                              onChanged: (value) => _updateLockAspect(node, value ?? true),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text('Image URL', style: Theme.of(context).textTheme.labelMedium),
-                        const SizedBox(height: 4),
-                        _UrlField(
-                          key: ValueKey('${node.id}-url'),
-                          value: node.imageUrl,
-                          onChanged: (url) => _updateImageUrl(node, url),
-                        ),
-                        const SizedBox(height: 4),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 32,
-                          child: OutlinedButton.icon(
-                            icon: const Icon(Icons.folder_open, size: 16),
-                            label: const Text('Choose File'),
-                            onPressed: () => _pickImageFile(node),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ],
+                    ),
+                  ),
                 ],
               ),
+              // First-line indent (not for ListItemNode)
+              if (node is! ListItemNode) ...[
+                const SizedBox(height: 6),
+                Text(
+                  'First Line',
+                  style: Theme.of(context).textTheme.labelSmall,
+                ),
+                const SizedBox(height: 2),
+                _DimensionField(
+                  key: ValueKey('${node.id}-fli'),
+                  value: _getFirstLineIndent(node),
+                  onChanged: (value) => _replaceNodeWithIndent(
+                    node,
+                    indentLeft: _getIndentLeft(node),
+                    indentRight: _getIndentRight(node),
+                    firstLineIndent: value,
+                  ),
+                ),
+              ],
+            ]),
+          ],
+
+          // --- Layout section for container blocks ---
+          if (isContainerBlock) ...[
+            _buildPropertySection('Block Alignment', [
+              Row(
+                children: [
+                  for (final entry in {
+                    BlockAlignment.start: Icons.align_horizontal_left,
+                    BlockAlignment.center: Icons.align_horizontal_center,
+                    BlockAlignment.end: Icons.align_horizontal_right,
+                    BlockAlignment.stretch: Icons.expand,
+                  }.entries)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: IconButton(
+                        icon: entry.key == BlockAlignment.stretch
+                            ? const RotatedBox(
+                                quarterTurns: 1,
+                                child: Icon(Icons.expand, size: 20),
+                              )
+                            : Icon(entry.value, size: 20),
+                        isSelected: _getBlockAlignment(node) == entry.key,
+                        style: IconButton.styleFrom(
+                          backgroundColor: _getBlockAlignment(node) == entry.key
+                              ? colorScheme.primaryContainer
+                              : null,
+                          minimumSize: const Size(36, 36),
+                          padding: EdgeInsets.zero,
+                        ),
+                        tooltip: entry.key.name,
+                        onPressed: () => _updateBlockAlignment(node, entry.key),
+                      ),
+                    ),
+                ],
+              ),
+            ]),
+            if (_hasSizingProperties(node)) ...[
+              _buildPropertySection('Text Wrap', [
+                Row(
+                  children: [
+                    for (final entry in {
+                      TextWrapMode.none: Icons.close,
+                      TextWrapMode.wrap: Icons.wrap_text,
+                      TextWrapMode.behindText: Icons.flip_to_back,
+                      TextWrapMode.inFrontOfText: Icons.flip_to_front,
+                    }.entries)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 4),
+                        child: IconButton(
+                          icon: Icon(entry.value, size: 20),
+                          isSelected: _getTextWrap(node) == entry.key,
+                          style: IconButton.styleFrom(
+                            backgroundColor: _getTextWrap(node) == entry.key
+                                ? colorScheme.primaryContainer
+                                : null,
+                            minimumSize: const Size(36, 36),
+                            padding: EdgeInsets.zero,
+                          ),
+                          tooltip: entry.key.name,
+                          onPressed: () => _updateTextWrap(node, entry.key),
+                        ),
+                      ),
+                  ],
+                ),
+              ]),
+              _buildPropertySection('Width \u00d7 Height', [
+                Row(
+                  children: [
+                    Expanded(
+                      child: _DimensionField(
+                        key: ValueKey('${node.id}-w'),
+                        value: _getWidth(node),
+                        onChanged: (value) => _updateWidth(node, value),
+                      ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 6),
+                      child: Text('\u00d7'), // ×
+                    ),
+                    Expanded(
+                      child: _DimensionField(
+                        key: ValueKey('${node.id}-h'),
+                        value: _getHeight(node),
+                        onChanged: (value) => _updateHeight(node, value),
+                      ),
+                    ),
+                  ],
+                ),
+              ]),
+              if (node is ImageNode) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Lock Aspect',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ),
+                    Checkbox(
+                      value: node.lockAspect,
+                      onChanged: (value) => _updateLockAspect(node, value ?? true),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text('Image URL', style: Theme.of(context).textTheme.labelMedium),
+                const SizedBox(height: 4),
+                _UrlField(
+                  key: ValueKey('${node.id}-url'),
+                  value: node.imageUrl,
+                  onChanged: (url) => _updateImageUrl(node, url),
+                ),
+                const SizedBox(height: 4),
+                SizedBox(
+                  width: double.infinity,
+                  height: 32,
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.folder_open, size: 16),
+                    label: const Text('Choose File'),
+                    onPressed: () => _pickImageFile(node),
+                  ),
+                ),
+              ],
+            ],
+          ],
+        ];
+      }
+    }
+
+    return SizedBox(
+      width: panelWidth,
+      height: double.infinity,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerLow,
+          border: Border(left: BorderSide(color: colorScheme.outlineVariant)),
+        ),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: content,
             ),
           ),
         ),
