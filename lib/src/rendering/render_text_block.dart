@@ -98,6 +98,57 @@ class _ExclusionLayout {
   }
 }
 
+// ---------------------------------------------------------------------------
+// _FirstLineIndentLayout — result of first-line-indent split layout
+// ---------------------------------------------------------------------------
+
+/// Holds the results of splitting text layout to apply a first-line indent.
+///
+/// The text is split into two painters:
+/// - **firstLinePainter**: covers characters `[0, firstLineEndIndex)`, laid
+///   out at `textWidth - indent`.
+/// - **restPainter**: covers characters `[firstLineEndIndex, textLength)`, laid
+///   out at `textWidth` (full width). May be `null` if all text fits on line 1.
+class _FirstLineIndentLayout {
+  /// Creates a [_FirstLineIndentLayout] with both painters and metrics.
+  _FirstLineIndentLayout({
+    required this.firstLinePainter,
+    this.restPainter,
+    required this.firstLineEndIndex,
+    required this.firstLineHeight,
+    required this.restHeight,
+    required this.indent,
+  });
+
+  /// [TextPainter] for the first line only, laid out at `textWidth - indent`.
+  final TextPainter firstLinePainter;
+
+  /// [TextPainter] for lines after the first, or `null` if all text fits
+  /// on the first line.
+  final TextPainter? restPainter;
+
+  /// Model character index where the first line ends (exclusive).
+  final int firstLineEndIndex;
+
+  /// Height of the first line.
+  final double firstLineHeight;
+
+  /// Combined height of all remaining lines, or `0` if [restPainter] is null.
+  final double restHeight;
+
+  /// The first-line indent value (the [RenderTextBlock.firstLineIndent]).
+  final double indent;
+
+  /// Total height of both zones combined.
+  double get totalHeight => firstLineHeight + restHeight;
+
+  /// Releases both [TextPainter] resources.
+  void dispose() {
+    firstLinePainter.dispose();
+    restPainter?.dispose();
+  }
+}
+
 /// A pair of [TextPainter]s representing one visual line in the beside zone.
 ///
 /// Each beside-zone line consists of a left column segment and a right column
@@ -215,6 +266,10 @@ class RenderTextBlock extends RenderDocumentBlock {
   /// Cached result of the most recent exclusion-zone layout pass, or `null`
   /// when no exclusion rect is active.
   _ExclusionLayout? _exclusionLayout;
+
+  /// Cached result of the most recent first-line-indent layout pass, or `null`
+  /// when no first-line indent is active or when an exclusion zone overrides it.
+  _FirstLineIndentLayout? _firstLineIndentLayout;
 
   // ---------------------------------------------------------------------------
   // RenderDocumentBlock — nodeId
@@ -376,11 +431,12 @@ class RenderTextBlock extends RenderDocumentBlock {
   /// First-line indent in logical pixels.
   ///
   /// Positive values indent the first line further than [indentLeft].
-  /// Negative values create a hanging indent where all lines except the first
-  /// are indented by the absolute value.
+  /// The first line is laid out at `textWidth - firstLineIndent` and painted
+  /// with its origin shifted right by [indentLeft] + [firstLineIndent].
+  /// All subsequent lines use the full text width and are painted at [indentLeft].
   ///
-  /// Currently stored for the widget layer to persist; visual rendering of
-  /// first-line indent is applied in a future step.
+  /// When an exclusion zone ([DocumentBlockConstraints.exclusionRect]) is
+  /// active this property is ignored — the exclusion layout takes precedence.
   // ignore: diagnostic_describe_all_properties
   double get firstLineIndent => _firstLineIndent;
 
@@ -580,8 +636,95 @@ class RenderTextBlock extends RenderDocumentBlock {
     final excl = exclusionRectForLayout();
     final textWidth = max(0.0, constraints.maxWidth - _indentLeft - _indentRight);
     final adjustedExcl = excl != null ? excl.translate(-_indentLeft, 0) : null;
-    layoutText(textWidth, exclusionRect: adjustedExcl);
+
+    // Dispose previous first-line-indent layout when switching away from it.
+    if (_firstLineIndent <= 0 || adjustedExcl != null) {
+      _firstLineIndentLayout?.dispose();
+      _firstLineIndentLayout = null;
+    }
+
+    if (_firstLineIndent > 0 && adjustedExcl == null) {
+      _performFirstLineIndentLayout(textWidth);
+    } else {
+      layoutText(textWidth, exclusionRect: adjustedExcl);
+    }
+
     size = Size(constraints.maxWidth, layoutTextHeight);
+  }
+
+  /// Performs first-line-indent layout when [_firstLineIndent] > 0.
+  ///
+  /// Splits the text into two painters:
+  /// - **first line**: laid out at `textWidth - _firstLineIndent`.
+  /// - **rest**: laid out at `textWidth` (full width).
+  ///
+  /// Also lays out [_textPainter] at [textWidth] so that baseline queries
+  /// (used by [computeDistanceToActualBaseline]) remain valid.
+  void _performFirstLineIndentLayout(double textWidth) {
+    _firstLineIndentLayout?.dispose();
+    _firstLineIndentLayout = null;
+
+    final rawText = _text.text;
+    final textLength = rawText.length;
+
+    // Determine the first-line painter width.
+    final firstLineWidth = max(0.0, textWidth - _firstLineIndent);
+
+    // Use a temporary full painter at firstLineWidth to find the line boundary.
+    final tempPainter = TextPainter(
+      text: _buildTextSpan(),
+      textDirection: _textDirection,
+      textAlign: _textAlign,
+    )..layout(minWidth: firstLineWidth, maxWidth: firstLineWidth);
+
+    // Find where line 1 ends.
+    int firstLineEndIndex = textLength;
+    if (textLength > 0) {
+      final boundary = tempPainter.getLineBoundary(const TextPosition(offset: 0));
+      // boundary.end is a visual offset in the tab-expanded text; convert to model.
+      final visualTextLength = _m2v(textLength);
+      final visualEnd = boundary.end.clamp(0, visualTextLength);
+      firstLineEndIndex = _v2m(visualEnd).clamp(0, textLength);
+    }
+    tempPainter.dispose();
+
+    // Build the first-line painter (characters [0, firstLineEndIndex)).
+    final firstLinePainter = TextPainter(
+      text: _buildTextSpanForRange(0, firstLineEndIndex),
+      textDirection: _textDirection,
+      textAlign: _textAlign,
+    )..layout(minWidth: firstLineWidth, maxWidth: firstLineWidth);
+
+    final firstLineMetrics = firstLinePainter.computeLineMetrics();
+    final firstLineHeight = firstLineMetrics.isNotEmpty
+        ? firstLineMetrics.fold<double>(0.0, (sum, m) => sum + m.height)
+        : firstLinePainter.height;
+
+    // Build the rest painter (characters [firstLineEndIndex, textLength)).
+    TextPainter? restPainter;
+    double restHeight = 0.0;
+
+    if (firstLineEndIndex < textLength) {
+      restPainter = TextPainter(
+        text: _buildTextSpanForRange(firstLineEndIndex, textLength),
+        textDirection: _textDirection,
+        textAlign: _textAlign,
+      )..layout(minWidth: textWidth, maxWidth: textWidth);
+      restHeight = restPainter.height;
+    }
+
+    _firstLineIndentLayout = _FirstLineIndentLayout(
+      firstLinePainter: firstLinePainter,
+      restPainter: restPainter,
+      firstLineEndIndex: firstLineEndIndex,
+      firstLineHeight: firstLineHeight,
+      restHeight: restHeight,
+      indent: _firstLineIndent,
+    );
+
+    // Also lay out the primary painter so baseline queries and subclass helpers
+    // remain valid.
+    _layoutText(textWidth);
   }
 
   /// Performs multi-segment layout when [exclusionRect] is set.
@@ -873,7 +1016,8 @@ class RenderTextBlock extends RenderDocumentBlock {
   /// Only valid after layout. Subclasses use this to compute [size].
   @protected
   // ignore: diagnostic_describe_all_properties
-  double get layoutTextHeight => _exclusionLayout?.totalHeight ?? _textPainter.height;
+  double get layoutTextHeight =>
+      _firstLineIndentLayout?.totalHeight ?? _exclusionLayout?.totalHeight ?? _textPainter.height;
 
   void _layoutText(double maxWidth) {
     final span = _buildTextSpan();
@@ -920,6 +1064,27 @@ class RenderTextBlock extends RenderDocumentBlock {
       if (excl.belowPainter != null) {
         final belowOffset = Offset(0, excl.aboveHeight + excl.besideHeight);
         excl.belowPainter!.paint(context.canvas, textOffset + belowOffset);
+      }
+      return;
+    }
+
+    // First-line-indent path.
+    final fliLayout = _firstLineIndentLayout;
+    if (fliLayout != null) {
+      if (_nodeSelection != null) {
+        _paintSelectionHighlight(context.canvas, offset);
+      }
+      // First line: shifted right by firstLineIndent.
+      fliLayout.firstLinePainter.paint(
+        context.canvas,
+        offset + Offset(_indentLeft + fliLayout.indent, 0),
+      );
+      // Remaining lines: at normal indentLeft.
+      if (fliLayout.restPainter != null) {
+        fliLayout.restPainter!.paint(
+          context.canvas,
+          offset + Offset(_indentLeft, fliLayout.firstLineHeight),
+        );
       }
       return;
     }
@@ -1007,6 +1172,11 @@ class RenderTextBlock extends RenderDocumentBlock {
       return _getLocalRectForPositionExclusion(tp, excl);
     }
 
+    final fliLayout = _firstLineIndentLayout;
+    if (fliLayout != null) {
+      return _getLocalRectForPositionFLI(tp, fliLayout);
+    }
+
     final visualOffset = _m2v(tp.offset);
     final textPosition = TextPosition(offset: visualOffset, affinity: tp.affinity);
     final caretOffset = _textPainter.getOffsetForCaret(textPosition, Rect.zero);
@@ -1048,6 +1218,101 @@ class RenderTextBlock extends RenderDocumentBlock {
       caretOffset.dy,
       0,
       _textPainter.preferredLineHeight,
+    );
+  }
+
+  /// Returns the caret rect for [position] when [_firstLineIndentLayout] is active.
+  ///
+  /// Positions before [_FirstLineIndentLayout.firstLineEndIndex] use the
+  /// first-line painter and are shifted by `_indentLeft + fliLayout.indent`.
+  /// Positions at or after that index use the rest painter, shifted by
+  /// `_indentLeft` and offset downward by [_FirstLineIndentLayout.firstLineHeight].
+  Rect _getLocalRectForPositionFLI(TextNodePosition position, _FirstLineIndentLayout fliLayout) {
+    final charIndex = position.offset;
+
+    // First-line zone: [0, firstLineEndIndex).
+    if (charIndex < fliLayout.firstLineEndIndex) {
+      return _caretRectFromPainterFLI(
+        position: position,
+        painter: fliLayout.firstLinePainter,
+        localIndex: charIndex,
+        rangeStart: 0,
+        baseX: _indentLeft + fliLayout.indent,
+        baseY: 0.0,
+        painterTextLength: fliLayout.firstLineEndIndex,
+      );
+    }
+
+    // Rest zone: [firstLineEndIndex, textLength).
+    if (fliLayout.restPainter != null) {
+      final localIndex = charIndex - fliLayout.firstLineEndIndex;
+      final restLength = _text.text.length - fliLayout.firstLineEndIndex;
+      return _caretRectFromPainterFLI(
+        position: position,
+        painter: fliLayout.restPainter!,
+        localIndex: localIndex,
+        rangeStart: fliLayout.firstLineEndIndex,
+        baseX: _indentLeft,
+        baseY: fliLayout.firstLineHeight,
+        painterTextLength: restLength,
+      );
+    }
+
+    // Fallback: all text fits on line 1 — use end position of first-line painter.
+    final visualIndex = _m2vLocal(charIndex, 0);
+    final textPos = TextPosition(offset: visualIndex, affinity: position.affinity);
+    final caretOffset = fliLayout.firstLinePainter.getOffsetForCaret(textPos, Rect.zero);
+    return Rect.fromLTWH(
+      _indentLeft + fliLayout.indent + caretOffset.dx,
+      caretOffset.dy,
+      0,
+      fliLayout.firstLinePainter.preferredLineHeight,
+    );
+  }
+
+  /// Returns the caret rect from [painter] for [localIndex] within a
+  /// first-line-indent zone, applying [baseX] and [baseY] offsets.
+  Rect _caretRectFromPainterFLI({
+    required TextNodePosition position,
+    required TextPainter painter,
+    required int localIndex,
+    required int rangeStart,
+    required double baseX,
+    required double baseY,
+    required int painterTextLength,
+  }) {
+    final visualLocalIndex = _m2vLocal(localIndex, rangeStart);
+    final textPos = TextPosition(offset: visualLocalIndex, affinity: position.affinity);
+    final caretOffset = painter.getOffsetForCaret(textPos, Rect.zero);
+
+    if (painterTextLength > 0) {
+      // Same trailing-newline guard as the non-FLI path.
+      final painterText = painter.text!.toPlainText();
+      if (localIndex >= painterTextLength && painterText.endsWith('\n')) {
+        return Rect.fromLTWH(
+          baseX + caretOffset.dx,
+          baseY + caretOffset.dy,
+          0,
+          painter.preferredLineHeight,
+        );
+      }
+      final start = localIndex >= painterTextLength ? painterTextLength - 1 : localIndex;
+      final visualStart = _m2vLocal(start, rangeStart);
+      final visualEnd = _m2vLocal(start + 1, rangeStart);
+      final boxes = painter.getBoxesForSelection(
+        TextSelection(baseOffset: visualStart, extentOffset: visualEnd),
+        boxHeightStyle: ui.BoxHeightStyle.max,
+      );
+      if (boxes.isNotEmpty) {
+        final box = boxes.first.toRect();
+        return Rect.fromLTWH(baseX + caretOffset.dx, baseY + box.top, 0, box.height);
+      }
+    }
+    return Rect.fromLTWH(
+      baseX + caretOffset.dx,
+      baseY + caretOffset.dy,
+      0,
+      painter.preferredLineHeight,
     );
   }
 
@@ -1283,10 +1548,47 @@ class RenderTextBlock extends RenderDocumentBlock {
       }
     }
 
+    // First-line-indent path.
+    final fliLayout = _firstLineIndentLayout;
+    if (fliLayout != null) {
+      return _getPositionAtOffsetFLI(localOffset, fliLayout);
+    }
+
     // Translate from block-local to text-painter-local by removing indent.
     final textLocalOffset = Offset(localOffset.dx - _indentLeft, localOffset.dy);
     final tp = _textPainter.getPositionForOffset(textLocalOffset);
     return TextNodePosition(offset: _v2m(tp.offset), affinity: tp.affinity);
+  }
+
+  /// Returns the [NodePosition] nearest to [localOffset] when
+  /// [_firstLineIndentLayout] is active.
+  NodePosition _getPositionAtOffsetFLI(Offset localOffset, _FirstLineIndentLayout fliLayout) {
+    final y = localOffset.dy;
+    final x = localOffset.dx;
+
+    if (y < fliLayout.firstLineHeight) {
+      // First-line zone: subtract indentLeft + indent from x.
+      final painterX = x - _indentLeft - fliLayout.indent;
+      final tp = fliLayout.firstLinePainter.getPositionForOffset(Offset(painterX, y));
+      // Convert visual-local offset to model-global offset (rangeStart = 0).
+      final modelIndex = _v2mLocal(tp.offset, 0).clamp(0, fliLayout.firstLineEndIndex);
+      return TextNodePosition(offset: modelIndex, affinity: tp.affinity);
+    }
+
+    // Rest zone: subtract indentLeft from x; subtract firstLineHeight from y.
+    if (fliLayout.restPainter != null) {
+      final painterX = x - _indentLeft;
+      final painterY = y - fliLayout.firstLineHeight;
+      final tp = fliLayout.restPainter!.getPositionForOffset(Offset(painterX, painterY));
+      // Convert visual-local offset to model-local offset, then to global.
+      final modelLocal = _v2mLocal(tp.offset, fliLayout.firstLineEndIndex);
+      final textLength = _text.text.length;
+      final modelIndex = (fliLayout.firstLineEndIndex + modelLocal).clamp(0, textLength);
+      return TextNodePosition(offset: modelIndex, affinity: tp.affinity);
+    }
+
+    // Fallback: all text on first line.
+    return TextNodePosition(offset: fliLayout.firstLineEndIndex);
   }
 
   /// Returns the [TextRange] spanning the visual line that contains [position].
@@ -1358,6 +1660,35 @@ class RenderTextBlock extends RenderDocumentBlock {
       }
     }
 
+    // First-line-indent path.
+    final fliLayout = _firstLineIndentLayout;
+    if (fliLayout != null) {
+      // First-line zone: [0, firstLineEndIndex).
+      if (offset < fliLayout.firstLineEndIndex) {
+        final visualOffset = _m2vLocal(offset, 0);
+        final localPos = TextPosition(offset: visualOffset, affinity: position.affinity);
+        final localRange = fliLayout.firstLinePainter.getLineBoundary(localPos);
+        return TextRange(
+          start: _v2mLocal(localRange.start, 0),
+          end: _v2mLocal(localRange.end, 0).clamp(0, fliLayout.firstLineEndIndex),
+        );
+      }
+      // Rest zone: [firstLineEndIndex, textLength).
+      if (fliLayout.restPainter != null) {
+        final localOffset = offset - fliLayout.firstLineEndIndex;
+        final visualLocalOffset = _m2vLocal(localOffset, fliLayout.firstLineEndIndex);
+        final localPos = TextPosition(offset: visualLocalOffset, affinity: position.affinity);
+        final localRange = fliLayout.restPainter!.getLineBoundary(localPos);
+        return TextRange(
+          start: fliLayout.firstLineEndIndex +
+              _v2mLocal(localRange.start, fliLayout.firstLineEndIndex),
+          end: fliLayout.firstLineEndIndex + _v2mLocal(localRange.end, fliLayout.firstLineEndIndex),
+        );
+      }
+      // All text on first line.
+      return TextRange(start: 0, end: fliLayout.firstLineEndIndex);
+    }
+
     // Fallback: no exclusion zone, or offset didn't match any zone.
     final tp = TextPosition(offset: _m2v(offset), affinity: position.affinity);
     final range = _textPainter.getLineBoundary(tp);
@@ -1383,6 +1714,11 @@ class RenderTextBlock extends RenderDocumentBlock {
       return _getEndpointsForSelectionExclusion(selStart, selEnd, excl);
     }
 
+    final fliLayout = _firstLineIndentLayout;
+    if (fliLayout != null) {
+      return _getEndpointsForSelectionFLI(selStart, selEnd, fliLayout);
+    }
+
     final boxes = _textPainter.getBoxesForSelection(
       TextSelection(baseOffset: _m2v(selStart), extentOffset: _m2v(selEnd)),
       boxHeightStyle: ui.BoxHeightStyle.max,
@@ -1390,6 +1726,54 @@ class RenderTextBlock extends RenderDocumentBlock {
     // Shift selection rects rightward by _indentLeft to match painting origin.
     if (_indentLeft == 0) return boxes.map((box) => box.toRect()).toList();
     return boxes.map((box) => box.toRect().shift(Offset(_indentLeft, 0))).toList();
+  }
+
+  /// Collects selection rects across both zones when [_firstLineIndentLayout]
+  /// is active.
+  List<Rect> _getEndpointsForSelectionFLI(
+    int selStart,
+    int selEnd,
+    _FirstLineIndentLayout fliLayout,
+  ) {
+    final rects = <Rect>[];
+
+    // First-line zone: [0, firstLineEndIndex).
+    if (selStart < fliLayout.firstLineEndIndex) {
+      final zoneStart = selStart.clamp(0, fliLayout.firstLineEndIndex);
+      final zoneEnd = selEnd.clamp(0, fliLayout.firstLineEndIndex);
+      if (zoneStart < zoneEnd) {
+        final boxes = fliLayout.firstLinePainter.getBoxesForSelection(
+          TextSelection(
+            baseOffset: _m2vLocal(zoneStart, 0),
+            extentOffset: _m2vLocal(zoneEnd, 0),
+          ),
+          boxHeightStyle: ui.BoxHeightStyle.max,
+        );
+        final shift = Offset(_indentLeft + fliLayout.indent, 0);
+        rects.addAll(boxes.map((box) => box.toRect().shift(shift)));
+      }
+    }
+
+    // Rest zone: [firstLineEndIndex, textLength).
+    if (fliLayout.restPainter != null && selEnd > fliLayout.firstLineEndIndex) {
+      final textLength = _text.text.length;
+      final restLength = textLength - fliLayout.firstLineEndIndex;
+      final zoneStart = (selStart - fliLayout.firstLineEndIndex).clamp(0, restLength);
+      final zoneEnd = (selEnd - fliLayout.firstLineEndIndex).clamp(0, restLength);
+      if (zoneStart < zoneEnd) {
+        final boxes = fliLayout.restPainter!.getBoxesForSelection(
+          TextSelection(
+            baseOffset: _m2vLocal(zoneStart, fliLayout.firstLineEndIndex),
+            extentOffset: _m2vLocal(zoneEnd, fliLayout.firstLineEndIndex),
+          ),
+          boxHeightStyle: ui.BoxHeightStyle.max,
+        );
+        final shift = Offset(_indentLeft, fliLayout.firstLineHeight);
+        rects.addAll(boxes.map((box) => box.toRect().shift(shift)));
+      }
+    }
+
+    return rects;
   }
 
   /// Collects selection rects across all zones when [_exclusionLayout] is active.
@@ -1653,6 +2037,20 @@ class RenderTextBlock extends RenderDocumentBlock {
     }
 
     return style;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Lifecycle
+  // ---------------------------------------------------------------------------
+
+  @override
+  void dispose() {
+    _textPainter.dispose();
+    _exclusionLayout?.dispose();
+    _exclusionLayout = null;
+    _firstLineIndentLayout?.dispose();
+    _firstLineIndentLayout = null;
+    super.dispose();
   }
 
   // ---------------------------------------------------------------------------

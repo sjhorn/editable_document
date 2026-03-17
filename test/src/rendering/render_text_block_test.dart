@@ -1585,4 +1585,230 @@ void main() {
       expect(block.firstLineIndent, 16.0);
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // firstLineIndent visual rendering
+  // ---------------------------------------------------------------------------
+
+  group('RenderTextBlock firstLineIndent visual rendering', () {
+    // Helper: build a block with given firstLineIndent, laid out at maxWidth.
+    RenderTextBlock _fliBlock({
+      required String text,
+      required double firstLineIndent,
+      double maxWidth = 300.0,
+      double indentLeft = 0.0,
+    }) {
+      final b = RenderTextBlock(
+        nodeId: 'fli_test',
+        text: AttributedText(text),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      b.indentLeft = indentLeft;
+      b.firstLineIndent = firstLineIndent;
+      b.layout(BoxConstraints(maxWidth: maxWidth), parentUsesSize: true);
+      return b;
+    }
+
+    test('caret at offset 0 is shifted right by firstLineIndent', () {
+      // With firstLineIndent=32 the first character should start at x=32,
+      // not at x=0 (indentLeft is 0).
+      const indent = 32.0;
+      final block = _fliBlock(
+        text: 'The quick brown fox jumps over the lazy dog',
+        firstLineIndent: indent,
+      );
+
+      final caretRect = block.getLocalRectForPosition(const TextNodePosition(offset: 0));
+      expect(
+        caretRect.left,
+        closeTo(indent, 1.0),
+        reason: 'caret at offset 0 must be at x == firstLineIndent when indentLeft is 0',
+      );
+    });
+
+    test('caret on the second line is at indentLeft (no extra first-line indent)', () {
+      // Use narrow width so the text wraps after the first line.
+      // First line gets the indent; subsequent lines start at indentLeft.
+      const indent = 40.0;
+      const maxWidth = 200.0;
+      // Long text that will wrap.
+      const text = 'The quick brown fox jumps over the lazy dog and continues running far';
+      final block = _fliBlock(
+        text: text,
+        firstLineIndent: indent,
+        maxWidth: maxWidth,
+      );
+
+      // Find the start of the second line by querying getLineBoundary for offset 0,
+      // then use the end of the first-line range as the second-line start.
+      final firstLineRange = block.getLineBoundary(const TextNodePosition(offset: 0));
+      // The first line must not span the whole text (it must wrap).
+      expect(
+        firstLineRange.end,
+        lessThan(text.length),
+        reason: 'text must wrap to verify second-line indent',
+      );
+
+      final secondLineStart = firstLineRange.end;
+      final caretSecondLine =
+          block.getLocalRectForPosition(TextNodePosition(offset: secondLineStart));
+
+      // Second line should start at x == indentLeft (== 0.0 here).
+      expect(
+        caretSecondLine.left,
+        closeTo(0.0, 2.0),
+        reason: 'caret at start of second line must be at x == indentLeft (0), '
+            'not shifted by firstLineIndent',
+      );
+    });
+
+    test('firstLineIndent combined with indentLeft: caret at 0 is at indentLeft + firstLineIndent',
+        () {
+      const indent = 24.0;
+      const leftIndent = 16.0;
+      final block = _fliBlock(
+        text: 'Hello world and some more text to ensure layout',
+        firstLineIndent: indent,
+        indentLeft: leftIndent,
+      );
+
+      final caretRect = block.getLocalRectForPosition(const TextNodePosition(offset: 0));
+      expect(
+        caretRect.left,
+        closeTo(leftIndent + indent, 2.0),
+        reason: 'caret at offset 0 must be at x == indentLeft + firstLineIndent',
+      );
+    });
+
+    test('layoutTextHeight is positive with firstLineIndent active', () {
+      final block = _fliBlock(
+        text: 'The quick brown fox jumps over the lazy dog and keeps going',
+        firstLineIndent: 30.0,
+        maxWidth: 200.0,
+      );
+      expect(block.size.height, greaterThan(0));
+    });
+
+    test('hit test on first line accounts for the indent', () {
+      // A tap at x=0,y=0 with firstLineIndent=32 should land in the text area
+      // that is shifted right — the returned position must be valid.
+      const indent = 32.0;
+      final block = _fliBlock(
+        text: 'Hello world',
+        firstLineIndent: indent,
+      );
+
+      // Hit test at x just inside the indent area (before the text).
+      final posBeforeText = block.getPositionAtOffset(const Offset(0, 0)) as TextNodePosition;
+      // Hit test at x just past the indent (inside the text).
+      final posInsideText =
+          block.getPositionAtOffset(const Offset(indent + 5.0, 0)) as TextNodePosition;
+
+      // Both must return valid (non-negative) offsets.
+      expect(posBeforeText.offset, greaterThanOrEqualTo(0));
+      expect(posInsideText.offset, greaterThanOrEqualTo(0));
+    });
+
+    test('setting firstLineIndent to 0 reverts to normal behavior', () {
+      const maxWidth = 300.0;
+      const text = 'Hello world some text';
+
+      // Block with firstLineIndent = 0 (normal).
+      final blockNormal = RenderTextBlock(
+        nodeId: 'fli_zero',
+        text: AttributedText(text),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      blockNormal.layout(const BoxConstraints(maxWidth: maxWidth), parentUsesSize: true);
+      final caretNormal = blockNormal.getLocalRectForPosition(const TextNodePosition(offset: 0));
+
+      // Block initially with indent, then reset to 0.
+      final blockReset = RenderTextBlock(
+        nodeId: 'fli_reset',
+        text: AttributedText(text),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      blockReset.firstLineIndent = 40.0;
+      blockReset.layout(const BoxConstraints(maxWidth: maxWidth), parentUsesSize: true);
+      // Now reset to 0.
+      blockReset.firstLineIndent = 0.0;
+      blockReset.layout(const BoxConstraints(maxWidth: maxWidth), parentUsesSize: true);
+
+      final caretReset = blockReset.getLocalRectForPosition(const TextNodePosition(offset: 0));
+
+      // After reset, the caret at offset 0 should be at the same position
+      // as the no-indent block.
+      expect(
+        caretReset.left,
+        closeTo(caretNormal.left, 1.0),
+        reason: 'resetting firstLineIndent to 0 must revert to normal caret position',
+      );
+    });
+
+    test('getEndpointsForSelection spans correctly across first-line/rest boundary', () {
+      const maxWidth = 200.0;
+      const text = 'The quick brown fox jumps over the lazy dog and keeps running away';
+      final block = _fliBlock(
+        text: text,
+        firstLineIndent: 30.0,
+        maxWidth: maxWidth,
+      );
+
+      final firstLineRange = block.getLineBoundary(const TextNodePosition(offset: 0));
+      expect(firstLineRange.end, lessThan(text.length),
+          reason: 'text must wrap to test cross-boundary selection');
+
+      // Select from offset 0 to the start of the second line.
+      final rects = block.getEndpointsForSelection(
+        const TextNodePosition(offset: 0),
+        TextNodePosition(offset: firstLineRange.end),
+      );
+
+      expect(rects, isNotEmpty, reason: 'selection rects must be non-empty');
+      for (final r in rects) {
+        expect(r.height, greaterThan(0));
+        expect(r.width, greaterThan(0));
+      }
+    });
+
+    test('firstLineIndent does not affect layout when exclusion zone is active', () {
+      // When an exclusion zone is present, firstLineIndent must be ignored.
+      // Build the same layout as the exclusion-zone helper uses.
+      final image = RenderImageBlock(
+        nodeId: 'img1',
+        imageWidth: 100.0,
+        imageHeight: 80.0,
+        blockAlignment: BlockAlignment.center,
+        requestedWidth: 100.0,
+        requestedHeight: 80.0,
+        textWrap: TextWrapMode.wrap,
+      );
+      final textBlock = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText(
+          'The quick brown fox jumps over the lazy dog and '
+          'continues running across the wide open field.',
+        ),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      textBlock.firstLineIndent = 40.0; // should be ignored when exclusion is active
+
+      final layout = RenderDocumentLayout(blockSpacing: 0.0);
+      layout.add(image);
+      layout.add(textBlock);
+      layout.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+
+      // The block must still have a positive height (exclusion zone is active).
+      expect(textBlock.size.height, greaterThan(0));
+
+      // Caret at offset 0: with exclusion active the text starts at the left
+      // column, so x should be at indentLeft (≈ 0) and NOT at firstLineIndent.
+      final caretRect = textBlock.getLocalRectForPosition(const TextNodePosition(offset: 0));
+      expect(
+        caretRect.left,
+        lessThan(40.0),
+        reason: 'with exclusion zone active, firstLineIndent must be ignored',
+      );
+    });
+  });
 }
