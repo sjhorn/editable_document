@@ -1629,6 +1629,62 @@ void main() {
   });
 
   // =========================================================================
+  // Enter — table cell newline
+  // =========================================================================
+
+  group('Enter — table cell newline', () {
+    test('Enter inserts newline and advances cursor in table cell', () {
+      final table = TableNode(
+        id: 'tbl1',
+        rowCount: 2,
+        columnCount: 2,
+        cells: [
+          [AttributedText('This is a test'), AttributedText('')],
+          [AttributedText(''), AttributedText('')],
+        ],
+      );
+      final doc = MutableDocument([table]);
+      final controller = DocumentEditingController(document: doc);
+      final editor = UndoableEditor(
+        editContext: EditContext(document: doc, controller: controller),
+      );
+
+      // Place cursor at end of "This is a test" (offset 14).
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'tbl1',
+            nodePosition: TableCellPosition(row: 0, col: 0, offset: 14),
+          ),
+        ),
+      );
+
+      final handler = DocumentKeyboardHandler(
+        document: doc,
+        controller: controller,
+        requestHandler: editor.submit,
+      );
+
+      // Press Enter.
+      final result = handler.onKeyEvent(_keyDown(LogicalKeyboardKey.enter));
+      expect(result, isTrue, reason: 'Enter should be handled for table cells');
+
+      // The cell text should now contain the newline.
+      final updatedTable = doc.nodeById('tbl1') as TableNode;
+      expect(updatedTable.cellAt(0, 0).text, equals('This is a test\n'));
+
+      // The cursor should be at offset 15 (after the newline).
+      final sel = controller.selection;
+      expect(sel, isNotNull);
+      expect(sel!.isCollapsed, isTrue);
+      final pos = sel.extent.nodePosition as TableCellPosition;
+      expect(pos.row, equals(0));
+      expect(pos.col, equals(0));
+      expect(pos.offset, equals(15));
+    });
+  });
+
+  // =========================================================================
   // Unknown keys
   // =========================================================================
 

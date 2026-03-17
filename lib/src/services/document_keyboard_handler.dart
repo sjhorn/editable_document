@@ -995,13 +995,28 @@ class DocumentKeyboardHandler {
       final cellText = node.cellAt(cellPos.row, cellPos.col).text;
       final newText =
           cellText.substring(0, cellPos.offset) + '\n' + cellText.substring(cellPos.offset);
+      final newOffset = cellPos.offset + 1;
       _requestHandler(
         UpdateTableCellRequest(
           nodeId: node.id,
           row: cellPos.row,
           col: cellPos.col,
           newText: AttributedText(newText),
-          newCursorOffset: cellPos.offset + 1,
+          newCursorOffset: newOffset,
+        ),
+      );
+      // Ensure the selection is at the new cursor position even if the
+      // command's setSelection was overwritten by a rebuild.
+      _controller.setSelection(
+        DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: node.id,
+            nodePosition: TableCellPosition(
+              row: cellPos.row,
+              col: cellPos.col,
+              offset: newOffset,
+            ),
+          ),
         ),
       );
       return true;
