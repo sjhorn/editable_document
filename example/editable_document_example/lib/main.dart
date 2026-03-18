@@ -3176,10 +3176,16 @@ class _UrlFieldState extends State<_UrlField> {
 /// Visually identical to [_TableInsertButton] but calls [onResize] instead of
 /// an insert callback.
 class _TableResizeButton extends StatefulWidget {
-  const _TableResizeButton({required this.onResize});
+  const _TableResizeButton({required this.onResize, this.existingRows, this.existingCols});
 
   /// Called with the chosen (rows, cols) when the user confirms a selection.
   final void Function(int rows, int cols) onResize;
+
+  /// Current table row count, shown as a distinct region in the grid picker.
+  final int? existingRows;
+
+  /// Current table column count, shown as a distinct region in the grid picker.
+  final int? existingCols;
 
   @override
   State<_TableResizeButton> createState() => _TableResizeButtonState();
@@ -3202,6 +3208,8 @@ class _TableResizeButtonState extends State<_TableResizeButton> {
     _overlayEntry = OverlayEntry(
       builder: (context) => _TableSizePickerOverlay(
         layerLink: _layerLink,
+        existingRows: widget.existingRows,
+        existingCols: widget.existingCols,
         onSelect: (rows, cols) {
           _hideOverlay();
           widget.onResize(rows, cols);
@@ -3299,6 +3307,8 @@ class _TableContextToolbar extends StatelessWidget {
           children: [
             // Resize
             _TableResizeButton(
+              existingRows: rowCount,
+              existingCols: columnCount,
               onResize: (rows, cols) => editor.submit(
                 ResizeTableRequest(nodeId: nodeId, newRowCount: rows, newColumnCount: cols),
               ),
@@ -3519,6 +3529,8 @@ class _TableSizePickerOverlay extends StatefulWidget {
     required this.layerLink,
     required this.onSelect,
     required this.onDismiss,
+    this.existingRows,
+    this.existingCols,
   });
 
   final LayerLink layerLink;
@@ -3528,6 +3540,12 @@ class _TableSizePickerOverlay extends StatefulWidget {
 
   /// Called when the user taps outside the popup.
   final VoidCallback onDismiss;
+
+  /// Current table row count, shown with a distinct fill in the grid.
+  final int? existingRows;
+
+  /// Current table column count, shown with a distinct fill in the grid.
+  final int? existingCols;
 
   @override
   State<_TableSizePickerOverlay> createState() => _TableSizePickerOverlayState();
@@ -3608,7 +3626,10 @@ class _TableSizePickerOverlayState extends State<_TableSizePickerOverlay> {
                             cellSpacing: _cellSpacing,
                             selectedRows: _hoverRow + 1,
                             selectedCols: _hoverCol + 1,
+                            existingRows: widget.existingRows ?? 0,
+                            existingCols: widget.existingCols ?? 0,
                             highlightColor: colorScheme.primary.withValues(alpha: 0.3),
+                            existingColor: colorScheme.primary.withValues(alpha: 0.12),
                             borderColor: colorScheme.outline.withValues(alpha: 0.3),
                             selectedBorderColor: colorScheme.primary,
                           ),
@@ -3644,7 +3665,10 @@ class _GridPainter extends CustomPainter {
     required this.cellSpacing,
     required this.selectedRows,
     required this.selectedCols,
+    required this.existingRows,
+    required this.existingCols,
     required this.highlightColor,
+    required this.existingColor,
     required this.borderColor,
     required this.selectedBorderColor,
   });
@@ -3655,7 +3679,10 @@ class _GridPainter extends CustomPainter {
   final double cellSpacing;
   final int selectedRows;
   final int selectedCols;
+  final int existingRows;
+  final int existingCols;
   final Color highlightColor;
+  final Color existingColor;
   final Color borderColor;
   final Color selectedBorderColor;
 
@@ -3663,6 +3690,7 @@ class _GridPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     const radius = Radius.circular(3);
     final fillPaint = Paint()..color = highlightColor;
+    final existingPaint = Paint()..color = existingColor;
     final selectedStroke = Paint()
       ..color = selectedBorderColor
       ..style = PaintingStyle.stroke
@@ -3682,9 +3710,12 @@ class _GridPainter extends CustomPainter {
         );
         final rrect = RRect.fromRectAndRadius(rect, radius);
         final isSelected = r < selectedRows && c < selectedCols;
+        final isExisting = r < existingRows && c < existingCols;
 
         if (isSelected) {
           canvas.drawRRect(rrect, fillPaint);
+        } else if (isExisting) {
+          canvas.drawRRect(rrect, existingPaint);
         }
         canvas.drawRRect(rrect, isSelected ? selectedStroke : normalStroke);
       }
@@ -3695,7 +3726,10 @@ class _GridPainter extends CustomPainter {
   bool shouldRepaint(_GridPainter old) =>
       old.selectedRows != selectedRows ||
       old.selectedCols != selectedCols ||
+      old.existingRows != existingRows ||
+      old.existingCols != existingCols ||
       old.highlightColor != highlightColor ||
+      old.existingColor != existingColor ||
       old.borderColor != borderColor ||
       old.selectedBorderColor != selectedBorderColor;
 }
