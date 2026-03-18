@@ -41,6 +41,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:re_highlight/languages/all.dart';
 import 'package:re_highlight/re_highlight.dart';
 
@@ -2822,6 +2823,46 @@ class _DocumentDemoState extends State<DocumentDemo> {
     );
   }
 
+  /// Builds the contextual table toolbar as a [Positioned] widget inside
+  /// the document's scrollable [Stack].
+  ///
+  /// Because it lives inside the scrollable content, it scrolls naturally
+  /// with the table — no coordinate conversion or scroll listeners needed.
+  /// Returns [SizedBox.shrink] when the cursor is not in a table cell.
+  Widget _buildInlineTableToolbar() {
+    final sel = _controller.selection;
+    if (sel == null) return const SizedBox.shrink();
+    final node = _document.nodeById(sel.extent.nodeId);
+    if (node is! TableNode) return const SizedBox.shrink();
+    final pos = sel.extent.nodePosition;
+    if (pos is! TableCellPosition) return const SizedBox.shrink();
+
+    // Get the table block's position in document-layout coordinates.
+    final component = _layoutKey.currentState?.componentForNode(node.id);
+    if (component == null || !component.hasSize) return const SizedBox.shrink();
+
+    // The component's parentData offset gives its position within the
+    // RenderDocumentLayout, which is the same coordinate system as this Stack.
+    final parentData = component.parentData;
+    if (parentData is! BoxParentData) return const SizedBox.shrink();
+    final tableOffset = parentData.offset;
+
+    return Positioned(
+      left: tableOffset.dx,
+      top: tableOffset.dy - 36,
+      child: _TableContextToolbar(
+        nodeId: node.id,
+        row: pos.row,
+        col: pos.col,
+        columnTextAligns: node.columnTextAligns,
+        rowVerticalAligns: node.rowVerticalAligns,
+        rowCount: node.rowCount,
+        columnCount: node.columnCount,
+        editor: _editor,
+      ),
+    );
+  }
+
   Widget _buildEditor() {
     return DocumentScrollable(
       controller: _controller,
@@ -2861,10 +2902,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
                 style: TextStyle(height: _defaultLineHeight),
                 componentBuilders: [
                   _syntaxBuilder,
-                  _ToolbarTableComponentBuilder(editor: _editor),
-                  ...defaultComponentBuilders.where(
-                    (b) => b is! CodeBlockComponentBuilder && b is! TableComponentBuilder,
-                  ),
+                  ...defaultComponentBuilders.where((b) => b is! CodeBlockComponentBuilder),
                 ],
               ),
             ),
@@ -2874,6 +2912,9 @@ class _DocumentDemoState extends State<DocumentDemo> {
                 layoutKey: _layoutKey,
               ),
             ),
+            // Table context toolbar — positioned inside the scrollable
+            // content so it scrolls naturally with the document.
+            _buildInlineTableToolbar(),
           ],
         ),
       ),
@@ -3200,147 +3241,11 @@ class _TableResizeButtonState extends State<_TableResizeButton> {
 }
 
 // ---------------------------------------------------------------------------
-// Table component builder with inline context toolbar
+// Table context toolbar
 // ---------------------------------------------------------------------------
 
-/// A [ComponentBuilder] that wraps [TableComponentBuilder] and shows a
-/// contextual toolbar above the table when the cursor is inside a cell.
-///
-/// The toolbar is managed via [Overlay] so the render tree stays clean —
-/// [RenderDocumentLayout] still sees a plain [RenderTableBlock] child.
-/// The toolbar lifecycle is tied to the wrapper widget: it appears when
-/// the component is built with a table selection and is removed in
-/// [dispose], so it never outlives the table's selection.
-class _ToolbarTableComponentBuilder extends ComponentBuilder {
-  _ToolbarTableComponentBuilder({required this.editor});
-
-  final UndoableEditor editor;
-  static const _inner = TableComponentBuilder();
-
-  @override
-  ComponentViewModel? createViewModel(Document document, DocumentNode node) {
-    return _inner.createViewModel(document, node);
-  }
-
-  @override
-  Widget? createComponent(ComponentViewModel viewModel, ComponentContext context) {
-    final tableWidget = _inner.createComponent(viewModel, context);
-    if (tableWidget == null || viewModel is! TableComponentViewModel) return tableWidget;
-
-    // Check if cursor is inside this table.
-    final sel = context.selection;
-    if (sel == null || sel.extent.nodeId != viewModel.nodeId) return tableWidget;
-    final pos = sel.extent.nodePosition;
-    if (pos is! TableCellPosition) return tableWidget;
-
-    // Wrap the table widget in a StatefulWidget that manages an OverlayEntry
-    // for the toolbar. The wrapper is render-tree-transparent: its build()
-    // returns tableWidget directly, so RenderDocumentLayout sees only
-    // the RenderTableBlock.
-    return _TableToolbarHost(
-      tableWidget: tableWidget,
-      toolbar: _TableContextToolbar(
-        nodeId: viewModel.nodeId,
-        row: pos.row,
-        col: pos.col,
-        columnTextAligns: viewModel.columnTextAligns,
-        rowVerticalAligns: viewModel.rowVerticalAligns,
-        rowCount: viewModel.rowCount,
-        columnCount: viewModel.columnCount,
-        editor: editor,
-      ),
-    );
-  }
-}
-
-/// Render-tree-transparent wrapper that shows a toolbar [OverlayEntry]
-/// positioned above the table.
-///
-/// [build] returns [tableWidget] directly so [RenderDocumentLayout] sees
-/// the original [RenderTableBlock]. The toolbar is displayed via the nearest
-/// [Overlay] and repositioned every frame via [SchedulerBinding].
-class _TableToolbarHost extends StatefulWidget {
-  const _TableToolbarHost({required this.tableWidget, required this.toolbar});
-
-  final Widget tableWidget;
-  final Widget toolbar;
-
-  @override
-  State<_TableToolbarHost> createState() => _TableToolbarHostState();
-}
-
-class _TableToolbarHostState extends State<_TableToolbarHost> {
-  OverlayEntry? _entry;
-  ScrollPosition? _scrollPosition;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _insertOverlay();
-      _attachScroll();
-    });
-  }
-
-  @override
-  void didUpdateWidget(_TableToolbarHost old) {
-    super.didUpdateWidget(old);
-    _entry?.markNeedsBuild();
-  }
-
-  @override
-  void dispose() {
-    _scrollPosition?.removeListener(_onScroll);
-    _entry?.remove();
-    _entry?.dispose();
-    _entry = null;
-    super.dispose();
-  }
-
-  void _attachScroll() {
-    if (!mounted) return;
-    final scrollable = Scrollable.maybeOf(context);
-    if (scrollable != null) {
-      _scrollPosition = scrollable.position;
-      _scrollPosition!.addListener(_onScroll);
-    }
-  }
-
-  void _onScroll() {
-    _entry?.markNeedsBuild();
-  }
-
-  void _insertOverlay() {
-    if (!mounted) return;
-    _entry = OverlayEntry(builder: _buildOverlay);
-    Overlay.of(context).insert(_entry!);
-  }
-
-  Widget _buildOverlay(BuildContext overlayContext) {
-    final ro = context.findRenderObject() as RenderBox?;
-    if (ro == null || !ro.hasSize || !ro.attached) {
-      return const SizedBox.shrink();
-    }
-
-    // Position the toolbar just above the table, in global coordinates.
-    final tableGlobal = ro.localToGlobal(Offset.zero);
-
-    return Positioned(
-      left: tableGlobal.dx,
-      top: tableGlobal.dy - 36,
-      child: widget.toolbar,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // Transparent to the render tree — returns the table widget directly.
-    return widget.tableWidget;
-  }
-}
-
-/// Compact inline toolbar for table operations, rendered as part of the table
-/// component.
+/// Compact toolbar for table operations, positioned above the table in the
+/// document's scrollable content stack.
 class _TableContextToolbar extends StatelessWidget {
   const _TableContextToolbar({
     required this.nodeId,
