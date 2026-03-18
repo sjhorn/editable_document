@@ -2834,15 +2834,31 @@ class _DocumentDemoState extends State<DocumentDemo> {
     if (sel == null) return const SizedBox.shrink();
     final node = _document.nodeById(sel.extent.nodeId);
     if (node is! TableNode) return const SizedBox.shrink();
-    final pos = sel.extent.nodePosition;
-    if (pos is! TableCellPosition) return const SizedBox.shrink();
+    final extentPos = sel.extent.nodePosition;
+    if (extentPos is! TableCellPosition) return const SizedBox.shrink();
+
+    // Determine the selected cell range (base may differ from extent).
+    final basePos = sel.base.nodePosition;
+    final int baseRow;
+    final int baseCol;
+    if (basePos is TableCellPosition && sel.base.nodeId == node.id) {
+      baseRow = basePos.row;
+      baseCol = basePos.col;
+    } else {
+      baseRow = extentPos.row;
+      baseCol = extentPos.col;
+    }
+
+    // Normalize so minRow <= maxRow, minCol <= maxCol.
+    final minRow = baseRow < extentPos.row ? baseRow : extentPos.row;
+    final maxRow = baseRow > extentPos.row ? baseRow : extentPos.row;
+    final minCol = baseCol < extentPos.col ? baseCol : extentPos.col;
+    final maxCol = baseCol > extentPos.col ? baseCol : extentPos.col;
 
     // Get the table block's position in document-layout coordinates.
     final component = _layoutKey.currentState?.componentForNode(node.id);
     if (component == null || !component.hasSize) return const SizedBox.shrink();
 
-    // The component's parentData offset gives its position within the
-    // RenderDocumentLayout, which is the same coordinate system as this Stack.
     final parentData = component.parentData;
     if (parentData is! BoxParentData) return const SizedBox.shrink();
     final tableOffset = parentData.offset;
@@ -2852,8 +2868,10 @@ class _DocumentDemoState extends State<DocumentDemo> {
       top: tableOffset.dy - 36,
       child: _TableContextToolbar(
         nodeId: node.id,
-        row: pos.row,
-        col: pos.col,
+        minRow: minRow,
+        maxRow: maxRow,
+        minCol: minCol,
+        maxCol: maxCol,
         columnTextAligns: node.columnTextAligns,
         rowVerticalAligns: node.rowVerticalAligns,
         rowCount: node.rowCount,
@@ -3257,8 +3275,10 @@ class _TableResizeButtonState extends State<_TableResizeButton> {
 class _TableContextToolbar extends StatelessWidget {
   const _TableContextToolbar({
     required this.nodeId,
-    required this.row,
-    required this.col,
+    required this.minRow,
+    required this.maxRow,
+    required this.minCol,
+    required this.maxCol,
     required this.columnTextAligns,
     required this.rowVerticalAligns,
     required this.rowCount,
@@ -3267,13 +3287,63 @@ class _TableContextToolbar extends StatelessWidget {
   });
 
   final String nodeId;
-  final int row;
-  final int col;
+  final int minRow;
+  final int maxRow;
+  final int minCol;
+  final int maxCol;
   final List<TextAlign>? columnTextAligns;
   final List<TableVerticalAlignment>? rowVerticalAligns;
   final int rowCount;
   final int columnCount;
   final UndoableEditor editor;
+
+  /// Returns the shared [TextAlign] for all selected columns, or `null` if mixed.
+  TextAlign? _sharedColAlign() {
+    TextAlign? shared;
+    for (int c = minCol; c <= maxCol; c++) {
+      final align = columnTextAligns != null && c < columnTextAligns!.length
+          ? columnTextAligns![c]
+          : TextAlign.start;
+      if (shared == null) {
+        shared = align;
+      } else if (shared != align) {
+        return null;
+      }
+    }
+    return shared;
+  }
+
+  /// Returns the shared [TableVerticalAlignment] for all selected rows, or `null` if mixed.
+  TableVerticalAlignment? _sharedRowVAlign() {
+    TableVerticalAlignment? shared;
+    for (int r = minRow; r <= maxRow; r++) {
+      final align = rowVerticalAligns != null && r < rowVerticalAligns!.length
+          ? rowVerticalAligns![r]
+          : TableVerticalAlignment.top;
+      if (shared == null) {
+        shared = align;
+      } else if (shared != align) {
+        return null;
+      }
+    }
+    return shared;
+  }
+
+  /// Submits a [ChangeTableColumnAlignRequest] for every selected column.
+  void _setColAlign(TextAlign align) {
+    for (int c = minCol; c <= maxCol; c++) {
+      editor.submit(ChangeTableColumnAlignRequest(nodeId: nodeId, colIndex: c, textAlign: align));
+    }
+  }
+
+  /// Submits a [ChangeTableRowVerticalAlignRequest] for every selected row.
+  void _setRowVAlign(TableVerticalAlignment align) {
+    for (int r = minRow; r <= maxRow; r++) {
+      editor.submit(
+        ChangeTableRowVerticalAlignRequest(nodeId: nodeId, rowIndex: r, verticalAlign: align),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -3289,12 +3359,8 @@ class _TableContextToolbar extends StatelessWidget {
           child: SizedBox(height: 20, child: VerticalDivider(width: 1)),
         );
 
-    final colAlign = columnTextAligns != null && col < columnTextAligns!.length
-        ? columnTextAligns![col]
-        : TextAlign.start;
-    final rowVAlign = rowVerticalAligns != null && row < rowVerticalAligns!.length
-        ? rowVerticalAligns![row]
-        : TableVerticalAlignment.top;
+    final colAlign = _sharedColAlign();
+    final rowVAlign = _sharedRowVAlign();
     final deleteColor = colorScheme.error;
 
     return Material(
@@ -3314,71 +3380,53 @@ class _TableContextToolbar extends StatelessWidget {
               ),
             ),
             divider(),
-            // Column text alignment
+            // Column text alignment — applies to all selected columns
             _FormatToggle(
               icon: Icons.format_align_left,
               tooltip: 'Align column left',
               isActive: colAlign == TextAlign.start,
-              onPressed: () => editor.submit(
-                ChangeTableColumnAlignRequest(
-                    nodeId: nodeId, colIndex: col, textAlign: TextAlign.start),
-              ),
+              onPressed: () => _setColAlign(TextAlign.start),
             ),
             _FormatToggle(
               icon: Icons.format_align_center,
               tooltip: 'Align column center',
               isActive: colAlign == TextAlign.center,
-              onPressed: () => editor.submit(
-                ChangeTableColumnAlignRequest(
-                    nodeId: nodeId, colIndex: col, textAlign: TextAlign.center),
-              ),
+              onPressed: () => _setColAlign(TextAlign.center),
             ),
             _FormatToggle(
               icon: Icons.format_align_right,
               tooltip: 'Align column right',
               isActive: colAlign == TextAlign.right,
-              onPressed: () => editor.submit(
-                ChangeTableColumnAlignRequest(
-                    nodeId: nodeId, colIndex: col, textAlign: TextAlign.right),
-              ),
+              onPressed: () => _setColAlign(TextAlign.right),
             ),
             divider(),
-            // Row vertical alignment
+            // Row vertical alignment — applies to all selected rows
             _FormatToggle(
               icon: Icons.vertical_align_top,
               tooltip: 'Align row top',
               isActive: rowVAlign == TableVerticalAlignment.top,
-              onPressed: () => editor.submit(
-                ChangeTableRowVerticalAlignRequest(
-                    nodeId: nodeId, rowIndex: row, verticalAlign: TableVerticalAlignment.top),
-              ),
+              onPressed: () => _setRowVAlign(TableVerticalAlignment.top),
             ),
             _FormatToggle(
               icon: Icons.vertical_align_center,
               tooltip: 'Align row middle',
               isActive: rowVAlign == TableVerticalAlignment.middle,
-              onPressed: () => editor.submit(
-                ChangeTableRowVerticalAlignRequest(
-                    nodeId: nodeId, rowIndex: row, verticalAlign: TableVerticalAlignment.middle),
-              ),
+              onPressed: () => _setRowVAlign(TableVerticalAlignment.middle),
             ),
             _FormatToggle(
               icon: Icons.vertical_align_bottom,
               tooltip: 'Align row bottom',
               isActive: rowVAlign == TableVerticalAlignment.bottom,
-              onPressed: () => editor.submit(
-                ChangeTableRowVerticalAlignRequest(
-                    nodeId: nodeId, rowIndex: row, verticalAlign: TableVerticalAlignment.bottom),
-              ),
+              onPressed: () => _setRowVAlign(TableVerticalAlignment.bottom),
             ),
             divider(),
-            // Insert row
+            // Insert row — above first / below last selected row
             IconButton(
               icon: const Icon(Icons.keyboard_arrow_up, size: iconSize),
               tooltip: 'Insert row above',
               style: buttonStyle,
               onPressed: () => editor.submit(
-                InsertTableRowRequest(nodeId: nodeId, rowIndex: row, insertBefore: true),
+                InsertTableRowRequest(nodeId: nodeId, rowIndex: minRow, insertBefore: true),
               ),
             ),
             IconButton(
@@ -3386,17 +3434,17 @@ class _TableContextToolbar extends StatelessWidget {
               tooltip: 'Insert row below',
               style: buttonStyle,
               onPressed: () => editor.submit(
-                InsertTableRowRequest(nodeId: nodeId, rowIndex: row, insertBefore: false),
+                InsertTableRowRequest(nodeId: nodeId, rowIndex: maxRow, insertBefore: false),
               ),
             ),
             divider(),
-            // Insert column
+            // Insert column — left of first / right of last selected column
             IconButton(
               icon: const Icon(Icons.keyboard_arrow_left, size: iconSize),
               tooltip: 'Insert column left',
               style: buttonStyle,
               onPressed: () => editor.submit(
-                InsertTableColumnRequest(nodeId: nodeId, colIndex: col, insertBefore: true),
+                InsertTableColumnRequest(nodeId: nodeId, colIndex: minCol, insertBefore: true),
               ),
             ),
             IconButton(
@@ -3404,7 +3452,7 @@ class _TableContextToolbar extends StatelessWidget {
               tooltip: 'Insert column right',
               style: buttonStyle,
               onPressed: () => editor.submit(
-                InsertTableColumnRequest(nodeId: nodeId, colIndex: col, insertBefore: false),
+                InsertTableColumnRequest(nodeId: nodeId, colIndex: maxCol, insertBefore: false),
               ),
             ),
             divider(),
@@ -3413,17 +3461,23 @@ class _TableContextToolbar extends StatelessWidget {
               icon: Icon(Icons.table_rows_outlined, size: iconSize, color: deleteColor),
               tooltip: 'Delete row',
               style: buttonStyle,
-              onPressed: () => editor.submit(
-                DeleteTableRowRequest(nodeId: nodeId, rowIndex: row),
-              ),
+              onPressed: () {
+                // Delete selected rows from bottom to top to preserve indices.
+                for (int r = maxRow; r >= minRow; r--) {
+                  editor.submit(DeleteTableRowRequest(nodeId: nodeId, rowIndex: r));
+                }
+              },
             ),
             IconButton(
               icon: Icon(Icons.view_column_outlined, size: iconSize, color: deleteColor),
               tooltip: 'Delete column',
               style: buttonStyle,
-              onPressed: () => editor.submit(
-                DeleteTableColumnRequest(nodeId: nodeId, colIndex: col),
-              ),
+              onPressed: () {
+                // Delete selected columns from right to left to preserve indices.
+                for (int c = maxCol; c >= minCol; c--) {
+                  editor.submit(DeleteTableColumnRequest(nodeId: nodeId, colIndex: c));
+                }
+              },
             ),
             IconButton(
               icon: Icon(Icons.delete_outline, size: iconSize, color: deleteColor),
