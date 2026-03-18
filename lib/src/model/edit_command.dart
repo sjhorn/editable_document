@@ -2234,12 +2234,12 @@ class DeleteTableRowCommand extends EditCommand {
     doc.replaceNode(nodeId, newTable);
 
     // Adjust cursor.
-    _adjustCursorAfterRowDelete(context, node.rowCount - 1);
+    _adjustCursorAfterRowDelete(context, newTable);
 
     return [NodeChangeEvent(nodeId: nodeId)];
   }
 
-  void _adjustCursorAfterRowDelete(EditContext context, int newMaxRow) {
+  void _adjustCursorAfterRowDelete(EditContext context, TableNode newTable) {
     final sel = context.controller.selection;
     if (sel == null) return;
     final pos = sel.base.nodePosition;
@@ -2247,12 +2247,13 @@ class DeleteTableRowCommand extends EditCommand {
     if (pos is! TableCellPosition) return;
     if (pos.row != rowIndex) return;
 
-    final newRow = (rowIndex - 1).clamp(0, newMaxRow);
+    final newRow = (rowIndex - 1).clamp(0, newTable.rowCount - 1);
+    final cellLength = newTable.cellAt(newRow, pos.col).text.length;
     context.controller.setSelection(
       DocumentSelection.collapsed(
         position: DocumentPosition(
           nodeId: nodeId,
-          nodePosition: pos.copyWith(row: newRow),
+          nodePosition: pos.copyWith(row: newRow, offset: pos.offset.clamp(0, cellLength)),
         ),
       ),
     );
@@ -2366,12 +2367,12 @@ class DeleteTableColumnCommand extends EditCommand {
     doc.replaceNode(nodeId, newTable);
 
     // Adjust cursor.
-    _adjustCursorAfterColDelete(context, node.columnCount - 1);
+    _adjustCursorAfterColDelete(context, newTable);
 
     return [NodeChangeEvent(nodeId: nodeId)];
   }
 
-  void _adjustCursorAfterColDelete(EditContext context, int newMaxCol) {
+  void _adjustCursorAfterColDelete(EditContext context, TableNode newTable) {
     final sel = context.controller.selection;
     if (sel == null) return;
     final pos = sel.base.nodePosition;
@@ -2379,12 +2380,13 @@ class DeleteTableColumnCommand extends EditCommand {
     if (pos is! TableCellPosition) return;
     if (pos.col != colIndex) return;
 
-    final newCol = (colIndex - 1).clamp(0, newMaxCol);
+    final newCol = (colIndex - 1).clamp(0, newTable.columnCount - 1);
+    final cellLength = newTable.cellAt(pos.row, newCol).text.length;
     context.controller.setSelection(
       DocumentSelection.collapsed(
         position: DocumentPosition(
           nodeId: nodeId,
-          nodePosition: pos.copyWith(col: newCol),
+          nodePosition: pos.copyWith(col: newCol, offset: pos.offset.clamp(0, cellLength)),
         ),
       ),
     );
@@ -2494,27 +2496,29 @@ class ResizeTableCommand extends EditCommand {
     doc.replaceNode(nodeId, newTable);
 
     // Clamp cursor if out of bounds.
-    _clampCursor(context, newRowCount, newColumnCount);
+    _clampCursor(context, newTable);
 
     return [NodeChangeEvent(nodeId: nodeId)];
   }
 
-  void _clampCursor(EditContext context, int maxRows, int maxCols) {
+  void _clampCursor(EditContext context, TableNode newTable) {
     final sel = context.controller.selection;
     if (sel == null) return;
     final pos = sel.base.nodePosition;
     if (sel.base.nodeId != nodeId) return;
     if (pos is! TableCellPosition) return;
 
-    final newRow = pos.row.clamp(0, maxRows - 1);
-    final newCol = pos.col.clamp(0, maxCols - 1);
-    if (newRow == pos.row && newCol == pos.col) return;
+    final newRow = pos.row.clamp(0, newTable.rowCount - 1);
+    final newCol = pos.col.clamp(0, newTable.columnCount - 1);
+    final cellLength = newTable.cellAt(newRow, newCol).text.length;
+    final newOffset = pos.offset.clamp(0, cellLength);
+    if (newRow == pos.row && newCol == pos.col && newOffset == pos.offset) return;
 
     context.controller.setSelection(
       DocumentSelection.collapsed(
         position: DocumentPosition(
           nodeId: nodeId,
-          nodePosition: pos.copyWith(row: newRow, col: newCol),
+          nodePosition: pos.copyWith(row: newRow, col: newCol, offset: newOffset),
         ),
       ),
     );
