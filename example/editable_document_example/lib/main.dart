@@ -1390,12 +1390,19 @@ class _DocumentDemoState extends State<DocumentDemo> {
               children: [
                 Expanded(
                   key: _editorAreaKey,
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      _buildEditor(),
-                      if (tableCtx != null) _buildFloatingTableToolbar(tableCtx),
-                    ],
+                  child: NotificationListener<ScrollNotification>(
+                    onNotification: (_) {
+                      // Rebuild so the floating toolbar tracks scroll position.
+                      if (tableCtx != null) setState(() {});
+                      return false;
+                    },
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        _buildEditor(),
+                        if (tableCtx != null) _buildFloatingTableToolbar(tableCtx),
+                      ],
+                    ),
                   ),
                 ),
                 _buildPropertyPanel(),
@@ -1446,13 +1453,25 @@ class _DocumentDemoState extends State<DocumentDemo> {
       return const SizedBox.shrink();
     }
 
-    // Convert the table's top-left to the editor area's local coordinates.
+    // Convert the table's top-left and bottom to the editor area's local coords.
     final tableGlobal = component.localToGlobal(Offset.zero);
     final editorLocal = editorBox.globalToLocal(tableGlobal);
+    final tableHeight = component.size.height;
+    final tableTop = editorLocal.dy;
+    final tableBottom = tableTop + tableHeight;
+    final viewportHeight = editorBox.size.height;
 
-    // Position toolbar just above the table, clamped to the visible area.
     const toolbarHeight = 40.0;
-    final top = (editorLocal.dy - toolbarHeight).clamp(0.0, editorBox.size.height - toolbarHeight);
+
+    // Hide when the table is entirely out of view.
+    if (tableBottom < toolbarHeight || tableTop > viewportHeight) {
+      return const SizedBox.shrink();
+    }
+
+    // Default: sit just above the table. Clamp between viewport top and the
+    // point where the toolbar would overlap the viewport bottom.
+    final top = (tableTop - toolbarHeight)
+        .clamp(0.0, (tableBottom - toolbarHeight).clamp(0.0, viewportHeight - toolbarHeight));
 
     final colorScheme = Theme.of(context).colorScheme;
     const iconSize = 18.0;
