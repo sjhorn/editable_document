@@ -17,6 +17,7 @@ import '../model/attribution.dart';
 import '../model/block_alignment.dart';
 import '../model/document_selection.dart';
 import '../model/node_position.dart';
+import '../model/table_vertical_alignment.dart';
 import '../model/text_wrap_mode.dart';
 import 'block_layout_mixin.dart';
 import 'render_document_block.dart';
@@ -106,6 +107,10 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
   /// [textDirection] controls the reading direction of all cells.
   /// [blockAlignment] and [textWrap] follow the same semantics as other block
   ///   types via [BlockLayoutMixin].
+  /// [columnTextAligns] optionally specifies per-column [TextAlign]; `null`
+  ///   entries (or a `null` list) default to [TextAlign.start].
+  /// [rowVerticalAligns] optionally specifies per-row [TableVerticalAlignment];
+  ///   `null` entries (or a `null` list) default to [TableVerticalAlignment.top].
   RenderTableBlock({
     required String nodeId,
     required int rowCount,
@@ -122,6 +127,8 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
     double? requestedWidth,
     double? requestedHeight,
     TextWrapMode textWrap = TextWrapMode.none,
+    List<TextAlign>? columnTextAligns,
+    List<TableVerticalAlignment>? rowVerticalAligns,
   })  : _nodeId = nodeId,
         _rowCount = rowCount,
         _columnCount = columnCount,
@@ -132,7 +139,9 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
         _borderWidth = borderWidth,
         _borderColor = borderColor,
         _selectionColor = selectionColor,
-        _textDirection = textDirection {
+        _textDirection = textDirection,
+        _columnTextAligns = columnTextAligns,
+        _rowVerticalAligns = rowVerticalAligns {
     initBlockLayout(
       blockAlignment: blockAlignment,
       requestedWidth: requestedWidth,
@@ -156,6 +165,8 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
   Color _borderColor;
   Color _selectionColor;
   TextDirection _textDirection;
+  List<TextAlign>? _columnTextAligns;
+  List<TableVerticalAlignment>? _rowVerticalAligns;
   DocumentSelection? _nodeSelection;
   double? _spaceBefore;
   double? _spaceAfter;
@@ -340,6 +351,30 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
     markNeedsLayout();
   }
 
+  /// Per-column [TextAlign] overrides, or `null` when all columns use the
+  /// default [TextAlign.start].
+  // ignore: diagnostic_describe_all_properties
+  List<TextAlign>? get columnTextAligns => _columnTextAligns;
+
+  /// Sets the per-column text alignments and schedules a layout pass.
+  set columnTextAligns(List<TextAlign>? value) {
+    if (_columnTextAligns == value) return;
+    _columnTextAligns = value;
+    markNeedsLayout();
+  }
+
+  /// Per-row [TableVerticalAlignment] overrides, or `null` when all rows use
+  /// the default [TableVerticalAlignment.top].
+  // ignore: diagnostic_describe_all_properties
+  List<TableVerticalAlignment>? get rowVerticalAligns => _rowVerticalAligns;
+
+  /// Sets the per-row vertical alignments and schedules a layout pass.
+  set rowVerticalAligns(List<TableVerticalAlignment>? value) {
+    if (_rowVerticalAligns == value) return;
+    _rowVerticalAligns = value;
+    markNeedsLayout();
+  }
+
   // ---------------------------------------------------------------------------
   // Computed layout results — exposed for tests
   // ---------------------------------------------------------------------------
@@ -507,7 +542,9 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
       for (int c = 0; c < _columnCount; c++) {
         final painter = TextPainter(
           textDirection: _textDirection,
-          textAlign: TextAlign.start,
+          textAlign: _columnTextAligns != null && c < _columnTextAligns!.length
+              ? _columnTextAligns![c]
+              : TextAlign.start,
         );
         // Clear first to force TextPainter to accept the new span even if
         // it is structurally equal (TextSpan.== ignores children changes).
@@ -544,6 +581,10 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
     }
 
     for (int r = 0; r < _rowCount; r++) {
+      final vertAlign = _rowVerticalAligns != null && r < _rowVerticalAligns!.length
+          ? _rowVerticalAligns![r]
+          : TableVerticalAlignment.top;
+
       for (int c = 0; c < _columnCount; c++) {
         final cellRect = Rect.fromLTWH(
           colLefts[c],
@@ -551,7 +592,23 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
           outerWidths[c],
           rowHeights[r],
         );
-        final textOffset = Offset(colLefts[c] + _cellPadding, rowTops[r] + _cellPadding);
+
+        final textHeight = painters[r][c].height;
+        final availableHeight = rowHeights[r] - 2.0 * _cellPadding;
+        final double vOffset;
+        switch (vertAlign) {
+          case TableVerticalAlignment.top:
+            vOffset = 0.0;
+          case TableVerticalAlignment.middle:
+            vOffset = (availableHeight - textHeight) / 2.0;
+          case TableVerticalAlignment.bottom:
+            vOffset = availableHeight - textHeight;
+        }
+
+        final textOffset = Offset(
+          colLefts[c] + _cellPadding,
+          rowTops[r] + _cellPadding + vOffset.clamp(0.0, double.infinity),
+        );
         cellLayouts[r].add(_CellLayout(
           painter: painters[r][c],
           cellRect: cellRect,
@@ -824,6 +881,13 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
     );
     properties.add(
       IterableProperty<double?>('columnWidths', _columnWidths, defaultValue: null),
+    );
+    properties.add(
+      IterableProperty<TextAlign>('columnTextAligns', _columnTextAligns, defaultValue: null),
+    );
+    properties.add(
+      IterableProperty<TableVerticalAlignment>('rowVerticalAligns', _rowVerticalAligns,
+          defaultValue: null),
     );
     debugFillBlockLayoutProperties(properties);
     properties.add(IterableProperty<double>('computedColumnWidths', computedColumnWidths));

@@ -26,6 +26,7 @@ import 'list_item_node.dart';
 import 'node_position.dart';
 import 'paragraph_node.dart';
 import 'table_node.dart';
+import 'table_vertical_alignment.dart';
 import 'text_node.dart';
 
 // ---------------------------------------------------------------------------
@@ -1922,5 +1923,698 @@ class InsertNodeAtPositionCommand extends EditCommand {
     if (followOnNode == null) return;
     doc.insertNode(index, followOnNode!);
     events.add(NodeInserted(nodeId: followOnNode!.id, index: index));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// InsertTableRowCommand
+// ---------------------------------------------------------------------------
+
+/// Inserts an empty row into the [TableNode] identified by [nodeId].
+///
+/// When [insertBefore] is `true`, the new row is inserted at [rowIndex].
+/// When `false`, it is inserted at `rowIndex + 1`.
+///
+/// If [TableNode.rowVerticalAligns] is non-null, a default
+/// [TableVerticalAlignment.top] entry is inserted at the corresponding
+/// position.
+///
+/// If the cursor is a [TableCellPosition] in this table and its row is at or
+/// after the insertion point, the cursor row is incremented by one.
+///
+/// Returns a [NodeChangeEvent].
+class InsertTableRowCommand extends EditCommand {
+  /// Creates an [InsertTableRowCommand].
+  const InsertTableRowCommand({
+    required this.nodeId,
+    required this.rowIndex,
+    this.insertBefore = true,
+  });
+
+  /// The id of the target [TableNode].
+  final String nodeId;
+
+  /// The zero-based row index at which to insert.
+  final int rowIndex;
+
+  /// Whether to insert before (true) or after (false) [rowIndex].
+  final bool insertBefore;
+
+  @override
+  List<DocumentChangeEvent> execute(EditContext context) {
+    final doc = context.document;
+    final node = doc.nodeById(nodeId);
+    if (node == null) {
+      throw StateError('InsertTableRowCommand: no node with id "$nodeId".');
+    }
+    if (node is! TableNode) {
+      throw StateError('InsertTableRowCommand: node "$nodeId" is not a TableNode.');
+    }
+
+    final insertAt = insertBefore ? rowIndex : rowIndex + 1;
+
+    // Build new cells list with an empty row inserted at insertAt.
+    final newCells = <List<AttributedText>>[];
+    for (int r = 0; r < node.rowCount; r++) {
+      if (r == insertAt) {
+        newCells.add(List<AttributedText>.generate(node.columnCount, (_) => AttributedText()));
+      }
+      newCells.add(List<AttributedText>.generate(node.columnCount, (c) => node.cellAt(r, c)));
+    }
+    if (insertAt >= node.rowCount) {
+      newCells.add(List<AttributedText>.generate(node.columnCount, (_) => AttributedText()));
+    }
+
+    // Extend rowVerticalAligns if present.
+    List<TableVerticalAlignment>? newRowVerticalAligns;
+    if (node.rowVerticalAligns != null) {
+      final aligns = List<TableVerticalAlignment>.of(node.rowVerticalAligns!);
+      aligns.insert(insertAt.clamp(0, aligns.length), TableVerticalAlignment.top);
+      newRowVerticalAligns = aligns;
+    }
+
+    final newTable = node.copyWith(
+      rowCount: node.rowCount + 1,
+      cells: newCells,
+      rowVerticalAligns: newRowVerticalAligns,
+    );
+    doc.replaceNode(nodeId, newTable);
+
+    // Adjust cursor if it is a TableCellPosition in this table.
+    _shiftCursorRowIfNeeded(context, insertAt);
+
+    return [NodeChangeEvent(nodeId: nodeId)];
+  }
+
+  void _shiftCursorRowIfNeeded(EditContext context, int insertAt) {
+    final sel = context.controller.selection;
+    if (sel == null) return;
+    final pos = sel.base.nodePosition;
+    if (sel.base.nodeId != nodeId) return;
+    if (pos is! TableCellPosition) return;
+    if (pos.row < insertAt) return;
+
+    context.controller.setSelection(
+      DocumentSelection.collapsed(
+        position: DocumentPosition(
+          nodeId: nodeId,
+          nodePosition: pos.copyWith(row: pos.row + 1),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// InsertTableColumnCommand
+// ---------------------------------------------------------------------------
+
+/// Inserts an empty column into the [TableNode] identified by [nodeId].
+///
+/// When [insertBefore] is `true`, the new column is inserted at [colIndex].
+/// When `false`, it is inserted at `colIndex + 1`.
+///
+/// If [TableNode.columnWidths] is non-null, a `null` entry (auto-sized) is
+/// inserted at the corresponding position.
+///
+/// If [TableNode.columnTextAligns] is non-null, a [TextAlign.start] entry is
+/// inserted at the corresponding position.
+///
+/// If the cursor is a [TableCellPosition] in this table and its column is at
+/// or after the insertion point, the cursor column is incremented by one.
+///
+/// Returns a [NodeChangeEvent].
+class InsertTableColumnCommand extends EditCommand {
+  /// Creates an [InsertTableColumnCommand].
+  const InsertTableColumnCommand({
+    required this.nodeId,
+    required this.colIndex,
+    this.insertBefore = true,
+  });
+
+  /// The id of the target [TableNode].
+  final String nodeId;
+
+  /// The zero-based column index at which to insert.
+  final int colIndex;
+
+  /// Whether to insert before (true) or after (false) [colIndex].
+  final bool insertBefore;
+
+  @override
+  List<DocumentChangeEvent> execute(EditContext context) {
+    final doc = context.document;
+    final node = doc.nodeById(nodeId);
+    if (node == null) {
+      throw StateError('InsertTableColumnCommand: no node with id "$nodeId".');
+    }
+    if (node is! TableNode) {
+      throw StateError('InsertTableColumnCommand: node "$nodeId" is not a TableNode.');
+    }
+
+    final insertAt = insertBefore ? colIndex : colIndex + 1;
+
+    // Build new cells list with an empty column inserted at insertAt for each row.
+    final newCells = List<List<AttributedText>>.generate(
+      node.rowCount,
+      (r) {
+        final oldRow = List<AttributedText>.generate(node.columnCount, (c) => node.cellAt(r, c));
+        final newRow = <AttributedText>[];
+        for (int c = 0; c < node.columnCount; c++) {
+          if (c == insertAt) {
+            newRow.add(AttributedText());
+          }
+          newRow.add(oldRow[c]);
+        }
+        if (insertAt >= node.columnCount) {
+          newRow.add(AttributedText());
+        }
+        return newRow;
+      },
+    );
+
+    // Extend columnWidths if present.
+    List<double?>? newColumnWidths;
+    if (node.columnWidths != null) {
+      final widths = List<double?>.of(node.columnWidths!);
+      widths.insert(insertAt.clamp(0, widths.length), null);
+      newColumnWidths = widths;
+    }
+
+    // Extend columnTextAligns if present.
+    List<TextAlign>? newColumnTextAligns;
+    if (node.columnTextAligns != null) {
+      final aligns = List<TextAlign>.of(node.columnTextAligns!);
+      aligns.insert(insertAt.clamp(0, aligns.length), TextAlign.start);
+      newColumnTextAligns = aligns;
+    }
+
+    final newTable = node.copyWith(
+      columnCount: node.columnCount + 1,
+      cells: newCells,
+      columnWidths: newColumnWidths,
+      columnTextAligns: newColumnTextAligns,
+    );
+    doc.replaceNode(nodeId, newTable);
+
+    // Adjust cursor if it is a TableCellPosition in this table.
+    _shiftCursorColIfNeeded(context, insertAt);
+
+    return [NodeChangeEvent(nodeId: nodeId)];
+  }
+
+  void _shiftCursorColIfNeeded(EditContext context, int insertAt) {
+    final sel = context.controller.selection;
+    if (sel == null) return;
+    final pos = sel.base.nodePosition;
+    if (sel.base.nodeId != nodeId) return;
+    if (pos is! TableCellPosition) return;
+    if (pos.col < insertAt) return;
+
+    context.controller.setSelection(
+      DocumentSelection.collapsed(
+        position: DocumentPosition(
+          nodeId: nodeId,
+          nodePosition: pos.copyWith(col: pos.col + 1),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// DeleteTableRowCommand
+// ---------------------------------------------------------------------------
+
+/// Deletes a row from the [TableNode] identified by [nodeId].
+///
+/// When the table has only one row, the entire [TableNode] is deleted from
+/// the document (same behaviour as [DeleteTableCommand]).
+///
+/// If [TableNode.rowVerticalAligns] is non-null, the corresponding entry is
+/// removed.
+///
+/// If the cursor is at the deleted row, it is moved to the previous row, or
+/// row 0 when deleting row 0.
+///
+/// Returns a [NodeChangeEvent] (or a [NodeDeleted] event when the whole table
+/// is removed).
+class DeleteTableRowCommand extends EditCommand {
+  /// Creates a [DeleteTableRowCommand].
+  const DeleteTableRowCommand({required this.nodeId, required this.rowIndex});
+
+  /// The id of the target [TableNode].
+  final String nodeId;
+
+  /// The zero-based row index to delete.
+  final int rowIndex;
+
+  @override
+  List<DocumentChangeEvent> execute(EditContext context) {
+    final doc = context.document;
+    final node = doc.nodeById(nodeId);
+    if (node == null) {
+      throw StateError('DeleteTableRowCommand: no node with id "$nodeId".');
+    }
+    if (node is! TableNode) {
+      throw StateError('DeleteTableRowCommand: node "$nodeId" is not a TableNode.');
+    }
+
+    // If only one row, delete the entire table.
+    if (node.rowCount == 1) {
+      final prevNode = doc.nodeBefore(nodeId);
+      final nextNode = doc.nodeAfter(nodeId);
+      final nodeIndex = doc.getNodeIndexById(nodeId);
+      doc.deleteNode(nodeId);
+
+      if (prevNode is TextNode) {
+        context.controller.setSelection(
+          DocumentSelection.collapsed(
+            position: DocumentPosition(
+              nodeId: prevNode.id,
+              nodePosition: TextNodePosition(offset: prevNode.text.length),
+            ),
+          ),
+        );
+      } else if (nextNode != null) {
+        context.controller.setSelection(
+          DocumentSelection.collapsed(
+            position: DocumentPosition(
+              nodeId: nextNode.id,
+              nodePosition: const TextNodePosition(offset: 0),
+            ),
+          ),
+        );
+      } else {
+        context.controller.clearSelection();
+      }
+      return [NodeDeleted(nodeId: nodeId, index: nodeIndex)];
+    }
+
+    // Build new cells list without the deleted row.
+    final newCells = <List<AttributedText>>[];
+    for (int r = 0; r < node.rowCount; r++) {
+      if (r == rowIndex) continue;
+      newCells.add(List<AttributedText>.generate(node.columnCount, (c) => node.cellAt(r, c)));
+    }
+
+    // Trim rowVerticalAligns if present.
+    List<TableVerticalAlignment>? newRowVerticalAligns;
+    if (node.rowVerticalAligns != null) {
+      final aligns = List<TableVerticalAlignment>.of(node.rowVerticalAligns!);
+      aligns.removeAt(rowIndex.clamp(0, aligns.length - 1));
+      newRowVerticalAligns = aligns;
+    }
+
+    final newTable = node.copyWith(
+      rowCount: node.rowCount - 1,
+      cells: newCells,
+      rowVerticalAligns: newRowVerticalAligns,
+    );
+    doc.replaceNode(nodeId, newTable);
+
+    // Adjust cursor.
+    _adjustCursorAfterRowDelete(context, node.rowCount - 1);
+
+    return [NodeChangeEvent(nodeId: nodeId)];
+  }
+
+  void _adjustCursorAfterRowDelete(EditContext context, int newMaxRow) {
+    final sel = context.controller.selection;
+    if (sel == null) return;
+    final pos = sel.base.nodePosition;
+    if (sel.base.nodeId != nodeId) return;
+    if (pos is! TableCellPosition) return;
+    if (pos.row != rowIndex) return;
+
+    final newRow = (rowIndex - 1).clamp(0, newMaxRow);
+    context.controller.setSelection(
+      DocumentSelection.collapsed(
+        position: DocumentPosition(
+          nodeId: nodeId,
+          nodePosition: pos.copyWith(row: newRow),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// DeleteTableColumnCommand
+// ---------------------------------------------------------------------------
+
+/// Deletes a column from the [TableNode] identified by [nodeId].
+///
+/// When the table has only one column, the entire [TableNode] is deleted from
+/// the document.
+///
+/// If [TableNode.columnWidths] or [TableNode.columnTextAligns] is non-null,
+/// the corresponding entry is removed.
+///
+/// If the cursor is at the deleted column, it is moved to the previous column,
+/// or column 0 when deleting column 0.
+///
+/// Returns a [NodeChangeEvent] (or a [NodeDeleted] event when the whole table
+/// is removed).
+class DeleteTableColumnCommand extends EditCommand {
+  /// Creates a [DeleteTableColumnCommand].
+  const DeleteTableColumnCommand({required this.nodeId, required this.colIndex});
+
+  /// The id of the target [TableNode].
+  final String nodeId;
+
+  /// The zero-based column index to delete.
+  final int colIndex;
+
+  @override
+  List<DocumentChangeEvent> execute(EditContext context) {
+    final doc = context.document;
+    final node = doc.nodeById(nodeId);
+    if (node == null) {
+      throw StateError('DeleteTableColumnCommand: no node with id "$nodeId".');
+    }
+    if (node is! TableNode) {
+      throw StateError('DeleteTableColumnCommand: node "$nodeId" is not a TableNode.');
+    }
+
+    // If only one column, delete the entire table.
+    if (node.columnCount == 1) {
+      final prevNode = doc.nodeBefore(nodeId);
+      final nextNode = doc.nodeAfter(nodeId);
+      final nodeIndex = doc.getNodeIndexById(nodeId);
+      doc.deleteNode(nodeId);
+
+      if (prevNode is TextNode) {
+        context.controller.setSelection(
+          DocumentSelection.collapsed(
+            position: DocumentPosition(
+              nodeId: prevNode.id,
+              nodePosition: TextNodePosition(offset: prevNode.text.length),
+            ),
+          ),
+        );
+      } else if (nextNode != null) {
+        context.controller.setSelection(
+          DocumentSelection.collapsed(
+            position: DocumentPosition(
+              nodeId: nextNode.id,
+              nodePosition: const TextNodePosition(offset: 0),
+            ),
+          ),
+        );
+      } else {
+        context.controller.clearSelection();
+      }
+      return [NodeDeleted(nodeId: nodeId, index: nodeIndex)];
+    }
+
+    // Build new cells list without the deleted column.
+    final newCells = List<List<AttributedText>>.generate(
+      node.rowCount,
+      (r) {
+        final newRow = <AttributedText>[];
+        for (int c = 0; c < node.columnCount; c++) {
+          if (c == colIndex) continue;
+          newRow.add(node.cellAt(r, c));
+        }
+        return newRow;
+      },
+    );
+
+    // Trim columnWidths if present.
+    List<double?>? newColumnWidths;
+    if (node.columnWidths != null) {
+      final widths = List<double?>.of(node.columnWidths!);
+      widths.removeAt(colIndex.clamp(0, widths.length - 1));
+      newColumnWidths = widths;
+    }
+
+    // Trim columnTextAligns if present.
+    List<TextAlign>? newColumnTextAligns;
+    if (node.columnTextAligns != null) {
+      final aligns = List<TextAlign>.of(node.columnTextAligns!);
+      aligns.removeAt(colIndex.clamp(0, aligns.length - 1));
+      newColumnTextAligns = aligns;
+    }
+
+    final newTable = node.copyWith(
+      columnCount: node.columnCount - 1,
+      cells: newCells,
+      columnWidths: newColumnWidths,
+      columnTextAligns: newColumnTextAligns,
+    );
+    doc.replaceNode(nodeId, newTable);
+
+    // Adjust cursor.
+    _adjustCursorAfterColDelete(context, node.columnCount - 1);
+
+    return [NodeChangeEvent(nodeId: nodeId)];
+  }
+
+  void _adjustCursorAfterColDelete(EditContext context, int newMaxCol) {
+    final sel = context.controller.selection;
+    if (sel == null) return;
+    final pos = sel.base.nodePosition;
+    if (sel.base.nodeId != nodeId) return;
+    if (pos is! TableCellPosition) return;
+    if (pos.col != colIndex) return;
+
+    final newCol = (colIndex - 1).clamp(0, newMaxCol);
+    context.controller.setSelection(
+      DocumentSelection.collapsed(
+        position: DocumentPosition(
+          nodeId: nodeId,
+          nodePosition: pos.copyWith(col: newCol),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ResizeTableCommand
+// ---------------------------------------------------------------------------
+
+/// Resizes a [TableNode] to [newRowCount] × [newColumnCount].
+///
+/// Cells are preserved when they fall within the new bounds; new cells are
+/// initialised to empty [AttributedText]. Alignment lists are truncated or
+/// extended to match the new dimensions; null alignment lists remain null.
+///
+/// The cursor is clamped to the new bounds if it was out of range.
+///
+/// Returns a [NodeChangeEvent].
+class ResizeTableCommand extends EditCommand {
+  /// Creates a [ResizeTableCommand].
+  const ResizeTableCommand({
+    required this.nodeId,
+    required this.newRowCount,
+    required this.newColumnCount,
+  });
+
+  /// The id of the target [TableNode].
+  final String nodeId;
+
+  /// The desired new number of rows.
+  final int newRowCount;
+
+  /// The desired new number of columns.
+  final int newColumnCount;
+
+  @override
+  List<DocumentChangeEvent> execute(EditContext context) {
+    final doc = context.document;
+    final node = doc.nodeById(nodeId);
+    if (node == null) {
+      throw StateError('ResizeTableCommand: no node with id "$nodeId".');
+    }
+    if (node is! TableNode) {
+      throw StateError('ResizeTableCommand: node "$nodeId" is not a TableNode.');
+    }
+
+    // Build new cells grid.
+    final newCells = List<List<AttributedText>>.generate(
+      newRowCount,
+      (r) => List<AttributedText>.generate(
+        newColumnCount,
+        (c) => (r < node.rowCount && c < node.columnCount) ? node.cellAt(r, c) : AttributedText(),
+      ),
+    );
+
+    // Adjust columnWidths.
+    List<double?>? newColumnWidths;
+    if (node.columnWidths != null) {
+      final widths = List<double?>.of(node.columnWidths!);
+      if (newColumnCount < widths.length) {
+        newColumnWidths = widths.sublist(0, newColumnCount);
+      } else {
+        while (widths.length < newColumnCount) {
+          widths.add(null);
+        }
+        newColumnWidths = widths;
+      }
+    }
+
+    // Adjust columnTextAligns.
+    List<TextAlign>? newColumnTextAligns;
+    if (node.columnTextAligns != null) {
+      final aligns = List<TextAlign>.of(node.columnTextAligns!);
+      if (newColumnCount < aligns.length) {
+        newColumnTextAligns = aligns.sublist(0, newColumnCount);
+      } else {
+        while (aligns.length < newColumnCount) {
+          aligns.add(TextAlign.start);
+        }
+        newColumnTextAligns = aligns;
+      }
+    }
+
+    // Adjust rowVerticalAligns.
+    List<TableVerticalAlignment>? newRowVerticalAligns;
+    if (node.rowVerticalAligns != null) {
+      final aligns = List<TableVerticalAlignment>.of(node.rowVerticalAligns!);
+      if (newRowCount < aligns.length) {
+        newRowVerticalAligns = aligns.sublist(0, newRowCount);
+      } else {
+        while (aligns.length < newRowCount) {
+          aligns.add(TableVerticalAlignment.top);
+        }
+        newRowVerticalAligns = aligns;
+      }
+    }
+
+    final newTable = node.copyWith(
+      rowCount: newRowCount,
+      columnCount: newColumnCount,
+      cells: newCells,
+      columnWidths: newColumnWidths,
+      columnTextAligns: newColumnTextAligns,
+      rowVerticalAligns: newRowVerticalAligns,
+    );
+    doc.replaceNode(nodeId, newTable);
+
+    // Clamp cursor if out of bounds.
+    _clampCursor(context, newRowCount, newColumnCount);
+
+    return [NodeChangeEvent(nodeId: nodeId)];
+  }
+
+  void _clampCursor(EditContext context, int maxRows, int maxCols) {
+    final sel = context.controller.selection;
+    if (sel == null) return;
+    final pos = sel.base.nodePosition;
+    if (sel.base.nodeId != nodeId) return;
+    if (pos is! TableCellPosition) return;
+
+    final newRow = pos.row.clamp(0, maxRows - 1);
+    final newCol = pos.col.clamp(0, maxCols - 1);
+    if (newRow == pos.row && newCol == pos.col) return;
+
+    context.controller.setSelection(
+      DocumentSelection.collapsed(
+        position: DocumentPosition(
+          nodeId: nodeId,
+          nodePosition: pos.copyWith(row: newRow, col: newCol),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ChangeTableColumnAlignCommand
+// ---------------------------------------------------------------------------
+
+/// Changes the horizontal text alignment of a column in the [TableNode]
+/// identified by [nodeId].
+///
+/// If [TableNode.columnTextAligns] is `null`, it is initialised to
+/// [TextAlign.start] for all columns before applying the change.
+///
+/// Returns a [NodeChangeEvent].
+class ChangeTableColumnAlignCommand extends EditCommand {
+  /// Creates a [ChangeTableColumnAlignCommand].
+  const ChangeTableColumnAlignCommand({
+    required this.nodeId,
+    required this.colIndex,
+    required this.textAlign,
+  });
+
+  /// The id of the target [TableNode].
+  final String nodeId;
+
+  /// The zero-based column index whose alignment to change.
+  final int colIndex;
+
+  /// The new horizontal text alignment.
+  final TextAlign textAlign;
+
+  @override
+  List<DocumentChangeEvent> execute(EditContext context) {
+    final doc = context.document;
+    final node = doc.nodeById(nodeId);
+    if (node == null) {
+      throw StateError('ChangeTableColumnAlignCommand: no node with id "$nodeId".');
+    }
+    if (node is! TableNode) {
+      throw StateError('ChangeTableColumnAlignCommand: node "$nodeId" is not a TableNode.');
+    }
+
+    final aligns = node.columnTextAligns != null
+        ? List<TextAlign>.of(node.columnTextAligns!)
+        : List<TextAlign>.filled(node.columnCount, TextAlign.start);
+    aligns[colIndex] = textAlign;
+
+    doc.replaceNode(nodeId, node.copyWith(columnTextAligns: aligns));
+    return [NodeChangeEvent(nodeId: nodeId)];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ChangeTableRowVerticalAlignCommand
+// ---------------------------------------------------------------------------
+
+/// Changes the vertical alignment of a row in the [TableNode] identified by
+/// [nodeId].
+///
+/// If [TableNode.rowVerticalAligns] is `null`, it is initialised to
+/// [TableVerticalAlignment.top] for all rows before applying the change.
+///
+/// Returns a [NodeChangeEvent].
+class ChangeTableRowVerticalAlignCommand extends EditCommand {
+  /// Creates a [ChangeTableRowVerticalAlignCommand].
+  const ChangeTableRowVerticalAlignCommand({
+    required this.nodeId,
+    required this.rowIndex,
+    required this.verticalAlign,
+  });
+
+  /// The id of the target [TableNode].
+  final String nodeId;
+
+  /// The zero-based row index whose vertical alignment to change.
+  final int rowIndex;
+
+  /// The new vertical alignment.
+  final TableVerticalAlignment verticalAlign;
+
+  @override
+  List<DocumentChangeEvent> execute(EditContext context) {
+    final doc = context.document;
+    final node = doc.nodeById(nodeId);
+    if (node == null) {
+      throw StateError('ChangeTableRowVerticalAlignCommand: no node with id "$nodeId".');
+    }
+    if (node is! TableNode) {
+      throw StateError('ChangeTableRowVerticalAlignCommand: node "$nodeId" is not a TableNode.');
+    }
+
+    final aligns = node.rowVerticalAligns != null
+        ? List<TableVerticalAlignment>.of(node.rowVerticalAligns!)
+        : List<TableVerticalAlignment>.filled(node.rowCount, TableVerticalAlignment.top);
+    aligns[rowIndex] = verticalAlign;
+
+    doc.replaceNode(nodeId, node.copyWith(rowVerticalAligns: aligns));
+    return [NodeChangeEvent(nodeId: nodeId)];
   }
 }

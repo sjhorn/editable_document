@@ -196,3 +196,35 @@ class TextChanged extends DocumentChangeEvent {
   @override
   String toString() => 'TextChanged(nodeId: $nodeId)';
 }
+
+// ---------------------------------------------------------------------------
+// NodeChangeEvent
+// ---------------------------------------------------------------------------
+
+/// A general-purpose node change event for structural mutations that do not
+/// fit the more specific [NodeInserted], [NodeDeleted], [NodeReplaced], or
+/// [TextChanged] events.
+///
+/// Emitted by table structural commands such as [InsertTableRowCommand],
+/// [InsertTableColumnCommand], [DeleteTableRowCommand],
+/// [DeleteTableColumnCommand], [ResizeTableCommand],
+/// [ChangeTableColumnAlignCommand], and [ChangeTableRowVerticalAlignCommand].
+class NodeChangeEvent extends DocumentChangeEvent {
+  /// Creates a [NodeChangeEvent].
+  const NodeChangeEvent({required this.nodeId});
+
+  /// The identifier of the node that changed.
+  final String nodeId;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is NodeChangeEvent && other.nodeId == nodeId;
+  }
+
+  @override
+  int get hashCode => nodeId.hashCode;
+
+  @override
+  String toString() => 'NodeChangeEvent(nodeId: $nodeId)';
+}

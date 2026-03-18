@@ -212,6 +212,40 @@ class Editor {
       );
     } else if (request is DeleteTableRequest) {
       return DeleteTableCommand(nodeId: request.nodeId);
+    } else if (request is InsertTableRowRequest) {
+      return InsertTableRowCommand(
+        nodeId: request.nodeId,
+        rowIndex: request.rowIndex,
+        insertBefore: request.insertBefore,
+      );
+    } else if (request is InsertTableColumnRequest) {
+      return InsertTableColumnCommand(
+        nodeId: request.nodeId,
+        colIndex: request.colIndex,
+        insertBefore: request.insertBefore,
+      );
+    } else if (request is DeleteTableRowRequest) {
+      return DeleteTableRowCommand(nodeId: request.nodeId, rowIndex: request.rowIndex);
+    } else if (request is DeleteTableColumnRequest) {
+      return DeleteTableColumnCommand(nodeId: request.nodeId, colIndex: request.colIndex);
+    } else if (request is ResizeTableRequest) {
+      return ResizeTableCommand(
+        nodeId: request.nodeId,
+        newRowCount: request.newRowCount,
+        newColumnCount: request.newColumnCount,
+      );
+    } else if (request is ChangeTableColumnAlignRequest) {
+      return ChangeTableColumnAlignCommand(
+        nodeId: request.nodeId,
+        colIndex: request.colIndex,
+        textAlign: request.textAlign,
+      );
+    } else if (request is ChangeTableRowVerticalAlignRequest) {
+      return ChangeTableRowVerticalAlignCommand(
+        nodeId: request.nodeId,
+        rowIndex: request.rowIndex,
+        verticalAlign: request.verticalAlign,
+      );
     } else if (request is MoveNodeToPositionRequest) {
       return MoveNodeToPositionCommand(nodeId: request.nodeId, position: request.position);
     } else if (request is InsertNodeAtPositionRequest) {

@@ -35,6 +35,7 @@ import '../model/image_node.dart';
 import '../model/list_item_node.dart';
 import '../model/paragraph_node.dart';
 import '../model/table_node.dart';
+import '../model/table_vertical_alignment.dart';
 import '../rendering/block_layout_mixin.dart';
 import '../rendering/render_blockquote_block.dart';
 import '../rendering/render_code_block.dart';
@@ -1412,6 +1413,8 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
     required this.columnCount,
     required this.cells,
     this.columnWidths,
+    this.columnTextAligns,
+    this.rowVerticalAligns,
     this.textStyle,
     this.cellPadding = 8.0,
     this.borderWidth = 1.0,
@@ -1444,6 +1447,16 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
   /// means the corresponding column is auto-sized. When the list itself is
   /// `null`, all columns are auto-sized.
   final List<double?>? columnWidths;
+
+  /// Per-column horizontal text alignment, or `null` to use the default.
+  ///
+  /// When non-null, the list has exactly [columnCount] entries.
+  final List<TextAlign>? columnTextAligns;
+
+  /// Per-row vertical alignment, or `null` to use [TableVerticalAlignment.top].
+  ///
+  /// When non-null, the list has exactly [rowCount] entries.
+  final List<TableVerticalAlignment>? rowVerticalAligns;
 
   /// The base [TextStyle] applied to all cell text before attributions.
   ///
@@ -1518,8 +1531,10 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
         other.isSelected != isSelected) {
       return false;
     }
-    // Compare columnWidths.
+    // Compare columnWidths, columnTextAligns, rowVerticalAligns.
     if (!_listEquals(other.columnWidths, columnWidths)) return false;
+    if (!_listEquals(other.columnTextAligns, columnTextAligns)) return false;
+    if (!_listEquals(other.rowVerticalAligns, rowVerticalAligns)) return false;
     // Compare cells row by row.
     if (other.cells.length != cells.length) return false;
     for (int r = 0; r < rowCount; r++) {
@@ -1545,6 +1560,8 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
       columnCount,
       Object.hashAll(cellHashes),
       Object.hashAll(columnWidths ?? const <double?>[]),
+      Object.hashAll(columnTextAligns ?? const <TextAlign>[]),
+      Object.hashAll(rowVerticalAligns ?? const <TableVerticalAlignment>[]),
       textStyle,
       cellPadding,
       borderWidth,
@@ -1583,6 +1600,8 @@ class TableComponentBuilder extends ComponentBuilder {
       columnCount: node.columnCount,
       cells: cells,
       columnWidths: node.columnWidths,
+      columnTextAligns: node.columnTextAligns,
+      rowVerticalAligns: node.rowVerticalAligns,
       alignment: node.alignment,
       textWrap: node.textWrap,
       requestedWidth: node.width,
@@ -1615,6 +1634,8 @@ class _TableBlockWidget extends LeafRenderObjectWidget {
       cells: viewModel.cells,
       textStyle: textStyle,
       columnWidths: viewModel.columnWidths,
+      columnTextAligns: viewModel.columnTextAligns,
+      rowVerticalAligns: viewModel.rowVerticalAligns,
       cellPadding: viewModel.cellPadding,
       borderWidth: viewModel.borderWidth,
       borderColor: viewModel.borderColor,
@@ -1637,6 +1658,8 @@ class _TableBlockWidget extends LeafRenderObjectWidget {
       ..cells = viewModel.cells
       ..textStyle = textStyle
       ..columnWidths = viewModel.columnWidths
+      ..columnTextAligns = viewModel.columnTextAligns
+      ..rowVerticalAligns = viewModel.rowVerticalAligns
       ..cellPadding = viewModel.cellPadding
       ..borderWidth = viewModel.borderWidth
       ..borderColor = viewModel.borderColor

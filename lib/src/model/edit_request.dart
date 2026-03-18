@@ -18,6 +18,7 @@ import 'document_selection.dart';
 import 'node_position.dart';
 import 'paragraph_node.dart';
 import 'table_node.dart';
+import 'table_vertical_alignment.dart';
 
 // ---------------------------------------------------------------------------
 // EditRequest (abstract base)
@@ -970,4 +971,282 @@ class InsertNodeAtPositionRequest extends EditRequest {
   @override
   String toString() => 'InsertNodeAtPositionRequest(node: $node, position: $position, '
       'followOnNode: $followOnNode)';
+}
+
+// ---------------------------------------------------------------------------
+// InsertTableRowRequest
+// ---------------------------------------------------------------------------
+
+/// Request to insert a row into a [TableNode].
+///
+/// When [insertBefore] is `true` (the default), the new row is inserted
+/// immediately before [rowIndex]. When `false`, it is inserted immediately
+/// after [rowIndex].
+class InsertTableRowRequest extends EditRequest {
+  /// Creates an [InsertTableRowRequest].
+  const InsertTableRowRequest({
+    required this.nodeId,
+    required this.rowIndex,
+    this.insertBefore = true,
+  });
+
+  /// The id of the target [TableNode].
+  final String nodeId;
+
+  /// The zero-based row index at which to insert.
+  final int rowIndex;
+
+  /// Whether to insert before (true) or after (false) [rowIndex].
+  final bool insertBefore;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is InsertTableRowRequest &&
+        other.nodeId == nodeId &&
+        other.rowIndex == rowIndex &&
+        other.insertBefore == insertBefore;
+  }
+
+  @override
+  int get hashCode => Object.hash(nodeId, rowIndex, insertBefore);
+
+  @override
+  String toString() => 'InsertTableRowRequest(nodeId: $nodeId, rowIndex: $rowIndex, '
+      'insertBefore: $insertBefore)';
+}
+
+// ---------------------------------------------------------------------------
+// InsertTableColumnRequest
+// ---------------------------------------------------------------------------
+
+/// Request to insert a column into a [TableNode].
+///
+/// When [insertBefore] is `true` (the default), the new column is inserted
+/// immediately before [colIndex]. When `false`, it is inserted immediately
+/// after [colIndex].
+class InsertTableColumnRequest extends EditRequest {
+  /// Creates an [InsertTableColumnRequest].
+  const InsertTableColumnRequest({
+    required this.nodeId,
+    required this.colIndex,
+    this.insertBefore = true,
+  });
+
+  /// The id of the target [TableNode].
+  final String nodeId;
+
+  /// The zero-based column index at which to insert.
+  final int colIndex;
+
+  /// Whether to insert before (true) or after (false) [colIndex].
+  final bool insertBefore;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is InsertTableColumnRequest &&
+        other.nodeId == nodeId &&
+        other.colIndex == colIndex &&
+        other.insertBefore == insertBefore;
+  }
+
+  @override
+  int get hashCode => Object.hash(nodeId, colIndex, insertBefore);
+
+  @override
+  String toString() => 'InsertTableColumnRequest(nodeId: $nodeId, colIndex: $colIndex, '
+      'insertBefore: $insertBefore)';
+}
+
+// ---------------------------------------------------------------------------
+// DeleteTableRowRequest
+// ---------------------------------------------------------------------------
+
+/// Request to delete a row from a [TableNode].
+///
+/// When the table has only one row, the entire [TableNode] is deleted from
+/// the document.
+class DeleteTableRowRequest extends EditRequest {
+  /// Creates a [DeleteTableRowRequest].
+  const DeleteTableRowRequest({required this.nodeId, required this.rowIndex});
+
+  /// The id of the target [TableNode].
+  final String nodeId;
+
+  /// The zero-based index of the row to delete.
+  final int rowIndex;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is DeleteTableRowRequest && other.nodeId == nodeId && other.rowIndex == rowIndex;
+  }
+
+  @override
+  int get hashCode => Object.hash(nodeId, rowIndex);
+
+  @override
+  String toString() => 'DeleteTableRowRequest(nodeId: $nodeId, rowIndex: $rowIndex)';
+}
+
+// ---------------------------------------------------------------------------
+// DeleteTableColumnRequest
+// ---------------------------------------------------------------------------
+
+/// Request to delete a column from a [TableNode].
+///
+/// When the table has only one column, the entire [TableNode] is deleted
+/// from the document.
+class DeleteTableColumnRequest extends EditRequest {
+  /// Creates a [DeleteTableColumnRequest].
+  const DeleteTableColumnRequest({required this.nodeId, required this.colIndex});
+
+  /// The id of the target [TableNode].
+  final String nodeId;
+
+  /// The zero-based index of the column to delete.
+  final int colIndex;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is DeleteTableColumnRequest &&
+        other.nodeId == nodeId &&
+        other.colIndex == colIndex;
+  }
+
+  @override
+  int get hashCode => Object.hash(nodeId, colIndex);
+
+  @override
+  String toString() => 'DeleteTableColumnRequest(nodeId: $nodeId, colIndex: $colIndex)';
+}
+
+// ---------------------------------------------------------------------------
+// ResizeTableRequest
+// ---------------------------------------------------------------------------
+
+/// Request to resize a [TableNode] to [newRowCount] × [newColumnCount].
+///
+/// If the new dimensions are larger than the current table, new empty cells
+/// are added. If smaller, the surplus cells are discarded. Alignment lists
+/// are truncated or extended to match the new dimensions.
+class ResizeTableRequest extends EditRequest {
+  /// Creates a [ResizeTableRequest].
+  const ResizeTableRequest({
+    required this.nodeId,
+    required this.newRowCount,
+    required this.newColumnCount,
+  });
+
+  /// The id of the target [TableNode].
+  final String nodeId;
+
+  /// The new number of rows.
+  final int newRowCount;
+
+  /// The new number of columns.
+  final int newColumnCount;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is ResizeTableRequest &&
+        other.nodeId == nodeId &&
+        other.newRowCount == newRowCount &&
+        other.newColumnCount == newColumnCount;
+  }
+
+  @override
+  int get hashCode => Object.hash(nodeId, newRowCount, newColumnCount);
+
+  @override
+  String toString() => 'ResizeTableRequest(nodeId: $nodeId, newRowCount: $newRowCount, '
+      'newColumnCount: $newColumnCount)';
+}
+
+// ---------------------------------------------------------------------------
+// ChangeTableColumnAlignRequest
+// ---------------------------------------------------------------------------
+
+/// Request to change the horizontal text alignment of a column in a
+/// [TableNode].
+///
+/// If [TableNode.columnTextAligns] is `null`, it is initialised to
+/// [TextAlign.start] for all columns before applying the change.
+class ChangeTableColumnAlignRequest extends EditRequest {
+  /// Creates a [ChangeTableColumnAlignRequest].
+  const ChangeTableColumnAlignRequest({
+    required this.nodeId,
+    required this.colIndex,
+    required this.textAlign,
+  });
+
+  /// The id of the target [TableNode].
+  final String nodeId;
+
+  /// The zero-based column index whose alignment to change.
+  final int colIndex;
+
+  /// The new horizontal text alignment.
+  final TextAlign textAlign;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is ChangeTableColumnAlignRequest &&
+        other.nodeId == nodeId &&
+        other.colIndex == colIndex &&
+        other.textAlign == textAlign;
+  }
+
+  @override
+  int get hashCode => Object.hash(nodeId, colIndex, textAlign);
+
+  @override
+  String toString() => 'ChangeTableColumnAlignRequest(nodeId: $nodeId, colIndex: $colIndex, '
+      'textAlign: $textAlign)';
+}
+
+// ---------------------------------------------------------------------------
+// ChangeTableRowVerticalAlignRequest
+// ---------------------------------------------------------------------------
+
+/// Request to change the vertical alignment of a row in a [TableNode].
+///
+/// If [TableNode.rowVerticalAligns] is `null`, it is initialised to
+/// [TableVerticalAlignment.top] for all rows before applying the change.
+class ChangeTableRowVerticalAlignRequest extends EditRequest {
+  /// Creates a [ChangeTableRowVerticalAlignRequest].
+  const ChangeTableRowVerticalAlignRequest({
+    required this.nodeId,
+    required this.rowIndex,
+    required this.verticalAlign,
+  });
+
+  /// The id of the target [TableNode].
+  final String nodeId;
+
+  /// The zero-based row index whose vertical alignment to change.
+  final int rowIndex;
+
+  /// The new vertical alignment.
+  final TableVerticalAlignment verticalAlign;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is ChangeTableRowVerticalAlignRequest &&
+        other.nodeId == nodeId &&
+        other.rowIndex == rowIndex &&
+        other.verticalAlign == verticalAlign;
+  }
+
+  @override
+  int get hashCode => Object.hash(nodeId, rowIndex, verticalAlign);
+
+  @override
+  String toString() => 'ChangeTableRowVerticalAlignRequest(nodeId: $nodeId, '
+      'rowIndex: $rowIndex, verticalAlign: $verticalAlign)';
 }

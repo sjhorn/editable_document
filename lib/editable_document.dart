@@ -32,6 +32,7 @@ export 'src/model/mutable_document.dart';
 export 'src/model/node_position.dart';
 export 'src/model/paragraph_node.dart';
 export 'src/model/table_node.dart';
+export 'src/model/table_vertical_alignment.dart';
 export 'src/model/text_node.dart';
 export 'src/model/undoable_editor.dart';
 export 'src/rendering/block_layout_mixin.dart';
