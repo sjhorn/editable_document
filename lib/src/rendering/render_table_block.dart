@@ -760,10 +760,15 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
     final layouts = _cellLayouts;
     assert(layouts != null, 'getEndpointsForSelection called before layout');
 
-    // Normalise so that fromLinear <= toLinear.
+    // Normalise so that normBase precedes normExtent both by cell position and
+    // by within-cell character offset.  When the two positions are in different
+    // cells only the linear index matters; when they are in the same cell the
+    // character offset breaks the tie so that a backward (right-to-left) drag
+    // within a single cell is handled correctly.
     final fromLinear = from.row * _columnCount + from.col;
     final toLinear = to.row * _columnCount + to.col;
-    final (normBase, normExtent) = fromLinear <= toLinear ? (from, to) : (to, from);
+    final bool swap = fromLinear > toLinear || (fromLinear == toLinear && from.offset > to.offset);
+    final (normBase, normExtent) = swap ? (to, from) : (from, to);
 
     final result = <Rect>[];
 

@@ -317,6 +317,58 @@ void main() {
       // At minimum the first cell should be highlighted.
       expect(rects, isNotEmpty);
     });
+
+    test('backward selection within same cell returns non-empty rects', () {
+      // Regression: dragging right-to-left within a single cell produced an
+      // empty list because the normalization only compared the cell's linear
+      // index (row * cols + col), which is equal for both endpoints, so no
+      // swap occurred even though base.offset > extent.offset.
+      final block = _layoutBlock(
+        RenderTableBlock(
+          nodeId: 'table1',
+          rowCount: 1,
+          columnCount: 1,
+          cells: [
+            [AttributedText('Hello World')],
+          ],
+          textStyle: const TextStyle(fontSize: 16),
+          cellPadding: 0,
+          borderWidth: 0,
+        ),
+        maxWidth: 400,
+      );
+
+      // Backward selection: base at end (offset 11), extent at start (offset 0).
+      final backwardRects = block.getEndpointsForSelection(
+        const TableCellPosition(row: 0, col: 0, offset: 11),
+        const TableCellPosition(row: 0, col: 0, offset: 0),
+      );
+      expect(
+        backwardRects,
+        isNotEmpty,
+        reason: 'Backward (right-to-left) selection must produce highlight rects',
+      );
+
+      // Forward selection over the same range must produce identical rects.
+      final forwardRects = block.getEndpointsForSelection(
+        const TableCellPosition(row: 0, col: 0, offset: 0),
+        const TableCellPosition(row: 0, col: 0, offset: 11),
+      );
+      expect(forwardRects, isNotEmpty);
+      expect(
+        backwardRects.length,
+        forwardRects.length,
+        reason: 'Backward and forward selections over the same range must '
+            'return the same number of rects',
+      );
+      for (int i = 0; i < forwardRects.length; i++) {
+        expect(
+          backwardRects[i],
+          forwardRects[i],
+          reason: 'Rect $i must be identical for forward and backward selections',
+        );
+      }
+    });
   });
 
   // ---------------------------------------------------------------------------
