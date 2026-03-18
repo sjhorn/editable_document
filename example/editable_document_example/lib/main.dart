@@ -3203,12 +3203,14 @@ class _TableResizeButtonState extends State<_TableResizeButton> {
 // Table component builder with inline context toolbar
 // ---------------------------------------------------------------------------
 
-/// A [ComponentBuilder] that wraps [TableComponentBuilder] and renders a
+/// A [ComponentBuilder] that wraps [TableComponentBuilder] and shows a
 /// contextual toolbar above the table when the cursor is inside a cell.
 ///
-/// The toolbar is part of the table's widget tree — it scrolls with the table,
-/// appears/disappears in sync with the component rebuild, and never outlives
-/// the table's selection.
+/// The toolbar is managed via [Overlay] so the render tree stays clean —
+/// [RenderDocumentLayout] still sees a plain [RenderTableBlock] child.
+/// The toolbar lifecycle is tied to the wrapper widget: it appears when
+/// the component is built with a table selection and is removed in
+/// [dispose], so it never outlives the table's selection.
 class _ToolbarTableComponentBuilder extends ComponentBuilder {
   _ToolbarTableComponentBuilder({required this.editor});
 
@@ -3231,23 +3233,109 @@ class _ToolbarTableComponentBuilder extends ComponentBuilder {
     final pos = sel.extent.nodePosition;
     if (pos is! TableCellPosition) return tableWidget;
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _TableContextToolbar(
-          nodeId: viewModel.nodeId,
-          row: pos.row,
-          col: pos.col,
-          columnTextAligns: viewModel.columnTextAligns,
-          rowVerticalAligns: viewModel.rowVerticalAligns,
-          rowCount: viewModel.rowCount,
-          columnCount: viewModel.columnCount,
-          editor: editor,
-        ),
-        tableWidget,
-      ],
+    // Wrap the table widget in a StatefulWidget that manages an OverlayEntry
+    // for the toolbar. The wrapper is render-tree-transparent: its build()
+    // returns tableWidget directly, so RenderDocumentLayout sees only
+    // the RenderTableBlock.
+    return _TableToolbarHost(
+      tableWidget: tableWidget,
+      toolbar: _TableContextToolbar(
+        nodeId: viewModel.nodeId,
+        row: pos.row,
+        col: pos.col,
+        columnTextAligns: viewModel.columnTextAligns,
+        rowVerticalAligns: viewModel.rowVerticalAligns,
+        rowCount: viewModel.rowCount,
+        columnCount: viewModel.columnCount,
+        editor: editor,
+      ),
     );
+  }
+}
+
+/// Render-tree-transparent wrapper that shows a toolbar [OverlayEntry]
+/// positioned above the table.
+///
+/// [build] returns [tableWidget] directly so [RenderDocumentLayout] sees
+/// the original [RenderTableBlock]. The toolbar is displayed via the nearest
+/// [Overlay] and repositioned every frame via [SchedulerBinding].
+class _TableToolbarHost extends StatefulWidget {
+  const _TableToolbarHost({required this.tableWidget, required this.toolbar});
+
+  final Widget tableWidget;
+  final Widget toolbar;
+
+  @override
+  State<_TableToolbarHost> createState() => _TableToolbarHostState();
+}
+
+class _TableToolbarHostState extends State<_TableToolbarHost> {
+  OverlayEntry? _entry;
+  ScrollPosition? _scrollPosition;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _insertOverlay();
+      _attachScroll();
+    });
+  }
+
+  @override
+  void didUpdateWidget(_TableToolbarHost old) {
+    super.didUpdateWidget(old);
+    _entry?.markNeedsBuild();
+  }
+
+  @override
+  void dispose() {
+    _scrollPosition?.removeListener(_onScroll);
+    _entry?.remove();
+    _entry?.dispose();
+    _entry = null;
+    super.dispose();
+  }
+
+  void _attachScroll() {
+    if (!mounted) return;
+    final scrollable = Scrollable.maybeOf(context);
+    if (scrollable != null) {
+      _scrollPosition = scrollable.position;
+      _scrollPosition!.addListener(_onScroll);
+    }
+  }
+
+  void _onScroll() {
+    _entry?.markNeedsBuild();
+  }
+
+  void _insertOverlay() {
+    if (!mounted) return;
+    _entry = OverlayEntry(builder: _buildOverlay);
+    Overlay.of(context).insert(_entry!);
+  }
+
+  Widget _buildOverlay(BuildContext overlayContext) {
+    final ro = context.findRenderObject() as RenderBox?;
+    if (ro == null || !ro.hasSize || !ro.attached) {
+      return const SizedBox.shrink();
+    }
+
+    // Position the toolbar just above the table, in global coordinates.
+    final tableGlobal = ro.localToGlobal(Offset.zero);
+
+    return Positioned(
+      left: tableGlobal.dx,
+      top: tableGlobal.dy - 36,
+      child: widget.toolbar,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Transparent to the render tree — returns the table widget directly.
+    return widget.tableWidget;
   }
 }
 
