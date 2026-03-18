@@ -241,6 +241,41 @@ void main() {
       );
       expect(r1.top, greaterThan(r0.top));
     });
+
+    test('caret at end of cell text ending with newline is on second line', () {
+      // "Hello\n" has length 6.  When the cursor is at offset 6 (after the
+      // trailing '\n'), the caret must appear on the SECOND (empty) line.
+      // Before the fix the y-coordinate was taken from the '\n' character's
+      // bounding box (first line), producing a wrong rect.top == 0.
+      final block = _layoutBlock(
+        RenderTableBlock(
+          nodeId: 'table1',
+          rowCount: 1,
+          columnCount: 1,
+          cells: [
+            [AttributedText('Hello\n')],
+          ],
+          textStyle: const TextStyle(fontSize: 16),
+          cellPadding: 0,
+          borderWidth: 0,
+        ),
+        maxWidth: 200,
+      );
+
+      final rect = block.getLocalRectForPosition(
+        const TableCellPosition(row: 0, col: 0, offset: 6),
+      );
+
+      // The caret should be on the second line, so top must be > 0.
+      expect(rect.top, greaterThan(0),
+          reason: 'Caret after trailing newline must be on the second line');
+      // The caret at the start of the empty trailing line must be at x == 0
+      // (i.e. left edge of the cell text area, which is 0 when cellPadding==0).
+      expect(rect.left, closeTo(0.0, 0.5),
+          reason: 'Caret must be at the left edge of the trailing empty line');
+      // Sanity: height must be positive.
+      expect(rect.height, greaterThan(0));
+    });
   });
 
   // ---------------------------------------------------------------------------

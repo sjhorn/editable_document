@@ -666,8 +666,23 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
     final textPos = TextPosition(offset: pos.offset, affinity: pos.affinity);
     final caretOffset = cell.painter.getOffsetForCaret(textPos, Rect.zero);
 
+    // When the cursor is at the end of text that ends with '\n', TextPainter
+    // places the caret on the empty trailing line (caretOffset.dy reflects
+    // this correctly).  Querying getBoxesForSelection for the '\n' character
+    // would return the box for the line CONTAINING '\n', not the trailing
+    // empty line — producing a mismatch between caretOffset and box.top.
+    final cellText = _cells[pos.row][pos.col].text;
+    if (pos.offset >= cellText.length && cellText.endsWith('\n')) {
+      return Rect.fromLTWH(
+        cell.textOffset.dx + caretOffset.dx,
+        cell.textOffset.dy + caretOffset.dy,
+        0,
+        cell.painter.preferredLineHeight,
+      );
+    }
+
     // Use a 1-character selection to get the actual line height.
-    final textLength = _cells[pos.row][pos.col].text.length;
+    final textLength = cellText.length;
     if (textLength > 0) {
       final start = pos.offset >= textLength ? textLength - 1 : pos.offset;
       final boxes = cell.painter.getBoxesForSelection(
