@@ -161,6 +161,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
   late final FocusNode _focusNode;
 
   final _layoutKey = GlobalKey<DocumentLayoutState>();
+  final _editorAreaKey = GlobalKey();
   final _startHandleLayerLink = LayerLink();
   final _endHandleLayerLink = LayerLink();
   final _blockDragOverlayKey = GlobalKey<BlockDragOverlayState>();
@@ -1379,15 +1380,24 @@ class _DocumentDemoState extends State<DocumentDemo> {
 
   @override
   Widget build(BuildContext context) {
+    final tableCtx = _getTableContext();
     return Scaffold(
       body: Column(
         children: [
           _buildToolbar(),
-          if (_getTableContext() != null) _buildTableToolbar(),
           Expanded(
             child: Row(
               children: [
-                Expanded(child: _buildEditor()),
+                Expanded(
+                  key: _editorAreaKey,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      _buildEditor(),
+                      if (tableCtx != null) _buildFloatingTableToolbar(tableCtx),
+                    ],
+                  ),
+                ),
                 _buildPropertyPanel(),
               ],
             ),
@@ -1417,29 +1427,32 @@ class _DocumentDemoState extends State<DocumentDemo> {
     return (table: node, row: pos.row, col: pos.col);
   }
 
-  /// Builds the contextual table toolbar shown when the cursor is inside a
-  /// table cell.
+  /// Builds a floating contextual table toolbar positioned just above the
+  /// table block when the cursor is inside a table cell.
   ///
-  /// The toolbar contains six sections separated by [VerticalDivider]s:
-  ///
-  /// 1. **Resize** — opens an 8×8 grid picker via [ResizeTableRequest].
-  /// 2. **Horizontal alignment** — sets column [TextAlign] via
-  ///    [ChangeTableColumnAlignRequest].
-  /// 3. **Vertical alignment** — sets row [TableVerticalAlignment] via
-  ///    [ChangeTableRowVerticalAlignRequest].
-  /// 4. **Insert row** — inserts a row above or below via
-  ///    [InsertTableRowRequest].
-  /// 5. **Insert column** — inserts a column left or right via
-  ///    [InsertTableColumnRequest].
-  /// 6. **Delete** — deletes the current row, column, or entire table via
-  ///    [DeleteTableRowRequest], [DeleteTableColumnRequest], or
-  ///    [DeleteTableRequest].
-  Widget _buildTableToolbar() {
-    final ctx = _getTableContext();
-    if (ctx == null) return const SizedBox.shrink();
+  /// The toolbar is rendered as a [Positioned] widget within the editor area
+  /// [Stack]. Its vertical position tracks the table block's top edge
+  /// (converted to the editor area's local coordinates), clamped so it never
+  /// scrolls above the visible viewport.
+  Widget _buildFloatingTableToolbar(({TableNode table, int row, int col}) ctx) {
     final table = ctx.table;
     final row = ctx.row;
     final col = ctx.col;
+
+    // Locate the table's render object via the document layout.
+    final component = _layoutKey.currentState?.componentForNode(table.id);
+    final editorBox = _editorAreaKey.currentContext?.findRenderObject() as RenderBox?;
+    if (component == null || editorBox == null || !editorBox.hasSize) {
+      return const SizedBox.shrink();
+    }
+
+    // Convert the table's top-left to the editor area's local coordinates.
+    final tableGlobal = component.localToGlobal(Offset.zero);
+    final editorLocal = editorBox.globalToLocal(tableGlobal);
+
+    // Position toolbar just above the table, clamped to the visible area.
+    const toolbarHeight = 40.0;
+    final top = (editorLocal.dy - toolbarHeight).clamp(0.0, editorBox.size.height - toolbarHeight);
 
     final colorScheme = Theme.of(context).colorScheme;
     const iconSize = 18.0;
@@ -1461,179 +1474,182 @@ class _DocumentDemoState extends State<DocumentDemo> {
 
     final deleteColor = colorScheme.error;
 
-    return Container(
-      decoration: BoxDecoration(
+    return Positioned(
+      left: editorLocal.dx.clamp(0.0, double.infinity),
+      top: top,
+      child: Material(
+        elevation: 4,
+        borderRadius: BorderRadius.circular(8),
         color: colorScheme.surfaceContainerHigh,
-        border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            // Section 1 — Resize
-            _TableResizeButton(
-              onResize: (rows, cols) => _editor.submit(
-                ResizeTableRequest(
-                  nodeId: table.id,
-                  newRowCount: rows,
-                  newColumnCount: cols,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Section 1 — Resize
+              _TableResizeButton(
+                onResize: (rows, cols) => _editor.submit(
+                  ResizeTableRequest(
+                    nodeId: table.id,
+                    newRowCount: rows,
+                    newColumnCount: cols,
+                  ),
                 ),
               ),
-            ),
-            divider(),
-            // Section 2 — Column text alignment
-            _FormatToggle(
-              icon: Icons.format_align_left,
-              tooltip: 'Align column left',
-              isActive: colAlign == TextAlign.start,
-              onPressed: () => _editor.submit(
-                ChangeTableColumnAlignRequest(
-                  nodeId: table.id,
-                  colIndex: col,
-                  textAlign: TextAlign.start,
+              divider(),
+              // Section 2 — Column text alignment
+              _FormatToggle(
+                icon: Icons.format_align_left,
+                tooltip: 'Align column left',
+                isActive: colAlign == TextAlign.start,
+                onPressed: () => _editor.submit(
+                  ChangeTableColumnAlignRequest(
+                    nodeId: table.id,
+                    colIndex: col,
+                    textAlign: TextAlign.start,
+                  ),
                 ),
               ),
-            ),
-            _FormatToggle(
-              icon: Icons.format_align_center,
-              tooltip: 'Align column center',
-              isActive: colAlign == TextAlign.center,
-              onPressed: () => _editor.submit(
-                ChangeTableColumnAlignRequest(
-                  nodeId: table.id,
-                  colIndex: col,
-                  textAlign: TextAlign.center,
+              _FormatToggle(
+                icon: Icons.format_align_center,
+                tooltip: 'Align column center',
+                isActive: colAlign == TextAlign.center,
+                onPressed: () => _editor.submit(
+                  ChangeTableColumnAlignRequest(
+                    nodeId: table.id,
+                    colIndex: col,
+                    textAlign: TextAlign.center,
+                  ),
                 ),
               ),
-            ),
-            _FormatToggle(
-              icon: Icons.format_align_right,
-              tooltip: 'Align column right',
-              isActive: colAlign == TextAlign.right,
-              onPressed: () => _editor.submit(
-                ChangeTableColumnAlignRequest(
-                  nodeId: table.id,
-                  colIndex: col,
-                  textAlign: TextAlign.right,
+              _FormatToggle(
+                icon: Icons.format_align_right,
+                tooltip: 'Align column right',
+                isActive: colAlign == TextAlign.right,
+                onPressed: () => _editor.submit(
+                  ChangeTableColumnAlignRequest(
+                    nodeId: table.id,
+                    colIndex: col,
+                    textAlign: TextAlign.right,
+                  ),
                 ),
               ),
-            ),
-            divider(),
-            // Section 3 — Row vertical alignment
-            _FormatToggle(
-              icon: Icons.vertical_align_top,
-              tooltip: 'Align row top',
-              isActive: rowVAlign == TableVerticalAlignment.top,
-              onPressed: () => _editor.submit(
-                ChangeTableRowVerticalAlignRequest(
-                  nodeId: table.id,
-                  rowIndex: row,
-                  verticalAlign: TableVerticalAlignment.top,
+              divider(),
+              // Section 3 — Row vertical alignment
+              _FormatToggle(
+                icon: Icons.vertical_align_top,
+                tooltip: 'Align row top',
+                isActive: rowVAlign == TableVerticalAlignment.top,
+                onPressed: () => _editor.submit(
+                  ChangeTableRowVerticalAlignRequest(
+                    nodeId: table.id,
+                    rowIndex: row,
+                    verticalAlign: TableVerticalAlignment.top,
+                  ),
                 ),
               ),
-            ),
-            _FormatToggle(
-              icon: Icons.vertical_align_center,
-              tooltip: 'Align row middle',
-              isActive: rowVAlign == TableVerticalAlignment.middle,
-              onPressed: () => _editor.submit(
-                ChangeTableRowVerticalAlignRequest(
-                  nodeId: table.id,
-                  rowIndex: row,
-                  verticalAlign: TableVerticalAlignment.middle,
+              _FormatToggle(
+                icon: Icons.vertical_align_center,
+                tooltip: 'Align row middle',
+                isActive: rowVAlign == TableVerticalAlignment.middle,
+                onPressed: () => _editor.submit(
+                  ChangeTableRowVerticalAlignRequest(
+                    nodeId: table.id,
+                    rowIndex: row,
+                    verticalAlign: TableVerticalAlignment.middle,
+                  ),
                 ),
               ),
-            ),
-            _FormatToggle(
-              icon: Icons.vertical_align_bottom,
-              tooltip: 'Align row bottom',
-              isActive: rowVAlign == TableVerticalAlignment.bottom,
-              onPressed: () => _editor.submit(
-                ChangeTableRowVerticalAlignRequest(
-                  nodeId: table.id,
-                  rowIndex: row,
-                  verticalAlign: TableVerticalAlignment.bottom,
+              _FormatToggle(
+                icon: Icons.vertical_align_bottom,
+                tooltip: 'Align row bottom',
+                isActive: rowVAlign == TableVerticalAlignment.bottom,
+                onPressed: () => _editor.submit(
+                  ChangeTableRowVerticalAlignRequest(
+                    nodeId: table.id,
+                    rowIndex: row,
+                    verticalAlign: TableVerticalAlignment.bottom,
+                  ),
                 ),
               ),
-            ),
-            divider(),
-            // Section 4 — Insert row
-            IconButton(
-              icon: const Icon(Icons.keyboard_arrow_up, size: iconSize),
-              tooltip: 'Insert row above',
-              style: buttonStyle,
-              onPressed: () => _editor.submit(
-                InsertTableRowRequest(
-                  nodeId: table.id,
-                  rowIndex: row,
-                  insertBefore: true,
+              divider(),
+              // Section 4 — Insert row
+              IconButton(
+                icon: const Icon(Icons.keyboard_arrow_up, size: iconSize),
+                tooltip: 'Insert row above',
+                style: buttonStyle,
+                onPressed: () => _editor.submit(
+                  InsertTableRowRequest(
+                    nodeId: table.id,
+                    rowIndex: row,
+                    insertBefore: true,
+                  ),
                 ),
               ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.keyboard_arrow_down, size: iconSize),
-              tooltip: 'Insert row below',
-              style: buttonStyle,
-              onPressed: () => _editor.submit(
-                InsertTableRowRequest(
-                  nodeId: table.id,
-                  rowIndex: row,
-                  insertBefore: false,
+              IconButton(
+                icon: const Icon(Icons.keyboard_arrow_down, size: iconSize),
+                tooltip: 'Insert row below',
+                style: buttonStyle,
+                onPressed: () => _editor.submit(
+                  InsertTableRowRequest(
+                    nodeId: table.id,
+                    rowIndex: row,
+                    insertBefore: false,
+                  ),
                 ),
               ),
-            ),
-            divider(),
-            // Section 5 — Insert column
-            IconButton(
-              icon: const Icon(Icons.keyboard_arrow_left, size: iconSize),
-              tooltip: 'Insert column left',
-              style: buttonStyle,
-              onPressed: () => _editor.submit(
-                InsertTableColumnRequest(
-                  nodeId: table.id,
-                  colIndex: col,
-                  insertBefore: true,
+              divider(),
+              // Section 5 — Insert column
+              IconButton(
+                icon: const Icon(Icons.keyboard_arrow_left, size: iconSize),
+                tooltip: 'Insert column left',
+                style: buttonStyle,
+                onPressed: () => _editor.submit(
+                  InsertTableColumnRequest(
+                    nodeId: table.id,
+                    colIndex: col,
+                    insertBefore: true,
+                  ),
                 ),
               ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.keyboard_arrow_right, size: iconSize),
-              tooltip: 'Insert column right',
-              style: buttonStyle,
-              onPressed: () => _editor.submit(
-                InsertTableColumnRequest(
-                  nodeId: table.id,
-                  colIndex: col,
-                  insertBefore: false,
+              IconButton(
+                icon: const Icon(Icons.keyboard_arrow_right, size: iconSize),
+                tooltip: 'Insert column right',
+                style: buttonStyle,
+                onPressed: () => _editor.submit(
+                  InsertTableColumnRequest(
+                    nodeId: table.id,
+                    colIndex: col,
+                    insertBefore: false,
+                  ),
                 ),
               ),
-            ),
-            divider(),
-            // Section 6 — Delete row / column / table
-            IconButton(
-              icon: Icon(Icons.table_rows_outlined, size: iconSize, color: deleteColor),
-              tooltip: 'Delete row',
-              style: buttonStyle,
-              onPressed: () => _editor.submit(
-                DeleteTableRowRequest(nodeId: table.id, rowIndex: row),
+              divider(),
+              // Section 6 — Delete row / column / table
+              IconButton(
+                icon: Icon(Icons.table_rows_outlined, size: iconSize, color: deleteColor),
+                tooltip: 'Delete row',
+                style: buttonStyle,
+                onPressed: () => _editor.submit(
+                  DeleteTableRowRequest(nodeId: table.id, rowIndex: row),
+                ),
               ),
-            ),
-            IconButton(
-              icon: Icon(Icons.view_column_outlined, size: iconSize, color: deleteColor),
-              tooltip: 'Delete column',
-              style: buttonStyle,
-              onPressed: () => _editor.submit(
-                DeleteTableColumnRequest(nodeId: table.id, colIndex: col),
+              IconButton(
+                icon: Icon(Icons.view_column_outlined, size: iconSize, color: deleteColor),
+                tooltip: 'Delete column',
+                style: buttonStyle,
+                onPressed: () => _editor.submit(
+                  DeleteTableColumnRequest(nodeId: table.id, colIndex: col),
+                ),
               ),
-            ),
-            IconButton(
-              icon: Icon(Icons.delete_outline, size: iconSize, color: deleteColor),
-              tooltip: 'Delete table',
-              style: buttonStyle,
-              onPressed: () => _editor.submit(DeleteTableRequest(nodeId: table.id)),
-            ),
-          ],
+              IconButton(
+                icon: Icon(Icons.delete_outline, size: iconSize, color: deleteColor),
+                tooltip: 'Delete table',
+                style: buttonStyle,
+                onPressed: () => _editor.submit(DeleteTableRequest(nodeId: table.id)),
+              ),
+            ],
+          ),
         ),
       ),
     );
