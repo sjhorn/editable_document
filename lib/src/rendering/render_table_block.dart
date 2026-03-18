@@ -551,7 +551,7 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
         painter.text = null;
         painter.text = _buildTextSpanForCell(r, c);
         final maxW = contentWidths[c].clamp(0.0, double.infinity);
-        painter.layout(maxWidth: maxW);
+        painter.layout(minWidth: maxW, maxWidth: maxW);
         painters[r][c] = painter;
 
         final cellH = painter.height + 2.0 * _cellPadding;
