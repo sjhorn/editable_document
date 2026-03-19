@@ -2872,8 +2872,8 @@ class _DocumentDemoState extends State<DocumentDemo> {
         maxRow: maxRow,
         minCol: minCol,
         maxCol: maxCol,
-        columnTextAligns: node.columnTextAligns,
-        rowVerticalAligns: node.rowVerticalAligns,
+        cellTextAligns: node.cellTextAligns,
+        cellVerticalAligns: node.cellVerticalAligns,
         rowCount: node.rowCount,
         columnCount: node.columnCount,
         editor: _editor,
@@ -3279,8 +3279,8 @@ class _TableContextToolbar extends StatelessWidget {
     required this.maxRow,
     required this.minCol,
     required this.maxCol,
-    required this.columnTextAligns,
-    required this.rowVerticalAligns,
+    required this.cellTextAligns,
+    required this.cellVerticalAligns,
     required this.rowCount,
     required this.columnCount,
     required this.editor,
@@ -3291,57 +3291,70 @@ class _TableContextToolbar extends StatelessWidget {
   final int maxRow;
   final int minCol;
   final int maxCol;
-  final List<TextAlign>? columnTextAligns;
-  final List<TableVerticalAlignment>? rowVerticalAligns;
+  final List<List<TextAlign>>? cellTextAligns;
+  final List<List<TableVerticalAlignment>>? cellVerticalAligns;
   final int rowCount;
   final int columnCount;
   final UndoableEditor editor;
 
-  /// Returns the shared [TextAlign] for all selected columns, or `null` if mixed.
-  TextAlign? _sharedColAlign() {
+  /// Returns the shared [TextAlign] for all selected cells, or `null` if mixed.
+  TextAlign? _sharedCellAlign() {
     TextAlign? shared;
-    for (int c = minCol; c <= maxCol; c++) {
-      final align = columnTextAligns != null && c < columnTextAligns!.length
-          ? columnTextAligns![c]
-          : TextAlign.start;
-      if (shared == null) {
-        shared = align;
-      } else if (shared != align) {
-        return null;
+    for (int r = minRow; r <= maxRow; r++) {
+      for (int c = minCol; c <= maxCol; c++) {
+        final align =
+            cellTextAligns != null && r < cellTextAligns!.length && c < cellTextAligns![r].length
+                ? cellTextAligns![r][c]
+                : TextAlign.start;
+        if (shared == null) {
+          shared = align;
+        } else if (shared != align) {
+          return null;
+        }
       }
     }
     return shared;
   }
 
-  /// Returns the shared [TableVerticalAlignment] for all selected rows, or `null` if mixed.
-  TableVerticalAlignment? _sharedRowVAlign() {
+  /// Returns the shared [TableVerticalAlignment] for all selected cells, or `null` if mixed.
+  TableVerticalAlignment? _sharedCellVAlign() {
     TableVerticalAlignment? shared;
     for (int r = minRow; r <= maxRow; r++) {
-      final align = rowVerticalAligns != null && r < rowVerticalAligns!.length
-          ? rowVerticalAligns![r]
-          : TableVerticalAlignment.top;
-      if (shared == null) {
-        shared = align;
-      } else if (shared != align) {
-        return null;
+      for (int c = minCol; c <= maxCol; c++) {
+        final align = cellVerticalAligns != null &&
+                r < cellVerticalAligns!.length &&
+                c < cellVerticalAligns![r].length
+            ? cellVerticalAligns![r][c]
+            : TableVerticalAlignment.top;
+        if (shared == null) {
+          shared = align;
+        } else if (shared != align) {
+          return null;
+        }
       }
     }
     return shared;
   }
 
-  /// Submits a [ChangeTableColumnAlignRequest] for every selected column.
-  void _setColAlign(TextAlign align) {
-    for (int c = minCol; c <= maxCol; c++) {
-      editor.submit(ChangeTableColumnAlignRequest(nodeId: nodeId, colIndex: c, textAlign: align));
+  /// Submits a [ChangeTableCellAlignRequest] for every selected cell.
+  void _setCellAlign(TextAlign align) {
+    for (int r = minRow; r <= maxRow; r++) {
+      for (int c = minCol; c <= maxCol; c++) {
+        editor.submit(
+          ChangeTableCellAlignRequest(nodeId: nodeId, row: r, col: c, textAlign: align),
+        );
+      }
     }
   }
 
-  /// Submits a [ChangeTableRowVerticalAlignRequest] for every selected row.
-  void _setRowVAlign(TableVerticalAlignment align) {
+  /// Submits a [ChangeTableCellVerticalAlignRequest] for every selected cell.
+  void _setCellVAlign(TableVerticalAlignment align) {
     for (int r = minRow; r <= maxRow; r++) {
-      editor.submit(
-        ChangeTableRowVerticalAlignRequest(nodeId: nodeId, rowIndex: r, verticalAlign: align),
-      );
+      for (int c = minCol; c <= maxCol; c++) {
+        editor.submit(
+          ChangeTableCellVerticalAlignRequest(nodeId: nodeId, row: r, col: c, verticalAlign: align),
+        );
+      }
     }
   }
 
@@ -3359,8 +3372,8 @@ class _TableContextToolbar extends StatelessWidget {
           child: SizedBox(height: 20, child: VerticalDivider(width: 1)),
         );
 
-    final colAlign = _sharedColAlign();
-    final rowVAlign = _sharedRowVAlign();
+    final colAlign = _sharedCellAlign();
+    final rowVAlign = _sharedCellVAlign();
     final deleteColor = colorScheme.error;
 
     return Material(
@@ -3385,19 +3398,19 @@ class _TableContextToolbar extends StatelessWidget {
               icon: Icons.format_align_left,
               tooltip: 'Align column left',
               isActive: colAlign == TextAlign.start,
-              onPressed: () => _setColAlign(TextAlign.start),
+              onPressed: () => _setCellAlign(TextAlign.start),
             ),
             _FormatToggle(
               icon: Icons.format_align_center,
               tooltip: 'Align column center',
               isActive: colAlign == TextAlign.center,
-              onPressed: () => _setColAlign(TextAlign.center),
+              onPressed: () => _setCellAlign(TextAlign.center),
             ),
             _FormatToggle(
               icon: Icons.format_align_right,
               tooltip: 'Align column right',
               isActive: colAlign == TextAlign.right,
-              onPressed: () => _setColAlign(TextAlign.right),
+              onPressed: () => _setCellAlign(TextAlign.right),
             ),
             divider(),
             // Row vertical alignment — applies to all selected rows
@@ -3405,19 +3418,19 @@ class _TableContextToolbar extends StatelessWidget {
               icon: Icons.vertical_align_top,
               tooltip: 'Align row top',
               isActive: rowVAlign == TableVerticalAlignment.top,
-              onPressed: () => _setRowVAlign(TableVerticalAlignment.top),
+              onPressed: () => _setCellVAlign(TableVerticalAlignment.top),
             ),
             _FormatToggle(
               icon: Icons.vertical_align_center,
               tooltip: 'Align row middle',
               isActive: rowVAlign == TableVerticalAlignment.middle,
-              onPressed: () => _setRowVAlign(TableVerticalAlignment.middle),
+              onPressed: () => _setCellVAlign(TableVerticalAlignment.middle),
             ),
             _FormatToggle(
               icon: Icons.vertical_align_bottom,
               tooltip: 'Align row bottom',
               isActive: rowVAlign == TableVerticalAlignment.bottom,
-              onPressed: () => _setRowVAlign(TableVerticalAlignment.bottom),
+              onPressed: () => _setCellVAlign(TableVerticalAlignment.bottom),
             ),
             divider(),
             // Insert row — above first / below last selected row

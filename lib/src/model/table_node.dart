@@ -29,11 +29,13 @@ import 'text_wrap_mode.dart';
 /// the list means that column is auto-sized. When [columnWidths] itself is
 /// `null`, all columns are auto-sized.
 ///
-/// [columnTextAligns] is an optional per-column [TextAlign] list. When `null`,
-/// all columns inherit the default text alignment.
+/// [cellTextAligns] is an optional rowCount × columnCount 2D grid of
+/// [TextAlign] values. When `null`, all cells inherit the default text
+/// alignment. Each inner list corresponds to one row.
 ///
-/// [rowVerticalAligns] is an optional per-row [TableVerticalAlignment] list.
-/// When `null`, all rows use [TableVerticalAlignment.top].
+/// [cellVerticalAligns] is an optional rowCount × columnCount 2D grid of
+/// [TableVerticalAlignment] values. When `null`, all cells use
+/// [TableVerticalAlignment.top]. Each inner list corresponds to one row.
 ///
 /// The [alignment], [textWrap], [width], and [height] fields implement
 /// [HasBlockLayout] and follow the same semantics as [ImageNode] and
@@ -49,8 +51,14 @@ import 'text_wrap_mode.dart';
 ///     [AttributedText('r1c0'), AttributedText('r1c1'), AttributedText('r1c2')],
 ///   ],
 ///   columnWidths: [120.0, null, 80.0],
-///   columnTextAligns: [TextAlign.left, TextAlign.center, TextAlign.right],
-///   rowVerticalAligns: [TableVerticalAlignment.top, TableVerticalAlignment.middle],
+///   cellTextAligns: [
+///     [TextAlign.left, TextAlign.center, TextAlign.right],
+///     [TextAlign.start, TextAlign.start, TextAlign.start],
+///   ],
+///   cellVerticalAligns: [
+///     [TableVerticalAlignment.top, TableVerticalAlignment.top, TableVerticalAlignment.top],
+///     [TableVerticalAlignment.middle, TableVerticalAlignment.top, TableVerticalAlignment.top],
+///   ],
 ///   alignment: BlockAlignment.stretch,
 /// );
 /// ```
@@ -65,11 +73,13 @@ class TableNode extends DocumentNode implements HasBlockLayout {
   /// [columnWidths] is optional. When provided, its length must equal
   /// [columnCount]. A `null` entry means the corresponding column is auto-sized.
   ///
-  /// [columnTextAligns] is optional. When provided, its length must equal
-  /// [columnCount].
+  /// [cellTextAligns] is optional. When provided, it must be a rowCount ×
+  /// columnCount 2D grid of [TextAlign] values. Both the outer list and each
+  /// inner list are wrapped in [List.unmodifiable].
   ///
-  /// [rowVerticalAligns] is optional. When provided, its length must equal
-  /// [rowCount].
+  /// [cellVerticalAligns] is optional. When provided, it must be a rowCount ×
+  /// columnCount 2D grid of [TableVerticalAlignment] values. Both the outer
+  /// list and each inner list are wrapped in [List.unmodifiable].
   ///
   /// [alignment] defaults to [BlockAlignment.stretch].
   /// [textWrap] defaults to [TextWrapMode.none].
@@ -82,8 +92,8 @@ class TableNode extends DocumentNode implements HasBlockLayout {
     required this.columnCount,
     required List<List<AttributedText>> cells,
     List<double?>? columnWidths,
-    List<TextAlign>? columnTextAligns,
-    List<TableVerticalAlignment>? rowVerticalAligns,
+    List<List<TextAlign>>? cellTextAligns,
+    List<List<TableVerticalAlignment>>? cellVerticalAligns,
     this.alignment = BlockAlignment.stretch,
     this.textWrap = TextWrapMode.none,
     this.width,
@@ -95,10 +105,17 @@ class TableNode extends DocumentNode implements HasBlockLayout {
           cells.map((row) => List<AttributedText>.unmodifiable(row)),
         ),
         columnWidths = columnWidths != null ? List<double?>.unmodifiable(columnWidths) : null,
-        columnTextAligns =
-            columnTextAligns != null ? List<TextAlign>.unmodifiable(columnTextAligns) : null,
-        rowVerticalAligns = rowVerticalAligns != null
-            ? List<TableVerticalAlignment>.unmodifiable(rowVerticalAligns)
+        cellTextAligns = cellTextAligns != null
+            ? List<List<TextAlign>>.unmodifiable(
+                cellTextAligns.map((row) => List<TextAlign>.unmodifiable(row)),
+              )
+            : null,
+        cellVerticalAligns = cellVerticalAligns != null
+            ? List<List<TableVerticalAlignment>>.unmodifiable(
+                cellVerticalAligns.map(
+                  (row) => List<TableVerticalAlignment>.unmodifiable(row),
+                ),
+              )
             : null;
 
   /// Number of rows in the table.
@@ -114,17 +131,21 @@ class TableNode extends DocumentNode implements HasBlockLayout {
   /// within the list means that column is auto-sized.
   final List<double?>? columnWidths;
 
-  /// Unmodifiable per-column horizontal text alignment, or `null` to use the
-  /// document default for all columns.
+  /// Unmodifiable rowCount × columnCount 2D grid of horizontal text alignments,
+  /// or `null` to use the document default for all cells.
   ///
-  /// When non-null, the list has exactly [columnCount] entries.
-  final List<TextAlign>? columnTextAligns;
+  /// When non-null, the outer list has exactly [rowCount] entries and each inner
+  /// list has exactly [columnCount] entries. Both the outer and inner lists are
+  /// unmodifiable.
+  final List<List<TextAlign>>? cellTextAligns;
 
-  /// Unmodifiable per-row vertical alignment, or `null` to use
-  /// [TableVerticalAlignment.top] for all rows.
+  /// Unmodifiable rowCount × columnCount 2D grid of vertical alignments, or
+  /// `null` to use [TableVerticalAlignment.top] for all cells.
   ///
-  /// When non-null, the list has exactly [rowCount] entries.
-  final List<TableVerticalAlignment>? rowVerticalAligns;
+  /// When non-null, the outer list has exactly [rowCount] entries and each inner
+  /// list has exactly [columnCount] entries. Both the outer and inner lists are
+  /// unmodifiable.
+  final List<List<TableVerticalAlignment>>? cellVerticalAligns;
 
   /// How the table block is horizontally aligned within the available layout width.
   ///
@@ -185,8 +206,8 @@ class TableNode extends DocumentNode implements HasBlockLayout {
     int? columnCount,
     List<List<AttributedText>>? cells,
     Object? columnWidths = _sentinel,
-    Object? columnTextAligns = _sentinel,
-    Object? rowVerticalAligns = _sentinel,
+    Object? cellTextAligns = _sentinel,
+    Object? cellVerticalAligns = _sentinel,
     BlockAlignment? alignment,
     TextWrapMode? textWrap,
     double? width,
@@ -202,12 +223,12 @@ class TableNode extends DocumentNode implements HasBlockLayout {
       cells: cells ?? _cells,
       columnWidths:
           identical(columnWidths, _sentinel) ? this.columnWidths : columnWidths as List<double?>?,
-      columnTextAligns: identical(columnTextAligns, _sentinel)
-          ? this.columnTextAligns
-          : columnTextAligns as List<TextAlign>?,
-      rowVerticalAligns: identical(rowVerticalAligns, _sentinel)
-          ? this.rowVerticalAligns
-          : rowVerticalAligns as List<TableVerticalAlignment>?,
+      cellTextAligns: identical(cellTextAligns, _sentinel)
+          ? this.cellTextAligns
+          : cellTextAligns as List<List<TextAlign>>?,
+      cellVerticalAligns: identical(cellVerticalAligns, _sentinel)
+          ? this.cellVerticalAligns
+          : cellVerticalAligns as List<List<TableVerticalAlignment>>?,
       alignment: alignment ?? this.alignment,
       textWrap: textWrap ?? this.textWrap,
       width: width ?? this.width,
@@ -235,10 +256,22 @@ class TableNode extends DocumentNode implements HasBlockLayout {
         !mapEquals(other.metadata, metadata)) {
       return false;
     }
-    // Compare columnWidths, columnTextAligns, rowVerticalAligns.
+    // Compare columnWidths.
     if (!_listEquals(other.columnWidths, columnWidths)) return false;
-    if (!_listEquals(other.columnTextAligns, columnTextAligns)) return false;
-    if (!_listEquals(other.rowVerticalAligns, rowVerticalAligns)) return false;
+    // Compare cellTextAligns row by row.
+    if ((other.cellTextAligns == null) != (cellTextAligns == null)) return false;
+    if (cellTextAligns != null) {
+      for (int r = 0; r < rowCount; r++) {
+        if (!_listEquals(other.cellTextAligns![r], cellTextAligns![r])) return false;
+      }
+    }
+    // Compare cellVerticalAligns row by row.
+    if ((other.cellVerticalAligns == null) != (cellVerticalAligns == null)) return false;
+    if (cellVerticalAligns != null) {
+      for (int r = 0; r < rowCount; r++) {
+        if (!_listEquals(other.cellVerticalAligns![r], cellVerticalAligns![r])) return false;
+      }
+    }
     // Compare cells row by row.
     for (int r = 0; r < rowCount; r++) {
       for (int c = 0; c < columnCount; c++) {
@@ -257,14 +290,32 @@ class TableNode extends DocumentNode implements HasBlockLayout {
         cellHashes.add(cell.hashCode);
       }
     }
+    // Hash cellTextAligns as a flat sequence.
+    final textAlignHashes = <int>[];
+    if (cellTextAligns != null) {
+      for (final row in cellTextAligns!) {
+        for (final align in row) {
+          textAlignHashes.add(align.hashCode);
+        }
+      }
+    }
+    // Hash cellVerticalAligns as a flat sequence.
+    final verticalAlignHashes = <int>[];
+    if (cellVerticalAligns != null) {
+      for (final row in cellVerticalAligns!) {
+        for (final align in row) {
+          verticalAlignHashes.add(align.hashCode);
+        }
+      }
+    }
     return Object.hash(
       id,
       rowCount,
       columnCount,
       Object.hashAll(cellHashes),
       Object.hashAll(columnWidths ?? const <double?>[]),
-      Object.hashAll(columnTextAligns ?? const <TextAlign>[]),
-      Object.hashAll(rowVerticalAligns ?? const <TableVerticalAlignment>[]),
+      Object.hashAll(textAlignHashes),
+      Object.hashAll(verticalAlignHashes),
       alignment,
       textWrap,
       width,
@@ -291,16 +342,16 @@ class TableNode extends DocumentNode implements HasBlockLayout {
     properties.add(
       IterableProperty<double?>('columnWidths', columnWidths, defaultValue: null),
     );
-    properties.add(
-      IterableProperty<TextAlign>('columnTextAligns', columnTextAligns, defaultValue: null),
-    );
-    properties.add(
-      IterableProperty<TableVerticalAlignment>(
-        'rowVerticalAligns',
-        rowVerticalAligns,
-        defaultValue: null,
-      ),
-    );
+    properties.add(DiagnosticsProperty<List<List<TextAlign>>?>(
+      'cellTextAligns',
+      cellTextAligns,
+      defaultValue: null,
+    ));
+    properties.add(DiagnosticsProperty<List<List<TableVerticalAlignment>>?>(
+      'cellVerticalAligns',
+      cellVerticalAligns,
+      defaultValue: null,
+    ));
     properties.add(DoubleProperty('spaceBefore', spaceBefore, defaultValue: null));
     properties.add(DoubleProperty('spaceAfter', spaceAfter, defaultValue: null));
   }
@@ -310,7 +361,7 @@ class TableNode extends DocumentNode implements HasBlockLayout {
       'TableNode(id: $id, rowCount: $rowCount, columnCount: $columnCount, '
       'alignment: ${alignment.name}, textWrap: $textWrap, '
       'width: $width, height: $height, '
-      'columnTextAligns: $columnTextAligns, rowVerticalAligns: $rowVerticalAligns, '
+      'cellTextAligns: $cellTextAligns, cellVerticalAligns: $cellVerticalAligns, '
       'spaceBefore: $spaceBefore, spaceAfter: $spaceAfter, metadata: $metadata)';
 }
 
@@ -319,8 +370,8 @@ class TableNode extends DocumentNode implements HasBlockLayout {
 // ---------------------------------------------------------------------------
 
 /// Sentinel object used by [TableNode.copyWith] to distinguish "not provided"
-/// from an explicit `null` for [columnWidths], [columnTextAligns], and
-/// [rowVerticalAligns].
+/// from an explicit `null` for [TableNode.columnWidths], [TableNode.cellTextAligns],
+/// and [TableNode.cellVerticalAligns].
 const Object _sentinel = Object();
 
 /// Null-safe shallow equality for nullable lists.

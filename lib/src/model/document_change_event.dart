@@ -208,7 +208,7 @@ class TextChanged extends DocumentChangeEvent {
 /// Emitted by table structural commands such as [InsertTableRowCommand],
 /// [InsertTableColumnCommand], [DeleteTableRowCommand],
 /// [DeleteTableColumnCommand], [ResizeTableCommand],
-/// [ChangeTableColumnAlignCommand], and [ChangeTableRowVerticalAlignCommand].
+/// [ChangeTableCellAlignCommand], and [ChangeTableCellVerticalAlignCommand].
 class NodeChangeEvent extends DocumentChangeEvent {
   /// Creates a [NodeChangeEvent].
   const NodeChangeEvent({required this.nodeId});

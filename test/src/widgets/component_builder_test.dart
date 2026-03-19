@@ -1766,13 +1766,13 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // TableComponentBuilder — columnTextAligns and rowVerticalAligns
+  // TableComponentBuilder — cellTextAligns and cellVerticalAligns
   // -------------------------------------------------------------------------
 
-  group('TableComponentBuilder — columnTextAligns and rowVerticalAligns', () {
+  group('TableComponentBuilder — cellTextAligns and cellVerticalAligns', () {
     TableNode _tableNode({
-      List<TextAlign>? columnTextAligns,
-      List<TableVerticalAlignment>? rowVerticalAligns,
+      List<List<TextAlign>>? cellTextAligns,
+      List<List<TableVerticalAlignment>>? cellVerticalAligns,
     }) =>
         TableNode(
           id: 't1',
@@ -1782,13 +1782,13 @@ void main() {
             [AttributedText('a'), AttributedText('b')],
             [AttributedText('c'), AttributedText('d')],
           ],
-          columnTextAligns: columnTextAligns,
-          rowVerticalAligns: rowVerticalAligns,
+          cellTextAligns: cellTextAligns,
+          cellVerticalAligns: cellVerticalAligns,
         );
 
     TableComponentViewModel _vm({
-      List<TextAlign>? columnTextAligns,
-      List<TableVerticalAlignment>? rowVerticalAligns,
+      List<List<TextAlign>>? cellTextAligns,
+      List<List<TableVerticalAlignment>>? cellVerticalAligns,
     }) =>
         TableComponentViewModel(
           nodeId: 't1',
@@ -1798,137 +1798,199 @@ void main() {
             [AttributedText('a'), AttributedText('b')],
             [AttributedText('c'), AttributedText('d')],
           ],
-          columnTextAligns: columnTextAligns,
-          rowVerticalAligns: rowVerticalAligns,
+          cellTextAligns: cellTextAligns,
+          cellVerticalAligns: cellVerticalAligns,
         );
 
-    test('createViewModel copies columnTextAligns from TableNode', () {
-      final aligns = [TextAlign.left, TextAlign.center];
-      final node = _tableNode(columnTextAligns: aligns);
+    test('createViewModel copies cellTextAligns from TableNode', () {
+      final aligns = [
+        [TextAlign.left, TextAlign.center],
+        [TextAlign.right, TextAlign.left],
+      ];
+      final node = _tableNode(cellTextAligns: aligns);
       final doc = _doc([node]);
       final vm =
           const TableComponentBuilder().createViewModel(doc, node) as TableComponentViewModel;
-      expect(vm.columnTextAligns, equals(aligns));
+      expect(vm.cellTextAligns, equals(aligns));
     });
 
-    test('createViewModel copies rowVerticalAligns from TableNode', () {
-      final aligns = [TableVerticalAlignment.top, TableVerticalAlignment.bottom];
-      final node = _tableNode(rowVerticalAligns: aligns);
+    test('createViewModel copies cellVerticalAligns from TableNode', () {
+      final aligns = [
+        [TableVerticalAlignment.top, TableVerticalAlignment.bottom],
+        [TableVerticalAlignment.middle, TableVerticalAlignment.top],
+      ];
+      final node = _tableNode(cellVerticalAligns: aligns);
       final doc = _doc([node]);
       final vm =
           const TableComponentBuilder().createViewModel(doc, node) as TableComponentViewModel;
-      expect(vm.rowVerticalAligns, equals(aligns));
+      expect(vm.cellVerticalAligns, equals(aligns));
     });
 
-    test('createViewModel defaults columnTextAligns to null', () {
+    test('createViewModel defaults cellTextAligns to null', () {
       final node = _tableNode();
       final doc = _doc([node]);
       final vm =
           const TableComponentBuilder().createViewModel(doc, node) as TableComponentViewModel;
-      expect(vm.columnTextAligns, isNull);
+      expect(vm.cellTextAligns, isNull);
     });
 
-    test('createViewModel defaults rowVerticalAligns to null', () {
+    test('createViewModel defaults cellVerticalAligns to null', () {
       final node = _tableNode();
       final doc = _doc([node]);
       final vm =
           const TableComponentBuilder().createViewModel(doc, node) as TableComponentViewModel;
-      expect(vm.rowVerticalAligns, isNull);
+      expect(vm.cellVerticalAligns, isNull);
     });
 
-    test('TableComponentViewModel equality — same columnTextAligns are equal', () {
-      final a = _vm(columnTextAligns: [TextAlign.left, TextAlign.center]);
-      final b = _vm(columnTextAligns: [TextAlign.left, TextAlign.center]);
+    test('TableComponentViewModel equality — same cellTextAligns are equal', () {
+      final a = _vm(cellTextAligns: [
+        [TextAlign.left, TextAlign.center],
+        [TextAlign.right, TextAlign.left],
+      ]);
+      final b = _vm(cellTextAligns: [
+        [TextAlign.left, TextAlign.center],
+        [TextAlign.right, TextAlign.left],
+      ]);
       expect(a, equals(b));
       expect(a.hashCode, equals(b.hashCode));
     });
 
-    test('TableComponentViewModel equality — different columnTextAligns are not equal', () {
-      final a = _vm(columnTextAligns: [TextAlign.left, TextAlign.center]);
-      final b = _vm(columnTextAligns: [TextAlign.right, TextAlign.center]);
+    test('TableComponentViewModel equality — different cellTextAligns are not equal', () {
+      final a = _vm(cellTextAligns: [
+        [TextAlign.left, TextAlign.center],
+        [TextAlign.right, TextAlign.left],
+      ]);
+      final b = _vm(cellTextAligns: [
+        [TextAlign.right, TextAlign.center],
+        [TextAlign.right, TextAlign.left],
+      ]);
       expect(a, isNot(equals(b)));
     });
 
-    test('TableComponentViewModel equality — null vs non-null columnTextAligns are not equal', () {
-      final a = _vm(columnTextAligns: [TextAlign.left, TextAlign.center]);
+    test('TableComponentViewModel equality — null vs non-null cellTextAligns are not equal', () {
+      final a = _vm(cellTextAligns: [
+        [TextAlign.left, TextAlign.center],
+        [TextAlign.right, TextAlign.left],
+      ]);
       final b = _vm();
       expect(a, isNot(equals(b)));
     });
 
-    test('TableComponentViewModel equality — same rowVerticalAligns are equal', () {
-      final a = _vm(rowVerticalAligns: [TableVerticalAlignment.top, TableVerticalAlignment.middle]);
-      final b = _vm(rowVerticalAligns: [TableVerticalAlignment.top, TableVerticalAlignment.middle]);
+    test('TableComponentViewModel equality — same cellVerticalAligns are equal', () {
+      final a = _vm(cellVerticalAligns: [
+        [TableVerticalAlignment.top, TableVerticalAlignment.middle],
+        [TableVerticalAlignment.bottom, TableVerticalAlignment.top],
+      ]);
+      final b = _vm(cellVerticalAligns: [
+        [TableVerticalAlignment.top, TableVerticalAlignment.middle],
+        [TableVerticalAlignment.bottom, TableVerticalAlignment.top],
+      ]);
       expect(a, equals(b));
       expect(a.hashCode, equals(b.hashCode));
     });
 
-    test('TableComponentViewModel equality — different rowVerticalAligns are not equal', () {
-      final a = _vm(rowVerticalAligns: [TableVerticalAlignment.top, TableVerticalAlignment.middle]);
-      final b = _vm(rowVerticalAligns: [TableVerticalAlignment.top, TableVerticalAlignment.bottom]);
+    test('TableComponentViewModel equality — different cellVerticalAligns are not equal', () {
+      final a = _vm(cellVerticalAligns: [
+        [TableVerticalAlignment.top, TableVerticalAlignment.middle],
+        [TableVerticalAlignment.bottom, TableVerticalAlignment.top],
+      ]);
+      final b = _vm(cellVerticalAligns: [
+        [TableVerticalAlignment.top, TableVerticalAlignment.bottom],
+        [TableVerticalAlignment.bottom, TableVerticalAlignment.top],
+      ]);
       expect(a, isNot(equals(b)));
     });
 
-    test('TableComponentViewModel equality — null vs non-null rowVerticalAligns are not equal', () {
-      final a = _vm(rowVerticalAligns: [TableVerticalAlignment.top, TableVerticalAlignment.middle]);
+    test('TableComponentViewModel equality — null vs non-null cellVerticalAligns are not equal',
+        () {
+      final a = _vm(cellVerticalAligns: [
+        [TableVerticalAlignment.top, TableVerticalAlignment.middle],
+        [TableVerticalAlignment.bottom, TableVerticalAlignment.top],
+      ]);
       final b = _vm();
       expect(a, isNot(equals(b)));
     });
 
-    testWidgets('createRenderObject passes columnTextAligns to RenderTableBlock',
+    testWidgets('createRenderObject passes cellTextAligns to RenderTableBlock',
         (WidgetTester tester) async {
-      final aligns = [TextAlign.left, TextAlign.right];
-      final vm = _vm(columnTextAligns: aligns);
+      final aligns = [
+        [TextAlign.left, TextAlign.right],
+        [TextAlign.center, TextAlign.left],
+      ];
+      final vm = _vm(cellTextAligns: aligns);
       final ctx = ComponentContext(document: _doc([]), selection: null, stylesheet: null);
       final widget = const TableComponentBuilder().createComponent(vm, ctx)!;
       await tester.pumpWidget(MaterialApp(home: Scaffold(body: widget)));
       final renderObject = tester.allRenderObjects.whereType<RenderTableBlock>().first;
-      expect(renderObject.columnTextAligns, equals(aligns));
+      expect(renderObject.cellTextAligns, equals(aligns));
     });
 
-    testWidgets('createRenderObject passes rowVerticalAligns to RenderTableBlock',
+    testWidgets('createRenderObject passes cellVerticalAligns to RenderTableBlock',
         (WidgetTester tester) async {
-      final aligns = [TableVerticalAlignment.bottom, TableVerticalAlignment.middle];
-      final vm = _vm(rowVerticalAligns: aligns);
+      final aligns = [
+        [TableVerticalAlignment.bottom, TableVerticalAlignment.middle],
+        [TableVerticalAlignment.top, TableVerticalAlignment.bottom],
+      ];
+      final vm = _vm(cellVerticalAligns: aligns);
       final ctx = ComponentContext(document: _doc([]), selection: null, stylesheet: null);
       final widget = const TableComponentBuilder().createComponent(vm, ctx)!;
       await tester.pumpWidget(MaterialApp(home: Scaffold(body: widget)));
       final renderObject = tester.allRenderObjects.whereType<RenderTableBlock>().first;
-      expect(renderObject.rowVerticalAligns, equals(aligns));
+      expect(renderObject.cellVerticalAligns, equals(aligns));
     });
 
-    testWidgets('updateRenderObject propagates new columnTextAligns to RenderTableBlock',
+    testWidgets('updateRenderObject propagates new cellTextAligns to RenderTableBlock',
         (WidgetTester tester) async {
       final ctx = ComponentContext(document: _doc([]), selection: null, stylesheet: null);
 
-      final initial = _vm(columnTextAligns: [TextAlign.left, TextAlign.left]);
+      final initial = _vm(cellTextAligns: [
+        [TextAlign.left, TextAlign.left],
+        [TextAlign.left, TextAlign.left],
+      ]);
       await tester.pumpWidget(MaterialApp(
           home: Scaffold(body: const TableComponentBuilder().createComponent(initial, ctx)!)));
 
-      final updated = _vm(columnTextAligns: [TextAlign.right, TextAlign.center]);
+      final updated = _vm(cellTextAligns: [
+        [TextAlign.right, TextAlign.center],
+        [TextAlign.left, TextAlign.right],
+      ]);
       await tester.pumpWidget(MaterialApp(
           home: Scaffold(body: const TableComponentBuilder().createComponent(updated, ctx)!)));
 
       final renderObject = tester.allRenderObjects.whereType<RenderTableBlock>().first;
-      expect(renderObject.columnTextAligns, equals([TextAlign.right, TextAlign.center]));
+      expect(
+          renderObject.cellTextAligns,
+          equals([
+            [TextAlign.right, TextAlign.center],
+            [TextAlign.left, TextAlign.right],
+          ]));
     });
 
-    testWidgets('updateRenderObject propagates new rowVerticalAligns to RenderTableBlock',
+    testWidgets('updateRenderObject propagates new cellVerticalAligns to RenderTableBlock',
         (WidgetTester tester) async {
       final ctx = ComponentContext(document: _doc([]), selection: null, stylesheet: null);
 
-      final initial =
-          _vm(rowVerticalAligns: [TableVerticalAlignment.top, TableVerticalAlignment.top]);
+      final initial = _vm(cellVerticalAligns: [
+        [TableVerticalAlignment.top, TableVerticalAlignment.top],
+        [TableVerticalAlignment.top, TableVerticalAlignment.top],
+      ]);
       await tester.pumpWidget(MaterialApp(
           home: Scaffold(body: const TableComponentBuilder().createComponent(initial, ctx)!)));
 
-      final updated =
-          _vm(rowVerticalAligns: [TableVerticalAlignment.middle, TableVerticalAlignment.bottom]);
+      final updated = _vm(cellVerticalAligns: [
+        [TableVerticalAlignment.middle, TableVerticalAlignment.bottom],
+        [TableVerticalAlignment.top, TableVerticalAlignment.middle],
+      ]);
       await tester.pumpWidget(MaterialApp(
           home: Scaffold(body: const TableComponentBuilder().createComponent(updated, ctx)!)));
 
       final renderObject = tester.allRenderObjects.whereType<RenderTableBlock>().first;
-      expect(renderObject.rowVerticalAligns,
-          equals([TableVerticalAlignment.middle, TableVerticalAlignment.bottom]));
+      expect(
+          renderObject.cellVerticalAligns,
+          equals([
+            [TableVerticalAlignment.middle, TableVerticalAlignment.bottom],
+            [TableVerticalAlignment.top, TableVerticalAlignment.middle],
+          ]));
     });
   });
 

@@ -473,10 +473,10 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // 12. Column text alignment
+  // 12. Cell text alignment
   // ---------------------------------------------------------------------------
-  group('RenderTableBlock columnTextAligns', () {
-    test('columnTextAligns property round-trips via getter', () {
+  group('RenderTableBlock cellTextAligns', () {
+    test('cellTextAligns property round-trips via getter', () {
       final block = RenderTableBlock(
         nodeId: 'table1',
         rowCount: 1,
@@ -485,25 +485,35 @@ void main() {
           [AttributedText('A'), AttributedText('B')],
         ],
         textStyle: const TextStyle(fontSize: 16),
-        columnTextAligns: [TextAlign.center, TextAlign.right],
+        cellTextAligns: [
+          [TextAlign.center, TextAlign.right],
+        ],
       );
-      expect(block.columnTextAligns, [TextAlign.center, TextAlign.right]);
+      expect(block.cellTextAligns, [
+        [TextAlign.center, TextAlign.right],
+      ]);
     });
 
-    test('columnTextAligns default is null', () {
+    test('cellTextAligns default is null', () {
       final block = _makeTable(rowCount: 1, columnCount: 2);
-      expect(block.columnTextAligns, isNull);
+      expect(block.cellTextAligns, isNull);
     });
 
-    test('columnTextAligns setter triggers markNeedsLayout', () {
+    test('cellTextAligns setter triggers markNeedsLayout', () {
       final block = _layoutBlock(_makeTable(rowCount: 1, columnCount: 2));
       // Setting a new value should not throw and the block should accept it.
-      block.columnTextAligns = [TextAlign.end, TextAlign.center];
-      expect(block.columnTextAligns, [TextAlign.end, TextAlign.center]);
+      block.cellTextAligns = [
+        [TextAlign.end, TextAlign.center],
+      ];
+      expect(block.cellTextAligns, [
+        [TextAlign.end, TextAlign.center],
+      ]);
     });
 
-    test('columnTextAligns setter no-ops when same value is set', () {
-      final aligns = [TextAlign.center, TextAlign.right];
+    test('cellTextAligns setter no-ops when same value is set', () {
+      final aligns = [
+        [TextAlign.center, TextAlign.right],
+      ];
       final block = RenderTableBlock(
         nodeId: 'table1',
         rowCount: 1,
@@ -512,16 +522,16 @@ void main() {
           [AttributedText('A'), AttributedText('B')],
         ],
         textStyle: const TextStyle(fontSize: 16),
-        columnTextAligns: aligns,
+        cellTextAligns: aligns,
       );
       _layoutBlock(block);
       // Setting the identical list should be accepted.
-      block.columnTextAligns = aligns;
-      expect(block.columnTextAligns, aligns);
+      block.cellTextAligns = aligns;
+      expect(block.cellTextAligns, aligns);
     });
 
-    test('center-aligned column produces layout identical to explicit TextAlign.center', () {
-      // Two identically-structured tables: one with columnTextAligns set to center,
+    test('center-aligned cell produces layout identical in row height to default', () {
+      // Two identically-structured tables: one with cellTextAligns set to center,
       // one without (default TextAlign.start). After layout, the computed size
       // must still be the same — alignment does not affect row heights.
       final blockCenter = _layoutBlock(
@@ -535,7 +545,9 @@ void main() {
           textStyle: const TextStyle(fontSize: 16),
           cellPadding: 0,
           borderWidth: 0,
-          columnTextAligns: [TextAlign.center],
+          cellTextAligns: [
+            [TextAlign.center],
+          ],
         ),
         maxWidth: 200,
       );
@@ -560,7 +572,7 @@ void main() {
       );
     });
 
-    test('columnTextAligns is reflected in debugFillProperties', () {
+    test('cellTextAligns is reflected in debugFillProperties', () {
       final block = RenderTableBlock(
         nodeId: 'table1',
         rowCount: 1,
@@ -569,20 +581,22 @@ void main() {
           [AttributedText('A')],
         ],
         textStyle: const TextStyle(fontSize: 16),
-        columnTextAligns: [TextAlign.right],
+        cellTextAligns: [
+          [TextAlign.right],
+        ],
       );
       final builder = DiagnosticPropertiesBuilder();
       block.debugFillProperties(builder);
       final names = builder.properties.map((p) => p.name).toList();
-      expect(names, contains('columnTextAligns'));
+      expect(names, contains('cellTextAligns'));
     });
   });
 
   // ---------------------------------------------------------------------------
-  // 13. Row vertical alignment
+  // 13. Cell vertical alignment
   // ---------------------------------------------------------------------------
-  group('RenderTableBlock rowVerticalAligns', () {
-    test('rowVerticalAligns property round-trips via getter', () {
+  group('RenderTableBlock cellVerticalAligns', () {
+    test('cellVerticalAligns property round-trips via getter', () {
       final block = RenderTableBlock(
         nodeId: 'table1',
         rowCount: 2,
@@ -592,20 +606,30 @@ void main() {
           [AttributedText('B')],
         ],
         textStyle: const TextStyle(fontSize: 16),
-        rowVerticalAligns: [TableVerticalAlignment.top, TableVerticalAlignment.middle],
+        cellVerticalAligns: [
+          [TableVerticalAlignment.top],
+          [TableVerticalAlignment.middle],
+        ],
       );
-      expect(block.rowVerticalAligns, [TableVerticalAlignment.top, TableVerticalAlignment.middle]);
+      expect(block.cellVerticalAligns, [
+        [TableVerticalAlignment.top],
+        [TableVerticalAlignment.middle],
+      ]);
     });
 
-    test('rowVerticalAligns default is null', () {
+    test('cellVerticalAligns default is null', () {
       final block = _makeTable(rowCount: 2, columnCount: 1);
-      expect(block.rowVerticalAligns, isNull);
+      expect(block.cellVerticalAligns, isNull);
     });
 
-    test('rowVerticalAligns setter triggers markNeedsLayout', () {
+    test('cellVerticalAligns setter triggers markNeedsLayout', () {
       final block = _layoutBlock(_makeTable(rowCount: 1, columnCount: 1));
-      block.rowVerticalAligns = [TableVerticalAlignment.bottom];
-      expect(block.rowVerticalAligns, [TableVerticalAlignment.bottom]);
+      block.cellVerticalAligns = [
+        [TableVerticalAlignment.bottom],
+      ];
+      expect(block.cellVerticalAligns, [
+        [TableVerticalAlignment.bottom],
+      ]);
     });
 
     test('middle alignment shifts text offset downward compared to top', () {
@@ -631,11 +655,10 @@ void main() {
               cellPadding: 0,
               borderWidth: 0,
               columnWidths: [100.0, null],
-              // Override text style per column via a large font for col 0 and
-              // default for col 1; we do this by providing different textStyle
-              // indirectly — here we just use a large fontSize and accept that
-              // the row height is determined by col 0.
-              rowVerticalAligns: [align],
+              // Per-cell vertical alignment: col 0 uses top (default), col 1 uses `align`.
+              cellVerticalAligns: [
+                [TableVerticalAlignment.top, align],
+              ],
             ),
             maxWidth: 400,
           );
@@ -682,7 +705,9 @@ void main() {
               cellPadding: 0,
               borderWidth: 0,
               columnWidths: [60.0, null],
-              rowVerticalAligns: [align],
+              cellVerticalAligns: [
+                [TableVerticalAlignment.top, align],
+              ],
             ),
             maxWidth: 400,
           );
@@ -704,7 +729,7 @@ void main() {
       );
     });
 
-    test('top alignment and null rowVerticalAligns produce same layout', () {
+    test('top alignment and null cellVerticalAligns produce same layout', () {
       final block1 = _layoutBlock(
         RenderTableBlock(
           nodeId: 'a',
@@ -716,7 +741,9 @@ void main() {
           textStyle: const TextStyle(fontSize: 16),
           cellPadding: 0,
           borderWidth: 0,
-          rowVerticalAligns: [TableVerticalAlignment.top],
+          cellVerticalAligns: [
+            [TableVerticalAlignment.top],
+          ],
         ),
         maxWidth: 200,
       );
@@ -745,7 +772,7 @@ void main() {
       expect(rect1.top, closeTo(rect2.top, 0.5));
     });
 
-    test('rowVerticalAligns is reflected in debugFillProperties', () {
+    test('cellVerticalAligns is reflected in debugFillProperties', () {
       final block = RenderTableBlock(
         nodeId: 'table1',
         rowCount: 1,
@@ -754,12 +781,14 @@ void main() {
           [AttributedText('A')],
         ],
         textStyle: const TextStyle(fontSize: 16),
-        rowVerticalAligns: [TableVerticalAlignment.middle],
+        cellVerticalAligns: [
+          [TableVerticalAlignment.middle],
+        ],
       );
       final builder = DiagnosticPropertiesBuilder();
       block.debugFillProperties(builder);
       final names = builder.properties.map((p) => p.name).toList();
-      expect(names, contains('rowVerticalAligns'));
+      expect(names, contains('cellVerticalAligns'));
     });
   });
 }

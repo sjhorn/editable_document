@@ -234,16 +234,18 @@ class Editor {
         newRowCount: request.newRowCount,
         newColumnCount: request.newColumnCount,
       );
-    } else if (request is ChangeTableColumnAlignRequest) {
-      return ChangeTableColumnAlignCommand(
+    } else if (request is ChangeTableCellAlignRequest) {
+      return ChangeTableCellAlignCommand(
         nodeId: request.nodeId,
-        colIndex: request.colIndex,
+        row: request.row,
+        col: request.col,
         textAlign: request.textAlign,
       );
-    } else if (request is ChangeTableRowVerticalAlignRequest) {
-      return ChangeTableRowVerticalAlignCommand(
+    } else if (request is ChangeTableCellVerticalAlignRequest) {
+      return ChangeTableCellVerticalAlignCommand(
         nodeId: request.nodeId,
-        rowIndex: request.rowIndex,
+        row: request.row,
+        col: request.col,
         verticalAlign: request.verticalAlign,
       );
     } else if (request is MoveNodeToPositionRequest) {

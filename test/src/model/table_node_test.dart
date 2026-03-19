@@ -1248,10 +1248,10 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // TableNode — columnTextAligns field
+  // TableNode — cellTextAligns field
   // ---------------------------------------------------------------------------
-  group('TableNode columnTextAligns', () {
-    test('columnTextAligns defaults to null', () {
+  group('TableNode cellTextAligns', () {
+    test('cellTextAligns defaults to null', () {
       final node = TableNode(
         id: 'tbl-1',
         rowCount: 1,
@@ -1260,275 +1260,368 @@ void main() {
           [AttributedText('a'), AttributedText('b')]
         ],
       );
-      expect(node.columnTextAligns, isNull);
+      expect(node.cellTextAligns, isNull);
     });
 
-    test('accepts explicit columnTextAligns', () {
-      final node = TableNode(
-        id: 'tbl-1',
-        rowCount: 1,
-        columnCount: 2,
-        cells: [
-          [AttributedText('a'), AttributedText('b')]
-        ],
-        columnTextAligns: [TextAlign.left, TextAlign.right],
-      );
-      expect(node.columnTextAligns, isNotNull);
-      expect(node.columnTextAligns![0], TextAlign.left);
-      expect(node.columnTextAligns![1], TextAlign.right);
-    });
-
-    test('columnTextAligns is unmodifiable', () {
-      final node = TableNode(
-        id: 'tbl-1',
-        rowCount: 1,
-        columnCount: 2,
-        cells: [
-          [AttributedText('a'), AttributedText('b')]
-        ],
-        columnTextAligns: [TextAlign.center, TextAlign.start],
-      );
-      expect(() => (node.columnTextAligns as List<TextAlign>).add(TextAlign.end),
-          throwsUnsupportedError);
-    });
-
-    test('copyWith replaces columnTextAligns', () {
-      final node = TableNode(
-        id: 'tbl-1',
-        rowCount: 1,
-        columnCount: 2,
-        cells: [
-          [AttributedText('a'), AttributedText('b')]
-        ],
-        columnTextAligns: [TextAlign.left, TextAlign.right],
-      );
-      final copy = node.copyWith(columnTextAligns: [TextAlign.center, TextAlign.center]);
-      expect(copy.columnTextAligns, [TextAlign.center, TextAlign.center]);
-    });
-
-    test('copyWith preserves columnTextAligns when not specified', () {
-      final node = TableNode(
-        id: 'tbl-1',
-        rowCount: 1,
-        columnCount: 2,
-        cells: [
-          [AttributedText('a'), AttributedText('b')]
-        ],
-        columnTextAligns: [TextAlign.left, TextAlign.right],
-      );
-      final copy = node.copyWith(id: 'tbl-2');
-      expect(copy.columnTextAligns, [TextAlign.left, TextAlign.right]);
-    });
-
-    test('copyWith clears columnTextAligns when passed explicit null', () {
-      final node = TableNode(
-        id: 'tbl-1',
-        rowCount: 1,
-        columnCount: 2,
-        cells: [
-          [AttributedText('a'), AttributedText('b')]
-        ],
-        columnTextAligns: [TextAlign.left, TextAlign.right],
-      );
-      final copy = node.copyWith(columnTextAligns: null);
-      expect(copy.columnTextAligns, isNull);
-    });
-
-    test('nodes with same columnTextAligns are equal', () {
-      final a = TableNode(
-        id: 'tbl-1',
-        rowCount: 1,
-        columnCount: 2,
-        cells: [
-          [AttributedText('a'), AttributedText('b')]
-        ],
-        columnTextAligns: [TextAlign.left, TextAlign.right],
-      );
-      final b = TableNode(
-        id: 'tbl-1',
-        rowCount: 1,
-        columnCount: 2,
-        cells: [
-          [AttributedText('a'), AttributedText('b')]
-        ],
-        columnTextAligns: [TextAlign.left, TextAlign.right],
-      );
-      expect(a, equals(b));
-    });
-
-    test('nodes with different columnTextAligns are not equal', () {
-      final a = TableNode(
-        id: 'tbl-1',
-        rowCount: 1,
-        columnCount: 2,
-        cells: [
-          [AttributedText('a'), AttributedText('b')]
-        ],
-        columnTextAligns: [TextAlign.left, TextAlign.right],
-      );
-      final b = TableNode(
-        id: 'tbl-1',
-        rowCount: 1,
-        columnCount: 2,
-        cells: [
-          [AttributedText('a'), AttributedText('b')]
-        ],
-        columnTextAligns: [TextAlign.center, TextAlign.center],
-      );
-      expect(a, isNot(equals(b)));
-    });
-
-    test('debugFillProperties includes columnTextAligns', () {
-      final node = TableNode(
-        id: 'tbl-1',
-        rowCount: 1,
-        columnCount: 2,
-        cells: [
-          [AttributedText('a'), AttributedText('b')]
-        ],
-        columnTextAligns: [TextAlign.left, TextAlign.right],
-      );
-      final builder = DiagnosticPropertiesBuilder();
-      node.debugFillProperties(builder);
-      final names = builder.properties.map((p) => p.name).toList();
-      expect(names, contains('columnTextAligns'));
-    });
-
-    test('toString includes columnTextAligns when set', () {
-      final node = TableNode(
-        id: 'tbl-1',
-        rowCount: 1,
-        columnCount: 2,
-        cells: [
-          [AttributedText('a'), AttributedText('b')]
-        ],
-        columnTextAligns: [TextAlign.left, TextAlign.right],
-      );
-      expect(node.toString(), contains('columnTextAligns'));
-    });
-  });
-
-  // ---------------------------------------------------------------------------
-  // TableNode — rowVerticalAligns field
-  // ---------------------------------------------------------------------------
-  group('TableNode rowVerticalAligns', () {
-    test('rowVerticalAligns defaults to null', () {
+    test('accepts explicit cellTextAligns 2D grid', () {
       final node = TableNode(
         id: 'tbl-1',
         rowCount: 2,
-        columnCount: 1,
+        columnCount: 2,
         cells: [
-          [AttributedText('a')],
-          [AttributedText('b')],
+          [AttributedText('a'), AttributedText('b')],
+          [AttributedText('c'), AttributedText('d')],
+        ],
+        cellTextAligns: [
+          [TextAlign.left, TextAlign.right],
+          [TextAlign.center, TextAlign.start],
         ],
       );
-      expect(node.rowVerticalAligns, isNull);
+      expect(node.cellTextAligns, isNotNull);
+      expect(node.cellTextAligns![0][0], TextAlign.left);
+      expect(node.cellTextAligns![0][1], TextAlign.right);
+      expect(node.cellTextAligns![1][0], TextAlign.center);
+      expect(node.cellTextAligns![1][1], TextAlign.start);
     });
 
-    test('accepts explicit rowVerticalAligns', () {
-      final node = TableNode(
-        id: 'tbl-1',
-        rowCount: 2,
-        columnCount: 1,
-        cells: [
-          [AttributedText('a')],
-          [AttributedText('b')],
-        ],
-        rowVerticalAligns: [TableVerticalAlignment.top, TableVerticalAlignment.bottom],
-      );
-      expect(node.rowVerticalAligns, isNotNull);
-      expect(node.rowVerticalAligns![0], TableVerticalAlignment.top);
-      expect(node.rowVerticalAligns![1], TableVerticalAlignment.bottom);
-    });
-
-    test('rowVerticalAligns is unmodifiable', () {
+    test('cellTextAligns outer list is unmodifiable', () {
       final node = TableNode(
         id: 'tbl-1',
         rowCount: 1,
-        columnCount: 1,
+        columnCount: 2,
         cells: [
-          [AttributedText('a')]
+          [AttributedText('a'), AttributedText('b')]
         ],
-        rowVerticalAligns: [TableVerticalAlignment.middle],
+        cellTextAligns: [
+          [TextAlign.center, TextAlign.start],
+        ],
       );
       expect(
-        () => (node.rowVerticalAligns as List<TableVerticalAlignment>)
-            .add(TableVerticalAlignment.top),
+        () => (node.cellTextAligns as List<List<TextAlign>>).add([TextAlign.end]),
         throwsUnsupportedError,
       );
     });
 
-    test('copyWith replaces rowVerticalAligns', () {
+    test('cellTextAligns inner lists are unmodifiable', () {
       final node = TableNode(
         id: 'tbl-1',
-        rowCount: 2,
-        columnCount: 1,
+        rowCount: 1,
+        columnCount: 2,
         cells: [
-          [AttributedText('a')],
-          [AttributedText('b')],
+          [AttributedText('a'), AttributedText('b')]
         ],
-        rowVerticalAligns: [TableVerticalAlignment.top, TableVerticalAlignment.top],
-      );
-      final copy = node.copyWith(
-        rowVerticalAligns: [TableVerticalAlignment.middle, TableVerticalAlignment.bottom],
+        cellTextAligns: [
+          [TextAlign.center, TextAlign.start],
+        ],
       );
       expect(
-          copy.rowVerticalAligns, [TableVerticalAlignment.middle, TableVerticalAlignment.bottom]);
+        () => (node.cellTextAligns![0]).add(TextAlign.end),
+        throwsUnsupportedError,
+      );
     });
 
-    test('copyWith preserves rowVerticalAligns when not specified', () {
+    test('copyWith replaces cellTextAligns', () {
       final node = TableNode(
         id: 'tbl-1',
         rowCount: 1,
-        columnCount: 1,
+        columnCount: 2,
         cells: [
-          [AttributedText('a')]
+          [AttributedText('a'), AttributedText('b')]
         ],
-        rowVerticalAligns: [TableVerticalAlignment.middle],
+        cellTextAligns: [
+          [TextAlign.left, TextAlign.right],
+        ],
+      );
+      final copy = node.copyWith(
+        cellTextAligns: [
+          [TextAlign.center, TextAlign.center],
+        ],
+      );
+      expect(copy.cellTextAligns![0][0], TextAlign.center);
+      expect(copy.cellTextAligns![0][1], TextAlign.center);
+    });
+
+    test('copyWith preserves cellTextAligns when not specified', () {
+      final node = TableNode(
+        id: 'tbl-1',
+        rowCount: 1,
+        columnCount: 2,
+        cells: [
+          [AttributedText('a'), AttributedText('b')]
+        ],
+        cellTextAligns: [
+          [TextAlign.left, TextAlign.right],
+        ],
       );
       final copy = node.copyWith(id: 'tbl-2');
-      expect(copy.rowVerticalAligns, [TableVerticalAlignment.middle]);
+      expect(copy.cellTextAligns![0][0], TextAlign.left);
+      expect(copy.cellTextAligns![0][1], TextAlign.right);
     });
 
-    test('copyWith clears rowVerticalAligns when passed explicit null', () {
+    test('copyWith clears cellTextAligns when passed explicit null', () {
       final node = TableNode(
         id: 'tbl-1',
         rowCount: 1,
-        columnCount: 1,
+        columnCount: 2,
         cells: [
-          [AttributedText('a')]
+          [AttributedText('a'), AttributedText('b')]
         ],
-        rowVerticalAligns: [TableVerticalAlignment.bottom],
+        cellTextAligns: [
+          [TextAlign.left, TextAlign.right],
+        ],
       );
-      final copy = node.copyWith(rowVerticalAligns: null);
-      expect(copy.rowVerticalAligns, isNull);
+      final copy = node.copyWith(cellTextAligns: null);
+      expect(copy.cellTextAligns, isNull);
     });
 
-    test('nodes with same rowVerticalAligns are equal', () {
+    test('nodes with same cellTextAligns are equal', () {
       final a = TableNode(
         id: 'tbl-1',
-        rowCount: 2,
-        columnCount: 1,
+        rowCount: 1,
+        columnCount: 2,
         cells: [
-          [AttributedText('a')],
-          [AttributedText('b')],
+          [AttributedText('a'), AttributedText('b')]
         ],
-        rowVerticalAligns: [TableVerticalAlignment.top, TableVerticalAlignment.middle],
+        cellTextAligns: [
+          [TextAlign.left, TextAlign.right],
+        ],
       );
       final b = TableNode(
         id: 'tbl-1',
-        rowCount: 2,
-        columnCount: 1,
+        rowCount: 1,
+        columnCount: 2,
         cells: [
-          [AttributedText('a')],
-          [AttributedText('b')],
+          [AttributedText('a'), AttributedText('b')]
         ],
-        rowVerticalAligns: [TableVerticalAlignment.top, TableVerticalAlignment.middle],
+        cellTextAligns: [
+          [TextAlign.left, TextAlign.right],
+        ],
       );
       expect(a, equals(b));
     });
 
-    test('nodes with different rowVerticalAligns are not equal', () {
+    test('nodes with different cellTextAligns are not equal', () {
+      final a = TableNode(
+        id: 'tbl-1',
+        rowCount: 1,
+        columnCount: 2,
+        cells: [
+          [AttributedText('a'), AttributedText('b')]
+        ],
+        cellTextAligns: [
+          [TextAlign.left, TextAlign.right],
+        ],
+      );
+      final b = TableNode(
+        id: 'tbl-1',
+        rowCount: 1,
+        columnCount: 2,
+        cells: [
+          [AttributedText('a'), AttributedText('b')]
+        ],
+        cellTextAligns: [
+          [TextAlign.center, TextAlign.center],
+        ],
+      );
+      expect(a, isNot(equals(b)));
+    });
+
+    test('debugFillProperties includes cellTextAligns', () {
+      final node = TableNode(
+        id: 'tbl-1',
+        rowCount: 1,
+        columnCount: 2,
+        cells: [
+          [AttributedText('a'), AttributedText('b')]
+        ],
+        cellTextAligns: [
+          [TextAlign.left, TextAlign.right],
+        ],
+      );
+      final builder = DiagnosticPropertiesBuilder();
+      node.debugFillProperties(builder);
+      final names = builder.properties.map((p) => p.name).toList();
+      expect(names, contains('cellTextAligns'));
+    });
+
+    test('toString includes cellTextAligns when set', () {
+      final node = TableNode(
+        id: 'tbl-1',
+        rowCount: 1,
+        columnCount: 2,
+        cells: [
+          [AttributedText('a'), AttributedText('b')]
+        ],
+        cellTextAligns: [
+          [TextAlign.left, TextAlign.right],
+        ],
+      );
+      expect(node.toString(), contains('cellTextAligns'));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // TableNode — cellVerticalAligns field
+  // ---------------------------------------------------------------------------
+  group('TableNode cellVerticalAligns', () {
+    test('cellVerticalAligns defaults to null', () {
+      final node = TableNode(
+        id: 'tbl-1',
+        rowCount: 2,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')],
+          [AttributedText('b')],
+        ],
+      );
+      expect(node.cellVerticalAligns, isNull);
+    });
+
+    test('accepts explicit cellVerticalAligns 2D grid', () {
+      final node = TableNode(
+        id: 'tbl-1',
+        rowCount: 2,
+        columnCount: 2,
+        cells: [
+          [AttributedText('a'), AttributedText('b')],
+          [AttributedText('c'), AttributedText('d')],
+        ],
+        cellVerticalAligns: [
+          [TableVerticalAlignment.top, TableVerticalAlignment.middle],
+          [TableVerticalAlignment.bottom, TableVerticalAlignment.top],
+        ],
+      );
+      expect(node.cellVerticalAligns, isNotNull);
+      expect(node.cellVerticalAligns![0][0], TableVerticalAlignment.top);
+      expect(node.cellVerticalAligns![0][1], TableVerticalAlignment.middle);
+      expect(node.cellVerticalAligns![1][0], TableVerticalAlignment.bottom);
+      expect(node.cellVerticalAligns![1][1], TableVerticalAlignment.top);
+    });
+
+    test('cellVerticalAligns outer list is unmodifiable', () {
+      final node = TableNode(
+        id: 'tbl-1',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        cellVerticalAligns: [
+          [TableVerticalAlignment.middle],
+        ],
+      );
+      expect(
+        () => (node.cellVerticalAligns as List<List<TableVerticalAlignment>>)
+            .add([TableVerticalAlignment.top]),
+        throwsUnsupportedError,
+      );
+    });
+
+    test('cellVerticalAligns inner lists are unmodifiable', () {
+      final node = TableNode(
+        id: 'tbl-1',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        cellVerticalAligns: [
+          [TableVerticalAlignment.middle],
+        ],
+      );
+      expect(
+        () => (node.cellVerticalAligns![0]).add(TableVerticalAlignment.top),
+        throwsUnsupportedError,
+      );
+    });
+
+    test('copyWith replaces cellVerticalAligns', () {
+      final node = TableNode(
+        id: 'tbl-1',
+        rowCount: 2,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')],
+          [AttributedText('b')],
+        ],
+        cellVerticalAligns: [
+          [TableVerticalAlignment.top],
+          [TableVerticalAlignment.top],
+        ],
+      );
+      final copy = node.copyWith(
+        cellVerticalAligns: [
+          [TableVerticalAlignment.middle],
+          [TableVerticalAlignment.bottom],
+        ],
+      );
+      expect(copy.cellVerticalAligns![0][0], TableVerticalAlignment.middle);
+      expect(copy.cellVerticalAligns![1][0], TableVerticalAlignment.bottom);
+    });
+
+    test('copyWith preserves cellVerticalAligns when not specified', () {
+      final node = TableNode(
+        id: 'tbl-1',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        cellVerticalAligns: [
+          [TableVerticalAlignment.middle],
+        ],
+      );
+      final copy = node.copyWith(id: 'tbl-2');
+      expect(copy.cellVerticalAligns![0][0], TableVerticalAlignment.middle);
+    });
+
+    test('copyWith clears cellVerticalAligns when passed explicit null', () {
+      final node = TableNode(
+        id: 'tbl-1',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        cellVerticalAligns: [
+          [TableVerticalAlignment.bottom],
+        ],
+      );
+      final copy = node.copyWith(cellVerticalAligns: null);
+      expect(copy.cellVerticalAligns, isNull);
+    });
+
+    test('nodes with same cellVerticalAligns are equal', () {
+      final a = TableNode(
+        id: 'tbl-1',
+        rowCount: 2,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')],
+          [AttributedText('b')],
+        ],
+        cellVerticalAligns: [
+          [TableVerticalAlignment.top],
+          [TableVerticalAlignment.middle],
+        ],
+      );
+      final b = TableNode(
+        id: 'tbl-1',
+        rowCount: 2,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')],
+          [AttributedText('b')],
+        ],
+        cellVerticalAligns: [
+          [TableVerticalAlignment.top],
+          [TableVerticalAlignment.middle],
+        ],
+      );
+      expect(a, equals(b));
+    });
+
+    test('nodes with different cellVerticalAligns are not equal', () {
       final a = TableNode(
         id: 'tbl-1',
         rowCount: 1,
@@ -1536,7 +1629,9 @@ void main() {
         cells: [
           [AttributedText('a')]
         ],
-        rowVerticalAligns: [TableVerticalAlignment.top],
+        cellVerticalAligns: [
+          [TableVerticalAlignment.top],
+        ],
       );
       final b = TableNode(
         id: 'tbl-1',
@@ -1545,12 +1640,14 @@ void main() {
         cells: [
           [AttributedText('a')]
         ],
-        rowVerticalAligns: [TableVerticalAlignment.bottom],
+        cellVerticalAligns: [
+          [TableVerticalAlignment.bottom],
+        ],
       );
       expect(a, isNot(equals(b)));
     });
 
-    test('debugFillProperties includes rowVerticalAligns', () {
+    test('debugFillProperties includes cellVerticalAligns', () {
       final node = TableNode(
         id: 'tbl-1',
         rowCount: 1,
@@ -1558,15 +1655,17 @@ void main() {
         cells: [
           [AttributedText('a')]
         ],
-        rowVerticalAligns: [TableVerticalAlignment.middle],
+        cellVerticalAligns: [
+          [TableVerticalAlignment.middle],
+        ],
       );
       final builder = DiagnosticPropertiesBuilder();
       node.debugFillProperties(builder);
       final names = builder.properties.map((p) => p.name).toList();
-      expect(names, contains('rowVerticalAligns'));
+      expect(names, contains('cellVerticalAligns'));
     });
 
-    test('toString includes rowVerticalAligns when set', () {
+    test('toString includes cellVerticalAligns when set', () {
       final node = TableNode(
         id: 'tbl-1',
         rowCount: 1,
@@ -1574,9 +1673,11 @@ void main() {
         cells: [
           [AttributedText('a')]
         ],
-        rowVerticalAligns: [TableVerticalAlignment.bottom],
+        cellVerticalAligns: [
+          [TableVerticalAlignment.bottom],
+        ],
       );
-      expect(node.toString(), contains('rowVerticalAligns'));
+      expect(node.toString(), contains('cellVerticalAligns'));
     });
   });
 }

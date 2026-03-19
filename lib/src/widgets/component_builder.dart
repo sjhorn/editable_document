@@ -1413,8 +1413,8 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
     required this.columnCount,
     required this.cells,
     this.columnWidths,
-    this.columnTextAligns,
-    this.rowVerticalAligns,
+    this.cellTextAligns,
+    this.cellVerticalAligns,
     this.textStyle,
     this.cellPadding = 8.0,
     this.borderWidth = 1.0,
@@ -1448,15 +1448,17 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
   /// `null`, all columns are auto-sized.
   final List<double?>? columnWidths;
 
-  /// Per-column horizontal text alignment, or `null` to use the default.
+  /// Per-cell horizontal text alignment, or `null` to use the default.
   ///
-  /// When non-null, the list has exactly [columnCount] entries.
-  final List<TextAlign>? columnTextAligns;
+  /// When non-null, this is a rowCount × columnCount 2D grid of [TextAlign]
+  /// values. Each inner list corresponds to one row.
+  final List<List<TextAlign>>? cellTextAligns;
 
-  /// Per-row vertical alignment, or `null` to use [TableVerticalAlignment.top].
+  /// Per-cell vertical alignment, or `null` to use [TableVerticalAlignment.top].
   ///
-  /// When non-null, the list has exactly [rowCount] entries.
-  final List<TableVerticalAlignment>? rowVerticalAligns;
+  /// When non-null, this is a rowCount × columnCount 2D grid of
+  /// [TableVerticalAlignment] values. Each inner list corresponds to one row.
+  final List<List<TableVerticalAlignment>>? cellVerticalAligns;
 
   /// The base [TextStyle] applied to all cell text before attributions.
   ///
@@ -1531,10 +1533,22 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
         other.isSelected != isSelected) {
       return false;
     }
-    // Compare columnWidths, columnTextAligns, rowVerticalAligns.
+    // Compare columnWidths, cellTextAligns, cellVerticalAligns.
     if (!_listEquals(other.columnWidths, columnWidths)) return false;
-    if (!_listEquals(other.columnTextAligns, columnTextAligns)) return false;
-    if (!_listEquals(other.rowVerticalAligns, rowVerticalAligns)) return false;
+    // Compare cellTextAligns row by row.
+    if ((other.cellTextAligns == null) != (cellTextAligns == null)) return false;
+    if (cellTextAligns != null) {
+      for (int r = 0; r < rowCount; r++) {
+        if (!_listEquals(other.cellTextAligns![r], cellTextAligns![r])) return false;
+      }
+    }
+    // Compare cellVerticalAligns row by row.
+    if ((other.cellVerticalAligns == null) != (cellVerticalAligns == null)) return false;
+    if (cellVerticalAligns != null) {
+      for (int r = 0; r < rowCount; r++) {
+        if (!_listEquals(other.cellVerticalAligns![r], cellVerticalAligns![r])) return false;
+      }
+    }
     // Compare cells row by row.
     if (other.cells.length != cells.length) return false;
     for (int r = 0; r < rowCount; r++) {
@@ -1560,8 +1574,12 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
       columnCount,
       Object.hashAll(cellHashes),
       Object.hashAll(columnWidths ?? const <double?>[]),
-      Object.hashAll(columnTextAligns ?? const <TextAlign>[]),
-      Object.hashAll(rowVerticalAligns ?? const <TableVerticalAlignment>[]),
+      Object.hashAll(cellTextAligns == null
+          ? const <TextAlign>[]
+          : [for (final row in cellTextAligns!) ...row]),
+      Object.hashAll(cellVerticalAligns == null
+          ? const <TableVerticalAlignment>[]
+          : [for (final row in cellVerticalAligns!) ...row]),
       textStyle,
       cellPadding,
       borderWidth,
@@ -1600,8 +1618,8 @@ class TableComponentBuilder extends ComponentBuilder {
       columnCount: node.columnCount,
       cells: cells,
       columnWidths: node.columnWidths,
-      columnTextAligns: node.columnTextAligns,
-      rowVerticalAligns: node.rowVerticalAligns,
+      cellTextAligns: node.cellTextAligns,
+      cellVerticalAligns: node.cellVerticalAligns,
       alignment: node.alignment,
       textWrap: node.textWrap,
       requestedWidth: node.width,
@@ -1634,8 +1652,8 @@ class _TableBlockWidget extends LeafRenderObjectWidget {
       cells: viewModel.cells,
       textStyle: textStyle,
       columnWidths: viewModel.columnWidths,
-      columnTextAligns: viewModel.columnTextAligns,
-      rowVerticalAligns: viewModel.rowVerticalAligns,
+      cellTextAligns: viewModel.cellTextAligns,
+      cellVerticalAligns: viewModel.cellVerticalAligns,
       cellPadding: viewModel.cellPadding,
       borderWidth: viewModel.borderWidth,
       borderColor: viewModel.borderColor,
@@ -1658,8 +1676,8 @@ class _TableBlockWidget extends LeafRenderObjectWidget {
       ..cells = viewModel.cells
       ..textStyle = textStyle
       ..columnWidths = viewModel.columnWidths
-      ..columnTextAligns = viewModel.columnTextAligns
-      ..rowVerticalAligns = viewModel.rowVerticalAligns
+      ..cellTextAligns = viewModel.cellTextAligns
+      ..cellVerticalAligns = viewModel.cellVerticalAligns
       ..cellPadding = viewModel.cellPadding
       ..borderWidth = viewModel.borderWidth
       ..borderColor = viewModel.borderColor

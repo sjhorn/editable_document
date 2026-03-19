@@ -107,10 +107,12 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
   /// [textDirection] controls the reading direction of all cells.
   /// [blockAlignment] and [textWrap] follow the same semantics as other block
   ///   types via [BlockLayoutMixin].
-  /// [columnTextAligns] optionally specifies per-column [TextAlign]; `null`
-  ///   entries (or a `null` list) default to [TextAlign.start].
-  /// [rowVerticalAligns] optionally specifies per-row [TableVerticalAlignment];
-  ///   `null` entries (or a `null` list) default to [TableVerticalAlignment.top].
+  /// [cellTextAligns] optionally specifies per-cell [TextAlign] as a 2-D grid
+  ///   (rowCount × columnCount); out-of-bounds entries default to
+  ///   [TextAlign.start].
+  /// [cellVerticalAligns] optionally specifies per-cell
+  ///   [TableVerticalAlignment] as a 2-D grid (rowCount × columnCount);
+  ///   out-of-bounds entries default to [TableVerticalAlignment.top].
   RenderTableBlock({
     required String nodeId,
     required int rowCount,
@@ -127,8 +129,8 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
     double? requestedWidth,
     double? requestedHeight,
     TextWrapMode textWrap = TextWrapMode.none,
-    List<TextAlign>? columnTextAligns,
-    List<TableVerticalAlignment>? rowVerticalAligns,
+    List<List<TextAlign>>? cellTextAligns,
+    List<List<TableVerticalAlignment>>? cellVerticalAligns,
   })  : _nodeId = nodeId,
         _rowCount = rowCount,
         _columnCount = columnCount,
@@ -140,8 +142,8 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
         _borderColor = borderColor,
         _selectionColor = selectionColor,
         _textDirection = textDirection,
-        _columnTextAligns = columnTextAligns,
-        _rowVerticalAligns = rowVerticalAligns {
+        _cellTextAligns = cellTextAligns,
+        _cellVerticalAligns = cellVerticalAligns {
     initBlockLayout(
       blockAlignment: blockAlignment,
       requestedWidth: requestedWidth,
@@ -165,8 +167,8 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
   Color _borderColor;
   Color _selectionColor;
   TextDirection _textDirection;
-  List<TextAlign>? _columnTextAligns;
-  List<TableVerticalAlignment>? _rowVerticalAligns;
+  List<List<TextAlign>>? _cellTextAligns;
+  List<List<TableVerticalAlignment>>? _cellVerticalAligns;
   DocumentSelection? _nodeSelection;
   double? _spaceBefore;
   double? _spaceAfter;
@@ -351,27 +353,28 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
     markNeedsLayout();
   }
 
-  /// Per-column [TextAlign] overrides, or `null` when all columns use the
-  /// default [TextAlign.start].
+  /// Per-cell [TextAlign] overrides as a 2-D grid (rowCount × columnCount),
+  /// or `null` when all cells use the default [TextAlign.start].
   // ignore: diagnostic_describe_all_properties
-  List<TextAlign>? get columnTextAligns => _columnTextAligns;
+  List<List<TextAlign>>? get cellTextAligns => _cellTextAligns;
 
-  /// Sets the per-column text alignments and schedules a layout pass.
-  set columnTextAligns(List<TextAlign>? value) {
-    if (_columnTextAligns == value) return;
-    _columnTextAligns = value;
+  /// Sets the per-cell text alignments and schedules a layout pass.
+  set cellTextAligns(List<List<TextAlign>>? value) {
+    if (_cellTextAligns == value) return;
+    _cellTextAligns = value;
     markNeedsLayout();
   }
 
-  /// Per-row [TableVerticalAlignment] overrides, or `null` when all rows use
-  /// the default [TableVerticalAlignment.top].
+  /// Per-cell [TableVerticalAlignment] overrides as a 2-D grid
+  /// (rowCount × columnCount), or `null` when all cells use the default
+  /// [TableVerticalAlignment.top].
   // ignore: diagnostic_describe_all_properties
-  List<TableVerticalAlignment>? get rowVerticalAligns => _rowVerticalAligns;
+  List<List<TableVerticalAlignment>>? get cellVerticalAligns => _cellVerticalAligns;
 
-  /// Sets the per-row vertical alignments and schedules a layout pass.
-  set rowVerticalAligns(List<TableVerticalAlignment>? value) {
-    if (_rowVerticalAligns == value) return;
-    _rowVerticalAligns = value;
+  /// Sets the per-cell vertical alignments and schedules a layout pass.
+  set cellVerticalAligns(List<List<TableVerticalAlignment>>? value) {
+    if (_cellVerticalAligns == value) return;
+    _cellVerticalAligns = value;
     markNeedsLayout();
   }
 
@@ -542,8 +545,10 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
       for (int c = 0; c < _columnCount; c++) {
         final painter = TextPainter(
           textDirection: _textDirection,
-          textAlign: _columnTextAligns != null && c < _columnTextAligns!.length
-              ? _columnTextAligns![c]
+          textAlign: _cellTextAligns != null &&
+                  r < _cellTextAligns!.length &&
+                  c < _cellTextAligns![r].length
+              ? _cellTextAligns![r][c]
               : TextAlign.start,
         );
         // Clear first to force TextPainter to accept the new span even if
@@ -581,11 +586,13 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
     }
 
     for (int r = 0; r < _rowCount; r++) {
-      final vertAlign = _rowVerticalAligns != null && r < _rowVerticalAligns!.length
-          ? _rowVerticalAligns![r]
-          : TableVerticalAlignment.top;
-
       for (int c = 0; c < _columnCount; c++) {
+        final vertAlign = _cellVerticalAligns != null &&
+                r < _cellVerticalAligns!.length &&
+                c < _cellVerticalAligns![r].length
+            ? _cellVerticalAligns![r][c]
+            : TableVerticalAlignment.top;
+
         final cellRect = Rect.fromLTWH(
           colLefts[c],
           rowTops[r],
@@ -883,10 +890,12 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
       IterableProperty<double?>('columnWidths', _columnWidths, defaultValue: null),
     );
     properties.add(
-      IterableProperty<TextAlign>('columnTextAligns', _columnTextAligns, defaultValue: null),
+      DiagnosticsProperty<List<List<TextAlign>>>('cellTextAligns', _cellTextAligns,
+          defaultValue: null),
     );
     properties.add(
-      IterableProperty<TableVerticalAlignment>('rowVerticalAligns', _rowVerticalAligns,
+      DiagnosticsProperty<List<List<TableVerticalAlignment>>>(
+          'cellVerticalAligns', _cellVerticalAligns,
           defaultValue: null),
     );
     debugFillBlockLayoutProperties(properties);

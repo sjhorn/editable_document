@@ -1935,9 +1935,10 @@ class InsertNodeAtPositionCommand extends EditCommand {
 /// When [insertBefore] is `true`, the new row is inserted at [rowIndex].
 /// When `false`, it is inserted at `rowIndex + 1`.
 ///
-/// If [TableNode.rowVerticalAligns] is non-null, a default
-/// [TableVerticalAlignment.top] entry is inserted at the corresponding
-/// position.
+/// If [TableNode.cellVerticalAligns] is non-null, a new row of
+/// [TableVerticalAlignment.top] defaults is inserted at the corresponding
+/// position. If [TableNode.cellTextAligns] is non-null, a new row of
+/// [TextAlign.start] defaults is inserted.
 ///
 /// If the cursor is a [TableCellPosition] in this table and its row is at or
 /// after the insertion point, the cursor row is incremented by one.
@@ -1985,18 +1986,30 @@ class InsertTableRowCommand extends EditCommand {
       newCells.add(List<AttributedText>.generate(node.columnCount, (_) => AttributedText()));
     }
 
-    // Extend rowVerticalAligns if present.
-    List<TableVerticalAlignment>? newRowVerticalAligns;
-    if (node.rowVerticalAligns != null) {
-      final aligns = List<TableVerticalAlignment>.of(node.rowVerticalAligns!);
-      aligns.insert(insertAt.clamp(0, aligns.length), TableVerticalAlignment.top);
-      newRowVerticalAligns = aligns;
+    // Extend cellVerticalAligns if present.
+    List<List<TableVerticalAlignment>>? newCellVerticalAligns;
+    if (node.cellVerticalAligns != null) {
+      final grid = List<List<TableVerticalAlignment>>.of(node.cellVerticalAligns!);
+      final newRow =
+          List<TableVerticalAlignment>.filled(node.columnCount, TableVerticalAlignment.top);
+      grid.insert(insertAt.clamp(0, grid.length), newRow);
+      newCellVerticalAligns = grid;
+    }
+
+    // Extend cellTextAligns if present.
+    List<List<TextAlign>>? newCellTextAligns;
+    if (node.cellTextAligns != null) {
+      final grid = List<List<TextAlign>>.of(node.cellTextAligns!);
+      final newRow = List<TextAlign>.filled(node.columnCount, TextAlign.start);
+      grid.insert(insertAt.clamp(0, grid.length), newRow);
+      newCellTextAligns = grid;
     }
 
     final newTable = node.copyWith(
       rowCount: node.rowCount + 1,
       cells: newCells,
-      rowVerticalAligns: newRowVerticalAligns,
+      cellVerticalAligns: newCellVerticalAligns,
+      cellTextAligns: newCellTextAligns,
     );
     doc.replaceNode(nodeId, newTable);
 
@@ -2037,8 +2050,11 @@ class InsertTableRowCommand extends EditCommand {
 /// If [TableNode.columnWidths] is non-null, a `null` entry (auto-sized) is
 /// inserted at the corresponding position.
 ///
-/// If [TableNode.columnTextAligns] is non-null, a [TextAlign.start] entry is
-/// inserted at the corresponding position.
+/// If [TableNode.cellTextAligns] is non-null, a [TextAlign.start] entry is
+/// inserted in each row at the corresponding column position.
+///
+/// If [TableNode.cellVerticalAligns] is non-null, a [TableVerticalAlignment.top]
+/// entry is inserted in each row at the corresponding column position.
 ///
 /// If the cursor is a [TableCellPosition] in this table and its column is at
 /// or after the insertion point, the cursor column is incremented by one.
@@ -2101,19 +2117,32 @@ class InsertTableColumnCommand extends EditCommand {
       newColumnWidths = widths;
     }
 
-    // Extend columnTextAligns if present.
-    List<TextAlign>? newColumnTextAligns;
-    if (node.columnTextAligns != null) {
-      final aligns = List<TextAlign>.of(node.columnTextAligns!);
-      aligns.insert(insertAt.clamp(0, aligns.length), TextAlign.start);
-      newColumnTextAligns = aligns;
+    // Extend cellTextAligns if present (insert a new column in each row).
+    List<List<TextAlign>>? newCellTextAligns;
+    if (node.cellTextAligns != null) {
+      newCellTextAligns = List<List<TextAlign>>.generate(node.rowCount, (r) {
+        final row = List<TextAlign>.of(node.cellTextAligns![r]);
+        row.insert(insertAt.clamp(0, row.length), TextAlign.start);
+        return row;
+      });
+    }
+
+    // Extend cellVerticalAligns if present (insert a new column in each row).
+    List<List<TableVerticalAlignment>>? newCellVerticalAligns;
+    if (node.cellVerticalAligns != null) {
+      newCellVerticalAligns = List<List<TableVerticalAlignment>>.generate(node.rowCount, (r) {
+        final row = List<TableVerticalAlignment>.of(node.cellVerticalAligns![r]);
+        row.insert(insertAt.clamp(0, row.length), TableVerticalAlignment.top);
+        return row;
+      });
     }
 
     final newTable = node.copyWith(
       columnCount: node.columnCount + 1,
       cells: newCells,
       columnWidths: newColumnWidths,
-      columnTextAligns: newColumnTextAligns,
+      cellTextAligns: newCellTextAligns,
+      cellVerticalAligns: newCellVerticalAligns,
     );
     doc.replaceNode(nodeId, newTable);
 
@@ -2151,8 +2180,9 @@ class InsertTableColumnCommand extends EditCommand {
 /// When the table has only one row, the entire [TableNode] is deleted from
 /// the document (same behaviour as [DeleteTableCommand]).
 ///
-/// If [TableNode.rowVerticalAligns] is non-null, the corresponding entry is
-/// removed.
+/// If [TableNode.cellVerticalAligns] is non-null, the corresponding row is
+/// removed from the 2D grid. If [TableNode.cellTextAligns] is non-null, the
+/// corresponding row is also removed.
 ///
 /// If the cursor is at the deleted row, it is moved to the previous row, or
 /// row 0 when deleting row 0.
@@ -2218,18 +2248,27 @@ class DeleteTableRowCommand extends EditCommand {
       newCells.add(List<AttributedText>.generate(node.columnCount, (c) => node.cellAt(r, c)));
     }
 
-    // Trim rowVerticalAligns if present.
-    List<TableVerticalAlignment>? newRowVerticalAligns;
-    if (node.rowVerticalAligns != null) {
-      final aligns = List<TableVerticalAlignment>.of(node.rowVerticalAligns!);
-      aligns.removeAt(rowIndex.clamp(0, aligns.length - 1));
-      newRowVerticalAligns = aligns;
+    // Trim cellVerticalAligns if present.
+    List<List<TableVerticalAlignment>>? newCellVerticalAligns;
+    if (node.cellVerticalAligns != null) {
+      final grid = List<List<TableVerticalAlignment>>.of(node.cellVerticalAligns!);
+      grid.removeAt(rowIndex.clamp(0, grid.length - 1));
+      newCellVerticalAligns = grid;
+    }
+
+    // Trim cellTextAligns if present.
+    List<List<TextAlign>>? newCellTextAligns;
+    if (node.cellTextAligns != null) {
+      final grid = List<List<TextAlign>>.of(node.cellTextAligns!);
+      grid.removeAt(rowIndex.clamp(0, grid.length - 1));
+      newCellTextAligns = grid;
     }
 
     final newTable = node.copyWith(
       rowCount: node.rowCount - 1,
       cells: newCells,
-      rowVerticalAligns: newRowVerticalAligns,
+      cellVerticalAligns: newCellVerticalAligns,
+      cellTextAligns: newCellTextAligns,
     );
     doc.replaceNode(nodeId, newTable);
 
@@ -2269,8 +2308,9 @@ class DeleteTableRowCommand extends EditCommand {
 /// When the table has only one column, the entire [TableNode] is deleted from
 /// the document.
 ///
-/// If [TableNode.columnWidths] or [TableNode.columnTextAligns] is non-null,
-/// the corresponding entry is removed.
+/// If [TableNode.columnWidths] is non-null, the corresponding entry is removed.
+/// If [TableNode.cellTextAligns] or [TableNode.cellVerticalAligns] is non-null,
+/// the column entry is removed from each row of the 2D grid.
 ///
 /// If the cursor is at the deleted column, it is moved to the previous column,
 /// or column 0 when deleting column 0.
@@ -2350,19 +2390,32 @@ class DeleteTableColumnCommand extends EditCommand {
       newColumnWidths = widths;
     }
 
-    // Trim columnTextAligns if present.
-    List<TextAlign>? newColumnTextAligns;
-    if (node.columnTextAligns != null) {
-      final aligns = List<TextAlign>.of(node.columnTextAligns!);
-      aligns.removeAt(colIndex.clamp(0, aligns.length - 1));
-      newColumnTextAligns = aligns;
+    // Trim cellTextAligns if present (remove the column entry from each row).
+    List<List<TextAlign>>? newCellTextAligns;
+    if (node.cellTextAligns != null) {
+      newCellTextAligns = List<List<TextAlign>>.generate(node.rowCount, (r) {
+        final row = List<TextAlign>.of(node.cellTextAligns![r]);
+        row.removeAt(colIndex.clamp(0, row.length - 1));
+        return row;
+      });
+    }
+
+    // Trim cellVerticalAligns if present (remove the column entry from each row).
+    List<List<TableVerticalAlignment>>? newCellVerticalAligns;
+    if (node.cellVerticalAligns != null) {
+      newCellVerticalAligns = List<List<TableVerticalAlignment>>.generate(node.rowCount, (r) {
+        final row = List<TableVerticalAlignment>.of(node.cellVerticalAligns![r]);
+        row.removeAt(colIndex.clamp(0, row.length - 1));
+        return row;
+      });
     }
 
     final newTable = node.copyWith(
       columnCount: node.columnCount - 1,
       cells: newCells,
       columnWidths: newColumnWidths,
-      columnTextAligns: newColumnTextAligns,
+      cellTextAligns: newCellTextAligns,
+      cellVerticalAligns: newCellVerticalAligns,
     );
     doc.replaceNode(nodeId, newTable);
 
@@ -2457,32 +2510,28 @@ class ResizeTableCommand extends EditCommand {
       }
     }
 
-    // Adjust columnTextAligns.
-    List<TextAlign>? newColumnTextAligns;
-    if (node.columnTextAligns != null) {
-      final aligns = List<TextAlign>.of(node.columnTextAligns!);
-      if (newColumnCount < aligns.length) {
-        newColumnTextAligns = aligns.sublist(0, newColumnCount);
-      } else {
-        while (aligns.length < newColumnCount) {
-          aligns.add(TextAlign.start);
-        }
-        newColumnTextAligns = aligns;
-      }
+    // Adjust cellTextAligns 2D grid.
+    List<List<TextAlign>>? newCellTextAligns;
+    if (node.cellTextAligns != null) {
+      newCellTextAligns = List<List<TextAlign>>.generate(newRowCount, (r) {
+        final srcLen = r < node.rowCount ? node.cellTextAligns![r].length : 0;
+        return List<TextAlign>.generate(
+          newColumnCount,
+          (c) => (c < srcLen) ? node.cellTextAligns![r][c] : TextAlign.start,
+        );
+      });
     }
 
-    // Adjust rowVerticalAligns.
-    List<TableVerticalAlignment>? newRowVerticalAligns;
-    if (node.rowVerticalAligns != null) {
-      final aligns = List<TableVerticalAlignment>.of(node.rowVerticalAligns!);
-      if (newRowCount < aligns.length) {
-        newRowVerticalAligns = aligns.sublist(0, newRowCount);
-      } else {
-        while (aligns.length < newRowCount) {
-          aligns.add(TableVerticalAlignment.top);
-        }
-        newRowVerticalAligns = aligns;
-      }
+    // Adjust cellVerticalAligns 2D grid.
+    List<List<TableVerticalAlignment>>? newCellVerticalAligns;
+    if (node.cellVerticalAligns != null) {
+      newCellVerticalAligns = List<List<TableVerticalAlignment>>.generate(newRowCount, (r) {
+        final srcLen = r < node.rowCount ? node.cellVerticalAligns![r].length : 0;
+        return List<TableVerticalAlignment>.generate(
+          newColumnCount,
+          (c) => (c < srcLen) ? node.cellVerticalAligns![r][c] : TableVerticalAlignment.top,
+        );
+      });
     }
 
     final newTable = node.copyWith(
@@ -2490,8 +2539,8 @@ class ResizeTableCommand extends EditCommand {
       columnCount: newColumnCount,
       cells: newCells,
       columnWidths: newColumnWidths,
-      columnTextAligns: newColumnTextAligns,
-      rowVerticalAligns: newRowVerticalAligns,
+      cellTextAligns: newCellTextAligns,
+      cellVerticalAligns: newCellVerticalAligns,
     );
     doc.replaceNode(nodeId, newTable);
 
@@ -2526,29 +2575,34 @@ class ResizeTableCommand extends EditCommand {
 }
 
 // ---------------------------------------------------------------------------
-// ChangeTableColumnAlignCommand
+// ChangeTableCellAlignCommand
 // ---------------------------------------------------------------------------
 
-/// Changes the horizontal text alignment of a column in the [TableNode]
+/// Changes the horizontal text alignment of a single cell in the [TableNode]
 /// identified by [nodeId].
 ///
-/// If [TableNode.columnTextAligns] is `null`, it is initialised to
-/// [TextAlign.start] for all columns before applying the change.
+/// If [TableNode.cellTextAligns] is `null`, it is initialised to a full
+/// rowCount × columnCount grid of [TextAlign.start] before applying the
+/// change.
 ///
 /// Returns a [NodeChangeEvent].
-class ChangeTableColumnAlignCommand extends EditCommand {
-  /// Creates a [ChangeTableColumnAlignCommand].
-  const ChangeTableColumnAlignCommand({
+class ChangeTableCellAlignCommand extends EditCommand {
+  /// Creates a [ChangeTableCellAlignCommand].
+  const ChangeTableCellAlignCommand({
     required this.nodeId,
-    required this.colIndex,
+    required this.row,
+    required this.col,
     required this.textAlign,
   });
 
   /// The id of the target [TableNode].
   final String nodeId;
 
-  /// The zero-based column index whose alignment to change.
-  final int colIndex;
+  /// The zero-based row index of the target cell.
+  final int row;
+
+  /// The zero-based column index of the target cell.
+  final int col;
 
   /// The new horizontal text alignment.
   final TextAlign textAlign;
@@ -2558,46 +2612,57 @@ class ChangeTableColumnAlignCommand extends EditCommand {
     final doc = context.document;
     final node = doc.nodeById(nodeId);
     if (node == null) {
-      throw StateError('ChangeTableColumnAlignCommand: no node with id "$nodeId".');
+      throw StateError('ChangeTableCellAlignCommand: no node with id "$nodeId".');
     }
     if (node is! TableNode) {
-      throw StateError('ChangeTableColumnAlignCommand: node "$nodeId" is not a TableNode.');
+      throw StateError('ChangeTableCellAlignCommand: node "$nodeId" is not a TableNode.');
     }
 
-    final aligns = node.columnTextAligns != null
-        ? List<TextAlign>.of(node.columnTextAligns!)
-        : List<TextAlign>.filled(node.columnCount, TextAlign.start);
-    aligns[colIndex] = textAlign;
+    final grid = node.cellTextAligns != null
+        ? List<List<TextAlign>>.generate(
+            node.rowCount,
+            (r) => List<TextAlign>.of(node.cellTextAligns![r]),
+          )
+        : List<List<TextAlign>>.generate(
+            node.rowCount,
+            (_) => List<TextAlign>.filled(node.columnCount, TextAlign.start),
+          );
+    grid[row][col] = textAlign;
 
-    doc.replaceNode(nodeId, node.copyWith(columnTextAligns: aligns));
+    doc.replaceNode(nodeId, node.copyWith(cellTextAligns: grid));
     return [NodeChangeEvent(nodeId: nodeId)];
   }
 }
 
 // ---------------------------------------------------------------------------
-// ChangeTableRowVerticalAlignCommand
+// ChangeTableCellVerticalAlignCommand
 // ---------------------------------------------------------------------------
 
-/// Changes the vertical alignment of a row in the [TableNode] identified by
-/// [nodeId].
+/// Changes the vertical alignment of a single cell in the [TableNode]
+/// identified by [nodeId].
 ///
-/// If [TableNode.rowVerticalAligns] is `null`, it is initialised to
-/// [TableVerticalAlignment.top] for all rows before applying the change.
+/// If [TableNode.cellVerticalAligns] is `null`, it is initialised to a full
+/// rowCount × columnCount grid of [TableVerticalAlignment.top] before applying
+/// the change.
 ///
 /// Returns a [NodeChangeEvent].
-class ChangeTableRowVerticalAlignCommand extends EditCommand {
-  /// Creates a [ChangeTableRowVerticalAlignCommand].
-  const ChangeTableRowVerticalAlignCommand({
+class ChangeTableCellVerticalAlignCommand extends EditCommand {
+  /// Creates a [ChangeTableCellVerticalAlignCommand].
+  const ChangeTableCellVerticalAlignCommand({
     required this.nodeId,
-    required this.rowIndex,
+    required this.row,
+    required this.col,
     required this.verticalAlign,
   });
 
   /// The id of the target [TableNode].
   final String nodeId;
 
-  /// The zero-based row index whose vertical alignment to change.
-  final int rowIndex;
+  /// The zero-based row index of the target cell.
+  final int row;
+
+  /// The zero-based column index of the target cell.
+  final int col;
 
   /// The new vertical alignment.
   final TableVerticalAlignment verticalAlign;
@@ -2607,18 +2672,25 @@ class ChangeTableRowVerticalAlignCommand extends EditCommand {
     final doc = context.document;
     final node = doc.nodeById(nodeId);
     if (node == null) {
-      throw StateError('ChangeTableRowVerticalAlignCommand: no node with id "$nodeId".');
+      throw StateError('ChangeTableCellVerticalAlignCommand: no node with id "$nodeId".');
     }
     if (node is! TableNode) {
-      throw StateError('ChangeTableRowVerticalAlignCommand: node "$nodeId" is not a TableNode.');
+      throw StateError('ChangeTableCellVerticalAlignCommand: node "$nodeId" is not a TableNode.');
     }
 
-    final aligns = node.rowVerticalAligns != null
-        ? List<TableVerticalAlignment>.of(node.rowVerticalAligns!)
-        : List<TableVerticalAlignment>.filled(node.rowCount, TableVerticalAlignment.top);
-    aligns[rowIndex] = verticalAlign;
+    final grid = node.cellVerticalAligns != null
+        ? List<List<TableVerticalAlignment>>.generate(
+            node.rowCount,
+            (r) => List<TableVerticalAlignment>.of(node.cellVerticalAligns![r]),
+          )
+        : List<List<TableVerticalAlignment>>.generate(
+            node.rowCount,
+            (_) =>
+                List<TableVerticalAlignment>.filled(node.columnCount, TableVerticalAlignment.top),
+          );
+    grid[row][col] = verticalAlign;
 
-    doc.replaceNode(nodeId, node.copyWith(rowVerticalAligns: aligns));
+    doc.replaceNode(nodeId, node.copyWith(cellVerticalAligns: grid));
     return [NodeChangeEvent(nodeId: nodeId)];
   }
 }

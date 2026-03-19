@@ -2,7 +2,7 @@
 ///
 /// Tests cover [InsertTableRowCommand], [InsertTableColumnCommand],
 /// [DeleteTableRowCommand], [DeleteTableColumnCommand], [ResizeTableCommand],
-/// [ChangeTableColumnAlignCommand], and [ChangeTableRowVerticalAlignCommand].
+/// [ChangeTableCellAlignCommand], and [ChangeTableCellVerticalAlignCommand].
 library;
 
 import 'dart:ui' show TextAlign;
@@ -145,7 +145,7 @@ void main() {
       expect(pos.row, 0);
     });
 
-    test('6. extends rowVerticalAligns when non-null', () {
+    test('6. extends cellVerticalAligns when non-null', () {
       final table = TableNode(
         id: 'tbl',
         rowCount: 2,
@@ -154,7 +154,10 @@ void main() {
           [AttributedText('a'), AttributedText('b')],
           [AttributedText('c'), AttributedText('d')],
         ],
-        rowVerticalAligns: [TableVerticalAlignment.top, TableVerticalAlignment.bottom],
+        cellVerticalAligns: [
+          [TableVerticalAlignment.top, TableVerticalAlignment.top],
+          [TableVerticalAlignment.bottom, TableVerticalAlignment.bottom],
+        ],
       );
       final doc = MutableDocument([table]);
       final ctx = _ctx(doc);
@@ -163,13 +166,52 @@ void main() {
       cmd.execute(ctx);
 
       final updated = doc.nodeById('tbl') as TableNode;
-      expect(updated.rowVerticalAligns, hasLength(3));
-      expect(updated.rowVerticalAligns![0], TableVerticalAlignment.top);
-      expect(updated.rowVerticalAligns![1], TableVerticalAlignment.top); // new row default
-      expect(updated.rowVerticalAligns![2], TableVerticalAlignment.bottom);
+      expect(updated.cellVerticalAligns, hasLength(3));
+      // Row 0 unchanged.
+      expect(updated.cellVerticalAligns![0][0], TableVerticalAlignment.top);
+      expect(updated.cellVerticalAligns![0][1], TableVerticalAlignment.top);
+      // New row at index 1 filled with top defaults.
+      expect(updated.cellVerticalAligns![1][0], TableVerticalAlignment.top);
+      expect(updated.cellVerticalAligns![1][1], TableVerticalAlignment.top);
+      // Old row 1 shifted to index 2.
+      expect(updated.cellVerticalAligns![2][0], TableVerticalAlignment.bottom);
+      expect(updated.cellVerticalAligns![2][1], TableVerticalAlignment.bottom);
     });
 
-    test('7. leaves rowVerticalAligns null when originally null', () {
+    test('7. extends cellTextAligns when non-null', () {
+      final table = TableNode(
+        id: 'tbl',
+        rowCount: 2,
+        columnCount: 2,
+        cells: [
+          [AttributedText('a'), AttributedText('b')],
+          [AttributedText('c'), AttributedText('d')],
+        ],
+        cellTextAligns: [
+          [TextAlign.left, TextAlign.right],
+          [TextAlign.center, TextAlign.start],
+        ],
+      );
+      final doc = MutableDocument([table]);
+      final ctx = _ctx(doc);
+
+      final cmd = const InsertTableRowCommand(nodeId: 'tbl', rowIndex: 1, insertBefore: true);
+      cmd.execute(ctx);
+
+      final updated = doc.nodeById('tbl') as TableNode;
+      expect(updated.cellTextAligns, hasLength(3));
+      // Row 0 unchanged.
+      expect(updated.cellTextAligns![0][0], TextAlign.left);
+      expect(updated.cellTextAligns![0][1], TextAlign.right);
+      // New row at index 1 filled with start defaults.
+      expect(updated.cellTextAligns![1][0], TextAlign.start);
+      expect(updated.cellTextAligns![1][1], TextAlign.start);
+      // Old row 1 shifted to index 2.
+      expect(updated.cellTextAligns![2][0], TextAlign.center);
+      expect(updated.cellTextAligns![2][1], TextAlign.start);
+    });
+
+    test('8. leaves cellVerticalAligns null when originally null', () {
       final table = _makeTable2x3();
       final doc = MutableDocument([table]);
       final ctx = _ctx(doc);
@@ -178,7 +220,19 @@ void main() {
       cmd.execute(ctx);
 
       final updated = doc.nodeById('tbl') as TableNode;
-      expect(updated.rowVerticalAligns, isNull);
+      expect(updated.cellVerticalAligns, isNull);
+    });
+
+    test('9. leaves cellTextAligns null when originally null', () {
+      final table = _makeTable2x3();
+      final doc = MutableDocument([table]);
+      final ctx = _ctx(doc);
+
+      final cmd = const InsertTableRowCommand(nodeId: 'tbl', rowIndex: 0, insertBefore: true);
+      cmd.execute(ctx);
+
+      final updated = doc.nodeById('tbl') as TableNode;
+      expect(updated.cellTextAligns, isNull);
     });
   });
 
@@ -268,15 +322,19 @@ void main() {
       expect(updated.columnWidths![2], 200.0);
     });
 
-    test('6. extends columnTextAligns with TextAlign.start when non-null', () {
+    test('6. extends cellTextAligns with TextAlign.start column when non-null', () {
       final table = TableNode(
         id: 'tbl',
-        rowCount: 1,
+        rowCount: 2,
         columnCount: 2,
         cells: [
-          [AttributedText('a'), AttributedText('b')]
+          [AttributedText('a'), AttributedText('b')],
+          [AttributedText('c'), AttributedText('d')],
         ],
-        columnTextAligns: [TextAlign.left, TextAlign.right],
+        cellTextAligns: [
+          [TextAlign.left, TextAlign.right],
+          [TextAlign.center, TextAlign.start],
+        ],
       );
       final doc = MutableDocument([table]);
       final ctx = _ctx(doc);
@@ -285,13 +343,46 @@ void main() {
       cmd.execute(ctx);
 
       final updated = doc.nodeById('tbl') as TableNode;
-      expect(updated.columnTextAligns, hasLength(3));
-      expect(updated.columnTextAligns![0], TextAlign.left);
-      expect(updated.columnTextAligns![1], TextAlign.start); // new column default
-      expect(updated.columnTextAligns![2], TextAlign.right);
+      expect(updated.cellTextAligns![0], hasLength(3));
+      expect(updated.cellTextAligns![0][0], TextAlign.left);
+      expect(updated.cellTextAligns![0][1], TextAlign.start); // new column default
+      expect(updated.cellTextAligns![0][2], TextAlign.right);
+      expect(updated.cellTextAligns![1][0], TextAlign.center);
+      expect(updated.cellTextAligns![1][1], TextAlign.start); // new column default
+      expect(updated.cellTextAligns![1][2], TextAlign.start);
     });
 
-    test('7. leaves columnWidths null when originally null', () {
+    test('7. extends cellVerticalAligns with TableVerticalAlignment.top column when non-null', () {
+      final table = TableNode(
+        id: 'tbl',
+        rowCount: 2,
+        columnCount: 2,
+        cells: [
+          [AttributedText('a'), AttributedText('b')],
+          [AttributedText('c'), AttributedText('d')],
+        ],
+        cellVerticalAligns: [
+          [TableVerticalAlignment.top, TableVerticalAlignment.bottom],
+          [TableVerticalAlignment.middle, TableVerticalAlignment.top],
+        ],
+      );
+      final doc = MutableDocument([table]);
+      final ctx = _ctx(doc);
+
+      final cmd = const InsertTableColumnCommand(nodeId: 'tbl', colIndex: 1, insertBefore: true);
+      cmd.execute(ctx);
+
+      final updated = doc.nodeById('tbl') as TableNode;
+      expect(updated.cellVerticalAligns![0], hasLength(3));
+      expect(updated.cellVerticalAligns![0][0], TableVerticalAlignment.top);
+      expect(updated.cellVerticalAligns![0][1], TableVerticalAlignment.top); // new default
+      expect(updated.cellVerticalAligns![0][2], TableVerticalAlignment.bottom);
+      expect(updated.cellVerticalAligns![1][0], TableVerticalAlignment.middle);
+      expect(updated.cellVerticalAligns![1][1], TableVerticalAlignment.top); // new default
+      expect(updated.cellVerticalAligns![1][2], TableVerticalAlignment.top);
+    });
+
+    test('8. leaves columnWidths null when originally null', () {
       final table = _makeTable2x3();
       final doc = MutableDocument([table]);
       final ctx = _ctx(doc);
@@ -303,7 +394,7 @@ void main() {
       expect(updated.columnWidths, isNull);
     });
 
-    test('8. returns NodeChangeEvent', () {
+    test('9. returns NodeChangeEvent', () {
       final table = _makeTable2x3();
       final doc = MutableDocument([table]);
       final ctx = _ctx(doc);
@@ -395,20 +486,20 @@ void main() {
       expect(pos.row, 0);
     });
 
-    test('5. trims rowVerticalAligns when non-null', () {
+    test('5. trims cellVerticalAligns row when non-null', () {
       final table = TableNode(
         id: 'tbl',
         rowCount: 3,
-        columnCount: 1,
+        columnCount: 2,
         cells: [
-          [AttributedText('a')],
-          [AttributedText('b')],
-          [AttributedText('c')],
+          [AttributedText('a'), AttributedText('b')],
+          [AttributedText('c'), AttributedText('d')],
+          [AttributedText('e'), AttributedText('f')],
         ],
-        rowVerticalAligns: [
-          TableVerticalAlignment.top,
-          TableVerticalAlignment.middle,
-          TableVerticalAlignment.bottom,
+        cellVerticalAligns: [
+          [TableVerticalAlignment.top, TableVerticalAlignment.top],
+          [TableVerticalAlignment.middle, TableVerticalAlignment.middle],
+          [TableVerticalAlignment.bottom, TableVerticalAlignment.bottom],
         ],
       );
       final doc = MutableDocument([table]);
@@ -418,9 +509,41 @@ void main() {
       cmd.execute(ctx);
 
       final updated = doc.nodeById('tbl') as TableNode;
-      expect(updated.rowVerticalAligns, hasLength(2));
-      expect(updated.rowVerticalAligns![0], TableVerticalAlignment.top);
-      expect(updated.rowVerticalAligns![1], TableVerticalAlignment.bottom);
+      expect(updated.cellVerticalAligns, hasLength(2));
+      expect(updated.cellVerticalAligns![0][0], TableVerticalAlignment.top);
+      expect(updated.cellVerticalAligns![0][1], TableVerticalAlignment.top);
+      expect(updated.cellVerticalAligns![1][0], TableVerticalAlignment.bottom);
+      expect(updated.cellVerticalAligns![1][1], TableVerticalAlignment.bottom);
+    });
+
+    test('6. trims cellTextAligns row when non-null', () {
+      final table = TableNode(
+        id: 'tbl',
+        rowCount: 3,
+        columnCount: 2,
+        cells: [
+          [AttributedText('a'), AttributedText('b')],
+          [AttributedText('c'), AttributedText('d')],
+          [AttributedText('e'), AttributedText('f')],
+        ],
+        cellTextAligns: [
+          [TextAlign.left, TextAlign.right],
+          [TextAlign.center, TextAlign.start],
+          [TextAlign.end, TextAlign.justify],
+        ],
+      );
+      final doc = MutableDocument([table]);
+      final ctx = _ctx(doc);
+
+      final cmd = const DeleteTableRowCommand(nodeId: 'tbl', rowIndex: 1);
+      cmd.execute(ctx);
+
+      final updated = doc.nodeById('tbl') as TableNode;
+      expect(updated.cellTextAligns, hasLength(2));
+      expect(updated.cellTextAligns![0][0], TextAlign.left);
+      expect(updated.cellTextAligns![0][1], TextAlign.right);
+      expect(updated.cellTextAligns![1][0], TextAlign.end);
+      expect(updated.cellTextAligns![1][1], TextAlign.justify);
     });
   });
 
@@ -508,15 +631,19 @@ void main() {
       expect(updated.columnWidths![1], 300.0);
     });
 
-    test('6. trims columnTextAligns when non-null', () {
+    test('6. trims cellTextAligns column when non-null', () {
       final table = TableNode(
         id: 'tbl',
-        rowCount: 1,
+        rowCount: 2,
         columnCount: 3,
         cells: [
-          [AttributedText('a'), AttributedText('b'), AttributedText('c')]
+          [AttributedText('a'), AttributedText('b'), AttributedText('c')],
+          [AttributedText('d'), AttributedText('e'), AttributedText('f')],
         ],
-        columnTextAligns: [TextAlign.left, TextAlign.center, TextAlign.right],
+        cellTextAligns: [
+          [TextAlign.left, TextAlign.center, TextAlign.right],
+          [TextAlign.start, TextAlign.end, TextAlign.justify],
+        ],
       );
       final doc = MutableDocument([table]);
       final ctx = _ctx(doc);
@@ -525,9 +652,47 @@ void main() {
       cmd.execute(ctx);
 
       final updated = doc.nodeById('tbl') as TableNode;
-      expect(updated.columnTextAligns, hasLength(2));
-      expect(updated.columnTextAligns![0], TextAlign.left);
-      expect(updated.columnTextAligns![1], TextAlign.right);
+      expect(updated.cellTextAligns![0], hasLength(2));
+      expect(updated.cellTextAligns![0][0], TextAlign.left);
+      expect(updated.cellTextAligns![0][1], TextAlign.right);
+      expect(updated.cellTextAligns![1][0], TextAlign.start);
+      expect(updated.cellTextAligns![1][1], TextAlign.justify);
+    });
+
+    test('7. trims cellVerticalAligns column when non-null', () {
+      final table = TableNode(
+        id: 'tbl',
+        rowCount: 2,
+        columnCount: 3,
+        cells: [
+          [AttributedText('a'), AttributedText('b'), AttributedText('c')],
+          [AttributedText('d'), AttributedText('e'), AttributedText('f')],
+        ],
+        cellVerticalAligns: [
+          [
+            TableVerticalAlignment.top,
+            TableVerticalAlignment.middle,
+            TableVerticalAlignment.bottom
+          ],
+          [
+            TableVerticalAlignment.bottom,
+            TableVerticalAlignment.top,
+            TableVerticalAlignment.middle
+          ],
+        ],
+      );
+      final doc = MutableDocument([table]);
+      final ctx = _ctx(doc);
+
+      final cmd = const DeleteTableColumnCommand(nodeId: 'tbl', colIndex: 1);
+      cmd.execute(ctx);
+
+      final updated = doc.nodeById('tbl') as TableNode;
+      expect(updated.cellVerticalAligns![0], hasLength(2));
+      expect(updated.cellVerticalAligns![0][0], TableVerticalAlignment.top);
+      expect(updated.cellVerticalAligns![0][1], TableVerticalAlignment.bottom);
+      expect(updated.cellVerticalAligns![1][0], TableVerticalAlignment.bottom);
+      expect(updated.cellVerticalAligns![1][1], TableVerticalAlignment.middle);
     });
   });
 
@@ -606,20 +771,20 @@ void main() {
       expect(updated.columnWidths![1], 200.0);
     });
 
-    test('5. truncates rowVerticalAligns when shrinking rows', () {
+    test('5. truncates cellVerticalAligns 2D grid when shrinking', () {
       final table = TableNode(
         id: 'tbl',
         rowCount: 3,
-        columnCount: 1,
+        columnCount: 2,
         cells: [
-          [AttributedText('a')],
-          [AttributedText('b')],
-          [AttributedText('c')],
+          [AttributedText('a'), AttributedText('b')],
+          [AttributedText('c'), AttributedText('d')],
+          [AttributedText('e'), AttributedText('f')],
         ],
-        rowVerticalAligns: [
-          TableVerticalAlignment.top,
-          TableVerticalAlignment.middle,
-          TableVerticalAlignment.bottom,
+        cellVerticalAligns: [
+          [TableVerticalAlignment.top, TableVerticalAlignment.top],
+          [TableVerticalAlignment.middle, TableVerticalAlignment.middle],
+          [TableVerticalAlignment.bottom, TableVerticalAlignment.bottom],
         ],
       );
       final doc = MutableDocument([table]);
@@ -629,12 +794,13 @@ void main() {
       cmd.execute(ctx);
 
       final updated = doc.nodeById('tbl') as TableNode;
-      expect(updated.rowVerticalAligns, hasLength(2));
-      expect(updated.rowVerticalAligns![0], TableVerticalAlignment.top);
-      expect(updated.rowVerticalAligns![1], TableVerticalAlignment.middle);
+      expect(updated.cellVerticalAligns, hasLength(2));
+      expect(updated.cellVerticalAligns![0], hasLength(1));
+      expect(updated.cellVerticalAligns![0][0], TableVerticalAlignment.top);
+      expect(updated.cellVerticalAligns![1][0], TableVerticalAlignment.middle);
     });
 
-    test('6. extends columnTextAligns with start when growing columns', () {
+    test('6. extends cellTextAligns 2D grid when growing', () {
       final table = TableNode(
         id: 'tbl',
         rowCount: 1,
@@ -642,23 +808,55 @@ void main() {
         cells: [
           [AttributedText('a'), AttributedText('b')]
         ],
-        columnTextAligns: [TextAlign.left, TextAlign.right],
+        cellTextAligns: [
+          [TextAlign.left, TextAlign.right],
+        ],
       );
       final doc = MutableDocument([table]);
       final ctx = _ctx(doc);
 
-      final cmd = const ResizeTableCommand(nodeId: 'tbl', newRowCount: 1, newColumnCount: 4);
+      final cmd = const ResizeTableCommand(nodeId: 'tbl', newRowCount: 2, newColumnCount: 4);
       cmd.execute(ctx);
 
       final updated = doc.nodeById('tbl') as TableNode;
-      expect(updated.columnTextAligns, hasLength(4));
-      expect(updated.columnTextAligns![0], TextAlign.left);
-      expect(updated.columnTextAligns![1], TextAlign.right);
-      expect(updated.columnTextAligns![2], TextAlign.start); // new
-      expect(updated.columnTextAligns![3], TextAlign.start); // new
+      expect(updated.cellTextAligns, hasLength(2));
+      expect(updated.cellTextAligns![0], hasLength(4));
+      expect(updated.cellTextAligns![0][0], TextAlign.left);
+      expect(updated.cellTextAligns![0][1], TextAlign.right);
+      expect(updated.cellTextAligns![0][2], TextAlign.start); // new column
+      expect(updated.cellTextAligns![0][3], TextAlign.start); // new column
+      expect(updated.cellTextAligns![1][0], TextAlign.start); // new row
+      expect(updated.cellTextAligns![1][1], TextAlign.start); // new row
     });
 
-    test('7. leaves null alignment lists null after resize', () {
+    test('7. extends cellVerticalAligns 2D grid when growing', () {
+      final table = TableNode(
+        id: 'tbl',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        cellVerticalAligns: [
+          [TableVerticalAlignment.bottom],
+        ],
+      );
+      final doc = MutableDocument([table]);
+      final ctx = _ctx(doc);
+
+      final cmd = const ResizeTableCommand(nodeId: 'tbl', newRowCount: 2, newColumnCount: 2);
+      cmd.execute(ctx);
+
+      final updated = doc.nodeById('tbl') as TableNode;
+      expect(updated.cellVerticalAligns, hasLength(2));
+      expect(updated.cellVerticalAligns![0], hasLength(2));
+      expect(updated.cellVerticalAligns![0][0], TableVerticalAlignment.bottom);
+      expect(updated.cellVerticalAligns![0][1], TableVerticalAlignment.top); // new
+      expect(updated.cellVerticalAligns![1][0], TableVerticalAlignment.top); // new row
+      expect(updated.cellVerticalAligns![1][1], TableVerticalAlignment.top); // new row
+    });
+
+    test('8. leaves null alignment lists null after resize', () {
       final table = _makeTable2x3();
       final doc = MutableDocument([table]);
       final ctx = _ctx(doc);
@@ -668,63 +866,72 @@ void main() {
 
       final updated = doc.nodeById('tbl') as TableNode;
       expect(updated.columnWidths, isNull);
-      expect(updated.columnTextAligns, isNull);
-      expect(updated.rowVerticalAligns, isNull);
+      expect(updated.cellTextAligns, isNull);
+      expect(updated.cellVerticalAligns, isNull);
     });
   });
 
   // ---------------------------------------------------------------------------
-  // ChangeTableColumnAlignCommand
+  // ChangeTableCellAlignCommand
   // ---------------------------------------------------------------------------
 
-  group('ChangeTableColumnAlignCommand', () {
-    test('1. sets column alignment when columnTextAligns is non-null', () {
+  group('ChangeTableCellAlignCommand', () {
+    test('1. sets cell alignment when cellTextAligns is non-null', () {
       final table = TableNode(
         id: 'tbl',
-        rowCount: 1,
+        rowCount: 2,
         columnCount: 3,
         cells: [
-          [AttributedText('a'), AttributedText('b'), AttributedText('c')]
+          [AttributedText('a'), AttributedText('b'), AttributedText('c')],
+          [AttributedText('d'), AttributedText('e'), AttributedText('f')],
         ],
-        columnTextAligns: [TextAlign.start, TextAlign.start, TextAlign.start],
+        cellTextAligns: [
+          [TextAlign.start, TextAlign.start, TextAlign.start],
+          [TextAlign.start, TextAlign.start, TextAlign.start],
+        ],
       );
       final doc = MutableDocument([table]);
       final ctx = _ctx(doc);
 
-      final cmd = const ChangeTableColumnAlignCommand(
+      final cmd = const ChangeTableCellAlignCommand(
         nodeId: 'tbl',
-        colIndex: 1,
+        row: 1,
+        col: 1,
         textAlign: TextAlign.center,
       );
       final events = cmd.execute(ctx);
 
       final updated = doc.nodeById('tbl') as TableNode;
-      expect(updated.columnTextAligns![1], TextAlign.center);
+      expect(updated.cellTextAligns![1][1], TextAlign.center);
+      // Other cells unchanged.
+      expect(updated.cellTextAligns![0][0], TextAlign.start);
+      expect(updated.cellTextAligns![1][0], TextAlign.start);
       expect(events, [const NodeChangeEvent(nodeId: 'tbl')]);
     });
 
-    test('2. initialises columnTextAligns from null and sets the entry', () {
+    test('2. initialises cellTextAligns from null and sets the entry', () {
       final table = _makeTable2x3();
       final doc = MutableDocument([table]);
       final ctx = _ctx(doc);
 
-      final cmd = const ChangeTableColumnAlignCommand(
+      final cmd = const ChangeTableCellAlignCommand(
         nodeId: 'tbl',
-        colIndex: 2,
+        row: 1,
+        col: 2,
         textAlign: TextAlign.right,
       );
       cmd.execute(ctx);
 
       final updated = doc.nodeById('tbl') as TableNode;
-      expect(updated.columnTextAligns, isNotNull);
-      expect(updated.columnTextAligns, hasLength(3));
-      // Only index 2 is set; others default to start.
-      expect(updated.columnTextAligns![0], TextAlign.start);
-      expect(updated.columnTextAligns![1], TextAlign.start);
-      expect(updated.columnTextAligns![2], TextAlign.right);
+      expect(updated.cellTextAligns, isNotNull);
+      expect(updated.cellTextAligns, hasLength(2));
+      expect(updated.cellTextAligns![0], hasLength(3));
+      // Only [1][2] is set; others default to start.
+      expect(updated.cellTextAligns![0][0], TextAlign.start);
+      expect(updated.cellTextAligns![1][2], TextAlign.right);
     });
 
-    test('3. replaces existing alignment', () {
+    test('3. replaces existing cell alignment', () {
       final table = TableNode(
         id: 'tbl',
         rowCount: 1,
@@ -732,103 +939,118 @@ void main() {
         cells: [
           [AttributedText('a'), AttributedText('b')]
         ],
-        columnTextAligns: [TextAlign.left, TextAlign.right],
+        cellTextAligns: [
+          [TextAlign.left, TextAlign.right],
+        ],
       );
       final doc = MutableDocument([table]);
       final ctx = _ctx(doc);
 
-      final cmd = const ChangeTableColumnAlignCommand(
+      final cmd = const ChangeTableCellAlignCommand(
         nodeId: 'tbl',
-        colIndex: 0,
+        row: 0,
+        col: 0,
         textAlign: TextAlign.center,
       );
       cmd.execute(ctx);
 
       final updated = doc.nodeById('tbl') as TableNode;
-      expect(updated.columnTextAligns![0], TextAlign.center);
-      expect(updated.columnTextAligns![1], TextAlign.right); // unchanged
+      expect(updated.cellTextAligns![0][0], TextAlign.center);
+      expect(updated.cellTextAligns![0][1], TextAlign.right); // unchanged
     });
   });
 
   // ---------------------------------------------------------------------------
-  // ChangeTableRowVerticalAlignCommand
+  // ChangeTableCellVerticalAlignCommand
   // ---------------------------------------------------------------------------
 
-  group('ChangeTableRowVerticalAlignCommand', () {
-    test('1. sets row vertical alignment when rowVerticalAligns is non-null', () {
+  group('ChangeTableCellVerticalAlignCommand', () {
+    test('1. sets cell vertical alignment when cellVerticalAligns is non-null', () {
       final table = TableNode(
         id: 'tbl',
         rowCount: 3,
-        columnCount: 1,
+        columnCount: 2,
         cells: [
-          [AttributedText('a')],
-          [AttributedText('b')],
-          [AttributedText('c')],
+          [AttributedText('a'), AttributedText('b')],
+          [AttributedText('c'), AttributedText('d')],
+          [AttributedText('e'), AttributedText('f')],
         ],
-        rowVerticalAligns: [
-          TableVerticalAlignment.top,
-          TableVerticalAlignment.top,
-          TableVerticalAlignment.top,
+        cellVerticalAligns: [
+          [TableVerticalAlignment.top, TableVerticalAlignment.top],
+          [TableVerticalAlignment.top, TableVerticalAlignment.top],
+          [TableVerticalAlignment.top, TableVerticalAlignment.top],
         ],
       );
       final doc = MutableDocument([table]);
       final ctx = _ctx(doc);
 
-      final cmd = const ChangeTableRowVerticalAlignCommand(
+      final cmd = const ChangeTableCellVerticalAlignCommand(
         nodeId: 'tbl',
-        rowIndex: 1,
+        row: 1,
+        col: 0,
         verticalAlign: TableVerticalAlignment.middle,
       );
       final events = cmd.execute(ctx);
 
       final updated = doc.nodeById('tbl') as TableNode;
-      expect(updated.rowVerticalAligns![1], TableVerticalAlignment.middle);
+      expect(updated.cellVerticalAligns![1][0], TableVerticalAlignment.middle);
+      // Other cells unchanged.
+      expect(updated.cellVerticalAligns![0][0], TableVerticalAlignment.top);
+      expect(updated.cellVerticalAligns![1][1], TableVerticalAlignment.top);
       expect(events, [const NodeChangeEvent(nodeId: 'tbl')]);
     });
 
-    test('2. initialises rowVerticalAligns from null and sets the entry', () {
+    test('2. initialises cellVerticalAligns from null and sets the entry', () {
       final table = _makeTable2x3();
       final doc = MutableDocument([table]);
       final ctx = _ctx(doc);
 
-      final cmd = const ChangeTableRowVerticalAlignCommand(
+      final cmd = const ChangeTableCellVerticalAlignCommand(
         nodeId: 'tbl',
-        rowIndex: 1,
+        row: 1,
+        col: 2,
         verticalAlign: TableVerticalAlignment.bottom,
       );
       cmd.execute(ctx);
 
       final updated = doc.nodeById('tbl') as TableNode;
-      expect(updated.rowVerticalAligns, isNotNull);
-      expect(updated.rowVerticalAligns, hasLength(2));
-      expect(updated.rowVerticalAligns![0], TableVerticalAlignment.top); // default
-      expect(updated.rowVerticalAligns![1], TableVerticalAlignment.bottom);
+      expect(updated.cellVerticalAligns, isNotNull);
+      expect(updated.cellVerticalAligns, hasLength(2));
+      expect(updated.cellVerticalAligns![0], hasLength(3));
+      // All cells default to top except [1][2].
+      expect(updated.cellVerticalAligns![0][0], TableVerticalAlignment.top);
+      expect(updated.cellVerticalAligns![1][2], TableVerticalAlignment.bottom);
     });
 
-    test('3. replaces existing vertical alignment', () {
+    test('3. replaces existing cell vertical alignment', () {
       final table = TableNode(
         id: 'tbl',
         rowCount: 2,
-        columnCount: 1,
+        columnCount: 2,
         cells: [
-          [AttributedText('a')],
-          [AttributedText('b')],
+          [AttributedText('a'), AttributedText('b')],
+          [AttributedText('c'), AttributedText('d')],
         ],
-        rowVerticalAligns: [TableVerticalAlignment.middle, TableVerticalAlignment.top],
+        cellVerticalAligns: [
+          [TableVerticalAlignment.middle, TableVerticalAlignment.top],
+          [TableVerticalAlignment.top, TableVerticalAlignment.bottom],
+        ],
       );
       final doc = MutableDocument([table]);
       final ctx = _ctx(doc);
 
-      final cmd = const ChangeTableRowVerticalAlignCommand(
+      final cmd = const ChangeTableCellVerticalAlignCommand(
         nodeId: 'tbl',
-        rowIndex: 0,
+        row: 0,
+        col: 0,
         verticalAlign: TableVerticalAlignment.bottom,
       );
       cmd.execute(ctx);
 
       final updated = doc.nodeById('tbl') as TableNode;
-      expect(updated.rowVerticalAligns![0], TableVerticalAlignment.bottom);
-      expect(updated.rowVerticalAligns![1], TableVerticalAlignment.top); // unchanged
+      expect(updated.cellVerticalAligns![0][0], TableVerticalAlignment.bottom);
+      expect(updated.cellVerticalAligns![0][1], TableVerticalAlignment.top); // unchanged
+      expect(updated.cellVerticalAligns![1][0], TableVerticalAlignment.top); // unchanged
     });
   });
 
@@ -882,20 +1104,23 @@ void main() {
       expect(a.toString(), contains('tbl'));
     });
 
-    test('ChangeTableColumnAlignRequest equality', () {
-      const a = ChangeTableColumnAlignRequest(
+    test('ChangeTableCellAlignRequest equality', () {
+      const a = ChangeTableCellAlignRequest(
         nodeId: 'tbl',
-        colIndex: 1,
+        row: 0,
+        col: 1,
         textAlign: TextAlign.center,
       );
-      const b = ChangeTableColumnAlignRequest(
+      const b = ChangeTableCellAlignRequest(
         nodeId: 'tbl',
-        colIndex: 1,
+        row: 0,
+        col: 1,
         textAlign: TextAlign.center,
       );
-      const c = ChangeTableColumnAlignRequest(
+      const c = ChangeTableCellAlignRequest(
         nodeId: 'tbl',
-        colIndex: 1,
+        row: 0,
+        col: 1,
         textAlign: TextAlign.right,
       );
       expect(a, equals(b));
@@ -903,20 +1128,23 @@ void main() {
       expect(a.toString(), contains('tbl'));
     });
 
-    test('ChangeTableRowVerticalAlignRequest equality', () {
-      const a = ChangeTableRowVerticalAlignRequest(
+    test('ChangeTableCellVerticalAlignRequest equality', () {
+      const a = ChangeTableCellVerticalAlignRequest(
         nodeId: 'tbl',
-        rowIndex: 0,
+        row: 0,
+        col: 1,
         verticalAlign: TableVerticalAlignment.middle,
       );
-      const b = ChangeTableRowVerticalAlignRequest(
+      const b = ChangeTableCellVerticalAlignRequest(
         nodeId: 'tbl',
-        rowIndex: 0,
+        row: 0,
+        col: 1,
         verticalAlign: TableVerticalAlignment.middle,
       );
-      const c = ChangeTableRowVerticalAlignRequest(
+      const c = ChangeTableCellVerticalAlignRequest(
         nodeId: 'tbl',
-        rowIndex: 0,
+        row: 0,
+        col: 1,
         verticalAlign: TableVerticalAlignment.bottom,
       );
       expect(a, equals(b));
@@ -1001,7 +1229,7 @@ void main() {
       editor.dispose();
     });
 
-    test('Editor dispatches ChangeTableColumnAlignRequest', () {
+    test('Editor dispatches ChangeTableCellAlignRequest', () {
       final table = _makeTable2x3();
       final doc = MutableDocument([table]);
       final controller = DocumentEditingController(document: doc);
@@ -1009,19 +1237,20 @@ void main() {
       final editor = Editor(editContext: ctx);
 
       editor.submit(
-        const ChangeTableColumnAlignRequest(
+        const ChangeTableCellAlignRequest(
           nodeId: 'tbl',
-          colIndex: 0,
+          row: 0,
+          col: 0,
           textAlign: TextAlign.center,
         ),
       );
 
       final updated = doc.nodeById('tbl') as TableNode;
-      expect(updated.columnTextAligns![0], TextAlign.center);
+      expect(updated.cellTextAligns![0][0], TextAlign.center);
       editor.dispose();
     });
 
-    test('Editor dispatches ChangeTableRowVerticalAlignRequest', () {
+    test('Editor dispatches ChangeTableCellVerticalAlignRequest', () {
       final table = _makeTable2x3();
       final doc = MutableDocument([table]);
       final controller = DocumentEditingController(document: doc);
@@ -1029,15 +1258,16 @@ void main() {
       final editor = Editor(editContext: ctx);
 
       editor.submit(
-        const ChangeTableRowVerticalAlignRequest(
+        const ChangeTableCellVerticalAlignRequest(
           nodeId: 'tbl',
-          rowIndex: 0,
+          row: 0,
+          col: 1,
           verticalAlign: TableVerticalAlignment.bottom,
         ),
       );
 
       final updated = doc.nodeById('tbl') as TableNode;
-      expect(updated.rowVerticalAligns![0], TableVerticalAlignment.bottom);
+      expect(updated.cellVerticalAligns![0][1], TableVerticalAlignment.bottom);
       editor.dispose();
     });
   });

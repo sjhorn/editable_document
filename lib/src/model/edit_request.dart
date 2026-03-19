@@ -1167,86 +1167,98 @@ class ResizeTableRequest extends EditRequest {
 }
 
 // ---------------------------------------------------------------------------
-// ChangeTableColumnAlignRequest
+// ChangeTableCellAlignRequest
 // ---------------------------------------------------------------------------
 
-/// Request to change the horizontal text alignment of a column in a
+/// Request to change the horizontal text alignment of a single cell in a
 /// [TableNode].
 ///
-/// If [TableNode.columnTextAligns] is `null`, it is initialised to
-/// [TextAlign.start] for all columns before applying the change.
-class ChangeTableColumnAlignRequest extends EditRequest {
-  /// Creates a [ChangeTableColumnAlignRequest].
-  const ChangeTableColumnAlignRequest({
+/// If [TableNode.cellTextAligns] is `null`, it is initialised to a full
+/// rowCount × columnCount grid of [TextAlign.start] before applying the
+/// change.
+class ChangeTableCellAlignRequest extends EditRequest {
+  /// Creates a [ChangeTableCellAlignRequest].
+  const ChangeTableCellAlignRequest({
     required this.nodeId,
-    required this.colIndex,
+    required this.row,
+    required this.col,
     required this.textAlign,
   });
 
   /// The id of the target [TableNode].
   final String nodeId;
 
-  /// The zero-based column index whose alignment to change.
-  final int colIndex;
+  /// The zero-based row index of the cell.
+  final int row;
 
-  /// The new horizontal text alignment.
+  /// The zero-based column index of the cell.
+  final int col;
+
+  /// The new horizontal text alignment for the cell.
   final TextAlign textAlign;
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is ChangeTableColumnAlignRequest &&
+    return other is ChangeTableCellAlignRequest &&
         other.nodeId == nodeId &&
-        other.colIndex == colIndex &&
+        other.row == row &&
+        other.col == col &&
         other.textAlign == textAlign;
   }
 
   @override
-  int get hashCode => Object.hash(nodeId, colIndex, textAlign);
+  int get hashCode => Object.hash(nodeId, row, col, textAlign);
 
   @override
-  String toString() => 'ChangeTableColumnAlignRequest(nodeId: $nodeId, colIndex: $colIndex, '
+  String toString() => 'ChangeTableCellAlignRequest(nodeId: $nodeId, row: $row, col: $col, '
       'textAlign: $textAlign)';
 }
 
 // ---------------------------------------------------------------------------
-// ChangeTableRowVerticalAlignRequest
+// ChangeTableCellVerticalAlignRequest
 // ---------------------------------------------------------------------------
 
-/// Request to change the vertical alignment of a row in a [TableNode].
+/// Request to change the vertical alignment of a single cell in a [TableNode].
 ///
-/// If [TableNode.rowVerticalAligns] is `null`, it is initialised to
-/// [TableVerticalAlignment.top] for all rows before applying the change.
-class ChangeTableRowVerticalAlignRequest extends EditRequest {
-  /// Creates a [ChangeTableRowVerticalAlignRequest].
-  const ChangeTableRowVerticalAlignRequest({
+/// If [TableNode.cellVerticalAligns] is `null`, it is initialised to a full
+/// rowCount × columnCount grid of [TableVerticalAlignment.top] before applying
+/// the change.
+class ChangeTableCellVerticalAlignRequest extends EditRequest {
+  /// Creates a [ChangeTableCellVerticalAlignRequest].
+  const ChangeTableCellVerticalAlignRequest({
     required this.nodeId,
-    required this.rowIndex,
+    required this.row,
+    required this.col,
     required this.verticalAlign,
   });
 
   /// The id of the target [TableNode].
   final String nodeId;
 
-  /// The zero-based row index whose vertical alignment to change.
-  final int rowIndex;
+  /// The zero-based row index of the cell.
+  final int row;
 
-  /// The new vertical alignment.
+  /// The zero-based column index of the cell.
+  final int col;
+
+  /// The new vertical alignment for the cell.
   final TableVerticalAlignment verticalAlign;
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is ChangeTableRowVerticalAlignRequest &&
+    return other is ChangeTableCellVerticalAlignRequest &&
         other.nodeId == nodeId &&
-        other.rowIndex == rowIndex &&
+        other.row == row &&
+        other.col == col &&
         other.verticalAlign == verticalAlign;
   }
 
   @override
-  int get hashCode => Object.hash(nodeId, rowIndex, verticalAlign);
+  int get hashCode => Object.hash(nodeId, row, col, verticalAlign);
 
   @override
-  String toString() => 'ChangeTableRowVerticalAlignRequest(nodeId: $nodeId, '
-      'rowIndex: $rowIndex, verticalAlign: $verticalAlign)';
+  String toString() => 'ChangeTableCellVerticalAlignRequest(nodeId: $nodeId, '
+      'row: $row, col: $col, verticalAlign: $verticalAlign)';
 }
