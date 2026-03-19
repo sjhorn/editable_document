@@ -793,6 +793,8 @@ class _DocumentDemoState extends State<DocumentDemo> {
       return 'Horizontal rule';
     } else if (node is ImageNode) {
       return 'Image';
+    } else if (node is TableNode) {
+      return 'Table';
     }
     return '';
   }

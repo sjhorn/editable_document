@@ -327,6 +327,95 @@ void main() {
     });
   });
 
+  group('RenderBlockResizeBorder — handle clamping', () {
+    test('clampedHandlePositions returns 8 positions within the clip bounds', () {
+      final border = RenderBlockResizeBorder(handleSize: 8.0);
+
+      // A block rect that goes right to the edges of a 400×300 clip.
+      const rect = Rect.fromLTWH(0, 0, 400, 300);
+      const clipBounds = Rect.fromLTWH(0, 0, 400, 300);
+
+      final positions = border.clampedHandlePositions(rect, clipBounds);
+
+      expect(positions, hasLength(8));
+
+      // halfSize = 8.0 / 2 = 4.0 — no center should be within halfSize of
+      // the clip edge so the full square remains visible.
+      const halfSize = 4.0;
+      for (final pos in positions) {
+        expect(
+          pos.dx,
+          inInclusiveRange(clipBounds.left + halfSize, clipBounds.right - halfSize),
+          reason: 'dx $pos must be within clip left+halfSize..right-halfSize',
+        );
+        expect(
+          pos.dy,
+          inInclusiveRange(clipBounds.top + halfSize, clipBounds.bottom - halfSize),
+          reason: 'dy $pos must be within clip top+halfSize..bottom-halfSize',
+        );
+      }
+    });
+
+    test('clampedHandlePositions does not clamp when block is well within clip', () {
+      final border = RenderBlockResizeBorder(handleSize: 8.0);
+
+      // Block well inside the clip — no clamping should occur.
+      const rect = Rect.fromLTWH(50, 50, 200, 100);
+      const clipBounds = Rect.fromLTWH(0, 0, 400, 300);
+
+      final positions = border.clampedHandlePositions(rect, clipBounds);
+
+      // Top-left corner handle should remain at (50, 50).
+      expect(positions.first, const Offset(50, 50));
+    });
+
+    test('clampedHandlePositions clamps top-left handle when block starts at origin', () {
+      final border = RenderBlockResizeBorder(handleSize: 8.0);
+
+      // Block top-left at (0, 0) — the corner handle center at (0, 0) should be
+      // clamped to (4, 4) so the 8×8 square is entirely within the clip.
+      const rect = Rect.fromLTWH(0, 0, 200, 100);
+      const clipBounds = Rect.fromLTWH(0, 0, 400, 300);
+
+      final positions = border.clampedHandlePositions(rect, clipBounds);
+
+      // Top-left corner is positions[0].
+      expect(positions[0], const Offset(4.0, 4.0));
+    });
+
+    test('clampedHandlePositions clamps bottom-right handle when block ends at clip edge', () {
+      final border = RenderBlockResizeBorder(handleSize: 8.0);
+
+      // Block bottom-right at (400, 300) — the corner handle center at
+      // (400, 300) should be clamped to (396, 296).
+      const rect = Rect.fromLTWH(200, 200, 200, 100);
+      const clipBounds = Rect.fromLTWH(0, 0, 400, 300);
+
+      final positions = border.clampedHandlePositions(rect, clipBounds);
+
+      // Bottom-right corner is positions[7].
+      expect(positions[7], const Offset(396.0, 296.0));
+    });
+
+    test('paint with handle positions at clip edge does not throw', () {
+      // Block rect fills the entire canvas area so all handles are at the edge.
+      const previewRect = Rect.fromLTWH(0, 0, 400, 300);
+      final border = RenderBlockResizeBorder(
+        dragPreviewRect: previewRect,
+        handleSize: 8.0,
+      );
+      border.layout(const BoxConstraints.tightFor(width: 400, height: 300));
+
+      final recorder = PictureRecorder();
+      final canvas = Canvas(recorder, const Rect.fromLTWH(0, 0, 400, 300));
+      // Clip the canvas to match the viewport.
+      canvas.clipRect(const Rect.fromLTWH(0, 0, 400, 300));
+      final context = _FakePaintingContext(canvas);
+
+      expect(() => border.paint(context, Offset.zero), returnsNormally);
+    });
+  });
+
   group('RenderBlockResizeBorder — diagnostics', () {
     test('debugFillProperties reports all properties', () {
       final layout = _buildLayout();

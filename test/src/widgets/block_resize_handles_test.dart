@@ -1674,6 +1674,126 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
+  // BlockResizeHandles — handle position clamping at layout edges
+  // -------------------------------------------------------------------------
+
+  group('BlockResizeHandles — handle position clamping', () {
+    /// Returns all handle [Positioned] widgets (those with explicit [width])
+    /// inside [BlockResizeHandles], in [ResizeHandlePosition.values] order.
+    List<Positioned> _handlePositioned(WidgetTester tester) {
+      final allPositioned = tester.widgetList<Positioned>(
+        find.descendant(
+          of: find.byType(BlockResizeHandles),
+          matching: find.byType(Positioned),
+        ),
+      );
+      // Positioned.fill has no width; handle Positioned widgets have explicit width.
+      return allPositioned.where((p) => p.width != null).toList();
+    }
+
+    testWidgets('handle Positioned left/top are non-negative when block is at top-left edge',
+        (tester) async {
+      // A stretch-aligned image fills the full container width and is placed
+      // at the very top of the document layout (top: 0, left: 0).
+      // Without clamping, the topLeft handle would produce
+      // Positioned(left: -hitHalf, top: -hitHalf) — negative coordinates that
+      // get clipped by the Stack's bounds.
+      // After clamping, left >= 0 and top >= 0 for all eight handles.
+      final doc = MutableDocument([
+        ImageNode(
+          id: 'img-1',
+          imageUrl: 'test.png',
+          // No explicit dimensions and no alignment → stretch (full-width),
+          // positioned at the very top of the document.
+        ),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      addTearDown(controller.dispose);
+
+      _selectFully(controller, 'img-1');
+
+      await tester.pumpWidget(
+        _buildWithOverlay(
+          controller: controller,
+          document: doc,
+          onBlockResize: (id, w, h) {},
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Handles must be present.
+      final handles = _handlePositioned(tester);
+      expect(handles, hasLength(8), reason: 'All 8 handle Positioned widgets must be present');
+
+      for (final positioned in handles) {
+        expect(
+          positioned.left,
+          greaterThanOrEqualTo(0.0),
+          reason: 'Handle Positioned.left must be >= 0 (no negative clipping). '
+              'Got ${positioned.left}',
+        );
+        expect(
+          positioned.top,
+          greaterThanOrEqualTo(0.0),
+          reason: 'Handle Positioned.top must be >= 0 (no negative clipping). '
+              'Got ${positioned.top}',
+        );
+      }
+    });
+
+    testWidgets('reset button top is non-negative when block is at top of layout', (tester) async {
+      // When a block is at top: 0, the reset button would be placed at
+      // top: 0 - _resetButtonHeight - _resetButtonGap = -26, which is clipped.
+      // After clamping, top >= 0.
+      final doc = MutableDocument([
+        ImageNode(
+          id: 'img-1',
+          imageUrl: 'test.png',
+          width: 200.0,
+          height: 100.0,
+          // No alignment → stretch; the image is at the very top.
+        ),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      addTearDown(controller.dispose);
+
+      _selectFully(controller, 'img-1');
+
+      await tester.pumpWidget(
+        _buildWithOverlay(
+          controller: controller,
+          document: doc,
+          onBlockResize: (id, w, h) {},
+          onResetImageSize: (id) {},
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // The reset button is a Positioned widget with no explicit width in the
+      // BlockResizeHandles tree (it uses a constant buttonWidth hardcoded,
+      // BUT it DOES have width set). We can find it by the Text('Reset') widget.
+      // Find the ancestor Positioned of the Text widget.
+      final resetText = find.text('Reset');
+      expect(resetText, findsOneWidget, reason: 'Reset button must be visible');
+
+      // Walk up to the enclosing Positioned widget.
+      final positionedFinder = find.ancestor(
+        of: resetText,
+        matching: find.byType(Positioned),
+      );
+      // There may be more than one ancestor Positioned; take the first
+      // (closest ancestor) which is the one we placed around the button.
+      final resetPositioned = tester.widget<Positioned>(positionedFinder.first);
+
+      expect(
+        resetPositioned.top,
+        greaterThanOrEqualTo(0.0),
+        reason: 'Reset button Positioned.top must be >= 0. Got ${resetPositioned.top}',
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // createResetImageSizeRequest — lockAspect preservation
   // -------------------------------------------------------------------------
 

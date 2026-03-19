@@ -7,6 +7,8 @@
 /// automatically switches the alignment to [BlockAlignment.start].
 library;
 
+import 'dart:math' show max;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
@@ -702,8 +704,8 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
     final hitSize = widget.handleSize + _handleHitPadding * 2;
     final hitHalf = hitSize / 2.0;
 
-    final double cx;
-    final double cy;
+    double cx;
+    double cy;
 
     switch (pos) {
       case ResizeHandlePosition.topLeft:
@@ -730,6 +732,17 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
       case ResizeHandlePosition.bottomRight:
         cx = blockRect.right;
         cy = blockRect.bottom;
+    }
+
+    // Clamp the hit-target centre so the Positioned widget never gets negative
+    // coordinates or extends beyond the overlay bounds. Without clamping, a
+    // block at the edge of the document layout (e.g. top: 0, left: 0 for a
+    // stretch-aligned image) would produce negative left/top values that are
+    // silently clipped by the parent Stack.
+    final layoutSize = widget.layoutKey.currentState?.renderObject?.size;
+    if (layoutSize != null) {
+      cx = cx.clamp(hitHalf, max(hitHalf, layoutSize.width - hitHalf));
+      cy = cy.clamp(hitHalf, max(hitHalf, layoutSize.height - hitHalf));
     }
 
     return Positioned(
@@ -765,9 +778,19 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
 
   Widget _buildResetButton(Rect blockRect, String nodeId) {
     const buttonWidth = 46.0;
+
+    // Clamp the reset button's top position so it stays within the overlay
+    // bounds. When the selected block is at the very top of the document
+    // layout, the unclamped value would be negative (above the Stack), making
+    // the button invisible. Clamp to [0, layoutSize.height - buttonHeight].
+    final rawTop = blockRect.top - _resetButtonHeight - _resetButtonGap;
+    final layoutSize = widget.layoutKey.currentState?.renderObject?.size;
+    final clampedTop =
+        layoutSize != null ? rawTop.clamp(0.0, layoutSize.height - _resetButtonHeight) : rawTop;
+
     return Positioned(
       left: blockRect.center.dx - buttonWidth / 2,
-      top: blockRect.top - _resetButtonHeight - _resetButtonGap,
+      top: clampedTop,
       width: buttonWidth,
       height: _resetButtonHeight,
       child: MouseRegion(

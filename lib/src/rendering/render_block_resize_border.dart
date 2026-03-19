@@ -286,22 +286,16 @@ class RenderBlockResizeBorder extends RenderBox {
   ///
   /// Handle positions: top-left, top-center, top-right, middle-left,
   /// middle-right, bottom-left, bottom-center, bottom-right.
+  ///
+  /// Each handle center is clamped so the full [_handleSize] square stays
+  /// within [canvas.getLocalClipBounds()].
   void _paintHandles(Canvas canvas, Rect rect) {
+    final clipBounds = canvas.getLocalClipBounds();
+    final positions = clampedHandlePositions(rect, clipBounds);
+
     final paint = Paint()
       ..color = _handleColor
       ..style = PaintingStyle.fill;
-
-    final positions = [
-      // corners
-      Offset(rect.left, rect.top), // topLeft
-      Offset(rect.center.dx, rect.top), // topCenter
-      Offset(rect.right, rect.top), // topRight
-      Offset(rect.left, rect.center.dy), // middleLeft
-      Offset(rect.right, rect.center.dy), // middleRight
-      Offset(rect.left, rect.bottom), // bottomLeft
-      Offset(rect.center.dx, rect.bottom), // bottomCenter
-      Offset(rect.right, rect.bottom), // bottomRight
-    ];
 
     for (final pos in positions) {
       canvas.drawRect(
@@ -322,6 +316,37 @@ class RenderBlockResizeBorder extends RenderBox {
         borderPaint,
       );
     }
+  }
+
+  /// Returns the 8 clamped handle center positions for [rect] within [clipBounds].
+  ///
+  /// The 8 positions correspond to: top-left, top-center, top-right,
+  /// middle-left, middle-right, bottom-left, bottom-center, bottom-right.
+  ///
+  /// Each position is clamped so that the full [handleSize] square remains
+  /// within [clipBounds].  This prevents handle squares from being painted
+  /// partially outside the visible viewport.
+  ///
+  /// This method is exposed for testing.
+  List<Offset> clampedHandlePositions(Rect rect, Rect clipBounds) {
+    final halfSize = _handleSize / 2;
+    final rawPositions = [
+      Offset(rect.left, rect.top), // topLeft
+      Offset(rect.center.dx, rect.top), // topCenter
+      Offset(rect.right, rect.top), // topRight
+      Offset(rect.left, rect.center.dy), // middleLeft
+      Offset(rect.right, rect.center.dy), // middleRight
+      Offset(rect.left, rect.bottom), // bottomLeft
+      Offset(rect.center.dx, rect.bottom), // bottomCenter
+      Offset(rect.right, rect.bottom), // bottomRight
+    ];
+    return [
+      for (final pos in rawPositions)
+        Offset(
+          pos.dx.clamp(clipBounds.left + halfSize, clipBounds.right - halfSize),
+          pos.dy.clamp(clipBounds.top + halfSize, clipBounds.bottom - halfSize),
+        ),
+    ];
   }
 
   // ---------------------------------------------------------------------------
