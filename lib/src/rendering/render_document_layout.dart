@@ -46,55 +46,89 @@ class DocumentBlockParentData extends ContainerBoxParentData<RenderDocumentBlock
   /// The child can use this to flow text around both sides of the float.
   /// Set by [RenderDocumentLayout.performLayout].
   Rect? exclusionRect;
+
+  /// Exclusion rectangles for dual side-float wrapping, or `null`.
+  ///
+  /// When both a start (left) and an end (right) float are simultaneously
+  /// active, this list contains exactly two rects — one per side — in the
+  /// child's local coordinates.  [exclusionRect] is `null` in this case.
+  /// Set by [RenderDocumentLayout.performLayout].
+  List<Rect>? exclusionRects;
 }
 
 // ---------------------------------------------------------------------------
 // DocumentBlockConstraints
 // ---------------------------------------------------------------------------
 
-/// [BoxConstraints] extended with an optional interior exclusion rectangle.
+/// [BoxConstraints] extended with optional interior exclusion rectangles.
 ///
-/// When a stretch block wraps beside a center-aligned float,
-/// [RenderDocumentLayout] passes the float's bounds (with gap) as
-/// [exclusionRect].  The child's [RenderBox.performLayout] can read this
-/// from `constraints` (via a type check) to flow text around the float.
+/// When a stretch block wraps beside a float, [RenderDocumentLayout] passes
+/// the float's bounds (with gap) as [exclusionRect] (single float) or
+/// [exclusionRects] (dual side floats).  The child's [RenderBox.performLayout]
+/// can read these from `constraints` (via a type check) to flow text around
+/// the float(s).
 ///
 /// Using a custom constraints subclass ensures that Flutter automatically
-/// re-runs `performLayout` on the child whenever the exclusion rect changes,
-/// because [operator ==] includes [exclusionRect] in its comparison.
+/// re-runs `performLayout` on the child whenever the exclusion rects change,
+/// because [operator ==] includes [exclusionRect] and [exclusionRects] in its
+/// comparison.
 class DocumentBlockConstraints extends BoxConstraints {
-  /// Creates document-block constraints with an optional [exclusionRect].
+  /// Creates document-block constraints with optional exclusion rect(s).
   const DocumentBlockConstraints({
     super.minWidth = 0.0,
     super.maxWidth = double.infinity,
     super.minHeight = 0.0,
     super.maxHeight = double.infinity,
     this.exclusionRect,
+    this.exclusionRects,
   });
 
-  /// The interior exclusion rectangle for center-float wrapping, or `null`.
+  /// The interior exclusion rectangle for single-float wrapping, or `null`.
   ///
   /// Describes the float's bounds (with gap) in the child's local coordinates.
+  /// When both start and end floats are simultaneously active,
+  /// [exclusionRects] is used instead.
   final Rect? exclusionRect;
+
+  /// Exclusion rectangles for dual side-float wrapping, or `null`.
+  ///
+  /// When both a start (left) and an end (right) float are simultaneously
+  /// active, this list contains exactly two rects — one per side — in the
+  /// child's local coordinates.  [exclusionRect] is `null` in this case.
+  final List<Rect>? exclusionRects;
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) {
       return true;
     }
-    return other is DocumentBlockConstraints &&
-        super == other &&
-        exclusionRect == other.exclusionRect;
+    if (other is! DocumentBlockConstraints) return false;
+    if (super != other) return false;
+    if (exclusionRect != other.exclusionRect) return false;
+    final a = exclusionRects;
+    final b = other.exclusionRects;
+    if (a == null && b == null) return true;
+    if (a == null || b == null) return false;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 
   @override
-  int get hashCode => Object.hash(super.hashCode, exclusionRect);
+  int get hashCode => Object.hash(
+        super.hashCode,
+        exclusionRect,
+        Object.hashAll(exclusionRects ?? const []),
+      );
 
   @override
   String toString() {
     final base = super.toString();
-    if (exclusionRect == null) return base;
-    return '$base; exclusionRect=$exclusionRect';
+    if (exclusionRect != null) return '$base; exclusionRect=$exclusionRect';
+    if (exclusionRects != null) return '$base; exclusionRects=$exclusionRects';
+    return base;
   }
 }
 
@@ -326,6 +360,7 @@ class RenderDocumentLayout extends RenderBox
       parentData.isFloat = isFloat;
       parentData.wrapMode = wrapMode;
       parentData.exclusionRect = null;
+      parentData.exclusionRects = null;
 
       if (childIndex > 0) {
         // Per-block spacing: use max(prevSpaceAfter, curSpaceBefore).
@@ -420,12 +455,36 @@ class RenderDocumentLayout extends RenderBox
             xOffset = 0.0;
           }
         } else if (hasStart && hasEnd) {
-          // Both sides active: a single exclusionRect cannot represent two side
-          // floats simultaneously.  Fall back to the narrowed-width approach.
-          final startWidth = startExclusion.width;
-          final endWidth = endExclusion.width;
-          childMaxWidth = max(0.0, preferredWidth - startWidth - endWidth);
-          xOffset = startWidth;
+          if (child.requestedWidth == null && !child.prefersNarrowedFloat) {
+            // Text-like stretch block beside both a start and end float: pass
+            // full-width constraints with dual exclusion rects so [RenderTextBlock]
+            // can split text into above/beside/below zones and expand to full
+            // width once the text content passes both floats' bottoms.
+            childMaxWidth = preferredWidth;
+            xOffset = 0.0;
+            parentData.exclusionRects = [
+              Rect.fromLTRB(
+                0,
+                max(0.0, startExclusion.top - yOffset),
+                startExclusion.width,
+                startExclusion.bottom - yOffset,
+              ),
+              Rect.fromLTRB(
+                preferredWidth - endExclusion.width,
+                max(0.0, endExclusion.top - yOffset),
+                preferredWidth,
+                endExclusion.bottom - yOffset,
+              ),
+            ];
+          } else {
+            // Sized block (image, code, etc.) with an explicit requestedWidth,
+            // or a block that prefers narrowed-width constraints.  Fall back to
+            // the narrowed-width approach: no exclusion rects.
+            final startWidth = startExclusion.width;
+            final endWidth = endExclusion.width;
+            childMaxWidth = max(0.0, preferredWidth - startWidth - endWidth);
+            xOffset = startWidth;
+          }
         }
 
         child.layout(
@@ -433,6 +492,7 @@ class RenderDocumentLayout extends RenderBox
             minWidth: childMaxWidth,
             maxWidth: childMaxWidth,
             exclusionRect: parentData.exclusionRect,
+            exclusionRects: parentData.exclusionRects,
           ),
           parentUsesSize: true,
         );

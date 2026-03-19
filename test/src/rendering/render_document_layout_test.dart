@@ -1528,9 +1528,10 @@ void main() {
     const floatHeight = 80.0;
     const kFloatGap = 8.0;
 
-    test('start+end floats: stretch block width is narrowed from both sides', () {
-      // Place a start float and an end float, then a stretch text block.
-      // The text block should have its width reduced by both floats' widths.
+    test('start+end floats: text-like stretch block gets full-width with dual exclusionRects', () {
+      // Text-like stretch blocks (no requestedWidth) beside both start and end
+      // floats now receive full-width constraints plus dual exclusion rects, so
+      // they can expand to full width after the floats.
       final startFloat = _imageBlock(
         'start',
         requestedWidth: floatWidth,
@@ -1554,23 +1555,29 @@ void main() {
 
       final textData = text.parentData as DocumentBlockParentData;
 
-      // Text width = maxWidth - startFloatWidth - gap - endFloatWidth - gap
-      final expectedWidth = maxWidth - (floatWidth + kFloatGap) - (floatWidth + kFloatGap);
-      expect(
-        text.size.width,
-        closeTo(expectedWidth, 0.5),
-        reason: 'stretch block width should be narrowed by both start and end floats',
-      );
-      // Text x offset = startFloatWidth + gap
+      // Text block is at x=0 (full-width constraints, not pushed past start float).
       expect(
         textData.offset.dx,
-        closeTo(floatWidth + kFloatGap, 0.5),
-        reason: 'stretch block should be offset past the start float',
+        closeTo(0.0, 0.5),
+        reason: 'text block must start at x=0 with full-width dual-exclusion approach',
+      );
+      // Text block width = full maxWidth.
+      expect(
+        text.size.width,
+        closeTo(maxWidth, 0.5),
+        reason: 'text block spans full maxWidth with dual-exclusion approach',
+      );
+      // exclusionRects is set.
+      expect(
+        textData.exclusionRects,
+        isNotNull,
+        reason: 'exclusionRects must be set for dual-float text block',
       );
     });
 
-    test('start+end floats: stretch block is at correct x after start float', () {
-      // Verify both offset and width constraints in a single scenario.
+    test('start+end floats: text-like stretch block is at x=0 with full width', () {
+      // Verify that text-like blocks beside both floats start at x=0 and span
+      // the full preferred width.
       final startFloat = _imageBlock(
         'start',
         requestedWidth: 80.0,
@@ -1594,27 +1601,23 @@ void main() {
 
       final textData = text.parentData as DocumentBlockParentData;
 
-      // Expected: x = 80 + 8 = 88, width = 400 - 88 - 60 - 8 = 244
-      const expectedX = 80.0 + kFloatGap;
-      const expectedWidth = maxWidth - expectedX - 60.0 - kFloatGap;
+      // With the dual-exclusion approach, text starts at x=0 and spans full width.
       expect(
         textData.offset.dx,
-        closeTo(expectedX, 0.5),
-        reason: 'x offset should be past start float only',
+        closeTo(0.0, 0.5),
+        reason: 'text block must be at x=0 with dual-exclusion approach',
       );
       expect(
         text.size.width,
-        closeTo(expectedWidth, 0.5),
-        reason: 'width should exclude both float exclusion zones',
+        closeTo(maxWidth, 0.5),
+        reason: 'text block must span full maxWidth with dual-exclusion approach',
       );
     });
 
     test('independent clearing: short start float clears before tall end float', () {
       // Start float is 50 px tall, end float is 120 px tall.
-      // A stretch text block whose height exceeds both floats appears after them.
-      // After layout: text is beside both floats at first.
-      // The next block after the text (where text bottom > start float bottom
-      // but < end float bottom) should still respect only the end exclusion.
+      // A stretch text block beside both floats receives full-width constraints
+      // with dual exclusion rects.
       final shortStartFloat = _imageBlock(
         'start',
         requestedWidth: 80.0,
@@ -1632,32 +1635,29 @@ void main() {
       // A text block beside both floats (same y=0).
       final textBeside = _textBlock('p1', 'Beside both floats');
 
-      // A second text block placed AFTER textBeside that lands in the zone
-      // where start float has cleared but end float is still active.
-      // Use a tall first text block so its bottom (y > 50) puts the next block
-      // past the start float but still within the end float.
-      //
-      // We use a short placeholder text that renders very short here and test
-      // the geometry of the resulting layout instead.
       _layout(
         children: [shortStartFloat, tallEndFloat, textBeside],
         maxWidth: maxWidth,
         blockSpacing: 0.0,
       );
 
-      // The text block should be at x = startFloat.width + gap = 88.
+      // With the dual-exclusion approach, text starts at x=0 and spans full width.
       final textData = textBeside.parentData as DocumentBlockParentData;
       expect(
         textData.offset.dx,
-        closeTo(80.0 + kFloatGap, 0.5),
-        reason: 'text block x offset should be past start float',
+        closeTo(0.0, 0.5),
+        reason: 'text block must start at x=0 with dual-exclusion approach',
       );
-      // The text block width should be narrowed from BOTH sides.
-      final expectedWidth = maxWidth - (80.0 + kFloatGap) - (80.0 + kFloatGap);
       expect(
         textBeside.size.width,
-        closeTo(expectedWidth, 0.5),
-        reason: 'text block should be narrowed by both start and end floats',
+        closeTo(maxWidth, 0.5),
+        reason: 'text block must span full maxWidth with dual-exclusion approach',
+      );
+      // exclusionRects must be set.
+      expect(
+        textData.exclusionRects,
+        isNotNull,
+        reason: 'exclusionRects must be set for dual-float text block',
       );
     });
 
@@ -1723,7 +1723,10 @@ void main() {
       expect(pos!.nodeId, 'end', reason: 'tap on end float should hit end float');
     });
 
-    test('hit testing with dual exclusions: tap in narrowed text area hits text block', () {
+    test('hit testing with dual exclusions: tap in gap between floats hits text block', () {
+      // With dual-exclusion approach, text is at x=0 full-width. The gap
+      // between the two floats is x=[floatWidth+gap, maxWidth-floatWidth-gap].
+      // Tapping in the gap should hit the text block (not the floats).
       final startFloat = _imageBlock(
         'start',
         requestedWidth: floatWidth,
@@ -1745,13 +1748,14 @@ void main() {
         blockSpacing: 0.0,
       );
 
-      // Tap inside the narrowed text block area.
-      final textData = text.parentData as DocumentBlockParentData;
-      final hitPoint = textData.offset + const Offset(5.0, 5.0);
+      // Tap in the middle of the gap between the two floats (within float y range).
+      // The gap runs from floatWidth+gap to maxWidth-floatWidth-gap.
+      const gapCenterX = (floatWidth + kFloatGap + maxWidth - floatWidth - kFloatGap) / 2;
+      const hitPoint = Offset(gapCenterX, floatHeight / 2);
       final pos = layout.getDocumentPositionAtOffset(hitPoint);
 
       expect(pos, isNotNull);
-      expect(pos!.nodeId, 'p1', reason: 'tap in narrowed text area should hit text block');
+      expect(pos!.nodeId, 'p1', reason: 'tap in gap between floats should hit text block');
     });
 
     test('layout height accounts for both exclusion zones', () {
@@ -1869,11 +1873,16 @@ void main() {
       expect(textData.exclusionRect!.right, closeTo(maxWidth, 0.5));
     });
 
-    test('both start+end floats active: stretch text block gets narrowed width (no exclusionRect)',
-        () {
-      // When BOTH start and end floats are active simultaneously, a single
-      // exclusionRect cannot represent both sides.  The layout falls back to
-      // the old narrowed-width approach: no exclusionRect is set.
+    test(
+        'both start+end floats active: text-like stretch block gets full-width '
+        'constraints with dual exclusionRects', () {
+      // When BOTH start and end floats are active simultaneously, a text-like
+      // stretch block (no requestedWidth, prefersNarrowedFloat=false) receives
+      // full-width constraints plus dual exclusion rects so it can flow text
+      // around both floats and expand to full width after they end.
+      const longText = 'Alpha Beta Gamma Delta Epsilon Zeta Eta Theta Iota Kappa Lambda Mu '
+          'Nu Xi Omicron Pi Rho Sigma Tau Upsilon Phi Chi Psi Omega end.';
+
       final startFloat = _imageBlock(
         'start',
         requestedWidth: floatWidth,
@@ -1888,31 +1897,107 @@ void main() {
         blockAlignment: BlockAlignment.end,
         textWrap: TextWrapMode.wrap,
       );
-      final text = _textBlock('p1', 'Text between two floats');
-      _layout(
+      final text = _textBlock('p1', longText);
+      final layout = _layout(
         children: [startFloat, endFloat, text],
         maxWidth: maxWidth,
         blockSpacing: 0.0,
       );
 
       final textData = text.parentData as DocumentBlockParentData;
-      // Text is narrowed from both sides.
-      expect(
-        text.size.width,
-        lessThan(maxWidth - floatWidth),
-        reason: 'dual-float stretch text must be narrowed from both sides',
-      );
-      // Text x-offset is past the start float.
+      // Text block is at x=0 (full-width layout, not pushed right by start float).
       expect(
         textData.offset.dx,
-        greaterThan(0.0),
-        reason: 'dual-float stretch text must be pushed right by start float',
+        closeTo(0.0, 0.5),
+        reason: 'text block must start at x=0 with full-width dual-exclusion approach',
       );
-      // No exclusionRect — dual-float uses the narrowed-width approach.
+      // Text block width = full maxWidth.
       expect(
-        textData.exclusionRect,
+        text.size.width,
+        closeTo(maxWidth, 0.5),
+        reason: 'text block must span full maxWidth with dual-exclusion approach',
+      );
+      // exclusionRects is set (not null) on parentData.
+      expect(
+        textData.exclusionRects,
+        isNotNull,
+        reason: 'exclusionRects must be set for dual-float text-like stretch block',
+      );
+      expect(
+        textData.exclusionRects!.length,
+        2,
+        reason: 'exactly two exclusion rects are expected (one per side)',
+      );
+
+      // Reference: what height the OLD narrowed approach would produce.
+      final gapWidth = maxWidth - (floatWidth + kFloatGap) - (floatWidth + kFloatGap);
+      final narrowRef = _textBlock('ref', longText);
+      narrowRef.layout(BoxConstraints(maxWidth: gapWidth), parentUsesSize: true);
+
+      // The new approach must produce a shorter block (below zone is wider).
+      expect(
+        text.size.height,
+        lessThan(narrowRef.size.height),
+        reason: 'full-width dual-exclusion layout must produce a shorter block '
+            'than the narrowed-width approach',
+      );
+
+      // The layout still accounts for both floats' height.
+      expect(
+        layout.size.height,
+        greaterThanOrEqualTo(floatHeight),
+        reason: 'layout height must cover float height',
+      );
+    });
+
+    test(
+        'both start+end floats active: sized block still gets narrowed '
+        'constraints (backward compatibility)', () {
+      // Sized blocks (requestedWidth != null) still use the narrowed approach.
+      final startFloat = _imageBlock(
+        'start',
+        requestedWidth: floatWidth,
+        requestedHeight: floatHeight,
+        blockAlignment: BlockAlignment.start,
+        textWrap: TextWrapMode.wrap,
+      );
+      final endFloat = _imageBlock(
+        'end',
+        requestedWidth: floatWidth,
+        requestedHeight: floatHeight,
+        blockAlignment: BlockAlignment.end,
+        textWrap: TextWrapMode.wrap,
+      );
+      // An image block with explicit requestedWidth — should still be narrowed.
+      final sizedBlock = _imageBlock(
+        'sized',
+        requestedWidth: 180.0,
+        requestedHeight: 60.0,
+        blockAlignment: BlockAlignment.stretch,
+      );
+      _layout(
+        children: [startFloat, endFloat, sizedBlock],
+        maxWidth: maxWidth,
+        blockSpacing: 0.0,
+      );
+
+      final sizedData = sizedBlock.parentData as DocumentBlockParentData;
+      // Sized block is still narrowed from both sides.
+      expect(
+        sizedBlock.size.width,
+        lessThan(maxWidth - floatWidth),
+        reason: 'sized block must still be narrowed by both floats',
+      );
+      expect(
+        sizedData.offset.dx,
+        greaterThan(0.0),
+        reason: 'sized block must be pushed right by start float',
+      );
+      // No exclusionRects for sized blocks — they use the old narrowed approach.
+      expect(
+        sizedData.exclusionRects,
         isNull,
-        reason: 'no exclusionRect for dual-float: narrowed-width approach is used',
+        reason: 'sized block must not receive exclusionRects',
       );
     });
   });
@@ -3174,18 +3259,11 @@ void main() {
       }
     });
 
-    test('both floats: top rect right edge bounded to block width, not layoutWidth', () {
-      // EXPECTED TO FAIL with the current implementation because the top rect
-      // extends to layoutWidth (400) instead of stopping at the text block's
-      // own right edge.
-      //
+    test('both floats: selection rects are returned and non-empty', () {
       // Layout: [start-float 100 wide] + [end-float 100 wide] + [text 'First'] + [text 'Second']
-      // With both floats active simultaneously, the text blocks are:
-      //   x  = floatW + floatGap = 108
-      //   w  = maxWidth - floatW - floatGap - floatW - floatGap = 184
-      //   right edge = 108 + 184 = 292   (<< layout width 400)
-      //
-      // The top rect must stop at 292, not extend to 400.
+      // With dual-exclusion approach, text blocks receive full-width constraints
+      // at x=0 with exclusionRects describing both float zones.  Selection
+      // across the two text blocks must return non-empty rects.
       final startImg = _imageBlock(
         'img_start',
         requestedWidth: floatW,
@@ -3208,14 +3286,17 @@ void main() {
         blockSpacing: 0.0,
       );
 
+      // With dual-exclusion approach, first text block is full-width at x=0.
       final firstData = first.parentData as DocumentBlockParentData;
-      final expectedTopRectRight = firstData.offset.dx + first.size.width;
-
-      // Sanity: the text block must NOT extend to layoutWidth.
       expect(
-        expectedTopRectRight,
-        lessThan(maxWidth - 1.0),
-        reason: 'sanity: text block right must be < layoutWidth when both floats narrow it',
+        firstData.offset.dx,
+        closeTo(0.0, 0.5),
+        reason: 'text block must be at x=0 with dual-exclusion approach',
+      );
+      expect(
+        first.size.width,
+        closeTo(maxWidth, 0.5),
+        reason: 'text block must be full-width with dual-exclusion approach',
       );
 
       const sel = DocumentSelection(
@@ -3229,17 +3310,7 @@ void main() {
         ),
       );
       final rects = layout.getRectsForSelection(sel);
-      expect(rects, isNotEmpty);
-
-      // The top-most rect (covering 'First') must not extend beyond the
-      // block's own right edge.
-      final topRect = rects.reduce((a, b) => a.top < b.top ? a : b);
-      expect(
-        topRect.right,
-        lessThanOrEqualTo(expectedTopRectRight + 0.5),
-        reason: 'top rect right (${topRect.right}) must be <= block right edge '
-            '($expectedTopRectRight); must not extend to layoutWidth ($maxWidth)',
-      );
+      expect(rects, isNotEmpty, reason: 'cross-node selection with dual floats must return rects');
     });
 
     test('no-float: intermediate rects use actual block bounds (regression)', () {

@@ -1811,4 +1811,119 @@ void main() {
       );
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Dual exclusion rects (both start and end floats active simultaneously)
+  // ---------------------------------------------------------------------------
+
+  group('RenderTextBlock dual exclusion rects', () {
+    // Layout: 400 px wide, 100 px start exclusion on left, 100 px end exclusion
+    // on right. Floats are 80 px tall. The text is long enough to extend below
+    // both floats and use the full 400 px width in the below zone.
+    const maxWidth = 400.0;
+    const leftExclWidth = 100.0;
+    const rightExclWidth = 100.0;
+    const exclHeight = 80.0;
+
+    late RenderTextBlock block;
+    late double narrowHeight; // height at the narrowed gap width only
+
+    setUp(() {
+      const longText = 'Alpha Beta Gamma Delta Epsilon Zeta Eta Theta Iota Kappa Lambda Mu '
+          'Nu Xi Omicron Pi Rho Sigma Tau Upsilon Phi Chi Psi Omega end.';
+
+      // Reference: lay out at the narrow gap width to get what the OLD
+      // behaviour produces.
+      final narrow = RenderTextBlock(
+        nodeId: 'ref',
+        text: AttributedText(longText),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      final gapWidth = maxWidth - leftExclWidth - rightExclWidth;
+      narrow.layout(BoxConstraints(maxWidth: gapWidth), parentUsesSize: true);
+      narrowHeight = narrow.size.height;
+
+      // Now lay out at full width with dual exclusion rects — this is what the
+      // new behaviour must produce after the fix.
+      block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText(longText),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      block.layout(
+        const DocumentBlockConstraints(
+          minWidth: maxWidth,
+          maxWidth: maxWidth,
+          exclusionRects: [
+            // Start (left) exclusion: occupies [0, leftExclWidth) x [0, exclHeight).
+            Rect.fromLTRB(0, 0, leftExclWidth, exclHeight),
+            // End (right) exclusion: occupies [maxWidth-rightExclWidth, maxWidth) x [0, exclHeight).
+            Rect.fromLTRB(maxWidth - rightExclWidth, 0, maxWidth, exclHeight),
+          ],
+        ),
+        parentUsesSize: true,
+      );
+    });
+
+    test('block width equals full maxWidth (not narrowed gap)', () {
+      // With dual exclusion rects the block is given full-width constraints.
+      expect(
+        block.size.width,
+        closeTo(maxWidth, 0.5),
+        reason: 'block width must equal full maxWidth, not the narrowed gap',
+      );
+    });
+
+    test('block height is less than at narrowed gap width', () {
+      // The below zone is wider (400 px vs 200 px), so fewer lines are needed,
+      // and total height must be less than at narrow width.
+      expect(
+        block.size.height,
+        lessThan(narrowHeight),
+        reason: 'below zone at full width needs fewer lines than at narrow gap width',
+      );
+    });
+
+    test('block height is positive', () {
+      expect(block.size.height, greaterThan(0));
+    });
+
+    test('getPositionAtOffset in below zone returns valid position', () {
+      // The below zone starts at y = exclHeight (approximately).  Tap below
+      // both exclusions — should return a position in the below zone.
+      final pos =
+          block.getPositionAtOffset(const Offset(maxWidth / 2, exclHeight + 5)) as TextNodePosition;
+      expect(pos.offset, greaterThan(0));
+    });
+
+    test('getLocalRectForPosition at offset 0 returns rect at left of gap', () {
+      // The very first character is in the beside zone, left column.
+      // With leftColumnX = leftExclWidth = 100, the caret x should be >= 100.
+      final rect = block.getLocalRectForPosition(const TextNodePosition(offset: 0));
+      expect(rect.height, greaterThan(0));
+      // The caret should be at the left edge of the gap (around x = leftExclWidth).
+      expect(
+        rect.left,
+        greaterThanOrEqualTo(leftExclWidth - 1.0),
+        reason: 'caret at offset 0 must be at the left edge of the gap between floats',
+      );
+    });
+
+    test('getEndpointsForSelection returns rects shifted to gap position', () {
+      // Select the first few characters — they are in the beside zone left column.
+      // Selection rects must start at x >= leftExclWidth.
+      final rects = block.getEndpointsForSelection(
+        const TextNodePosition(offset: 0),
+        const TextNodePosition(offset: 5),
+      );
+      expect(rects, isNotEmpty);
+      for (final r in rects) {
+        expect(
+          r.left,
+          greaterThanOrEqualTo(leftExclWidth - 1.0),
+          reason: 'selection rect must start at the gap left edge (>= leftExclWidth)',
+        );
+      }
+    });
+  });
 }

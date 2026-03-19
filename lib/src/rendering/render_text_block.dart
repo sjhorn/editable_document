@@ -49,6 +49,8 @@ class _ExclusionLayout {
     required this.exclusionRect,
     required this.leftWidth,
     required this.rightWidth,
+    this.leftColumnX = 0.0,
+    this.rightColumnX,
   });
 
   /// [TextPainter] for text above the exclusion zone, or `null` if none.
@@ -83,6 +85,25 @@ class _ExclusionLayout {
 
   /// Width available for the right column beside the float.
   final double rightWidth;
+
+  /// X-coordinate where the left column text starts in block-local coordinates.
+  ///
+  /// For single-float exclusion zones this is `0.0` (text starts at the left
+  /// edge of the block).  For dual side-float exclusion zones this is the left
+  /// edge of the gap between the two floats (i.e. the right edge of the start
+  /// exclusion).
+  final double leftColumnX;
+
+  /// X-coordinate where the right column text starts in block-local coordinates.
+  ///
+  /// When `null`, defaults to [exclusionRect.right] — the standard single-float
+  /// behaviour.  For dual side-float zones this is set to the right edge of the
+  /// gap (i.e. the left edge of the end exclusion), which equals
+  /// [exclusionRect.right] shifted by [leftColumnX].
+  final double? rightColumnX;
+
+  /// Effective X where the right column starts, falling back to [exclusionRect.right].
+  double get effectiveRightColumnX => rightColumnX ?? exclusionRect.right;
 
   /// Total height of this block.
   double get totalHeight => aboveHeight + besideHeight + belowHeight;
@@ -634,19 +655,23 @@ class RenderTextBlock extends RenderDocumentBlock {
   @override
   void performLayout() {
     final excl = exclusionRectForLayout();
+    final exclRects = exclusionRectsForLayout();
     final textWidth = max(0.0, constraints.maxWidth - _indentLeft - _indentRight);
     final adjustedExcl = excl != null ? excl.translate(-_indentLeft, 0) : null;
+    final adjustedExclRects =
+        exclRects != null ? exclRects.map((r) => r.translate(-_indentLeft, 0)).toList() : null;
 
     // Dispose previous first-line-indent layout when switching away from it.
-    if (_firstLineIndent <= 0 || adjustedExcl != null) {
+    final hasExclusion = adjustedExcl != null || adjustedExclRects != null;
+    if (_firstLineIndent <= 0 || hasExclusion) {
       _firstLineIndentLayout?.dispose();
       _firstLineIndentLayout = null;
     }
 
-    if (_firstLineIndent > 0 && adjustedExcl == null) {
+    if (_firstLineIndent > 0 && !hasExclusion) {
       _performFirstLineIndentLayout(textWidth);
     } else {
-      layoutText(textWidth, exclusionRect: adjustedExcl);
+      layoutText(textWidth, exclusionRect: adjustedExcl, exclusionRects: adjustedExclRects);
     }
 
     size = Size(constraints.maxWidth, layoutTextHeight);
@@ -931,6 +956,75 @@ class RenderTextBlock extends RenderDocumentBlock {
     _layoutText(maxWidth);
   }
 
+  /// Performs multi-segment layout when two side-float exclusion rects are set.
+  ///
+  /// Converts the dual exclusion rects into a single virtual exclusion rect
+  /// that [_performExclusionLayout] can process, then adjusts [leftColumnX]
+  /// and [rightColumnX] on the resulting [_ExclusionLayout] so that painting
+  /// and hit-testing are shifted to the gap between the two floats.
+  ///
+  /// The gap is the region between [exclusionRects[0].right] (right edge of
+  /// the start exclusion) and [exclusionRects[1].left] (left edge of the end
+  /// exclusion).  The virtual exclusion rect placed at
+  /// `Rect.fromLTRB(gapWidth, top, maxWidth, bottom)` makes
+  /// [_performExclusionLayout] think the exclusion starts at `x = gapWidth`
+  /// (leaving `leftWidth = gapWidth`).  Then [leftColumnX] shifts the left
+  /// column text to `x = gapLeft` so that it paints in the actual gap, not
+  /// at the left edge.
+  void _performDualExclusionLayout(double maxWidth, List<Rect> exclusionRects) {
+    assert(exclusionRects.length >= 2);
+
+    final leftExcl = exclusionRects[0]; // start (left) float exclusion
+    final rightExcl = exclusionRects[1]; // end (right) float exclusion
+
+    // The gap between the two floats.
+    final gapLeft = leftExcl.right; // right edge of start exclusion
+    final gapRight = rightExcl.left; // left edge of end exclusion
+    final gapWidth = max(0.0, gapRight - gapLeft);
+
+    // The combined exclusion zone spans from the top of the earlier float to
+    // the bottom of the later float.
+    final minTop = leftExcl.top < rightExcl.top ? leftExcl.top : rightExcl.top;
+    final maxBottom = leftExcl.bottom > rightExcl.bottom ? leftExcl.bottom : rightExcl.bottom;
+
+    // Build a virtual exclusion rect that occupies [gapWidth, maxWidth) x [minTop, maxBottom).
+    // This makes _performExclusionLayout produce:
+    //   leftWidth  = exclusionRect.left = gapWidth  (the gap)
+    //   rightWidth = maxWidth - exclusionRect.right = maxWidth - maxWidth = 0
+    //
+    // We want the left column to use gapWidth as its painter width (correct),
+    // and no right column (the right side is blocked by the end float).
+    final virtualExcl = Rect.fromLTRB(gapWidth, minTop, maxWidth, maxBottom);
+
+    // Run the standard single-exclusion layout with the virtual rect.
+    _performExclusionLayout(maxWidth, virtualExcl);
+
+    // Adjust leftColumnX and rightColumnX on the result so that painting and
+    // hit-testing are offset to the actual gap position.
+    final current = _exclusionLayout;
+    if (current != null) {
+      // Build a replacement layout that wraps all the same painters but with
+      // the adjusted leftColumnX.  The intermediate layout [current] is dropped
+      // without calling dispose() — its painters are now owned by the new layout
+      // and will be disposed when the new layout is eventually disposed.
+      _exclusionLayout = _ExclusionLayout(
+        abovePainter: current.abovePainter,
+        aboveEndIndex: current.aboveEndIndex,
+        lines: current.lines,
+        besideEndIndex: current.besideEndIndex,
+        belowPainter: current.belowPainter,
+        aboveHeight: current.aboveHeight,
+        besideHeight: current.besideHeight,
+        belowHeight: current.belowHeight,
+        exclusionRect: current.exclusionRect,
+        leftWidth: current.leftWidth,
+        rightWidth: current.rightWidth,
+        leftColumnX: gapLeft,
+        rightColumnX: null, // no right column for dual side floats
+      );
+    }
+  }
+
   /// Returns the distance from the top of this block to the text baseline.
   ///
   /// Mirrors [RenderEditable.computeDistanceToActualBaseline]: it lays out the
@@ -985,19 +1079,41 @@ class RenderTextBlock extends RenderDocumentBlock {
     return raw.translate(-horizontalInset, -verticalInset);
   }
 
+  /// Returns the [exclusionRects] from [DocumentBlockConstraints], adjusted
+  /// by [horizontalInset] and [verticalInset] for subclasses that indent
+  /// their text content.
+  ///
+  /// Returns `null` when the constraints carry no exclusion rects list.
+  @protected
+  List<Rect>? exclusionRectsForLayout({
+    double horizontalInset = 0.0,
+    double verticalInset = 0.0,
+  }) {
+    if (constraints is! DocumentBlockConstraints) return null;
+    final raw = (constraints as DocumentBlockConstraints).exclusionRects;
+    if (raw == null) return null;
+    if (horizontalInset == 0.0 && verticalInset == 0.0) return raw;
+    return raw.map((r) => r.translate(-horizontalInset, -verticalInset)).toList();
+  }
+
   /// Lays out the internal [TextPainter] with [textMaxWidth] as the maximum
   /// line width.
   ///
   /// When [exclusionRect] is provided, the text is split into above/beside/
   /// below zones around the exclusion (center-float dual-column wrapping).
   ///
+  /// When [exclusionRects] is provided (exactly two rects for dual side floats),
+  /// the text is split similarly but with both a start and end exclusion.
+  ///
   /// Subclasses that override [performLayout] to apply inset constraints
   /// (such as [RenderListItemBlock] and [RenderCodeBlock]) call this method
   /// to perform text layout without replicating the span-building logic.
   /// After calling this, [layoutTextHeight] is valid.
   @protected
-  void layoutText(double textMaxWidth, {Rect? exclusionRect}) {
-    if (exclusionRect != null) {
+  void layoutText(double textMaxWidth, {Rect? exclusionRect, List<Rect>? exclusionRects}) {
+    if (exclusionRects != null && exclusionRects.length >= 2) {
+      _performDualExclusionLayout(textMaxWidth, exclusionRects);
+    } else if (exclusionRect != null) {
       _performExclusionLayout(textMaxWidth, exclusionRect);
     } else {
       _exclusionLayout?.dispose();
@@ -1051,12 +1167,13 @@ class RenderTextBlock extends RenderDocumentBlock {
       }
       // Beside zone — Z-pattern lines.
       for (final line in excl.lines) {
-        final lineOffset = Offset(0, excl.aboveHeight + line.yOffset);
+        final lineYOff = excl.aboveHeight + line.yOffset;
         if (excl.leftWidth > 0) {
-          line.leftPainter.paint(context.canvas, textOffset + lineOffset);
+          final leftOffset = Offset(excl.leftColumnX, lineYOff);
+          line.leftPainter.paint(context.canvas, textOffset + leftOffset);
         }
         if (excl.rightWidth > 0) {
-          final rightOffset = Offset(excl.exclusionRect.right, excl.aboveHeight + line.yOffset);
+          final rightOffset = Offset(excl.effectiveRightColumnX, lineYOff);
           line.rightPainter.paint(context.canvas, textOffset + rightOffset);
         }
       }
@@ -1410,18 +1527,19 @@ class RenderTextBlock extends RenderDocumentBlock {
           );
           if (boxes.isNotEmpty) {
             final box = boxes.first.toRect();
-            return Rect.fromLTWH(_indentLeft + caretOffset.dx, baseY + box.top, 0, box.height);
+            return Rect.fromLTWH(
+                _indentLeft + excl.leftColumnX + caretOffset.dx, baseY + box.top, 0, box.height);
           }
         }
-        return Rect.fromLTWH(
-            _indentLeft + caretOffset.dx, baseY + caretOffset.dy, 0, painter.preferredLineHeight);
+        return Rect.fromLTWH(_indentLeft + excl.leftColumnX + caretOffset.dx,
+            baseY + caretOffset.dy, 0, painter.preferredLineHeight);
       }
 
       // Check right column.
       if (charIndex >= line.rightStartIndex && charIndex <= line.rightEndIndex) {
         final localIndex = charIndex - line.rightStartIndex;
         final painter = line.rightPainter;
-        final rightBaseX = excl.exclusionRect.right;
+        final rightBaseX = excl.effectiveRightColumnX;
         final visualLocalIndex = _m2vLocal(localIndex, line.rightStartIndex);
         final textPos = TextPosition(offset: visualLocalIndex, affinity: position.affinity);
         final caretOffset = painter.getOffsetForCaret(textPos, Rect.zero);
@@ -1507,39 +1625,40 @@ class RenderTextBlock extends RenderDocumentBlock {
 
       final lineLocalY = besideY - hitLine.yOffset;
 
+      // The left column text starts at leftColumnX (0.0 for single floats,
+      // gapLeft for dual side floats).  Map x to a column-local x for the
+      // left painter, which is laid out at width = leftWidth.
+      final adjustedX = x - excl.leftColumnX;
+      final leftColRight = excl.leftColumnX + excl.leftWidth;
+      final rightColStart = excl.effectiveRightColumnX;
+
       // Determine which column based on x.
-      if (x < excl.exclusionRect.left) {
+      if (adjustedX >= 0 && adjustedX < excl.leftWidth && excl.leftWidth > 0) {
         // Left column.
-        if (excl.leftWidth > 0) {
-          final tp = hitLine.leftPainter.getPositionForOffset(Offset(x, lineLocalY));
-          // Left painter uses local visual offsets; convert to model offsets.
-          final modelLocal = _v2mLocal(tp.offset, hitLine.leftStartIndex);
-          final idx = (hitLine.leftStartIndex + modelLocal).clamp(
-            hitLine.leftStartIndex,
-            hitLine.leftEndIndex,
-          );
-          return TextNodePosition(offset: idx, affinity: tp.affinity);
-        }
-        return TextNodePosition(offset: hitLine.leftStartIndex);
-      } else if (x >= excl.exclusionRect.right) {
+        final tp = hitLine.leftPainter.getPositionForOffset(Offset(adjustedX, lineLocalY));
+        // Left painter uses local visual offsets; convert to model offsets.
+        final modelLocal = _v2mLocal(tp.offset, hitLine.leftStartIndex);
+        final idx = (hitLine.leftStartIndex + modelLocal).clamp(
+          hitLine.leftStartIndex,
+          hitLine.leftEndIndex,
+        );
+        return TextNodePosition(offset: idx, affinity: tp.affinity);
+      } else if (excl.rightWidth > 0 && x >= rightColStart) {
         // Right column.
-        if (excl.rightWidth > 0) {
-          final rightX = x - excl.exclusionRect.right;
-          final tp = hitLine.rightPainter.getPositionForOffset(Offset(rightX, lineLocalY));
-          // Right painter uses local visual offsets; convert to model offsets.
-          final modelLocal = _v2mLocal(tp.offset, hitLine.rightStartIndex);
-          final idx = (hitLine.rightStartIndex + modelLocal).clamp(
-            hitLine.rightStartIndex,
-            hitLine.rightEndIndex,
-          );
-          return TextNodePosition(offset: idx, affinity: tp.affinity);
-        }
-        return TextNodePosition(offset: hitLine.rightEndIndex);
+        final rightX = x - rightColStart;
+        final tp = hitLine.rightPainter.getPositionForOffset(Offset(rightX, lineLocalY));
+        // Right painter uses local visual offsets; convert to model offsets.
+        final modelLocal = _v2mLocal(tp.offset, hitLine.rightStartIndex);
+        final idx = (hitLine.rightStartIndex + modelLocal).clamp(
+          hitLine.rightStartIndex,
+          hitLine.rightEndIndex,
+        );
+        return TextNodePosition(offset: idx, affinity: tp.affinity);
       } else {
-        // Inside the exclusion rect — snap to nearest column edge.
-        final distToLeft = x - excl.exclusionRect.left;
-        final distToRight = excl.exclusionRect.right - x;
-        if (distToLeft <= distToRight && excl.leftWidth > 0) {
+        // Inside the exclusion zone — snap to nearest column edge.
+        final distToLeftEnd = (x - leftColRight).abs();
+        final distToRightStart = excl.rightWidth > 0 ? (x - rightColStart).abs() : double.infinity;
+        if (distToLeftEnd <= distToRightStart && excl.leftWidth > 0) {
           return TextNodePosition(offset: hitLine.leftEndIndex);
         } else if (excl.rightWidth > 0) {
           return TextNodePosition(offset: hitLine.rightStartIndex);
@@ -1819,7 +1938,9 @@ class RenderTextBlock extends RenderDocumentBlock {
             ),
             boxHeightStyle: ui.BoxHeightStyle.max,
           );
-          rects.addAll(boxes.map((box) => box.toRect().shift(indentShift + Offset(0, baseY))));
+          rects.addAll(
+            boxes.map((box) => box.toRect().shift(indentShift + Offset(excl.leftColumnX, baseY))),
+          );
         }
       }
 
@@ -1839,7 +1960,7 @@ class RenderTextBlock extends RenderDocumentBlock {
           );
           rects.addAll(
             boxes.map(
-              (box) => box.toRect().shift(indentShift + Offset(excl.exclusionRect.right, baseY)),
+              (box) => box.toRect().shift(indentShift + Offset(excl.effectiveRightColumnX, baseY)),
             ),
           );
         }
