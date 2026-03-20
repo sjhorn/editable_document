@@ -59,6 +59,7 @@ import '../rendering/render_document_selection_highlight.dart';
 import 'block_drag_overlay.dart';
 import 'block_resize_handles.dart';
 import 'document_layout.dart';
+import 'table_divider_resize_handles.dart';
 
 // ---------------------------------------------------------------------------
 // DocumentSelectionOverlay
@@ -138,6 +139,8 @@ class DocumentSelectionOverlay extends StatefulWidget {
     this.onResetImageSize,
     this.onBlockMoved,
     this.blockDragOverlayKey,
+    this.onTableColumnResize,
+    this.onTableRowResize,
   });
 
   /// The document editing controller that provides selection state.
@@ -239,6 +242,18 @@ class DocumentSelectionOverlay extends StatefulWidget {
   /// is created if [onBlockMoved] and [document] are both non-null.
   final GlobalKey<BlockDragOverlayState>? blockDragOverlayKey;
 
+  /// Callback invoked when a table column divider is dragged.
+  ///
+  /// When `null` but [editor] and [document] are both non-null, an
+  /// auto-wired callback is used that submits [ChangeTableColumnWidthRequest].
+  final TableColumnResizeCallback? onTableColumnResize;
+
+  /// Callback invoked when a table row divider is dragged.
+  ///
+  /// When `null` but [editor] and [document] are both non-null, an
+  /// auto-wired callback is used that submits [ChangeTableRowHeightRequest].
+  final TableRowResizeCallback? onTableRowResize;
+
   @override
   State<DocumentSelectionOverlay> createState() => DocumentSelectionOverlayState();
 
@@ -274,6 +289,15 @@ class DocumentSelectionOverlay extends StatefulWidget {
         blockDragOverlayKey,
         defaultValue: null,
       ),
+    );
+    properties.add(
+      ObjectFlagProperty<TableColumnResizeCallback?>.has(
+        'onTableColumnResize',
+        onTableColumnResize,
+      ),
+    );
+    properties.add(
+      ObjectFlagProperty<TableRowResizeCallback?>.has('onTableRowResize', onTableRowResize),
     );
   }
 }
@@ -376,6 +400,40 @@ class DocumentSelectionOverlayState extends State<DocumentSelectionOverlay> {
     if (editor == null || document == null) return null;
     return (nodeId, position) {
       editor.submit(MoveNodeToPositionRequest(nodeId: nodeId, position: position));
+    };
+  }
+
+  /// Returns the effective table column-resize callback.
+  ///
+  /// If [DocumentSelectionOverlay.onTableColumnResize] is provided, it is
+  /// returned directly. Otherwise, if [DocumentSelectionOverlay.editor] is
+  /// non-null, an auto-wired callback is returned that submits
+  /// [ChangeTableColumnWidthRequest] to the editor.
+  TableColumnResizeCallback? get _effectiveOnTableColumnResize {
+    if (widget.onTableColumnResize != null) return widget.onTableColumnResize;
+    final editor = widget.editor;
+    if (editor == null) return null;
+    return (nodeId, colIndex, newWidth) {
+      editor.submit(
+        ChangeTableColumnWidthRequest(nodeId: nodeId, colIndex: colIndex, newWidth: newWidth),
+      );
+    };
+  }
+
+  /// Returns the effective table row-resize callback.
+  ///
+  /// If [DocumentSelectionOverlay.onTableRowResize] is provided, it is
+  /// returned directly. Otherwise, if [DocumentSelectionOverlay.editor] is
+  /// non-null, an auto-wired callback is returned that submits
+  /// [ChangeTableRowHeightRequest] to the editor.
+  TableRowResizeCallback? get _effectiveOnTableRowResize {
+    if (widget.onTableRowResize != null) return widget.onTableRowResize;
+    final editor = widget.editor;
+    if (editor == null) return null;
+    return (nodeId, rowIndex, newHeight) {
+      editor.submit(
+        ChangeTableRowHeightRequest(nodeId: nodeId, rowIndex: rowIndex, newHeight: newHeight),
+      );
     };
   }
 
@@ -522,6 +580,19 @@ class DocumentSelectionOverlayState extends State<DocumentSelectionOverlay> {
               document: widget.document!,
               onResize: _effectiveOnBlockResize,
               onResetImageSize: _effectiveOnResetImageSize,
+            ),
+          ),
+
+        // 4.5. Table divider resize handles.
+        if (widget.document != null &&
+            (_effectiveOnTableColumnResize != null || _effectiveOnTableRowResize != null))
+          Positioned.fill(
+            child: TableDividerResizeHandles(
+              controller: widget.controller,
+              layoutKey: widget.layoutKey,
+              document: widget.document!,
+              onColumnResize: _effectiveOnTableColumnResize,
+              onRowResize: _effectiveOnTableRowResize,
             ),
           ),
 

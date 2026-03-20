@@ -1046,6 +1046,243 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
+  // TableNode — rowHeights
+  // ---------------------------------------------------------------------------
+  group('TableNode rowHeights construction', () {
+    test('rowHeights defaults to null (auto)', () {
+      final node = TableNode(
+        id: 'tbl-rh1',
+        rowCount: 2,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')],
+          [AttributedText('b')],
+        ],
+      );
+      expect(node.rowHeights, isNull);
+    });
+
+    test('accepts explicit rowHeights list', () {
+      final node = TableNode(
+        id: 'tbl-rh2',
+        rowCount: 2,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')],
+          [AttributedText('b')],
+        ],
+        rowHeights: [40.0, null],
+      );
+      expect(node.rowHeights, isNotNull);
+      expect(node.rowHeights![0], 40.0);
+      expect(node.rowHeights![1], isNull);
+    });
+
+    test('rowHeights list is unmodifiable', () {
+      final node = TableNode(
+        id: 'tbl-rh3',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        rowHeights: [50.0],
+      );
+      expect(() => node.rowHeights!.add(10.0), throwsUnsupportedError);
+    });
+
+    test('mutating original rowHeights list does not affect node', () {
+      final original = [60.0, null];
+      final node = TableNode(
+        id: 'tbl-rh4',
+        rowCount: 2,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')],
+          [AttributedText('b')],
+        ],
+        rowHeights: original,
+      );
+      original[0] = 999.0;
+      expect(node.rowHeights![0], 60.0);
+    });
+  });
+
+  group('TableNode copyWith rowHeights', () {
+    test('copyWith replaces rowHeights with a new list', () {
+      final node = TableNode(
+        id: 'tbl-rh5',
+        rowCount: 2,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')],
+          [AttributedText('b')],
+        ],
+        rowHeights: [30.0, 50.0],
+      );
+      final copy = node.copyWith(rowHeights: [10.0, 20.0]);
+      expect(copy.rowHeights, [10.0, 20.0]);
+    });
+
+    test('copyWith with explicit null clears rowHeights', () {
+      final node = TableNode(
+        id: 'tbl-rh6',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        rowHeights: [40.0],
+      );
+      final copy = node.copyWith(rowHeights: null);
+      expect(copy.rowHeights, isNull);
+    });
+
+    test('copyWith preserves rowHeights when not specified', () {
+      final node = TableNode(
+        id: 'tbl-rh7',
+        rowCount: 2,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')],
+          [AttributedText('b')],
+        ],
+        rowHeights: [80.0, null],
+      );
+      final copy = node.copyWith(id: 'tbl-rh7-copy');
+      expect(copy.rowHeights, [80.0, null]);
+    });
+  });
+
+  group('TableNode equality with rowHeights', () {
+    test('equal when rowHeights match', () {
+      final a = TableNode(
+        id: 'tbl-rh8',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        rowHeights: [100.0],
+      );
+      final b = TableNode(
+        id: 'tbl-rh8',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        rowHeights: [100.0],
+      );
+      expect(a, equals(b));
+    });
+
+    test('unequal when rowHeights differ', () {
+      final a = TableNode(
+        id: 'tbl-rh9',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        rowHeights: [100.0],
+      );
+      final b = TableNode(
+        id: 'tbl-rh9',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        rowHeights: [200.0],
+      );
+      expect(a, isNot(equals(b)));
+    });
+
+    test('unequal when one has rowHeights and the other does not', () {
+      final a = TableNode(
+        id: 'tbl-rh10',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        rowHeights: [100.0],
+      );
+      final b = TableNode(
+        id: 'tbl-rh10',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+      );
+      expect(a, isNot(equals(b)));
+    });
+  });
+
+  group('TableNode hashCode with rowHeights', () {
+    test('equal nodes with rowHeights have equal hashCodes', () {
+      final a = TableNode(
+        id: 'tbl-rh11',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        rowHeights: [55.0],
+      );
+      final b = TableNode(
+        id: 'tbl-rh11',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        rowHeights: [55.0],
+      );
+      expect(a.hashCode, equals(b.hashCode));
+    });
+  });
+
+  group('TableNode debugFillProperties with rowHeights', () {
+    test('debugFillProperties includes rowHeights when non-null', () {
+      final node = TableNode(
+        id: 'tbl-rh12',
+        rowCount: 2,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')],
+          [AttributedText('b')],
+        ],
+        rowHeights: [40.0, null],
+      );
+      final builder = DiagnosticPropertiesBuilder();
+      node.debugFillProperties(builder);
+      final prop = builder.properties.whereType<IterableProperty<double?>>().firstWhere(
+            (p) => p.name == 'rowHeights',
+            orElse: () => throw StateError('rowHeights property not found'),
+          );
+      expect(prop.value, [40.0, null]);
+    });
+  });
+
+  group('TableNode toString with rowHeights', () {
+    test('toString includes rowHeights when non-null', () {
+      final node = TableNode(
+        id: 'tbl-rh13',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        rowHeights: [75.0],
+      );
+      expect(node.toString(), contains('rowHeights'));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // TableCellPosition — construction
   // ---------------------------------------------------------------------------
   group('TableCellPosition construction', () {

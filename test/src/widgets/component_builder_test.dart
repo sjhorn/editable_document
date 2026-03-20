@@ -1995,6 +1995,96 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
+  // TableComponentBuilder — rowHeights
+  // -------------------------------------------------------------------------
+
+  group('TableComponentBuilder — rowHeights', () {
+    TableNode _tableWithRowHeights(List<double?>? rowHeights) => TableNode(
+          id: 't1',
+          rowCount: 2,
+          columnCount: 1,
+          cells: [
+            [AttributedText('A')],
+            [AttributedText('B')],
+          ],
+          rowHeights: rowHeights,
+        );
+
+    TableComponentViewModel _vmWithRowHeights(List<double?>? rowHeights) => TableComponentViewModel(
+          nodeId: 't1',
+          rowCount: 2,
+          columnCount: 1,
+          cells: [
+            [AttributedText('A')],
+            [AttributedText('B')],
+          ],
+          rowHeights: rowHeights,
+        );
+
+    test('createViewModel copies rowHeights from TableNode', () {
+      const hints = [60.0, null];
+      final node = _tableWithRowHeights(hints);
+      final doc = _doc([node]);
+      final vm =
+          const TableComponentBuilder().createViewModel(doc, node) as TableComponentViewModel;
+      expect(vm.rowHeights, equals(hints));
+    });
+
+    test('createViewModel with null rowHeights yields null in view model', () {
+      final node = _tableWithRowHeights(null);
+      final doc = _doc([node]);
+      final vm =
+          const TableComponentBuilder().createViewModel(doc, node) as TableComponentViewModel;
+      expect(vm.rowHeights, isNull);
+    });
+
+    test('TableComponentViewModel equality — same rowHeights are equal', () {
+      final a = _vmWithRowHeights([60.0, null]);
+      final b = _vmWithRowHeights([60.0, null]);
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+    });
+
+    test('TableComponentViewModel equality — different rowHeights are not equal', () {
+      final a = _vmWithRowHeights([60.0, null]);
+      final b = _vmWithRowHeights([80.0, null]);
+      expect(a, isNot(equals(b)));
+    });
+
+    test('TableComponentViewModel equality — null vs non-null rowHeights are not equal', () {
+      final a = _vmWithRowHeights([60.0, null]);
+      final b = _vmWithRowHeights(null);
+      expect(a, isNot(equals(b)));
+    });
+
+    testWidgets('createComponent passes rowHeights to RenderTableBlock', (tester) async {
+      const hints = [60.0, null];
+      final vm = _vmWithRowHeights(hints);
+      final ctx = ComponentContext(document: _doc([]), selection: null, stylesheet: null);
+      final widget = const TableComponentBuilder().createComponent(vm, ctx)!;
+      await tester.pumpWidget(MaterialApp(home: Scaffold(body: widget)));
+      final renderObject = tester.allRenderObjects.whereType<RenderTableBlock>().first;
+      expect(renderObject.rowHeights, equals(hints));
+    });
+
+    testWidgets('updateRenderObject propagates rowHeights change to RenderTableBlock',
+        (tester) async {
+      final initial = _vmWithRowHeights(null);
+      final ctx = ComponentContext(document: _doc([]), selection: null, stylesheet: null);
+      await tester.pumpWidget(MaterialApp(
+          home: Scaffold(body: const TableComponentBuilder().createComponent(initial, ctx)!)));
+
+      const updated = [80.0, null];
+      final updatedVm = _vmWithRowHeights(updated);
+      await tester.pumpWidget(MaterialApp(
+          home: Scaffold(body: const TableComponentBuilder().createComponent(updatedVm, ctx)!)));
+
+      final renderObject = tester.allRenderObjects.whereType<RenderTableBlock>().first;
+      expect(renderObject.rowHeights, equals(updated));
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // defaultComponentBuilders priority — first non-null wins
   // -------------------------------------------------------------------------
 

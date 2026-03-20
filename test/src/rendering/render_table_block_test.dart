@@ -17,6 +17,7 @@ RenderTableBlock _makeTable({
   required int rowCount,
   required int columnCount,
   List<double?>? columnWidths,
+  List<double?>? rowHeights,
   double cellPadding = 8.0,
   double borderWidth = 1.0,
 }) {
@@ -34,6 +35,7 @@ RenderTableBlock _makeTable({
     cells: cells,
     textStyle: const TextStyle(fontSize: 16),
     columnWidths: columnWidths,
+    rowHeights: rowHeights,
     cellPadding: cellPadding,
     borderWidth: borderWidth,
   );
@@ -589,6 +591,242 @@ void main() {
       block.debugFillProperties(builder);
       final names = builder.properties.map((p) => p.name).toList();
       expect(names, contains('cellTextAligns'));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // 13. rowHeights hint
+  // ---------------------------------------------------------------------------
+  group('RenderTableBlock rowHeights hint', () {
+    test('rowHeights minimum is applied when content is shorter', () {
+      // Row 0 gets a minimum of 60 px; row 1 is auto-sized.
+      // With fontSize 16 and no padding/border, natural row height is ~19 px.
+      // After applying the hint, row 0 must be at least 60 px.
+      final block = _layoutBlock(
+        RenderTableBlock(
+          nodeId: 'table1',
+          rowCount: 2,
+          columnCount: 1,
+          cells: [
+            [AttributedText('A')],
+            [AttributedText('B')],
+          ],
+          textStyle: const TextStyle(fontSize: 16),
+          cellPadding: 0,
+          borderWidth: 0,
+          rowHeights: [60.0, null],
+        ),
+        maxWidth: 200,
+      );
+      final heights = block.computedRowHeights;
+      expect(heights.length, 2);
+      expect(heights[0], greaterThanOrEqualTo(60.0),
+          reason: 'Row 0 must be at least the hinted 60 px');
+    });
+
+    test('auto-sized row is unaffected by null rowHeights entry', () {
+      final blockWithHint = _layoutBlock(
+        RenderTableBlock(
+          nodeId: 'table1',
+          rowCount: 2,
+          columnCount: 1,
+          cells: [
+            [AttributedText('A')],
+            [AttributedText('B')],
+          ],
+          textStyle: const TextStyle(fontSize: 16),
+          cellPadding: 0,
+          borderWidth: 0,
+          rowHeights: [60.0, null],
+        ),
+        maxWidth: 200,
+      );
+      final blockAuto = _layoutBlock(
+        RenderTableBlock(
+          nodeId: 'table2',
+          rowCount: 1,
+          columnCount: 1,
+          cells: [
+            [AttributedText('B')],
+          ],
+          textStyle: const TextStyle(fontSize: 16),
+          cellPadding: 0,
+          borderWidth: 0,
+        ),
+        maxWidth: 200,
+      );
+      // Row 1 with a null hint should be the same as row 0 of auto block.
+      expect(
+        blockWithHint.computedRowHeights[1],
+        closeTo(blockAuto.computedRowHeights[0], 0.5),
+        reason: 'null hint row should be content-height only',
+      );
+    });
+
+    test('rowHeights setter triggers markNeedsLayout', () {
+      final block = _layoutBlock(_makeTable(rowCount: 2, columnCount: 1));
+      block.rowHeights = [100.0, null];
+      expect(block.rowHeights, [100.0, null]);
+    });
+
+    test('rowHeights default is null', () {
+      final block = _makeTable(rowCount: 2, columnCount: 1);
+      expect(block.rowHeights, isNull);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // 14. columnBoundaryXPositions
+  // ---------------------------------------------------------------------------
+  group('RenderTableBlock columnBoundaryXPositions', () {
+    test('2-column table has 3 boundary x positions', () {
+      final block = _layoutBlock(
+        _makeTable(rowCount: 1, columnCount: 2, cellPadding: 0, borderWidth: 0),
+        maxWidth: 200,
+      );
+      final positions = block.columnBoundaryXPositions;
+      expect(positions.length, 3, reason: 'columnCount+1 entries expected');
+    });
+
+    test('boundary positions are strictly increasing', () {
+      final block = _layoutBlock(
+        _makeTable(rowCount: 1, columnCount: 3, cellPadding: 0, borderWidth: 0),
+        maxWidth: 300,
+      );
+      final positions = block.columnBoundaryXPositions;
+      for (int i = 0; i < positions.length - 1; i++) {
+        expect(positions[i], lessThan(positions[i + 1]),
+            reason: 'boundary[$i] < boundary[${i + 1}]');
+      }
+    });
+
+    test('first boundary is 0 (no padding or border)', () {
+      final block = _layoutBlock(
+        _makeTable(rowCount: 1, columnCount: 2, cellPadding: 0, borderWidth: 0),
+        maxWidth: 200,
+      );
+      final positions = block.columnBoundaryXPositions;
+      expect(positions.first, closeTo(0.0, 0.5));
+    });
+
+    test('last boundary equals table width (no padding or border)', () {
+      final block = _layoutBlock(
+        _makeTable(rowCount: 1, columnCount: 2, cellPadding: 0, borderWidth: 0),
+        maxWidth: 200,
+      );
+      final positions = block.columnBoundaryXPositions;
+      expect(positions.last, closeTo(200.0, 0.5));
+    });
+
+    test('returns empty list before layout', () {
+      final block = RenderTableBlock(
+        nodeId: 'table1',
+        rowCount: 1,
+        columnCount: 2,
+        cells: [
+          [AttributedText('A'), AttributedText('B')],
+        ],
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      // No layout call — internal lists are empty.
+      expect(block.columnBoundaryXPositions, isEmpty);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // 15. rowBoundaryYPositions
+  // ---------------------------------------------------------------------------
+  group('RenderTableBlock rowBoundaryYPositions', () {
+    test('2-row table has 3 boundary y positions', () {
+      final block = _layoutBlock(
+        _makeTable(rowCount: 2, columnCount: 1, cellPadding: 0, borderWidth: 0),
+        maxWidth: 200,
+      );
+      final positions = block.rowBoundaryYPositions;
+      expect(positions.length, 3, reason: 'rowCount+1 entries expected');
+    });
+
+    test('boundary positions are strictly increasing', () {
+      final block = _layoutBlock(
+        _makeTable(rowCount: 3, columnCount: 1, cellPadding: 0, borderWidth: 0),
+        maxWidth: 200,
+      );
+      final positions = block.rowBoundaryYPositions;
+      for (int i = 0; i < positions.length - 1; i++) {
+        expect(positions[i], lessThan(positions[i + 1]),
+            reason: 'boundary[$i] < boundary[${i + 1}]');
+      }
+    });
+
+    test('first boundary is 0 (no border)', () {
+      final block = _layoutBlock(
+        _makeTable(rowCount: 2, columnCount: 1, cellPadding: 0, borderWidth: 0),
+        maxWidth: 200,
+      );
+      final positions = block.rowBoundaryYPositions;
+      expect(positions.first, closeTo(0.0, 0.5));
+    });
+
+    test('last boundary equals table height (no border)', () {
+      final block = _layoutBlock(
+        _makeTable(rowCount: 2, columnCount: 1, cellPadding: 0, borderWidth: 0),
+        maxWidth: 200,
+      );
+      final positions = block.rowBoundaryYPositions;
+      expect(positions.last, closeTo(block.size.height, 0.5));
+    });
+
+    test('returns empty list before layout', () {
+      final block = RenderTableBlock(
+        nodeId: 'table1',
+        rowCount: 2,
+        columnCount: 1,
+        cells: [
+          [AttributedText('A')],
+          [AttributedText('B')],
+        ],
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      expect(block.rowBoundaryYPositions, isEmpty);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // 16. computedOuterColumnWidths
+  // ---------------------------------------------------------------------------
+  group('RenderTableBlock computedOuterColumnWidths', () {
+    test('length equals columnCount', () {
+      final block = _layoutBlock(
+        _makeTable(rowCount: 1, columnCount: 3, cellPadding: 0, borderWidth: 0),
+        maxWidth: 300,
+      );
+      expect(block.computedOuterColumnWidths.length, 3);
+    });
+
+    test('outer width equals content width plus 2×cellPadding', () {
+      const padding = 8.0;
+      final block = _layoutBlock(
+        _makeTable(rowCount: 1, columnCount: 2, cellPadding: padding, borderWidth: 0),
+        maxWidth: 200,
+      );
+      final inner = block.computedColumnWidths;
+      final outer = block.computedOuterColumnWidths;
+      for (int i = 0; i < inner.length; i++) {
+        expect(outer[i], closeTo(inner[i] + 2.0 * padding, 0.5));
+      }
+    });
+
+    test('returns empty list before layout', () {
+      final block = RenderTableBlock(
+        nodeId: 'table1',
+        rowCount: 1,
+        columnCount: 2,
+        cells: [
+          [AttributedText('A'), AttributedText('B')],
+        ],
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      expect(block.computedOuterColumnWidths, isEmpty);
     });
   });
 

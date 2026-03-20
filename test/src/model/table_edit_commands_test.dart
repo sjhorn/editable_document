@@ -1151,6 +1151,42 @@ void main() {
       expect(a, isNot(equals(c)));
       expect(a.toString(), contains('tbl'));
     });
+
+    test('ChangeTableColumnWidthRequest equality', () {
+      const a = ChangeTableColumnWidthRequest(nodeId: 'tbl', colIndex: 1, newWidth: 120.0);
+      const b = ChangeTableColumnWidthRequest(nodeId: 'tbl', colIndex: 1, newWidth: 120.0);
+      const c = ChangeTableColumnWidthRequest(nodeId: 'tbl', colIndex: 1, newWidth: 200.0);
+      expect(a, equals(b));
+      expect(a, isNot(equals(c)));
+      // hashCode consistent with equality.
+      expect(a.hashCode, b.hashCode);
+    });
+
+    test('ChangeTableColumnWidthRequest with null newWidth equality', () {
+      const a = ChangeTableColumnWidthRequest(nodeId: 'tbl', colIndex: 0, newWidth: null);
+      const b = ChangeTableColumnWidthRequest(nodeId: 'tbl', colIndex: 0, newWidth: null);
+      const c = ChangeTableColumnWidthRequest(nodeId: 'tbl', colIndex: 0, newWidth: 80.0);
+      expect(a, equals(b));
+      expect(a, isNot(equals(c)));
+    });
+
+    test('ChangeTableRowHeightRequest equality', () {
+      const a = ChangeTableRowHeightRequest(nodeId: 'tbl', rowIndex: 0, newHeight: 60.0);
+      const b = ChangeTableRowHeightRequest(nodeId: 'tbl', rowIndex: 0, newHeight: 60.0);
+      const c = ChangeTableRowHeightRequest(nodeId: 'tbl', rowIndex: 1, newHeight: 60.0);
+      expect(a, equals(b));
+      expect(a, isNot(equals(c)));
+      // hashCode consistent with equality.
+      expect(a.hashCode, b.hashCode);
+    });
+
+    test('ChangeTableRowHeightRequest with null newHeight equality', () {
+      const a = ChangeTableRowHeightRequest(nodeId: 'tbl', rowIndex: 2, newHeight: null);
+      const b = ChangeTableRowHeightRequest(nodeId: 'tbl', rowIndex: 2, newHeight: null);
+      const c = ChangeTableRowHeightRequest(nodeId: 'tbl', rowIndex: 2, newHeight: 50.0);
+      expect(a, equals(b));
+      expect(a, isNot(equals(c)));
+    });
   });
 
   // ---------------------------------------------------------------------------
@@ -1269,6 +1305,281 @@ void main() {
       final updated = doc.nodeById('tbl') as TableNode;
       expect(updated.cellVerticalAligns![0][1], TableVerticalAlignment.bottom);
       editor.dispose();
+    });
+
+    test('Editor dispatches ChangeTableColumnWidthRequest', () {
+      final table = TableNode(
+        id: 'tbl',
+        rowCount: 2,
+        columnCount: 3,
+        cells: [
+          [AttributedText('r0c0'), AttributedText('r0c1'), AttributedText('r0c2')],
+          [AttributedText('r1c0'), AttributedText('r1c1'), AttributedText('r1c2')],
+        ],
+      );
+      final doc = MutableDocument([table]);
+      final controller = DocumentEditingController(document: doc);
+      final ctx = EditContext(document: doc, controller: controller);
+      final editor = Editor(editContext: ctx);
+
+      editor.submit(
+        const ChangeTableColumnWidthRequest(nodeId: 'tbl', colIndex: 1, newWidth: 150.0),
+      );
+
+      final updated = doc.nodeById('tbl') as TableNode;
+      expect(updated.columnWidths, isNotNull);
+      expect(updated.columnWidths![1], 150.0);
+      editor.dispose();
+    });
+
+    test('Editor dispatches ChangeTableRowHeightRequest', () {
+      final table = TableNode(
+        id: 'tbl',
+        rowCount: 2,
+        columnCount: 3,
+        cells: [
+          [AttributedText('r0c0'), AttributedText('r0c1'), AttributedText('r0c2')],
+          [AttributedText('r1c0'), AttributedText('r1c1'), AttributedText('r1c2')],
+        ],
+      );
+      final doc = MutableDocument([table]);
+      final controller = DocumentEditingController(document: doc);
+      final ctx = EditContext(document: doc, controller: controller);
+      final editor = Editor(editContext: ctx);
+
+      editor.submit(
+        const ChangeTableRowHeightRequest(nodeId: 'tbl', rowIndex: 0, newHeight: 80.0),
+      );
+
+      final updated = doc.nodeById('tbl') as TableNode;
+      expect(updated.rowHeights, isNotNull);
+      expect(updated.rowHeights![0], 80.0);
+      editor.dispose();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // ChangeTableColumnWidthCommand
+  // ---------------------------------------------------------------------------
+
+  group('ChangeTableColumnWidthCommand', () {
+    test('1. sets column width when columnWidths is already non-null', () {
+      final table = TableNode(
+        id: 'tbl',
+        rowCount: 1,
+        columnCount: 3,
+        cells: [
+          [AttributedText('a'), AttributedText('b'), AttributedText('c')]
+        ],
+        columnWidths: [100.0, 200.0, 300.0],
+      );
+      final doc = MutableDocument([table]);
+      final ctx = _ctx(doc);
+
+      final cmd = const ChangeTableColumnWidthCommand(
+        nodeId: 'tbl',
+        colIndex: 1,
+        newWidth: 250.0,
+      );
+      final events = cmd.execute(ctx);
+
+      final updated = doc.nodeById('tbl') as TableNode;
+      expect(updated.columnWidths![0], 100.0); // unchanged
+      expect(updated.columnWidths![1], 250.0); // updated
+      expect(updated.columnWidths![2], 300.0); // unchanged
+      expect(events, [const NodeChangeEvent(nodeId: 'tbl')]);
+    });
+
+    test('2. creates columnWidths from null when none existed', () {
+      final table = _makeTable2x3();
+      final doc = MutableDocument([table]);
+      final ctx = _ctx(doc);
+
+      final cmd = const ChangeTableColumnWidthCommand(
+        nodeId: 'tbl',
+        colIndex: 2,
+        newWidth: 180.0,
+      );
+      cmd.execute(ctx);
+
+      final updated = doc.nodeById('tbl') as TableNode;
+      expect(updated.columnWidths, isNotNull);
+      expect(updated.columnWidths, hasLength(3));
+      expect(updated.columnWidths![0], isNull); // auto
+      expect(updated.columnWidths![1], isNull); // auto
+      expect(updated.columnWidths![2], 180.0); // set
+    });
+
+    test('3. sets column width to null to revert to auto-sizing', () {
+      final table = TableNode(
+        id: 'tbl',
+        rowCount: 1,
+        columnCount: 2,
+        cells: [
+          [AttributedText('a'), AttributedText('b')]
+        ],
+        columnWidths: [120.0, 240.0],
+      );
+      final doc = MutableDocument([table]);
+      final ctx = _ctx(doc);
+
+      final cmd = const ChangeTableColumnWidthCommand(
+        nodeId: 'tbl',
+        colIndex: 0,
+        newWidth: null,
+      );
+      cmd.execute(ctx);
+
+      final updated = doc.nodeById('tbl') as TableNode;
+      expect(updated.columnWidths![0], isNull);
+      expect(updated.columnWidths![1], 240.0); // unchanged
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // ChangeTableRowHeightCommand
+  // ---------------------------------------------------------------------------
+
+  group('ChangeTableRowHeightCommand', () {
+    test('1. sets row height when rowHeights is already non-null', () {
+      final table = TableNode(
+        id: 'tbl',
+        rowCount: 3,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')],
+          [AttributedText('b')],
+          [AttributedText('c')],
+        ],
+        rowHeights: [40.0, 50.0, 60.0],
+      );
+      final doc = MutableDocument([table]);
+      final ctx = _ctx(doc);
+
+      final cmd = const ChangeTableRowHeightCommand(
+        nodeId: 'tbl',
+        rowIndex: 1,
+        newHeight: 99.0,
+      );
+      final events = cmd.execute(ctx);
+
+      final updated = doc.nodeById('tbl') as TableNode;
+      expect(updated.rowHeights![0], 40.0); // unchanged
+      expect(updated.rowHeights![1], 99.0); // updated
+      expect(updated.rowHeights![2], 60.0); // unchanged
+      expect(events, [const NodeChangeEvent(nodeId: 'tbl')]);
+    });
+
+    test('2. creates rowHeights from null when none existed', () {
+      final table = _makeTable2x3();
+      final doc = MutableDocument([table]);
+      final ctx = _ctx(doc);
+
+      final cmd = const ChangeTableRowHeightCommand(
+        nodeId: 'tbl',
+        rowIndex: 0,
+        newHeight: 70.0,
+      );
+      cmd.execute(ctx);
+
+      final updated = doc.nodeById('tbl') as TableNode;
+      expect(updated.rowHeights, isNotNull);
+      expect(updated.rowHeights, hasLength(2));
+      expect(updated.rowHeights![0], 70.0); // set
+      expect(updated.rowHeights![1], isNull); // auto
+    });
+
+    test('3. sets row height to null to revert to auto-sizing', () {
+      final table = TableNode(
+        id: 'tbl',
+        rowCount: 2,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')],
+          [AttributedText('b')],
+        ],
+        rowHeights: [80.0, 90.0],
+      );
+      final doc = MutableDocument([table]);
+      final ctx = _ctx(doc);
+
+      final cmd = const ChangeTableRowHeightCommand(
+        nodeId: 'tbl',
+        rowIndex: 1,
+        newHeight: null,
+      );
+      cmd.execute(ctx);
+
+      final updated = doc.nodeById('tbl') as TableNode;
+      expect(updated.rowHeights![0], 80.0); // unchanged
+      expect(updated.rowHeights![1], isNull);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // ResizeTableCommand preserves rowHeights
+  // ---------------------------------------------------------------------------
+
+  group('ResizeTableCommand rowHeights preservation', () {
+    test('9. truncates rowHeights when shrinking rows', () {
+      final table = TableNode(
+        id: 'tbl',
+        rowCount: 3,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')],
+          [AttributedText('b')],
+          [AttributedText('c')],
+        ],
+        rowHeights: [40.0, 50.0, 60.0],
+      );
+      final doc = MutableDocument([table]);
+      final ctx = _ctx(doc);
+
+      const cmd = ResizeTableCommand(nodeId: 'tbl', newRowCount: 2, newColumnCount: 1);
+      cmd.execute(ctx);
+
+      final updated = doc.nodeById('tbl') as TableNode;
+      expect(updated.rowHeights, hasLength(2));
+      expect(updated.rowHeights![0], 40.0);
+      expect(updated.rowHeights![1], 50.0);
+    });
+
+    test('10. extends rowHeights with null when growing rows', () {
+      final table = TableNode(
+        id: 'tbl',
+        rowCount: 2,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')],
+          [AttributedText('b')],
+        ],
+        rowHeights: [40.0, null],
+      );
+      final doc = MutableDocument([table]);
+      final ctx = _ctx(doc);
+
+      const cmd = ResizeTableCommand(nodeId: 'tbl', newRowCount: 4, newColumnCount: 1);
+      cmd.execute(ctx);
+
+      final updated = doc.nodeById('tbl') as TableNode;
+      expect(updated.rowHeights, hasLength(4));
+      expect(updated.rowHeights![0], 40.0);
+      expect(updated.rowHeights![1], isNull);
+      expect(updated.rowHeights![2], isNull); // new
+      expect(updated.rowHeights![3], isNull); // new
+    });
+
+    test('11. leaves null rowHeights null after resize', () {
+      final table = _makeTable2x3();
+      final doc = MutableDocument([table]);
+      final ctx = _ctx(doc);
+
+      const cmd = ResizeTableCommand(nodeId: 'tbl', newRowCount: 3, newColumnCount: 4);
+      cmd.execute(ctx);
+
+      final updated = doc.nodeById('tbl') as TableNode;
+      expect(updated.rowHeights, isNull);
     });
   });
 }

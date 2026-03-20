@@ -45,6 +45,7 @@ import '../../model/document_selection.dart';
 import '../../model/node_position.dart';
 import '../block_drag_overlay.dart';
 import '../block_resize_handles.dart';
+import '../table_divider_resize_handles.dart';
 import '../../model/table_node.dart';
 import '../../model/text_node.dart';
 import '../document_layout.dart';
@@ -352,6 +353,7 @@ class DocumentMouseInteractorState extends State<DocumentMouseInteractor> {
     }
     // Skip drag-selection when a block resize handle or block drag is active.
     if (BlockResizeHandles.isDragging) return;
+    if (TableDividerResizeHandles.isDragging) return;
     if (BlockDragOverlay.isDragging) return;
 
     // Check whether the pointer is on a fully-selected draggable block node
@@ -395,6 +397,7 @@ class DocumentMouseInteractorState extends State<DocumentMouseInteractor> {
     if (!widget.enabled) return;
     if (!_isDragging) return;
     if (BlockResizeHandles.isDragging) return;
+    if (TableDividerResizeHandles.isDragging) return;
 
     // Route active block drags before the isDragging guard — the interactor
     // itself sets BlockDragOverlay.isDragging, so the guard must not block

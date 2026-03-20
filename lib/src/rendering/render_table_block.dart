@@ -100,6 +100,9 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
   /// [columnWidths] optionally specifies per-column widths in logical pixels;
   ///   `null` entries mean that column is auto-sized.  When the list itself is
   ///   `null`, all columns are auto-sized.
+  /// [rowHeights] optionally specifies per-row minimum heights in logical
+  ///   pixels; `null` entries mean that row is auto-sized.  When the list
+  ///   itself is `null`, all rows are auto-sized.
   /// [cellPadding] is the horizontal and vertical padding inside each cell.
   /// [borderWidth] is the stroke width of the grid lines.
   /// [borderColor] is the color of the grid lines.
@@ -120,6 +123,7 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
     required List<List<AttributedText>> cells,
     required TextStyle textStyle,
     List<double?>? columnWidths,
+    List<double?>? rowHeights,
     double cellPadding = 8.0,
     double borderWidth = 1.0,
     Color borderColor = const Color(0xFFCCCCCC),
@@ -137,6 +141,7 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
         _cells = cells,
         _textStyle = textStyle,
         _columnWidths = columnWidths,
+        _rowHeights = rowHeights,
         _cellPadding = cellPadding,
         _borderWidth = borderWidth,
         _borderColor = borderColor,
@@ -162,6 +167,7 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
   List<List<AttributedText>> _cells;
   TextStyle _textStyle;
   List<double?>? _columnWidths;
+  List<double?>? _rowHeights;
   double _cellPadding;
   double _borderWidth;
   Color _borderColor;
@@ -182,6 +188,14 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
 
   /// Cached row heights; populated by [performLayout].
   List<double> _computedRowHeights = const [];
+
+  /// Cached column left positions (left edge of each cell area); populated by
+  /// [performLayout].
+  List<double> _colLefts = const [];
+
+  /// Cached row top positions (top edge of each cell area); populated by
+  /// [performLayout].
+  List<double> _rowTops = const [];
 
   // ---------------------------------------------------------------------------
   // RenderDocumentBlock — nodeId
@@ -298,6 +312,20 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
     markNeedsLayout();
   }
 
+  /// Per-row minimum height hints, or `null` when all rows are auto-sized.
+  ///
+  /// When non-null, the list has exactly [rowCount] entries. A `null` entry
+  /// means the corresponding row is auto-sized. A specified value is the
+  /// minimum outer height in logical pixels; cell content may exceed it.
+  // ignore: diagnostic_describe_all_properties
+  List<double?>? get rowHeights => _rowHeights;
+
+  /// Sets the row height hints and schedules a layout pass.
+  set rowHeights(List<double?>? value) {
+    _rowHeights = value;
+    markNeedsLayout();
+  }
+
   /// Horizontal and vertical padding applied inside each cell.
   // ignore: diagnostic_describe_all_properties
   double get cellPadding => _cellPadding;
@@ -400,6 +428,54 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
   ///
   /// Must only be called after layout.
   List<double> get computedRowHeights => List.unmodifiable(_computedRowHeights);
+
+  /// X positions of the left edge of each column cell area (after border),
+  /// plus a trailing value for the right edge of the last column.
+  ///
+  /// Length is `columnCount + 1`. Index 0 is the left edge of the first
+  /// column cell area, index [columnCount] is the right edge of the last
+  /// column cell area. These are in table-local coordinates.
+  ///
+  /// Returns an empty list before the first layout pass.
+  // ignore: diagnostic_describe_all_properties
+  List<double> get columnBoundaryXPositions {
+    if (_colLefts.isEmpty) return const [];
+    // _colLefts has columnCount entries (left edge of each cell area).
+    // Add the right edge of the last column.
+    final result = List<double>.of(_colLefts);
+    if (_computedColumnWidths.isNotEmpty) {
+      result.add(_colLefts.last + _computedColumnWidths.last + 2.0 * _cellPadding);
+    }
+    return result;
+  }
+
+  /// Y positions of the top edge of each row cell area (after border),
+  /// plus a trailing value for the bottom edge of the last row.
+  ///
+  /// Length is `rowCount + 1`. Index 0 is the top edge of the first row
+  /// cell area, index [rowCount] is the bottom edge of the last row cell
+  /// area. These are in table-local coordinates.
+  ///
+  /// Returns an empty list before the first layout pass.
+  // ignore: diagnostic_describe_all_properties
+  List<double> get rowBoundaryYPositions {
+    if (_rowTops.isEmpty) return const [];
+    final result = List<double>.of(_rowTops);
+    if (_computedRowHeights.isNotEmpty) {
+      result.add(_rowTops.last + _computedRowHeights.last);
+    }
+    return result;
+  }
+
+  /// Computed outer column widths (content + 2×cellPadding) after layout.
+  ///
+  /// Length equals [columnCount]. Returns an empty list before the first
+  /// layout pass.
+  // ignore: diagnostic_describe_all_properties
+  List<double> get computedOuterColumnWidths {
+    if (_computedColumnWidths.isEmpty) return const [];
+    return _computedColumnWidths.map((w) => w + 2.0 * _cellPadding).toList();
+  }
 
   // ---------------------------------------------------------------------------
   // Layout helpers
@@ -564,6 +640,15 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
       }
     }
 
+    // Apply rowHeights hints as minimums.
+    if (_rowHeights != null) {
+      for (int r = 0; r < _rowCount; r++) {
+        if (r < _rowHeights!.length && _rowHeights![r] != null) {
+          rowHeights[r] = max(rowHeights[r], _rowHeights![r]!);
+        }
+      }
+    }
+
     _computedRowHeights = rowHeights;
 
     // --- Phase 2: compute cell origin offsets and build _CellLayout grid ---
@@ -571,17 +656,17 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
 
     // Compute cumulative y positions for rows.
     double y = _borderWidth;
-    final rowTops = <double>[];
+    _rowTops = <double>[];
     for (int r = 0; r < _rowCount; r++) {
-      rowTops.add(y);
+      _rowTops.add(y);
       y += rowHeights[r] + _borderWidth;
     }
 
     // Compute cumulative x positions for columns.
     double x = _borderWidth;
-    final colLefts = <double>[];
+    _colLefts = <double>[];
     for (int c = 0; c < _columnCount; c++) {
-      colLefts.add(x);
+      _colLefts.add(x);
       x += outerWidths[c] + _borderWidth;
     }
 
@@ -594,8 +679,8 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
             : TableVerticalAlignment.top;
 
         final cellRect = Rect.fromLTWH(
-          colLefts[c],
-          rowTops[r],
+          _colLefts[c],
+          _rowTops[r],
           outerWidths[c],
           rowHeights[r],
         );
@@ -613,8 +698,8 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
         }
 
         final textOffset = Offset(
-          colLefts[c] + _cellPadding,
-          rowTops[r] + _cellPadding + vOffset.clamp(0.0, double.infinity),
+          _colLefts[c] + _cellPadding,
+          _rowTops[r] + _cellPadding + vOffset.clamp(0.0, double.infinity),
         );
         cellLayouts[r].add(_CellLayout(
           painter: painters[r][c],

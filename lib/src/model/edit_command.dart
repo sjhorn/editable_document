@@ -2510,6 +2510,20 @@ class ResizeTableCommand extends EditCommand {
       }
     }
 
+    // Adjust rowHeights.
+    List<double?>? newRowHeights;
+    if (node.rowHeights != null) {
+      final heights = List<double?>.of(node.rowHeights!);
+      if (newRowCount < heights.length) {
+        newRowHeights = heights.sublist(0, newRowCount);
+      } else {
+        while (heights.length < newRowCount) {
+          heights.add(null);
+        }
+        newRowHeights = heights;
+      }
+    }
+
     // Adjust cellTextAligns 2D grid.
     List<List<TextAlign>>? newCellTextAligns;
     if (node.cellTextAligns != null) {
@@ -2539,6 +2553,7 @@ class ResizeTableCommand extends EditCommand {
       columnCount: newColumnCount,
       cells: newCells,
       columnWidths: newColumnWidths,
+      rowHeights: newRowHeights,
       cellTextAligns: newCellTextAligns,
       cellVerticalAligns: newCellVerticalAligns,
     );
@@ -2691,6 +2706,104 @@ class ChangeTableCellVerticalAlignCommand extends EditCommand {
     grid[row][col] = verticalAlign;
 
     doc.replaceNode(nodeId, node.copyWith(cellVerticalAligns: grid));
+    return [NodeChangeEvent(nodeId: nodeId)];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ChangeTableColumnWidthCommand
+// ---------------------------------------------------------------------------
+
+/// Command to change the width of a single table column.
+///
+/// When [TableNode.columnWidths] is `null`, a new list of length
+/// [TableNode.columnCount] is created with all entries `null` (auto) before
+/// applying [newWidth] at [colIndex].
+///
+/// Returns a [NodeChangeEvent].
+class ChangeTableColumnWidthCommand extends EditCommand {
+  /// Creates a [ChangeTableColumnWidthCommand].
+  const ChangeTableColumnWidthCommand({
+    required this.nodeId,
+    required this.colIndex,
+    required this.newWidth,
+  });
+
+  /// The id of the target [TableNode].
+  final String nodeId;
+
+  /// Zero-based column index to resize.
+  final int colIndex;
+
+  /// New outer width in logical pixels, or `null` to revert to auto-sizing.
+  final double? newWidth;
+
+  @override
+  List<DocumentChangeEvent> execute(EditContext context) {
+    final doc = context.document;
+    final node = doc.nodeById(nodeId);
+    if (node == null) {
+      throw StateError('ChangeTableColumnWidthCommand: no node with id "$nodeId".');
+    }
+    if (node is! TableNode) {
+      throw StateError('ChangeTableColumnWidthCommand: node "$nodeId" is not a TableNode.');
+    }
+
+    final widths = node.columnWidths != null
+        ? List<double?>.of(node.columnWidths!)
+        : List<double?>.filled(node.columnCount, null);
+    widths[colIndex] = newWidth;
+
+    doc.replaceNode(nodeId, node.copyWith(columnWidths: widths));
+    return [NodeChangeEvent(nodeId: nodeId)];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ChangeTableRowHeightCommand
+// ---------------------------------------------------------------------------
+
+/// Command to change the minimum height of a single table row.
+///
+/// When [TableNode.rowHeights] is `null`, a new list of length
+/// [TableNode.rowCount] is created with all entries `null` (auto) before
+/// applying [newHeight] at [rowIndex].
+///
+/// Returns a [NodeChangeEvent].
+class ChangeTableRowHeightCommand extends EditCommand {
+  /// Creates a [ChangeTableRowHeightCommand].
+  const ChangeTableRowHeightCommand({
+    required this.nodeId,
+    required this.rowIndex,
+    required this.newHeight,
+  });
+
+  /// The id of the target [TableNode].
+  final String nodeId;
+
+  /// Zero-based row index to resize.
+  final int rowIndex;
+
+  /// New outer height in logical pixels, or `null` to revert to auto-sizing.
+  final double? newHeight;
+
+  @override
+  List<DocumentChangeEvent> execute(EditContext context) {
+    final doc = context.document;
+    final node = doc.nodeById(nodeId);
+    if (node == null) {
+      throw StateError('ChangeTableRowHeightCommand: no node with id "$nodeId".');
+    }
+    if (node is! TableNode) {
+      throw StateError('ChangeTableRowHeightCommand: node "$nodeId" is not a TableNode.');
+    }
+
+    final heights = node.rowHeights != null
+        ? List<double?>.of(node.rowHeights!)
+        : List<double?>.filled(node.rowCount, null);
+    heights[rowIndex] = newHeight;
+
+    doc.replaceNode(nodeId, node.copyWith(rowHeights: heights));
     return [NodeChangeEvent(nodeId: nodeId)];
   }
 }

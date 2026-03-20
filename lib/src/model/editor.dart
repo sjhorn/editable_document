@@ -248,6 +248,18 @@ class Editor {
         col: request.col,
         verticalAlign: request.verticalAlign,
       );
+    } else if (request is ChangeTableColumnWidthRequest) {
+      return ChangeTableColumnWidthCommand(
+        nodeId: request.nodeId,
+        colIndex: request.colIndex,
+        newWidth: request.newWidth,
+      );
+    } else if (request is ChangeTableRowHeightRequest) {
+      return ChangeTableRowHeightCommand(
+        nodeId: request.nodeId,
+        rowIndex: request.rowIndex,
+        newHeight: request.newHeight,
+      );
     } else if (request is MoveNodeToPositionRequest) {
       return MoveNodeToPositionCommand(nodeId: request.nodeId, position: request.position);
     } else if (request is InsertNodeAtPositionRequest) {

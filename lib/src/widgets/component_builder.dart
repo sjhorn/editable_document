@@ -1399,6 +1399,9 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
   /// [columnWidths] optionally specifies per-column widths; `null` entries mean
   ///   that column is auto-sized. When the list itself is `null`, all columns
   ///   are auto-sized.
+  /// [rowHeights] optionally specifies per-row minimum heights; `null` entries
+  ///   mean that row is auto-sized. When the list itself is `null`, all rows
+  ///   are auto-sized.
   /// [textStyle] is the base [TextStyle] applied before attributions.
   /// [cellPadding] is the horizontal and vertical padding inside each cell.
   /// [borderWidth] is the stroke width of the grid lines.
@@ -1413,6 +1416,7 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
     required this.columnCount,
     required this.cells,
     this.columnWidths,
+    this.rowHeights,
     this.cellTextAligns,
     this.cellVerticalAligns,
     this.textStyle,
@@ -1447,6 +1451,13 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
   /// means the corresponding column is auto-sized. When the list itself is
   /// `null`, all columns are auto-sized.
   final List<double?>? columnWidths;
+
+  /// Optional per-row minimum height hints in logical pixels.
+  ///
+  /// When non-null, the list has exactly [rowCount] entries. A `null` entry
+  /// means the corresponding row is auto-sized. When the list itself is
+  /// `null`, all rows are auto-sized.
+  final List<double?>? rowHeights;
 
   /// Per-cell horizontal text alignment, or `null` to use the default.
   ///
@@ -1533,8 +1544,9 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
         other.isSelected != isSelected) {
       return false;
     }
-    // Compare columnWidths, cellTextAligns, cellVerticalAligns.
+    // Compare columnWidths, rowHeights, cellTextAligns, cellVerticalAligns.
     if (!_listEquals(other.columnWidths, columnWidths)) return false;
+    if (!_listEquals(other.rowHeights, rowHeights)) return false;
     // Compare cellTextAligns row by row.
     if ((other.cellTextAligns == null) != (cellTextAligns == null)) return false;
     if (cellTextAligns != null) {
@@ -1574,6 +1586,7 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
       columnCount,
       Object.hashAll(cellHashes),
       Object.hashAll(columnWidths ?? const <double?>[]),
+      Object.hashAll(rowHeights ?? const <double?>[]),
       Object.hashAll(cellTextAligns == null
           ? const <TextAlign>[]
           : [for (final row in cellTextAligns!) ...row]),
@@ -1618,6 +1631,7 @@ class TableComponentBuilder extends ComponentBuilder {
       columnCount: node.columnCount,
       cells: cells,
       columnWidths: node.columnWidths,
+      rowHeights: node.rowHeights,
       cellTextAligns: node.cellTextAligns,
       cellVerticalAligns: node.cellVerticalAligns,
       alignment: node.alignment,
@@ -1652,6 +1666,7 @@ class _TableBlockWidget extends LeafRenderObjectWidget {
       cells: viewModel.cells,
       textStyle: textStyle,
       columnWidths: viewModel.columnWidths,
+      rowHeights: viewModel.rowHeights,
       cellTextAligns: viewModel.cellTextAligns,
       cellVerticalAligns: viewModel.cellVerticalAligns,
       cellPadding: viewModel.cellPadding,
@@ -1676,6 +1691,7 @@ class _TableBlockWidget extends LeafRenderObjectWidget {
       ..cells = viewModel.cells
       ..textStyle = textStyle
       ..columnWidths = viewModel.columnWidths
+      ..rowHeights = viewModel.rowHeights
       ..cellTextAligns = viewModel.cellTextAligns
       ..cellVerticalAligns = viewModel.cellVerticalAligns
       ..cellPadding = viewModel.cellPadding

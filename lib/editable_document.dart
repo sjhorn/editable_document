@@ -58,6 +58,7 @@ export 'src/services/document_ime_input_client.dart';
 export 'src/services/document_keyboard_handler.dart';
 export 'src/widgets/block_drag_overlay.dart';
 export 'src/widgets/block_resize_handles.dart';
+export 'src/widgets/table_divider_resize_handles.dart';
 export 'src/widgets/caret_document_overlay.dart';
 export 'src/widgets/component_builder.dart';
 export 'src/widgets/drag_handle_auto_scroller.dart';

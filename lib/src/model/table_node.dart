@@ -29,6 +29,11 @@ import 'text_wrap_mode.dart';
 /// the list means that column is auto-sized. When [columnWidths] itself is
 /// `null`, all columns are auto-sized.
 ///
+/// [rowHeights] is an optional per-row minimum height list. A `null` entry
+/// means that row is auto-sized (content determines the height). A specified
+/// value is the minimum outer height in logical pixels; content may exceed it.
+/// When [rowHeights] itself is `null`, all rows are auto-sized.
+///
 /// [cellTextAligns] is an optional rowCount × columnCount 2D grid of
 /// [TextAlign] values. When `null`, all cells inherit the default text
 /// alignment. Each inner list corresponds to one row.
@@ -51,6 +56,7 @@ import 'text_wrap_mode.dart';
 ///     [AttributedText('r1c0'), AttributedText('r1c1'), AttributedText('r1c2')],
 ///   ],
 ///   columnWidths: [120.0, null, 80.0],
+///   rowHeights: [null, 60.0],
 ///   cellTextAligns: [
 ///     [TextAlign.left, TextAlign.center, TextAlign.right],
 ///     [TextAlign.start, TextAlign.start, TextAlign.start],
@@ -73,6 +79,9 @@ class TableNode extends DocumentNode implements HasBlockLayout {
   /// [columnWidths] is optional. When provided, its length must equal
   /// [columnCount]. A `null` entry means the corresponding column is auto-sized.
   ///
+  /// [rowHeights] is optional. When provided, its length must equal [rowCount].
+  /// A `null` entry means the corresponding row is auto-sized.
+  ///
   /// [cellTextAligns] is optional. When provided, it must be a rowCount ×
   /// columnCount 2D grid of [TextAlign] values. Both the outer list and each
   /// inner list are wrapped in [List.unmodifiable].
@@ -92,6 +101,7 @@ class TableNode extends DocumentNode implements HasBlockLayout {
     required this.columnCount,
     required List<List<AttributedText>> cells,
     List<double?>? columnWidths,
+    List<double?>? rowHeights,
     List<List<TextAlign>>? cellTextAligns,
     List<List<TableVerticalAlignment>>? cellVerticalAligns,
     this.alignment = BlockAlignment.stretch,
@@ -105,6 +115,7 @@ class TableNode extends DocumentNode implements HasBlockLayout {
           cells.map((row) => List<AttributedText>.unmodifiable(row)),
         ),
         columnWidths = columnWidths != null ? List<double?>.unmodifiable(columnWidths) : null,
+        rowHeights = rowHeights != null ? List<double?>.unmodifiable(rowHeights) : null,
         cellTextAligns = cellTextAligns != null
             ? List<List<TextAlign>>.unmodifiable(
                 cellTextAligns.map((row) => List<TextAlign>.unmodifiable(row)),
@@ -130,6 +141,15 @@ class TableNode extends DocumentNode implements HasBlockLayout {
   /// When non-null, the list has exactly [columnCount] entries. A `null` entry
   /// within the list means that column is auto-sized.
   final List<double?>? columnWidths;
+
+  /// Unmodifiable per-row minimum height hints, or `null` when all rows are
+  /// auto-sized.
+  ///
+  /// When non-null, the list has exactly [rowCount] entries. A `null` entry
+  /// within the list means that row is auto-sized (content determines height).
+  /// A specified value is the minimum outer height in logical pixels; cell
+  /// content may exceed it.
+  final List<double?>? rowHeights;
 
   /// Unmodifiable rowCount × columnCount 2D grid of horizontal text alignments,
   /// or `null` to use the document default for all cells.
@@ -206,6 +226,7 @@ class TableNode extends DocumentNode implements HasBlockLayout {
     int? columnCount,
     List<List<AttributedText>>? cells,
     Object? columnWidths = _sentinel,
+    Object? rowHeights = _sentinel,
     Object? cellTextAligns = _sentinel,
     Object? cellVerticalAligns = _sentinel,
     BlockAlignment? alignment,
@@ -223,6 +244,7 @@ class TableNode extends DocumentNode implements HasBlockLayout {
       cells: cells ?? _cells,
       columnWidths:
           identical(columnWidths, _sentinel) ? this.columnWidths : columnWidths as List<double?>?,
+      rowHeights: identical(rowHeights, _sentinel) ? this.rowHeights : rowHeights as List<double?>?,
       cellTextAligns: identical(cellTextAligns, _sentinel)
           ? this.cellTextAligns
           : cellTextAligns as List<List<TextAlign>>?,
@@ -258,6 +280,8 @@ class TableNode extends DocumentNode implements HasBlockLayout {
     }
     // Compare columnWidths.
     if (!_listEquals(other.columnWidths, columnWidths)) return false;
+    // Compare rowHeights.
+    if (!_listEquals(other.rowHeights, rowHeights)) return false;
     // Compare cellTextAligns row by row.
     if ((other.cellTextAligns == null) != (cellTextAligns == null)) return false;
     if (cellTextAligns != null) {
@@ -314,6 +338,7 @@ class TableNode extends DocumentNode implements HasBlockLayout {
       columnCount,
       Object.hashAll(cellHashes),
       Object.hashAll(columnWidths ?? const <double?>[]),
+      Object.hashAll(rowHeights ?? const <double?>[]),
       Object.hashAll(textAlignHashes),
       Object.hashAll(verticalAlignHashes),
       alignment,
@@ -342,6 +367,9 @@ class TableNode extends DocumentNode implements HasBlockLayout {
     properties.add(
       IterableProperty<double?>('columnWidths', columnWidths, defaultValue: null),
     );
+    properties.add(
+      IterableProperty<double?>('rowHeights', rowHeights, defaultValue: null),
+    );
     properties.add(DiagnosticsProperty<List<List<TextAlign>>?>(
       'cellTextAligns',
       cellTextAligns,
@@ -361,6 +389,7 @@ class TableNode extends DocumentNode implements HasBlockLayout {
       'TableNode(id: $id, rowCount: $rowCount, columnCount: $columnCount, '
       'alignment: ${alignment.name}, textWrap: $textWrap, '
       'width: $width, height: $height, '
+      'columnWidths: $columnWidths, rowHeights: $rowHeights, '
       'cellTextAligns: $cellTextAligns, cellVerticalAligns: $cellVerticalAligns, '
       'spaceBefore: $spaceBefore, spaceAfter: $spaceAfter, metadata: $metadata)';
 }
@@ -370,8 +399,8 @@ class TableNode extends DocumentNode implements HasBlockLayout {
 // ---------------------------------------------------------------------------
 
 /// Sentinel object used by [TableNode.copyWith] to distinguish "not provided"
-/// from an explicit `null` for [TableNode.columnWidths], [TableNode.cellTextAligns],
-/// and [TableNode.cellVerticalAligns].
+/// from an explicit `null` for [TableNode.columnWidths], [TableNode.rowHeights],
+/// [TableNode.cellTextAligns], and [TableNode.cellVerticalAligns].
 const Object _sentinel = Object();
 
 /// Null-safe shallow equality for nullable lists.

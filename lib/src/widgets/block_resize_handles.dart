@@ -22,6 +22,7 @@ import '../model/document_position.dart';
 import '../model/document_selection.dart';
 import '../model/edit_request.dart';
 import '../model/image_node.dart';
+import '../model/table_node.dart';
 import '../model/node_position.dart';
 import '../model/text_node.dart';
 import '../rendering/render_block_resize_border.dart';
@@ -428,6 +429,8 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
     final node = widget.document.nodeById(nodeId);
     if (node == null) return false;
     if (node is! HasBlockLayout) return false;
+    // Tables use TableDividerResizeHandles for column/row resizing.
+    if (node is TableNode) return false;
 
     return _blockRect != null;
   }
@@ -438,6 +441,9 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
   /// [HasBlockLayout]. Handles are shown for all alignment modes, including
   /// stretch — dragging a stretch block's handle will auto-switch alignment
   /// to [BlockAlignment.start] via [createResizeRequest].
+  ///
+  /// [TableNode]s are excluded because they use [TableDividerResizeHandles]
+  /// for column and row resizing instead.
   bool _shouldShowResizeHandles() {
     if (widget.onResize == null) return false;
     if (_activePointer != null) return true;
@@ -446,6 +452,7 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
     if (nodeId == null) return false;
     final node = widget.document.nodeById(nodeId);
     if (node == null || node is! HasBlockLayout) return false;
+    if (node is TableNode) return false;
     return true;
   }
 

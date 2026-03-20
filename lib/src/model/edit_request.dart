@@ -1262,3 +1262,88 @@ class ChangeTableCellVerticalAlignRequest extends EditRequest {
   String toString() => 'ChangeTableCellVerticalAlignRequest(nodeId: $nodeId, '
       'row: $row, col: $col, verticalAlign: $verticalAlign)';
 }
+
+// ---------------------------------------------------------------------------
+// ChangeTableColumnWidthRequest
+// ---------------------------------------------------------------------------
+
+/// Request to change the width of a single table column.
+///
+/// The [newWidth] specifies the new *outer* width (content + 2×cellPadding)
+/// in logical pixels, or `null` to revert to auto-sizing.
+class ChangeTableColumnWidthRequest extends EditRequest {
+  /// Creates a [ChangeTableColumnWidthRequest].
+  const ChangeTableColumnWidthRequest({
+    required this.nodeId,
+    required this.colIndex,
+    required this.newWidth,
+  });
+
+  /// The id of the target [TableNode].
+  final String nodeId;
+
+  /// Zero-based column index to resize.
+  final int colIndex;
+
+  /// New outer width (content + 2×cellPadding) in logical pixels, or `null` to
+  /// revert to auto-sizing.
+  final double? newWidth;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is ChangeTableColumnWidthRequest &&
+        other.nodeId == nodeId &&
+        other.colIndex == colIndex &&
+        other.newWidth == newWidth;
+  }
+
+  @override
+  int get hashCode => Object.hash(nodeId, colIndex, newWidth);
+
+  @override
+  String toString() =>
+      'ChangeTableColumnWidthRequest(nodeId: $nodeId, colIndex: $colIndex, newWidth: $newWidth)';
+}
+
+// ---------------------------------------------------------------------------
+// ChangeTableRowHeightRequest
+// ---------------------------------------------------------------------------
+
+/// Request to change the minimum height of a single table row.
+///
+/// The [newHeight] specifies the new *outer* height (content + 2×cellPadding)
+/// in logical pixels, or `null` to revert to auto-sizing.
+class ChangeTableRowHeightRequest extends EditRequest {
+  /// Creates a [ChangeTableRowHeightRequest].
+  const ChangeTableRowHeightRequest({
+    required this.nodeId,
+    required this.rowIndex,
+    required this.newHeight,
+  });
+
+  /// The id of the target [TableNode].
+  final String nodeId;
+
+  /// Zero-based row index to resize.
+  final int rowIndex;
+
+  /// New outer height in logical pixels, or `null` to revert to auto-sizing.
+  final double? newHeight;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is ChangeTableRowHeightRequest &&
+        other.nodeId == nodeId &&
+        other.rowIndex == rowIndex &&
+        other.newHeight == newHeight;
+  }
+
+  @override
+  int get hashCode => Object.hash(nodeId, rowIndex, newHeight);
+
+  @override
+  String toString() =>
+      'ChangeTableRowHeightRequest(nodeId: $nodeId, rowIndex: $rowIndex, newHeight: $newHeight)';
+}
