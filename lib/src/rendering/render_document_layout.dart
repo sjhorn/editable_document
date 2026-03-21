@@ -1065,10 +1065,18 @@ class RenderDocumentLayout extends RenderBox
           final gutterRight = offset.dx + _documentPadding.left + _resolvedGutterWidth;
           final labelX = gutterRight - 8.0 - tp.width;
           // Vertical position based on lineNumberAlignment.
+          //
+          // For [top], we align the alphabetic baseline of the line-number
+          // label with the first baseline of the child block.  This avoids a
+          // 1–2 px misalignment that occurs when the document text style has a
+          // non-null `height` multiplier (which shifts glyphs via half-leading)
+          // while the line-number TextPainter does not.
           final double labelY;
           switch (_lineNumberAlignment) {
             case LineNumberAlignment.top:
-              labelY = offset.dy + parentData.offset.dy;
+              final childBaseline = child.getDistanceToBaseline(TextBaseline.alphabetic) ?? 0.0;
+              final labelBaseline = tp.computeDistanceToActualBaseline(TextBaseline.alphabetic);
+              labelY = offset.dy + parentData.offset.dy + childBaseline - labelBaseline;
             case LineNumberAlignment.middle:
               labelY = offset.dy + parentData.offset.dy + (child.size.height - tp.height) / 2;
             case LineNumberAlignment.bottom:
