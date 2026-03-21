@@ -171,6 +171,22 @@ class _ExclusionZone {
 const double _kFloatGap = 8.0;
 
 // ---------------------------------------------------------------------------
+// LineNumberAlignment
+// ---------------------------------------------------------------------------
+
+/// Vertical alignment of line numbers relative to their document block.
+enum LineNumberAlignment {
+  /// Align line numbers to the top of each block.
+  top,
+
+  /// Align line numbers to the vertical center of each block.
+  middle,
+
+  /// Align line numbers to the bottom of each block.
+  bottom,
+}
+
+// ---------------------------------------------------------------------------
 // RenderDocumentLayout
 // ---------------------------------------------------------------------------
 
@@ -266,6 +282,9 @@ class RenderDocumentLayout extends RenderBox
   ///
   /// [lineNumberBackgroundColor] is the fill [Color] painted behind the gutter
   /// column.  Defaults to `null` (transparent — no background is painted).
+  ///
+  /// [lineNumberAlignment] controls the vertical alignment of each line-number
+  /// label relative to its document block.  Defaults to [LineNumberAlignment.top].
   RenderDocumentLayout({
     double blockSpacing = 12.0,
     double? viewportWidth,
@@ -274,13 +293,15 @@ class RenderDocumentLayout extends RenderBox
     double lineNumberWidth = 0.0,
     TextStyle? lineNumberTextStyle,
     Color? lineNumberBackgroundColor,
+    LineNumberAlignment lineNumberAlignment = LineNumberAlignment.top,
   })  : _blockSpacing = blockSpacing,
         _viewportWidth = viewportWidth,
         _documentPadding = documentPadding,
         _showLineNumbers = showLineNumbers,
         _lineNumberWidth = lineNumberWidth,
         _lineNumberTextStyle = lineNumberTextStyle,
-        _lineNumberBackgroundColor = lineNumberBackgroundColor;
+        _lineNumberBackgroundColor = lineNumberBackgroundColor,
+        _lineNumberAlignment = lineNumberAlignment;
 
   // ---------------------------------------------------------------------------
   // blockSpacing
@@ -308,6 +329,7 @@ class RenderDocumentLayout extends RenderBox
   double _lineNumberWidth;
   TextStyle? _lineNumberTextStyle;
   Color? _lineNumberBackgroundColor;
+  LineNumberAlignment _lineNumberAlignment;
 
   /// Resolved gutter width computed during [performLayout].
   ///
@@ -435,6 +457,27 @@ class RenderDocumentLayout extends RenderBox
   set lineNumberBackgroundColor(Color? value) {
     if (_lineNumberBackgroundColor == value) return;
     _lineNumberBackgroundColor = value;
+    markNeedsPaint();
+  }
+
+  // ---------------------------------------------------------------------------
+  // lineNumberAlignment
+  // ---------------------------------------------------------------------------
+
+  /// The vertical alignment of each line-number label relative to its block.
+  ///
+  /// - [LineNumberAlignment.top] — label is aligned with the block's top edge.
+  /// - [LineNumberAlignment.middle] — label is centred vertically within the block.
+  /// - [LineNumberAlignment.bottom] — label is aligned with the block's bottom edge.
+  ///
+  /// Changing this property only triggers a repaint, not a full re-layout.
+  /// Defaults to [LineNumberAlignment.top].
+  LineNumberAlignment get lineNumberAlignment => _lineNumberAlignment;
+
+  /// Sets [lineNumberAlignment] and schedules a repaint when the value changes.
+  set lineNumberAlignment(LineNumberAlignment value) {
+    if (_lineNumberAlignment == value) return;
+    _lineNumberAlignment = value;
     markNeedsPaint();
   }
 
@@ -1019,8 +1062,16 @@ class RenderDocumentLayout extends RenderBox
           // Gutter right edge in global coordinates.
           final gutterRight = offset.dx + _documentPadding.left + _resolvedGutterWidth;
           final labelX = gutterRight - 8.0 - tp.width;
-          // Vertically aligned with the child's top edge.
-          final labelY = offset.dy + parentData.offset.dy;
+          // Vertical position based on lineNumberAlignment.
+          final double labelY;
+          switch (_lineNumberAlignment) {
+            case LineNumberAlignment.top:
+              labelY = offset.dy + parentData.offset.dy;
+            case LineNumberAlignment.middle:
+              labelY = offset.dy + parentData.offset.dy + (child.size.height - tp.height) / 2;
+            case LineNumberAlignment.bottom:
+              labelY = offset.dy + parentData.offset.dy + child.size.height - tp.height;
+          }
           tp.paint(canvas, Offset(labelX, labelY));
 
           lineNumber++;
@@ -1382,6 +1433,8 @@ class RenderDocumentLayout extends RenderBox
         defaultValue: null));
     properties.add(
         ColorProperty('lineNumberBackgroundColor', lineNumberBackgroundColor, defaultValue: null));
+    properties.add(EnumProperty<LineNumberAlignment>('lineNumberAlignment', lineNumberAlignment,
+        defaultValue: LineNumberAlignment.top));
   }
 }
 

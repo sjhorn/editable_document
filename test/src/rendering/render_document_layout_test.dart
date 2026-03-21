@@ -4010,5 +4010,57 @@ void main() {
       );
       expect(prop.toDescription(), contains('50'));
     });
+
+    // -----------------------------------------------------------------------
+    // lineNumberAlignment tests
+    // -----------------------------------------------------------------------
+
+    test('lineNumberAlignment defaults to LineNumberAlignment.top', () {
+      final layout = RenderDocumentLayout();
+      expect(layout.lineNumberAlignment, LineNumberAlignment.top);
+    });
+
+    test('lineNumberAlignment can be set via constructor', () {
+      final layout = RenderDocumentLayout(lineNumberAlignment: LineNumberAlignment.middle);
+      expect(layout.lineNumberAlignment, LineNumberAlignment.middle);
+
+      final layout2 = RenderDocumentLayout(lineNumberAlignment: LineNumberAlignment.bottom);
+      expect(layout2.lineNumberAlignment, LineNumberAlignment.bottom);
+    });
+
+    test('setting lineNumberAlignment to a different value does not trigger relayout', () {
+      final child = _textBlock('p1', 'Hello');
+      final layout = RenderDocumentLayout(showLineNumbers: true);
+      layout.add(child);
+      layout.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+
+      final sizeBefore = layout.size;
+      final xBefore = (child.parentData as DocumentBlockParentData).offset.dx;
+
+      // Changing alignment is paint-only — child offsets and size must not change.
+      layout.lineNumberAlignment = LineNumberAlignment.bottom;
+      expect(layout.lineNumberAlignment, LineNumberAlignment.bottom);
+      expect(layout.size, sizeBefore);
+      expect((child.parentData as DocumentBlockParentData).offset.dx, xBefore);
+    });
+
+    test('setting lineNumberAlignment to same value does not trigger repaint', () {
+      final layout = RenderDocumentLayout(lineNumberAlignment: LineNumberAlignment.middle);
+      // No exception; same-value setter is a no-op.
+      layout.lineNumberAlignment = LineNumberAlignment.middle;
+      expect(layout.lineNumberAlignment, LineNumberAlignment.middle);
+    });
+
+    test('debugFillProperties includes lineNumberAlignment', () {
+      final layout = RenderDocumentLayout(lineNumberAlignment: LineNumberAlignment.middle);
+      final builder = DiagnosticPropertiesBuilder();
+      layout.debugFillProperties(builder);
+
+      final prop = builder.properties.firstWhere(
+        (p) => p.name == 'lineNumberAlignment',
+        orElse: () => throw StateError('lineNumberAlignment not found in properties'),
+      );
+      expect(prop.toDescription(), contains('middle'));
+    });
   });
 }

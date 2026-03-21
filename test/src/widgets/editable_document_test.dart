@@ -2189,5 +2189,47 @@ void main() {
       expect(ro.lineNumberTextStyle, style);
       expect(ro.lineNumberBackgroundColor, color);
     });
+
+    testWidgets('default lineNumberAlignment is LineNumberAlignment.top', (tester) async {
+      final controller = _makeController();
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+          ),
+        ),
+      );
+
+      final widget = tester.widget<EditableDocument>(find.byType(EditableDocument));
+      expect(widget.lineNumberAlignment, LineNumberAlignment.top);
+    });
+
+    testWidgets('lineNumberAlignment is forwarded through to RenderDocumentLayout', (tester) async {
+      final controller = _makeController();
+      final focusNode = FocusNode();
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+            layoutKey: layoutKey,
+            showLineNumbers: true,
+            lineNumberAlignment: LineNumberAlignment.bottom,
+          ),
+        ),
+      );
+
+      final ro = layoutKey.currentState!.renderObject!;
+      expect(ro.lineNumberAlignment, LineNumberAlignment.bottom);
+    });
   });
 }

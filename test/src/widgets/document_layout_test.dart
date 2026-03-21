@@ -901,6 +901,91 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
+  // lineNumberAlignment property
+  // -------------------------------------------------------------------------
+
+  group('DocumentLayout — lineNumberAlignment', () {
+    testWidgets('default lineNumberAlignment is LineNumberAlignment.top', (tester) async {
+      final doc = _docWith([ParagraphNode(id: 'p1', text: AttributedText('A'))]);
+      final controller = _controller(doc);
+
+      await tester.pumpWidget(
+        _buildLayout(
+          DocumentLayout(
+            document: doc,
+            controller: controller,
+            componentBuilders: defaultComponentBuilders,
+          ),
+        ),
+      );
+
+      final layout = tester.widget<DocumentLayout>(find.byType(DocumentLayout));
+      expect(layout.lineNumberAlignment, LineNumberAlignment.top);
+    });
+
+    testWidgets('lineNumberAlignment is stored on widget and forwarded to render object',
+        (tester) async {
+      final doc = _docWith([ParagraphNode(id: 'p1', text: AttributedText('A'))]);
+      final controller = _controller(doc);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+
+      await tester.pumpWidget(
+        _buildLayout(
+          DocumentLayout(
+            key: layoutKey,
+            document: doc,
+            controller: controller,
+            componentBuilders: defaultComponentBuilders,
+            showLineNumbers: true,
+            lineNumberAlignment: LineNumberAlignment.middle,
+          ),
+        ),
+      );
+
+      final layout = tester.widget<DocumentLayout>(find.byType(DocumentLayout));
+      expect(layout.lineNumberAlignment, LineNumberAlignment.middle);
+
+      final ro = layoutKey.currentState!.renderObject!;
+      expect(ro.lineNumberAlignment, LineNumberAlignment.middle);
+    });
+
+    testWidgets('updateRenderObject syncs lineNumberAlignment when it changes', (tester) async {
+      final doc = _docWith([ParagraphNode(id: 'p1', text: AttributedText('A'))]);
+      final controller = _controller(doc);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+
+      await tester.pumpWidget(
+        _buildLayout(
+          DocumentLayout(
+            key: layoutKey,
+            document: doc,
+            controller: controller,
+            componentBuilders: defaultComponentBuilders,
+            showLineNumbers: true,
+            lineNumberAlignment: LineNumberAlignment.top,
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _buildLayout(
+          DocumentLayout(
+            key: layoutKey,
+            document: doc,
+            controller: controller,
+            componentBuilders: defaultComponentBuilders,
+            showLineNumbers: true,
+            lineNumberAlignment: LineNumberAlignment.bottom,
+          ),
+        ),
+      );
+
+      final ro = layoutKey.currentState!.renderObject!;
+      expect(ro.lineNumberAlignment, LineNumberAlignment.bottom);
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // Center float text wrapping
   // -------------------------------------------------------------------------
 

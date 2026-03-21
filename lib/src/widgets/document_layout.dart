@@ -81,7 +81,9 @@ class DocumentLayout extends StatefulWidget {
   /// the explicit gutter width in logical pixels (default `0.0` — auto).
   /// [lineNumberTextStyle] is the [TextStyle] for line-number labels (default
   /// `null`). [lineNumberBackgroundColor] is the fill colour behind the gutter
-  /// (default `null` — transparent).
+  /// (default `null` — transparent). [lineNumberAlignment] controls the
+  /// vertical alignment of each label within its block (default
+  /// [LineNumberAlignment.top]).
   const DocumentLayout({
     super.key,
     required this.document,
@@ -94,6 +96,7 @@ class DocumentLayout extends StatefulWidget {
     this.lineNumberWidth = 0.0,
     this.lineNumberTextStyle,
     this.lineNumberBackgroundColor,
+    this.lineNumberAlignment = LineNumberAlignment.top,
   });
 
   /// The document whose nodes are rendered.
@@ -154,6 +157,15 @@ class DocumentLayout extends StatefulWidget {
   /// When `null` (the default), no background is drawn.
   final Color? lineNumberBackgroundColor;
 
+  /// The vertical alignment of each line-number label relative to its block.
+  ///
+  /// - [LineNumberAlignment.top] — label aligns with the block's top edge.
+  /// - [LineNumberAlignment.middle] — label is centred vertically within the block.
+  /// - [LineNumberAlignment.bottom] — label aligns with the block's bottom edge.
+  ///
+  /// Defaults to [LineNumberAlignment.top].
+  final LineNumberAlignment lineNumberAlignment;
+
   @override
   State<DocumentLayout> createState() => DocumentLayoutState();
 
@@ -177,6 +189,11 @@ class DocumentLayout extends StatefulWidget {
       DiagnosticsProperty<Color?>('lineNumberBackgroundColor', lineNumberBackgroundColor,
           defaultValue: null),
     );
+    properties.add(EnumProperty<LineNumberAlignment>(
+      'lineNumberAlignment',
+      lineNumberAlignment,
+      defaultValue: LineNumberAlignment.top,
+    ));
   }
 }
 
@@ -356,6 +373,7 @@ class DocumentLayoutState extends State<DocumentLayout> {
       lineNumberWidth: widget.lineNumberWidth,
       lineNumberTextStyle: widget.lineNumberTextStyle,
       lineNumberBackgroundColor: widget.lineNumberBackgroundColor,
+      lineNumberAlignment: widget.lineNumberAlignment,
       children: _buildChildren(),
     );
   }
@@ -382,6 +400,7 @@ class _DocumentLayoutRenderWidget extends MultiChildRenderObjectWidget {
     this.lineNumberWidth = 0.0,
     this.lineNumberTextStyle,
     this.lineNumberBackgroundColor,
+    this.lineNumberAlignment = LineNumberAlignment.top,
     super.children,
   });
 
@@ -429,6 +448,11 @@ class _DocumentLayoutRenderWidget extends MultiChildRenderObjectWidget {
   /// Forwarded to [RenderDocumentLayout.lineNumberBackgroundColor].
   final Color? lineNumberBackgroundColor;
 
+  /// The vertical alignment of line-number labels within each block.
+  ///
+  /// Forwarded to [RenderDocumentLayout.lineNumberAlignment].
+  final LineNumberAlignment lineNumberAlignment;
+
   @override
   DocumentLayoutElement createElement() => DocumentLayoutElement(this);
 
@@ -442,6 +466,7 @@ class _DocumentLayoutRenderWidget extends MultiChildRenderObjectWidget {
       lineNumberWidth: lineNumberWidth,
       lineNumberTextStyle: lineNumberTextStyle,
       lineNumberBackgroundColor: lineNumberBackgroundColor,
+      lineNumberAlignment: lineNumberAlignment,
     );
   }
 
@@ -454,7 +479,8 @@ class _DocumentLayoutRenderWidget extends MultiChildRenderObjectWidget {
       ..showLineNumbers = showLineNumbers
       ..lineNumberWidth = lineNumberWidth
       ..lineNumberTextStyle = lineNumberTextStyle
-      ..lineNumberBackgroundColor = lineNumberBackgroundColor;
+      ..lineNumberBackgroundColor = lineNumberBackgroundColor
+      ..lineNumberAlignment = lineNumberAlignment;
   }
 
   @override
@@ -476,6 +502,11 @@ class _DocumentLayoutRenderWidget extends MultiChildRenderObjectWidget {
       DiagnosticsProperty<Color?>('lineNumberBackgroundColor', lineNumberBackgroundColor,
           defaultValue: null),
     );
+    properties.add(EnumProperty<LineNumberAlignment>(
+      'lineNumberAlignment',
+      lineNumberAlignment,
+      defaultValue: LineNumberAlignment.top,
+    ));
   }
 }
 

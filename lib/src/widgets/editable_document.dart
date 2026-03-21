@@ -94,7 +94,9 @@ class EditableDocument extends StatefulWidget {
   /// the explicit gutter width in logical pixels (default `0.0` — auto).
   /// [lineNumberTextStyle] is the [TextStyle] for line-number labels (default
   /// `null`). [lineNumberBackgroundColor] is the fill colour behind the gutter
-  /// (default `null` — transparent). All five are forwarded to [DocumentLayout]
+  /// (default `null` — transparent). [lineNumberAlignment] controls the
+  /// vertical alignment of each label within its block (default
+  /// [LineNumberAlignment.top]). All six are forwarded to [DocumentLayout]
   /// and ultimately to [RenderDocumentLayout].
   const EditableDocument({
     super.key,
@@ -120,6 +122,7 @@ class EditableDocument extends StatefulWidget {
     this.lineNumberWidth = 0.0,
     this.lineNumberTextStyle,
     this.lineNumberBackgroundColor,
+    this.lineNumberAlignment = LineNumberAlignment.top,
   });
 
   /// The document editing controller holding the [MutableDocument] and current
@@ -256,6 +259,16 @@ class EditableDocument extends StatefulWidget {
   /// [RenderDocumentLayout.lineNumberBackgroundColor].
   final Color? lineNumberBackgroundColor;
 
+  /// The vertical alignment of each line-number label relative to its block.
+  ///
+  /// - [LineNumberAlignment.top] — label aligns with the block's top edge.
+  /// - [LineNumberAlignment.middle] — label is centred vertically within the block.
+  /// - [LineNumberAlignment.bottom] — label aligns with the block's bottom edge.
+  ///
+  /// Forwarded to [RenderDocumentLayout.lineNumberAlignment].
+  /// Defaults to [LineNumberAlignment.top].
+  final LineNumberAlignment lineNumberAlignment;
+
   @override
   State<EditableDocument> createState() => EditableDocumentState();
 
@@ -307,6 +320,11 @@ class EditableDocument extends StatefulWidget {
       DiagnosticsProperty<Color?>('lineNumberBackgroundColor', lineNumberBackgroundColor,
           defaultValue: null),
     );
+    properties.add(EnumProperty<LineNumberAlignment>(
+      'lineNumberAlignment',
+      lineNumberAlignment,
+      defaultValue: LineNumberAlignment.top,
+    ));
   }
 }
 
@@ -859,6 +877,7 @@ class EditableDocumentState extends State<EditableDocument> {
           lineNumberWidth: widget.lineNumberWidth,
           lineNumberTextStyle: widget.lineNumberTextStyle,
           lineNumberBackgroundColor: widget.lineNumberBackgroundColor,
+          lineNumberAlignment: widget.lineNumberAlignment,
         ),
       ),
     );
