@@ -1932,14 +1932,6 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
   /// Returns true if [node] is a container block that supports layout properties.
   bool _isContainerBlock(DocumentNode? node) => node is HasBlockLayout;
 
-  /// Dismisses the floating property panel.
-  void _dismissPropertyPanel() {
-    setState(() {
-      _showBlockPanel = false;
-      _syncPanelTabController();
-    });
-  }
-
   void _toggleBlockPanel() {
     setState(() {
       _showBlockPanel = !_showBlockPanel;
