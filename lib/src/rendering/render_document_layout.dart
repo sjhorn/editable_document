@@ -1087,8 +1087,7 @@ class RenderDocumentLayout extends RenderBox
       }
 
       // Paint line-number labels for non-float children.
-      final labelStyle =
-          _lineNumberTextStyle ?? const TextStyle(fontSize: 14, color: Color(0xFF000000));
+      final labelStyle = _resolvedLineNumberStyle();
       final tp = TextPainter(textDirection: TextDirection.ltr);
       var lineNumber = 1;
 
@@ -1106,18 +1105,10 @@ class RenderDocumentLayout extends RenderBox
           final gutterRight = offset.dx + _documentPadding.left + _resolvedGutterWidth;
           final labelX = gutterRight - 8.0 - tp.width;
           // Vertical position based on lineNumberAlignment.
-          //
-          // For [top], we align the alphabetic baseline of the line-number
-          // label with the first baseline of the child block.  This avoids a
-          // 1–2 px misalignment that occurs when the document text style has a
-          // non-null `height` multiplier (which shifts glyphs via half-leading)
-          // while the line-number TextPainter does not.
           final double labelY;
           switch (_lineNumberAlignment) {
             case LineNumberAlignment.top:
-              final childBaseline = child.getDistanceToBaseline(TextBaseline.alphabetic) ?? 0.0;
-              final labelBaseline = tp.computeDistanceToActualBaseline(TextBaseline.alphabetic);
-              labelY = offset.dy + parentData.offset.dy + childBaseline - labelBaseline;
+              labelY = offset.dy + parentData.offset.dy;
             case LineNumberAlignment.middle:
               labelY = offset.dy + parentData.offset.dy + (child.size.height - tp.height) / 2;
             case LineNumberAlignment.bottom:
