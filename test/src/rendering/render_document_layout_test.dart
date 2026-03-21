@@ -3589,4 +3589,195 @@ void main() {
           reason: 'blockSpacing=24 should be used when no per-block spacing is set');
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // documentPadding
+  // ---------------------------------------------------------------------------
+
+  group('RenderDocumentLayout — documentPadding', () {
+    test('defaults to EdgeInsets.zero', () {
+      final layout = RenderDocumentLayout();
+      expect(layout.documentPadding, EdgeInsets.zero);
+    });
+
+    test('non-zero padding increases total layout height', () {
+      const padding = EdgeInsets.symmetric(vertical: 20.0);
+      final child = _textBlock('p1', 'Hello');
+      final layout = RenderDocumentLayout(documentPadding: padding);
+      layout.add(child);
+      layout.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+
+      // Without padding, height == child.size.height.
+      // With vertical padding of 40 px, height == child.size.height + 40.
+      expect(layout.size.height, closeTo(child.size.height + 40.0, 0.001));
+    });
+
+    test('children are offset by left + top padding', () {
+      const padding = EdgeInsets.only(left: 16.0, top: 24.0);
+      final child = _textBlock('p1', 'Hello');
+      final layout = RenderDocumentLayout(documentPadding: padding);
+      layout.add(child);
+      layout.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+
+      final data = child.parentData as DocumentBlockParentData;
+      expect(data.offset.dx, closeTo(16.0, 0.001));
+      expect(data.offset.dy, closeTo(24.0, 0.001));
+    });
+
+    test('second child is offset by left padding and top padding plus first child', () {
+      const padding = EdgeInsets.only(left: 10.0, top: 8.0);
+      final c1 = _textBlock('p1', 'First');
+      final c2 = _textBlock('p2', 'Second');
+      final layout = RenderDocumentLayout(documentPadding: padding, blockSpacing: 0.0);
+      layout.add(c1);
+      layout.add(c2);
+      layout.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+
+      final d1 = c1.parentData as DocumentBlockParentData;
+      final d2 = c2.parentData as DocumentBlockParentData;
+
+      expect(d1.offset.dy, closeTo(8.0, 0.001));
+      expect(d2.offset.dy, closeTo(8.0 + c1.size.height, 0.001));
+      expect(d1.offset.dx, closeTo(10.0, 0.001));
+      expect(d2.offset.dx, closeTo(10.0, 0.001));
+    });
+
+    test('setting documentPadding triggers re-layout', () {
+      final child = _textBlock('p1', 'Hello');
+      final layout = RenderDocumentLayout();
+      layout.add(child);
+      layout.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      final heightBefore = layout.size.height;
+
+      layout.documentPadding = const EdgeInsets.all(50.0);
+      layout.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      final heightAfter = layout.size.height;
+
+      expect(heightAfter, greaterThan(heightBefore));
+    });
+
+    test('setting documentPadding to same value does not call markNeedsLayout again', () {
+      final layout = RenderDocumentLayout(documentPadding: const EdgeInsets.all(8.0));
+      // Simply verify no exception is thrown and the value is unchanged.
+      layout.documentPadding = const EdgeInsets.all(8.0);
+      expect(layout.documentPadding, const EdgeInsets.all(8.0));
+    });
+
+    test('hit testing correct with padding — tap at (left+5, top+5) hits child', () {
+      const padding = EdgeInsets.only(left: 20.0, top: 30.0);
+      final child = _textBlock('p1', 'Hello world');
+      final layout = RenderDocumentLayout(documentPadding: padding);
+      layout.add(child);
+      layout.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+
+      // A point at (left + 5, top + 5) is inside the child's padded region.
+      final pos = layout.getDocumentPositionAtOffset(const Offset(25.0, 35.0));
+      expect(pos, isNotNull);
+      expect(pos!.nodeId, 'p1');
+    });
+
+    test('hit testing correct with padding — tap above top padding returns null', () {
+      const padding = EdgeInsets.only(top: 30.0);
+      final child = _textBlock('p1', 'Hello world');
+      final layout = RenderDocumentLayout(documentPadding: padding);
+      layout.add(child);
+      layout.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+
+      // A point above the top padding region misses all children.
+      final pos = layout.getDocumentPositionAtOffset(const Offset(50.0, 10.0));
+      expect(pos, isNull);
+    });
+
+    test('getRectForDocumentPosition correct with padding', () {
+      const padding = EdgeInsets.only(left: 15.0, top: 20.0);
+      final child = _textBlock('p1', 'Hello world');
+      final layout = RenderDocumentLayout(documentPadding: padding);
+      layout.add(child);
+      layout.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+
+      const pos = DocumentPosition(
+        nodeId: 'p1',
+        nodePosition: TextNodePosition(offset: 0),
+      );
+      final rect = layout.getRectForDocumentPosition(pos);
+      expect(rect, isNotNull);
+      // The rect's top must be >= top padding and its left >= left padding.
+      expect(rect!.top, greaterThanOrEqualTo(20.0));
+      expect(rect.left, greaterThanOrEqualTo(15.0));
+    });
+
+    test('computeMinIntrinsicHeight includes padding.vertical', () {
+      const padding = EdgeInsets.symmetric(vertical: 10.0);
+      final layout = RenderDocumentLayout(documentPadding: padding);
+      layout.add(_hrBlock('hr1'));
+
+      // HrBlock intrinsic = 17.0; with 20 px vertical padding = 37.0.
+      final h = layout.computeMinIntrinsicHeight(400);
+      expect(h, closeTo(17.0 + 20.0, 0.001));
+    });
+
+    test('computeMaxIntrinsicHeight includes padding.vertical', () {
+      const padding = EdgeInsets.symmetric(vertical: 10.0);
+      final layout = RenderDocumentLayout(documentPadding: padding);
+      layout.add(_hrBlock('hr1'));
+
+      final h = layout.computeMaxIntrinsicHeight(400);
+      expect(h, closeTo(17.0 + 20.0, 0.001));
+    });
+
+    test('content width is reduced by horizontal padding', () {
+      // With left=30 and right=20 padding, a stretch child should be
+      // 400 - 50 = 350 px wide.
+      const padding = EdgeInsets.only(left: 30.0, right: 20.0);
+      final child = _textBlock('p1', 'Hello');
+      final layout = RenderDocumentLayout(documentPadding: padding);
+      layout.add(child);
+      layout.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+
+      expect(child.size.width, closeTo(350.0, 0.001));
+    });
+
+    test('padding + float: float positioned relative to content area', () {
+      // With left=20, right=20 padding, content width = 400 - 40 = 360 px.
+      // A start float of 80 px should be at x = left padding = 20.
+      // A stretch block beside it receives the content-area exclusionRect.
+      const padding = EdgeInsets.only(left: 20.0, right: 20.0);
+      const floatW = 80.0;
+      const floatH = 60.0;
+
+      final image = _imageBlock(
+        'img1',
+        requestedWidth: floatW,
+        requestedHeight: floatH,
+        blockAlignment: BlockAlignment.start,
+        textWrap: TextWrapMode.wrap,
+      );
+      final text = _textBlock('p1', 'Text beside float');
+      final layout = RenderDocumentLayout(documentPadding: padding, blockSpacing: 0.0);
+      layout.add(image);
+      layout.add(text);
+      layout.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+
+      final imageData = image.parentData as DocumentBlockParentData;
+      // Float x must be at contentLeft (= left padding = 20).
+      expect(imageData.offset.dx, closeTo(20.0, 0.001));
+
+      // Text block is also at contentLeft and receives an exclusionRect.
+      final textData = text.parentData as DocumentBlockParentData;
+      expect(textData.offset.dx, closeTo(20.0, 0.001));
+      expect(textData.exclusionRect, isNotNull);
+    });
+
+    test('debugFillProperties includes documentPadding', () {
+      final layout = RenderDocumentLayout(documentPadding: const EdgeInsets.all(8.0));
+      final builder = DiagnosticPropertiesBuilder();
+      layout.debugFillProperties(builder);
+
+      final prop = builder.properties.firstWhere(
+        (p) => p.name == 'documentPadding',
+        orElse: () => throw StateError('documentPadding not found in properties'),
+      );
+      expect(prop.toDescription(), isNotEmpty);
+    });
+  });
 }

@@ -212,8 +212,9 @@ const double _kFloatGap = 8.0;
 ///
 /// Children are laid out with `BoxConstraints(maxWidth: constraints.maxWidth)`
 /// unless alignment or float layout applies.  Their paint offsets are stored
-/// in [DocumentBlockParentData.offset].  No spacing is added before the first
-/// child or after the last child.
+/// in [DocumentBlockParentData.offset].  No [blockSpacing] is added before the
+/// first child or after the last child.  [documentPadding] (when non-zero) adds
+/// inset space around the entire content area.
 ///
 /// ## Example
 ///
@@ -227,7 +228,8 @@ class RenderDocumentLayout extends RenderBox
     with
         ContainerRenderObjectMixin<RenderDocumentBlock, DocumentBlockParentData>,
         RenderBoxContainerDefaultsMixin<RenderDocumentBlock, DocumentBlockParentData> {
-  /// Creates a [RenderDocumentLayout] with optional [blockSpacing] and [viewportWidth].
+  /// Creates a [RenderDocumentLayout] with optional [blockSpacing],
+  /// [viewportWidth], and [documentPadding].
   ///
   /// [blockSpacing] is the vertical gap in logical pixels inserted between
   /// consecutive children.  Defaults to `12.0`.
@@ -237,9 +239,19 @@ class RenderDocumentLayout extends RenderBox
   /// `constraints.maxWidth`.  Supply a fixed value (e.g. the viewport pixel
   /// width) when the layout is inside an infinite-width scroll view so that
   /// blocks size to the visible area rather than to infinity.
-  RenderDocumentLayout({double blockSpacing = 12.0, double? viewportWidth})
-      : _blockSpacing = blockSpacing,
-        _viewportWidth = viewportWidth;
+  ///
+  /// [documentPadding] is the inset applied around the content area.  The top
+  /// and bottom insets add space above the first child and below the last child
+  /// respectively.  The left and right insets shift all children inward and
+  /// reduce each child's available width by the horizontal total.  Defaults to
+  /// [EdgeInsets.zero].
+  RenderDocumentLayout({
+    double blockSpacing = 12.0,
+    double? viewportWidth,
+    EdgeInsets documentPadding = EdgeInsets.zero,
+  })  : _blockSpacing = blockSpacing,
+        _viewportWidth = viewportWidth,
+        _documentPadding = documentPadding;
 
   // ---------------------------------------------------------------------------
   // blockSpacing
@@ -252,6 +264,12 @@ class RenderDocumentLayout extends RenderBox
   // ---------------------------------------------------------------------------
 
   double? _viewportWidth;
+
+  // ---------------------------------------------------------------------------
+  // documentPadding
+  // ---------------------------------------------------------------------------
+
+  EdgeInsets _documentPadding;
 
   /// The vertical gap in logical pixels between consecutive block children.
   ///
@@ -278,6 +296,24 @@ class RenderDocumentLayout extends RenderBox
   set viewportWidth(double? value) {
     if (_viewportWidth == value) return;
     _viewportWidth = value;
+    markNeedsLayout();
+  }
+
+  /// The padding inset applied around the document's content area.
+  ///
+  /// The [EdgeInsets.top] and [EdgeInsets.bottom] values add whitespace above
+  /// the first child and below the last child respectively.  The
+  /// [EdgeInsets.left] and [EdgeInsets.right] values shift all children inward
+  /// and reduce each child's available width by the horizontal total
+  /// ([EdgeInsets.horizontal]).
+  ///
+  /// Defaults to [EdgeInsets.zero].
+  EdgeInsets get documentPadding => _documentPadding;
+
+  /// Sets [documentPadding] and schedules a layout pass when the value changes.
+  set documentPadding(EdgeInsets value) {
+    if (_documentPadding == value) return;
+    _documentPadding = value;
     markNeedsLayout();
   }
 
@@ -326,6 +362,7 @@ class RenderDocumentLayout extends RenderBox
     if (count > 1) {
       total += _blockSpacing * (count - 1);
     }
+    total += _documentPadding.vertical;
     return total;
   }
 
@@ -336,8 +373,11 @@ class RenderDocumentLayout extends RenderBox
   @override
   void performLayout() {
     final maxW = constraints.maxWidth;
-    final preferredWidth = _viewportWidth ?? maxW;
-    var yOffset = 0.0;
+    // Reduce the available content width by horizontal padding.
+    final contentLeft = _documentPadding.left;
+    final preferredWidth = (_viewportWidth ?? maxW) - _documentPadding.horizontal;
+    // Start placing children below the top padding.
+    var yOffset = _documentPadding.top;
     var childIndex = 0;
     var widestChild = 0.0;
 
@@ -496,7 +536,7 @@ class RenderDocumentLayout extends RenderBox
           ),
           parentUsesSize: true,
         );
-        parentData.offset = Offset(xOffset, yOffset);
+        parentData.offset = Offset(contentLeft + xOffset, yOffset);
         widestChild = max(widestChild, parentData.offset.dx + child.size.width);
         yOffset += child.size.height;
       } else if (isFloat) {
@@ -552,7 +592,7 @@ class RenderDocumentLayout extends RenderBox
           xOffset = max(0.0, preferredWidth - child.size.width);
         }
 
-        parentData.offset = Offset(xOffset, yOffset);
+        parentData.offset = Offset(contentLeft + xOffset, yOffset);
         widestChild = max(widestChild, parentData.offset.dx + child.size.width);
 
         // Create exclusion zone ONLY for TextWrapMode.wrap.
@@ -621,7 +661,7 @@ class RenderDocumentLayout extends RenderBox
                 };
               }
 
-              parentData.offset = Offset(max(0.0, xOffset), yOffset);
+              parentData.offset = Offset(contentLeft + max(0.0, xOffset), yOffset);
               widestChild = max(widestChild, parentData.offset.dx + child.size.width);
               yOffset += child.size.height;
             } else {
@@ -648,7 +688,7 @@ class RenderDocumentLayout extends RenderBox
                   xOffset = 0.0;
               }
 
-              parentData.offset = Offset(xOffset, yOffset);
+              parentData.offset = Offset(contentLeft + xOffset, yOffset);
               widestChild = max(widestChild, parentData.offset.dx + child.size.width);
               yOffset += child.size.height;
             }
@@ -675,7 +715,7 @@ class RenderDocumentLayout extends RenderBox
                 xOffset = 0.0;
             }
 
-            parentData.offset = Offset(xOffset, yOffset);
+            parentData.offset = Offset(contentLeft + xOffset, yOffset);
             widestChild = max(widestChild, parentData.offset.dx + child.size.width);
             yOffset += child.size.height;
           }
@@ -705,7 +745,7 @@ class RenderDocumentLayout extends RenderBox
               xOffset = 0.0; // Already handled above, but for completeness.
           }
 
-          parentData.offset = Offset(xOffset, yOffset);
+          parentData.offset = Offset(contentLeft + xOffset, yOffset);
           widestChild = max(widestChild, parentData.offset.dx + child.size.width);
           yOffset += child.size.height;
         }
@@ -721,7 +761,12 @@ class RenderDocumentLayout extends RenderBox
       yOffset = finalExclusionBottom;
     }
 
-    size = Size(max(preferredWidth, widestChild), yOffset);
+    // Add bottom padding to total height.
+    // Layout width: use the full preferred width (before padding was subtracted),
+    // or the widest child (which already includes contentLeft in its dx).
+    final totalHeight = yOffset + _documentPadding.bottom;
+    final fullPreferredWidth = preferredWidth + _documentPadding.horizontal;
+    size = Size(max(fullPreferredWidth, widestChild), totalHeight);
   }
 
   /// Returns the maximum [_ExclusionZone.bottom] among the given exclusion
@@ -1134,6 +1179,8 @@ class RenderDocumentLayout extends RenderBox
     super.debugFillProperties(properties);
     properties.add(DoubleProperty('blockSpacing', blockSpacing));
     properties.add(DoubleProperty('viewportWidth', viewportWidth, defaultValue: null));
+    properties.add(DiagnosticsProperty<EdgeInsets>('documentPadding', documentPadding,
+        defaultValue: EdgeInsets.zero));
   }
 }
 
