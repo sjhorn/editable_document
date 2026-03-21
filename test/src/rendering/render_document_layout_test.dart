@@ -4062,5 +4062,164 @@ void main() {
       );
       expect(prop.toDescription(), contains('middle'));
     });
+
+    // -----------------------------------------------------------------------
+    // visualLineYOffsets tests
+    // -----------------------------------------------------------------------
+
+    test('RenderTextBlock.visualLineYOffsets returns single entry for single-line text', () {
+      final block = _textBlock('p1', 'Hello');
+      block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      final offsets = block.visualLineYOffsets;
+      expect(offsets, hasLength(1));
+      expect(offsets.first, closeTo(0.0, 1.0));
+    });
+
+    test('RenderTextBlock.visualLineYOffsets returns multiple entries for wrapping text', () {
+      // Use a very narrow width so the text is forced to wrap.
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText(
+          'This is a long paragraph that should wrap to multiple visual lines '
+          'when laid out at a narrow width.',
+        ),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      block.layout(const BoxConstraints(maxWidth: 120), parentUsesSize: true);
+      final offsets = block.visualLineYOffsets;
+      expect(offsets.length, greaterThan(1));
+      // Each offset must be strictly greater than the previous.
+      for (var i = 1; i < offsets.length; i++) {
+        expect(offsets[i], greaterThan(offsets[i - 1]));
+      }
+    });
+
+    test('RenderImageBlock.visualLineYOffsets returns single entry [0.0] by default', () {
+      final img = _imageBlock('img1', requestedWidth: 100.0, requestedHeight: 80.0);
+      img.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      expect(img.visualLineYOffsets, equals(const [0.0]));
+    });
+
+    test('auto-computed gutter width uses visual line count for wrapping text', () {
+      // A single wrapping text block should produce a gutter sized for
+      // the visual line count, not just "1" (the non-float block count).
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText(
+          'Line one wraps here. Line two wraps here. Line three wraps here. '
+          'Line four wraps here. Line five wraps here. Line six wraps here. '
+          'Line seven wraps here. Line eight wraps here. Line nine wraps here. '
+          'Line ten wraps here.',
+        ),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      final layout = RenderDocumentLayout(showLineNumbers: true, blockSpacing: 0.0);
+      layout.add(block);
+      // Layout at a narrow width to force many visual lines.
+      layout.layout(const BoxConstraints(maxWidth: 200), parentUsesSize: true);
+
+      final lineOffsets = block.visualLineYOffsets;
+      expect(lineOffsets.length, greaterThan(1),
+          reason: 'text must wrap to at least 2 visual lines at 200px');
+
+      // Compute expected gutter width for total visual lines.
+      const style = TextStyle(fontSize: 14, color: Color(0xFF000000));
+      final totalLines = lineOffsets.length;
+      final tpExpected = TextPainter(
+        text: TextSpan(text: '$totalLines', style: style),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      final expectedGutter = tpExpected.width + 16.0;
+
+      // Also compute gutter for block-count ("1") to show it differs.
+      final tpOne = TextPainter(
+        text: const TextSpan(text: '1', style: style),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      final singleBlockGutter = tpOne.width + 16.0;
+
+      // The data.offset.dx must reflect the visual-line-count-based gutter
+      // when the digit count differs from the block count.
+      final data = block.parentData as DocumentBlockParentData;
+      if ('$totalLines'.length > '1'.length) {
+        // Digit count differs — gutter must be the wider one.
+        expect(data.offset.dx, closeTo(expectedGutter, 1.0));
+        expect(data.offset.dx, greaterThan(singleBlockGutter - 1.0));
+      } else {
+        // Digit count is the same — either value is acceptable.
+        expect(data.offset.dx, greaterThan(0.0));
+      }
+    });
+
+    test('line numbers are painted per visual line, not per block', () {
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText(
+          'First visual line. Second visual line wraps here and continues. '
+          'Third line continues even more.',
+        ),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      final layout = RenderDocumentLayout(showLineNumbers: true, blockSpacing: 0.0);
+      layout.add(block);
+      layout.layout(const BoxConstraints(maxWidth: 120), parentUsesSize: true);
+
+      // The text block should have multiple visual lines.
+      final lineOffsets = block.visualLineYOffsets;
+      expect(lineOffsets.length, greaterThan(1));
+
+      // Each visual line offset must be strictly increasing.
+      for (var i = 1; i < lineOffsets.length; i++) {
+        expect(lineOffsets[i], greaterThan(lineOffsets[i - 1]));
+      }
+    });
+
+    test('auto-computed gutter width uses non-float child count, not total child count', () {
+      // Create 9 float images + 1 text block = 10 total children.
+      // childCount = 10 → label "10" (2 digits, wider gutter).
+      // non-float count = 1 → label "1"  (1 digit, narrower gutter).
+      // Gutter must match the visual line count of the non-float block (1 line)
+      // which is also 1 digit.
+      final layout = RenderDocumentLayout(showLineNumbers: true, blockSpacing: 0.0);
+      for (var i = 0; i < 9; i++) {
+        layout.add(_imageBlock(
+          'img$i',
+          requestedWidth: 40.0,
+          requestedHeight: 30.0,
+          blockAlignment: BlockAlignment.start,
+          textWrap: TextWrapMode.wrap,
+        ));
+      }
+      final text = _textBlock('p1', 'Only non-float child');
+      layout.add(text);
+      layout.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+
+      // Verify parentData classification.
+      final textData = text.parentData as DocumentBlockParentData;
+      expect(textData.isFloat, isFalse);
+
+      // Build the expected gutter widths using the same TextPainter logic.
+      const style = TextStyle(fontSize: 14, color: Color(0xFF000000));
+      final tpNonFloat = TextPainter(
+        text: const TextSpan(text: '1', style: style),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      final tpTotal = TextPainter(
+        text: const TextSpan(text: '10', style: style),
+        textDirection: TextDirection.ltr,
+      )..layout();
+
+      // The gutter width must be sized for the visual line count ("1"), not the
+      // total child count ("10").  We verify by checking the text x-offset.
+      final expectedNarrow = tpNonFloat.width + 16.0;
+      final expectedWide = tpTotal.width + 16.0;
+
+      // They must differ (otherwise the test is trivially satisfied).
+      expect(expectedNarrow, lessThan(expectedWide));
+
+      // The child's x-offset reflects the resolved gutter width.
+      final textX = textData.offset.dx;
+      expect(textX, closeTo(expectedNarrow, 1.0));
+    });
   });
 }

@@ -340,6 +340,11 @@ class RenderDocumentLayout extends RenderBox
   /// `false`.
   double _resolvedGutterWidth = 0.0;
 
+  /// When non-null, overrides the auto-computation of [_resolvedGutterWidth]
+  /// for one layout pass.  Used by the visual-line-count correction path to
+  /// pass the corrected gutter width into the re-run without re-estimating.
+  double? _correctedGutterWidth;
+
   /// The vertical gap in logical pixels between consecutive block children.
   ///
   /// No spacing is added before the first child or after the last child.
@@ -578,19 +583,44 @@ class RenderDocumentLayout extends RenderBox
 
   @override
   void performLayout() {
+    _performLayoutWithGutterCheck(allowGutterCorrection: true);
+  }
+
+  void _performLayoutWithGutterCheck({required bool allowGutterCorrection}) {
     final maxW = constraints.maxWidth;
 
     // -------------------------------------------------------------------
     // Resolve gutter width for line numbers.
     // -------------------------------------------------------------------
+    // nonFloatCount is computed in the pre-pass and used for the post-layout
+    // visual-line-count correction below.
+    var nonFloatCount = 0;
     if (_showLineNumbers) {
       if (_lineNumberWidth > 0.0) {
         _resolvedGutterWidth = _lineNumberWidth;
+      } else if (_correctedGutterWidth != null) {
+        // Use the pre-computed visual-line-count-based gutter width from the
+        // previous pass.  Clear it immediately so it only applies once.
+        _resolvedGutterWidth = _correctedGutterWidth!;
+        _correctedGutterWidth = null;
       } else {
-        // Auto-compute from the string representation of the child count
-        // (e.g. "5" for 5 children, "15" for 15 children) plus 16 dp padding.
+        // Auto-compute from the string representation of the non-float child
+        // count (e.g. "5" for 5 non-float children) plus 16 dp padding.
+        // Float children are not numbered, so including them would produce a
+        // gutter that is wider than the longest label actually painted.
+        RenderDocumentBlock? c = firstChild;
+        while (c != null) {
+          final cWrap = c.textWrap;
+          final cAlign = c.blockAlignment;
+          final cIsFloat = cWrap != TextWrapMode.none &&
+              (cAlign == BlockAlignment.start ||
+                  cAlign == BlockAlignment.end ||
+                  cAlign == BlockAlignment.center);
+          if (!cIsFloat) nonFloatCount++;
+          c = childAfter(c);
+        }
         final labelStyle = _resolvedLineNumberStyle();
-        final label = '$childCount';
+        final label = '$nonFloatCount';
         final tp = TextPainter(
           text: TextSpan(text: label, style: labelStyle),
           textDirection: TextDirection.ltr,
@@ -984,6 +1014,36 @@ class RenderDocumentLayout extends RenderBox
       child = childAfter(child);
     }
 
+    // Post-layout: if auto-computing gutter width, check whether the total
+    // visual line count requires more digits than the non-float block count
+    // estimate used above.  When the digit count grows, re-run the full layout
+    // with the corrected gutter width (at most one extra pass).
+    if (allowGutterCorrection && _showLineNumbers && _lineNumberWidth <= 0.0) {
+      var totalVisualLines = 0;
+      RenderDocumentBlock? vc = firstChild;
+      while (vc != null) {
+        final pd = vc.parentData as DocumentBlockParentData;
+        if (!pd.isFloat) totalVisualLines += vc.visualLineYOffsets.length;
+        vc = childAfter(vc);
+      }
+      final actualLabel = '$totalVisualLines';
+      final estimateLabel = '$nonFloatCount';
+      if (actualLabel.length > estimateLabel.length) {
+        // The digit count grew — store the corrected gutter so the re-run
+        // picks it up via _correctedGutterWidth instead of re-estimating.
+        final labelStyle = _resolvedLineNumberStyle();
+        final tp2 = TextPainter(
+          text: TextSpan(text: actualLabel, style: labelStyle),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        _correctedGutterWidth = tp2.width + 16.0;
+        // Re-run the full layout with the corrected gutter, skipping the
+        // post-layout correction to avoid infinite recursion.
+        _performLayoutWithGutterCheck(allowGutterCorrection: false);
+        return;
+      }
+    }
+
     // If there are still active exclusions, ensure total height accounts for them.
     final finalExclusionBottom = _maxExclusionBottom(startExclusion, endExclusion, centerExclusion);
     if (finalExclusionBottom > yOffset) {
@@ -1086,7 +1146,7 @@ class RenderDocumentLayout extends RenderBox
         canvas.drawRect(gutterRect, Paint()..color = bgColor);
       }
 
-      // Paint line-number labels for non-float children.
+      // Paint line-number labels — one per visual line of each non-float child.
       final labelStyle = _resolvedLineNumberStyle();
       final tp = TextPainter(textDirection: TextDirection.ltr);
       var lineNumber = 1;
@@ -1096,27 +1156,33 @@ class RenderDocumentLayout extends RenderBox
         final parentData = child.parentData as DocumentBlockParentData;
 
         if (!parentData.isFloat) {
-          // Right-align the label with 8 dp from the gutter's right edge.
-          final label = '$lineNumber';
-          tp.text = TextSpan(text: label, style: labelStyle);
-          tp.layout();
-
-          // Gutter right edge in global coordinates.
+          final lineYOffsets = child.visualLineYOffsets;
           final gutterRight = offset.dx + _documentPadding.left + _resolvedGutterWidth;
-          final labelX = gutterRight - 8.0 - tp.width;
-          // Vertical position based on lineNumberAlignment.
-          final double labelY;
-          switch (_lineNumberAlignment) {
-            case LineNumberAlignment.top:
-              labelY = offset.dy + parentData.offset.dy;
-            case LineNumberAlignment.middle:
-              labelY = offset.dy + parentData.offset.dy + (child.size.height - tp.height) / 2;
-            case LineNumberAlignment.bottom:
-              labelY = offset.dy + parentData.offset.dy + child.size.height - tp.height;
-          }
-          tp.paint(canvas, Offset(labelX, labelY));
 
-          lineNumber++;
+          for (var i = 0; i < lineYOffsets.length; i++) {
+            final label = '$lineNumber';
+            tp.text = TextSpan(text: label, style: labelStyle);
+            tp.layout();
+
+            final labelX = gutterRight - 8.0 - tp.width;
+
+            final lineY = lineYOffsets[i];
+            final lineH = (i + 1 < lineYOffsets.length)
+                ? lineYOffsets[i + 1] - lineY
+                : child.size.height - lineY;
+
+            final double labelY;
+            switch (_lineNumberAlignment) {
+              case LineNumberAlignment.top:
+                labelY = offset.dy + parentData.offset.dy + lineY;
+              case LineNumberAlignment.middle:
+                labelY = offset.dy + parentData.offset.dy + lineY + (lineH - tp.height) / 2;
+              case LineNumberAlignment.bottom:
+                labelY = offset.dy + parentData.offset.dy + lineY + lineH - tp.height;
+            }
+            tp.paint(canvas, Offset(labelX, labelY));
+            lineNumber++;
+          }
         }
 
         child = childAfter(child);

@@ -162,6 +162,14 @@ abstract class RenderDocumentBlock extends RenderBox {
   /// should override this getter and store a [double?] field.
   double? get spaceAfter => null;
 
+  /// Returns the y-offsets of each visual line relative to this block's top.
+  ///
+  /// Used by [RenderDocumentLayout] to paint per-visual-line numbers.
+  /// The default returns a single entry at `0.0`.  Subclasses that render
+  /// multiple visual lines (e.g. [RenderTextBlock]) override this.
+  // ignore: diagnostic_describe_all_properties
+  List<double> get visualLineYOffsets => const [0.0];
+
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);

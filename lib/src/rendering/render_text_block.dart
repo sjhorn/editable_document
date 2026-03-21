@@ -1149,6 +1149,64 @@ class RenderTextBlock extends RenderDocumentBlock {
   }
 
   // ---------------------------------------------------------------------------
+  // Visual line offsets
+  // ---------------------------------------------------------------------------
+
+  /// Returns the y-offsets of each visual line relative to this block's top.
+  ///
+  /// Used by [RenderDocumentLayout] to paint per-visual-line numbers.
+  /// Each entry is `baseline - ascent` from the corresponding [LineMetrics].
+  /// For exclusion-zone and first-line-indent layouts, offsets from all
+  /// sub-painters are combined and translated to block-local coordinates.
+  ///
+  /// Must only be called after layout.
+  @override
+  List<double> get visualLineYOffsets {
+    final excl = _exclusionLayout;
+    if (excl != null) return _exclusionVisualLineYOffsets(excl);
+    final fli = _firstLineIndentLayout;
+    if (fli != null) return _fliVisualLineYOffsets(fli);
+    final metrics = _textPainter.computeLineMetrics();
+    if (metrics.isEmpty) return const [0.0];
+    return metrics.map((m) => m.baseline - m.ascent).toList();
+  }
+
+  List<double> _fliVisualLineYOffsets(_FirstLineIndentLayout fli) {
+    final result = <double>[];
+    final firstMetrics = fli.firstLinePainter.computeLineMetrics();
+    for (final m in firstMetrics) {
+      result.add(m.baseline - m.ascent);
+    }
+    if (fli.restPainter != null) {
+      final restMetrics = fli.restPainter!.computeLineMetrics();
+      for (final m in restMetrics) {
+        result.add(fli.firstLineHeight + m.baseline - m.ascent);
+      }
+    }
+    return result.isEmpty ? const [0.0] : result;
+  }
+
+  List<double> _exclusionVisualLineYOffsets(_ExclusionLayout excl) {
+    final result = <double>[];
+    if (excl.abovePainter != null) {
+      final metrics = excl.abovePainter!.computeLineMetrics();
+      for (final m in metrics) {
+        result.add(m.baseline - m.ascent);
+      }
+    }
+    for (final line in excl.lines) {
+      result.add(excl.aboveHeight + line.yOffset);
+    }
+    if (excl.belowPainter != null) {
+      final metrics = excl.belowPainter!.computeLineMetrics();
+      for (final m in metrics) {
+        result.add(excl.aboveHeight + excl.besideHeight + m.baseline - m.ascent);
+      }
+    }
+    return result.isEmpty ? const [0.0] : result;
+  }
+
+  // ---------------------------------------------------------------------------
   // Paint
   // ---------------------------------------------------------------------------
 
