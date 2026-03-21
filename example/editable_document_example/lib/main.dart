@@ -163,7 +163,7 @@ class DocumentDemo extends StatefulWidget {
   State<DocumentDemo> createState() => _DocumentDemoState();
 }
 
-class _DocumentDemoState extends State<DocumentDemo> {
+class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMixin {
   late final MutableDocument _document;
   late final DocumentEditingController _controller;
   late final UndoableEditor _editor;
@@ -214,6 +214,10 @@ class _DocumentDemoState extends State<DocumentDemo> {
   /// when the panel is hidden.
   String? _propertyPanelNodeId;
 
+  bool _showBlockPanel = false;
+  bool _showDocumentPanel = false;
+  TabController? _panelTabController;
+
   /// Preset color swatches for text-color and background-color pickers.
   ///
   /// Keys are ARGB 32-bit integer values; values are display labels.
@@ -249,6 +253,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
     _contextMenuController.remove();
     _controller.removeListener(_onDocumentChanged);
     _document.changes.removeListener(_onDocumentChanged);
+    _panelTabController?.dispose();
     _focusNode.dispose();
     _controller.dispose();
     super.dispose();
@@ -256,14 +261,12 @@ class _DocumentDemoState extends State<DocumentDemo> {
 
   void _onDocumentChanged() {
     _contextMenuController.remove();
-    // Auto-show/hide the property panel based on selection.
-    // Show the panel for ANY selected block node, not just container blocks.
     final sel = _controller.selection;
     final node = sel != null ? _document.nodeById(sel.extent.nodeId) : null;
-    if (node != null) {
-      _propertyPanelNodeId = node.id;
-    } else {
-      _propertyPanelNodeId = null;
+    _propertyPanelNodeId = node?.id;
+    if (node == null && _showBlockPanel) {
+      _showBlockPanel = false;
+      _syncPanelTabController();
     }
     setState(() {});
   }
@@ -1901,6 +1904,19 @@ class _DocumentDemoState extends State<DocumentDemo> {
                   tooltip: 'Unindent',
                   style: buttonStyle,
                 ),
+                divider(),
+                _FormatToggle(
+                  icon: Icons.view_sidebar_outlined,
+                  tooltip: 'Block Properties',
+                  isActive: _showBlockPanel,
+                  onPressed: selectedNode != null ? _toggleBlockPanel : null,
+                ),
+                _FormatToggle(
+                  icon: Icons.settings_outlined,
+                  tooltip: 'Document Settings',
+                  isActive: _showDocumentPanel,
+                  onPressed: _toggleDocumentPanel,
+                ),
               ],
             ),
           ),
@@ -1918,10 +1934,35 @@ class _DocumentDemoState extends State<DocumentDemo> {
 
   /// Dismisses the floating property panel.
   void _dismissPropertyPanel() {
-    if (_propertyPanelNodeId == null) return;
     setState(() {
-      _propertyPanelNodeId = null;
+      _showBlockPanel = false;
+      _syncPanelTabController();
     });
+  }
+
+  void _toggleBlockPanel() {
+    setState(() {
+      _showBlockPanel = !_showBlockPanel;
+      _syncPanelTabController();
+    });
+  }
+
+  void _toggleDocumentPanel() {
+    setState(() {
+      _showDocumentPanel = !_showDocumentPanel;
+      _syncPanelTabController();
+    });
+  }
+
+  void _syncPanelTabController() {
+    if (_showBlockPanel && _showDocumentPanel) {
+      if (_panelTabController == null) {
+        _panelTabController = TabController(length: 2, vsync: this);
+      }
+    } else {
+      _panelTabController?.dispose();
+      _panelTabController = null;
+    }
   }
 
   /// Returns true if [node] supports width/height/textWrap properties.
@@ -2495,654 +2536,659 @@ class _DocumentDemoState extends State<DocumentDemo> {
     );
   }
 
-  Widget _buildPropertyPanel() {
+  List<Widget> _buildDocumentSettingsContent() {
     final colorScheme = Theme.of(context).colorScheme;
-    const panelWidth = 240.0;
-
-    final List<Widget> content;
-
-    // When no node is selected, show the Document Settings panel.
-    if (_propertyPanelNodeId == null) {
-      content = [
-        Text(
-          'Document Settings',
-          style: Theme.of(context).textTheme.titleSmall,
+    return [
+      Text(
+        'Document Settings',
+        style: Theme.of(context).textTheme.titleSmall,
+      ),
+      _buildPropertySection('Block Spacing', [
+        DropdownButtonHideUnderline(
+          child: DropdownButton<double>(
+            value: _blockSpacing,
+            isExpanded: true,
+            isDense: true,
+            style: Theme.of(context).textTheme.bodySmall,
+            onChanged: (value) {
+              if (value != null) setState(() => _blockSpacing = value);
+            },
+            items: const [
+              DropdownMenuItem(value: 0.0, child: Text('Single')),
+              DropdownMenuItem(value: 6.0, child: Text('1.5 lines')),
+              DropdownMenuItem(value: 12.0, child: Text('Double')),
+            ],
+          ),
         ),
-        _buildPropertySection('Block Spacing', [
+      ]),
+      _buildPropertySection('Default Line Height', [
+        DropdownButtonHideUnderline(
+          child: DropdownButton<double>(
+            value: _defaultLineHeight,
+            isExpanded: true,
+            isDense: true,
+            style: Theme.of(context).textTheme.bodySmall,
+            onChanged: (value) {
+              if (value != null) setState(() => _defaultLineHeight = value);
+            },
+            items: const [
+              DropdownMenuItem(value: 1.0, child: Text('Single')),
+              DropdownMenuItem(value: 1.15, child: Text('1.15')),
+              DropdownMenuItem(value: 1.5, child: Text('1.5 lines')),
+              DropdownMenuItem(value: 2.0, child: Text('Double')),
+            ],
+          ),
+        ),
+      ]),
+      _buildPropertySection('Document Padding', [
+        Row(
+          children: [
+            SizedBox(
+              width: 52,
+              child: Text(
+                'H: ${_documentPaddingH.toStringAsFixed(0)}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+            Expanded(
+              child: Slider(
+                value: _documentPaddingH,
+                min: 0,
+                max: 80,
+                divisions: 8,
+                label: _documentPaddingH.toStringAsFixed(0),
+                onChanged: (value) => setState(() => _documentPaddingH = value),
+              ),
+            ),
+          ],
+        ),
+        Row(
+          children: [
+            SizedBox(
+              width: 52,
+              child: Text(
+                'V: ${_documentPaddingV.toStringAsFixed(0)}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+            Expanded(
+              child: Slider(
+                value: _documentPaddingV,
+                min: 0,
+                max: 80,
+                divisions: 8,
+                label: _documentPaddingV.toStringAsFixed(0),
+                onChanged: (value) => setState(() => _documentPaddingV = value),
+              ),
+            ),
+          ],
+        ),
+      ]),
+      _buildPropertySection('Line Numbers', [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Show line numbers',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+            Switch(
+              value: _showLineNumbers,
+              onChanged: (value) => setState(() => _showLineNumbers = value),
+            ),
+          ],
+        ),
+        if (_showLineNumbers) ...[
+          const SizedBox(height: 8),
+          Text('Vertical Alignment', style: Theme.of(context).textTheme.labelSmall),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              for (final entry in {
+                LineNumberAlignment.top: Icons.vertical_align_top,
+                LineNumberAlignment.middle: Icons.vertical_align_center,
+                LineNumberAlignment.bottom: Icons.vertical_align_bottom,
+              }.entries)
+                Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: IconButton(
+                    icon: Icon(entry.value, size: 20),
+                    isSelected: _lineNumberAlignment == entry.key,
+                    style: IconButton.styleFrom(
+                      backgroundColor:
+                          _lineNumberAlignment == entry.key ? colorScheme.primaryContainer : null,
+                      minimumSize: const Size(36, 36),
+                      padding: EdgeInsets.zero,
+                    ),
+                    tooltip: entry.key.name,
+                    onPressed: () => setState(() => _lineNumberAlignment = entry.key),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text('Font', style: Theme.of(context).textTheme.labelSmall),
+          const SizedBox(height: 4),
           DropdownButtonHideUnderline(
-            child: DropdownButton<double>(
-              value: _blockSpacing,
+            child: DropdownButton<String?>(
+              value: _lineNumberFontFamily,
               isExpanded: true,
               isDense: true,
               style: Theme.of(context).textTheme.bodySmall,
-              onChanged: (value) {
-                if (value != null) setState(() => _blockSpacing = value);
-              },
+              onChanged: (value) => setState(() => _lineNumberFontFamily = value),
               items: const [
-                DropdownMenuItem(value: 0.0, child: Text('Single')),
-                DropdownMenuItem(value: 6.0, child: Text('1.5 lines')),
-                DropdownMenuItem(value: 12.0, child: Text('Double')),
+                DropdownMenuItem<String?>(value: null, child: Text('Default')),
+                DropdownMenuItem<String?>(value: 'Georgia', child: Text('Serif')),
+                DropdownMenuItem<String?>(value: 'Courier New', child: Text('Mono')),
+                DropdownMenuItem<String?>(value: 'Comic Sans MS', child: Text('Casual')),
               ],
             ),
           ),
-        ]),
-        _buildPropertySection('Default Line Height', [
+          const SizedBox(height: 8),
+          Text('Size', style: Theme.of(context).textTheme.labelSmall),
+          const SizedBox(height: 4),
           DropdownButtonHideUnderline(
-            child: DropdownButton<double>(
-              value: _defaultLineHeight,
+            child: DropdownButton<double?>(
+              value: _lineNumberFontSize,
               isExpanded: true,
               isDense: true,
               style: Theme.of(context).textTheme.bodySmall,
-              onChanged: (value) {
-                if (value != null) setState(() => _defaultLineHeight = value);
-              },
+              onChanged: (value) => setState(() => _lineNumberFontSize = value),
               items: const [
-                DropdownMenuItem(value: 1.0, child: Text('Single')),
+                DropdownMenuItem<double?>(value: null, child: Text('Default')),
+                DropdownMenuItem<double?>(value: 12, child: Text('12')),
+                DropdownMenuItem<double?>(value: 14, child: Text('14')),
+                DropdownMenuItem<double?>(value: 16, child: Text('16')),
+                DropdownMenuItem<double?>(value: 18, child: Text('18')),
+                DropdownMenuItem<double?>(value: 24, child: Text('24')),
+                DropdownMenuItem<double?>(value: 32, child: Text('32')),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text('Color', style: Theme.of(context).textTheme.labelSmall),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Tooltip(
+                message: 'Number color',
+                child: PopupMenuButton<int?>(
+                  offset: const Offset(0, 36),
+                  onSelected: (value) => setState(() => _lineNumberColor = value),
+                  itemBuilder: (ctx) => [
+                    const PopupMenuItem<int?>(value: null, child: Text('Default')),
+                    for (final entry in _colorPresets.entries)
+                      PopupMenuItem<int?>(
+                        value: entry.key,
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 16,
+                              height: 16,
+                              decoration: BoxDecoration(
+                                color: Color(entry.key),
+                                border: Border.all(color: Colors.black26, width: 0.5),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(entry.value),
+                          ],
+                        ),
+                      ),
+                  ],
+                  child: SizedBox(
+                    height: 32,
+                    width: 32,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.format_color_text, size: 18, color: colorScheme.onSurface),
+                        Container(
+                          height: 3,
+                          width: 16,
+                          color: _lineNumberColor != null
+                              ? Color(_lineNumberColor!)
+                              : Colors.transparent,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Tooltip(
+                message: 'Gutter background',
+                child: PopupMenuButton<int?>(
+                  offset: const Offset(0, 36),
+                  onSelected: (value) => setState(() => _lineNumberBgColor = value),
+                  itemBuilder: (ctx) => [
+                    const PopupMenuItem<int?>(value: null, child: Text('None')),
+                    for (final entry in _colorPresets.entries)
+                      PopupMenuItem<int?>(
+                        value: entry.key,
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 16,
+                              height: 16,
+                              decoration: BoxDecoration(
+                                color: Color(entry.key),
+                                border: Border.all(color: Colors.black26, width: 0.5),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(entry.value),
+                          ],
+                        ),
+                      ),
+                  ],
+                  child: SizedBox(
+                    height: 32,
+                    width: 32,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.format_color_fill, size: 18, color: colorScheme.onSurface),
+                        Container(
+                          height: 3,
+                          width: 16,
+                          color: _lineNumberBgColor != null
+                              ? Color(_lineNumberBgColor!)
+                              : Colors.transparent,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ]),
+    ];
+  }
+
+  List<Widget> _buildBlockPropertiesContent() {
+    final colorScheme = Theme.of(context).colorScheme;
+    if (_propertyPanelNodeId == null) return [];
+    final node = _document.nodeById(_propertyPanelNodeId!);
+    if (node == null) return [];
+
+    final isTextNode = node is ParagraphNode || node is ListItemNode || node is BlockquoteNode;
+    final isTextOrCode = isTextNode || node is CodeBlockNode;
+    final isContainerBlock = _isContainerBlock(node);
+
+    return [
+      Text(
+        _currentBlockLabel(),
+        style: Theme.of(context).textTheme.titleSmall,
+      ),
+      if (isTextNode) ...[
+        _buildPropertySection('Text Alignment', [
+          Row(
+            children: [
+              for (final entry in {
+                TextAlign.start: Icons.format_align_left,
+                TextAlign.center: Icons.format_align_center,
+                TextAlign.right: Icons.format_align_right,
+                TextAlign.justify: Icons.format_align_justify,
+              }.entries)
+                Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: IconButton(
+                    icon: Icon(entry.value, size: 20),
+                    isSelected: _currentTextAlign() == entry.key,
+                    style: IconButton.styleFrom(
+                      backgroundColor:
+                          _currentTextAlign() == entry.key ? colorScheme.primaryContainer : null,
+                      minimumSize: const Size(36, 36),
+                      padding: EdgeInsets.zero,
+                    ),
+                    tooltip: entry.key.name,
+                    onPressed: () => _setTextAlign(entry.key),
+                  ),
+                ),
+            ],
+          ),
+        ]),
+      ],
+      if (isTextOrCode) ...[
+        _buildPropertySection('Line Height', [
+          DropdownButtonHideUnderline(
+            child: DropdownButton<double?>(
+              value: _getLineHeight(node),
+              isExpanded: true,
+              isDense: true,
+              style: Theme.of(context).textTheme.bodySmall,
+              onChanged: (value) => _updateLineHeight(node, value),
+              items: const [
+                DropdownMenuItem(value: null, child: Text('Default')),
+                DropdownMenuItem(value: 1.0, child: Text('1.0')),
                 DropdownMenuItem(value: 1.15, child: Text('1.15')),
-                DropdownMenuItem(value: 1.5, child: Text('1.5 lines')),
-                DropdownMenuItem(value: 2.0, child: Text('Double')),
+                DropdownMenuItem(value: 1.5, child: Text('1.5')),
+                DropdownMenuItem(value: 2.0, child: Text('2.0')),
               ],
             ),
           ),
         ]),
-        _buildPropertySection('Document Padding', [
-          // Horizontal padding slider
+      ],
+      if (_hasSpacingProperties(node)) ...[
+        _buildPropertySection('Spacing', [
           Row(
             children: [
-              SizedBox(
-                width: 52,
-                child: Text(
-                  'H: ${_documentPaddingH.toStringAsFixed(0)}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ),
               Expanded(
-                child: Slider(
-                  value: _documentPaddingH,
-                  min: 0,
-                  max: 80,
-                  divisions: 8,
-                  label: _documentPaddingH.toStringAsFixed(0),
-                  onChanged: (value) => setState(() => _documentPaddingH = value),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Before',
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                    const SizedBox(height: 2),
+                    _DimensionField(
+                      key: ValueKey('${node.id}-sb'),
+                      value: _getSpaceBefore(node),
+                      onChanged: (value) {
+                        if (value == null) {
+                          _clearSpaceBefore(node);
+                        } else {
+                          _updateSpacing(node, spaceBefore: value);
+                        }
+                      },
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
-          // Vertical padding slider
-          Row(
-            children: [
-              SizedBox(
-                width: 52,
-                child: Text(
-                  'V: ${_documentPaddingV.toStringAsFixed(0)}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ),
+              const SizedBox(width: 8),
               Expanded(
-                child: Slider(
-                  value: _documentPaddingV,
-                  min: 0,
-                  max: 80,
-                  divisions: 8,
-                  label: _documentPaddingV.toStringAsFixed(0),
-                  onChanged: (value) => setState(() => _documentPaddingV = value),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'After',
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                    const SizedBox(height: 2),
+                    _DimensionField(
+                      key: ValueKey('${node.id}-sa'),
+                      value: _getSpaceAfter(node),
+                      onChanged: (value) {
+                        if (value == null) {
+                          _clearSpaceAfter(node);
+                        } else {
+                          _updateSpacing(node, spaceAfter: value);
+                        }
+                      },
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
         ]),
-        _buildPropertySection('Line Numbers', [
+      ],
+      if (_hasIndentProperties(node)) ...[
+        _buildPropertySection('Indent', [
           Row(
             children: [
               Expanded(
-                child: Text(
-                  'Show line numbers',
-                  style: Theme.of(context).textTheme.bodyMedium,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Left',
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                    const SizedBox(height: 2),
+                    _DimensionField(
+                      key: ValueKey('${node.id}-il'),
+                      value: _getIndentLeft(node),
+                      onChanged: (value) => _replaceNodeWithIndent(
+                        node,
+                        indentLeft: value,
+                        indentRight: _getIndentRight(node),
+                        firstLineIndent: _getFirstLineIndent(node),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              Switch(
-                value: _showLineNumbers,
-                onChanged: (value) => setState(() => _showLineNumbers = value),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Right',
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                    const SizedBox(height: 2),
+                    _DimensionField(
+                      key: ValueKey('${node.id}-ir'),
+                      value: _getIndentRight(node),
+                      onChanged: (value) => _replaceNodeWithIndent(
+                        node,
+                        indentLeft: _getIndentLeft(node),
+                        indentRight: value,
+                        firstLineIndent: _getFirstLineIndent(node),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
-          if (_showLineNumbers) ...[
-            // --- Vertical alignment toolbar ---
-            const SizedBox(height: 8),
-            Text('Vertical Alignment', style: Theme.of(context).textTheme.labelSmall),
-            const SizedBox(height: 4),
+          if (node is! ListItemNode) ...[
+            const SizedBox(height: 6),
+            Text(
+              'First Line',
+              style: Theme.of(context).textTheme.labelSmall,
+            ),
+            const SizedBox(height: 2),
+            _DimensionField(
+              key: ValueKey('${node.id}-fli'),
+              value: _getFirstLineIndent(node),
+              onChanged: (value) => _replaceNodeWithIndent(
+                node,
+                indentLeft: _getIndentLeft(node),
+                indentRight: _getIndentRight(node),
+                firstLineIndent: value,
+              ),
+            ),
+          ],
+        ]),
+      ],
+      if (isContainerBlock) ...[
+        _buildPropertySection('Block Alignment', [
+          Row(
+            children: [
+              for (final entry in {
+                BlockAlignment.start: Icons.align_horizontal_left,
+                BlockAlignment.center: Icons.align_horizontal_center,
+                BlockAlignment.end: Icons.align_horizontal_right,
+                BlockAlignment.stretch: Icons.expand,
+              }.entries)
+                Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: IconButton(
+                    icon: entry.key == BlockAlignment.stretch
+                        ? const RotatedBox(
+                            quarterTurns: 1,
+                            child: Icon(Icons.expand, size: 20),
+                          )
+                        : Icon(entry.value, size: 20),
+                    isSelected: _getBlockAlignment(node) == entry.key,
+                    style: IconButton.styleFrom(
+                      backgroundColor: _getBlockAlignment(node) == entry.key
+                          ? colorScheme.primaryContainer
+                          : null,
+                      minimumSize: const Size(36, 36),
+                      padding: EdgeInsets.zero,
+                    ),
+                    tooltip: entry.key.name,
+                    onPressed: () => _updateBlockAlignment(node, entry.key),
+                  ),
+                ),
+            ],
+          ),
+        ]),
+        if (_hasSizingProperties(node)) ...[
+          _buildPropertySection('Text Wrap', [
             Row(
               children: [
                 for (final entry in {
-                  LineNumberAlignment.top: Icons.vertical_align_top,
-                  LineNumberAlignment.middle: Icons.vertical_align_center,
-                  LineNumberAlignment.bottom: Icons.vertical_align_bottom,
+                  TextWrapMode.none: Icons.close,
+                  TextWrapMode.wrap: Icons.wrap_text,
+                  TextWrapMode.behindText: Icons.flip_to_back,
+                  TextWrapMode.inFrontOfText: Icons.flip_to_front,
                 }.entries)
                   Padding(
                     padding: const EdgeInsets.only(right: 4),
                     child: IconButton(
                       icon: Icon(entry.value, size: 20),
-                      isSelected: _lineNumberAlignment == entry.key,
+                      isSelected: _getTextWrap(node) == entry.key,
                       style: IconButton.styleFrom(
                         backgroundColor:
-                            _lineNumberAlignment == entry.key ? colorScheme.primaryContainer : null,
+                            _getTextWrap(node) == entry.key ? colorScheme.primaryContainer : null,
                         minimumSize: const Size(36, 36),
                         padding: EdgeInsets.zero,
                       ),
                       tooltip: entry.key.name,
-                      onPressed: () => setState(() => _lineNumberAlignment = entry.key),
+                      onPressed: () => _updateTextWrap(node, entry.key),
                     ),
                   ),
               ],
             ),
-            // --- Font family dropdown ---
-            const SizedBox(height: 8),
-            Text('Font', style: Theme.of(context).textTheme.labelSmall),
-            const SizedBox(height: 4),
-            DropdownButtonHideUnderline(
-              child: DropdownButton<String?>(
-                value: _lineNumberFontFamily,
-                isExpanded: true,
-                isDense: true,
-                style: Theme.of(context).textTheme.bodySmall,
-                onChanged: (value) => setState(() => _lineNumberFontFamily = value),
-                items: const [
-                  DropdownMenuItem<String?>(value: null, child: Text('Default')),
-                  DropdownMenuItem<String?>(value: 'Georgia', child: Text('Serif')),
-                  DropdownMenuItem<String?>(value: 'Courier New', child: Text('Mono')),
-                  DropdownMenuItem<String?>(value: 'Comic Sans MS', child: Text('Casual')),
-                ],
-              ),
-            ),
-            // --- Font size dropdown ---
-            const SizedBox(height: 8),
-            Text('Size', style: Theme.of(context).textTheme.labelSmall),
-            const SizedBox(height: 4),
-            DropdownButtonHideUnderline(
-              child: DropdownButton<double?>(
-                value: _lineNumberFontSize,
-                isExpanded: true,
-                isDense: true,
-                style: Theme.of(context).textTheme.bodySmall,
-                onChanged: (value) => setState(() => _lineNumberFontSize = value),
-                items: const [
-                  DropdownMenuItem<double?>(value: null, child: Text('Default')),
-                  DropdownMenuItem<double?>(value: 12, child: Text('12')),
-                  DropdownMenuItem<double?>(value: 14, child: Text('14')),
-                  DropdownMenuItem<double?>(value: 16, child: Text('16')),
-                  DropdownMenuItem<double?>(value: 18, child: Text('18')),
-                  DropdownMenuItem<double?>(value: 24, child: Text('24')),
-                  DropdownMenuItem<double?>(value: 32, child: Text('32')),
-                ],
-              ),
-            ),
-            // --- Text color & background color ---
-            const SizedBox(height: 8),
-            Text('Color', style: Theme.of(context).textTheme.labelSmall),
-            const SizedBox(height: 4),
+          ]),
+          _buildPropertySection('Width \u00d7 Height', [
             Row(
               children: [
-                // Text color popup
-                Tooltip(
-                  message: 'Number color',
-                  child: PopupMenuButton<int?>(
-                    offset: const Offset(0, 36),
-                    onSelected: (value) => setState(() => _lineNumberColor = value),
-                    itemBuilder: (ctx) => [
-                      const PopupMenuItem<int?>(value: null, child: Text('Default')),
-                      for (final entry in _colorPresets.entries)
-                        PopupMenuItem<int?>(
-                          value: entry.key,
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 16,
-                                height: 16,
-                                decoration: BoxDecoration(
-                                  color: Color(entry.key),
-                                  border: Border.all(color: Colors.black26, width: 0.5),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(entry.value),
-                            ],
-                          ),
-                        ),
-                    ],
-                    child: SizedBox(
-                      height: 32,
-                      width: 32,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.format_color_text, size: 18, color: colorScheme.onSurface),
-                          Container(
-                            height: 3,
-                            width: 16,
-                            color: _lineNumberColor != null
-                                ? Color(_lineNumberColor!)
-                                : Colors.transparent,
-                          ),
-                        ],
-                      ),
-                    ),
+                Expanded(
+                  child: _DimensionField(
+                    key: ValueKey('${node.id}-w'),
+                    value: _getWidth(node),
+                    onChanged: (value) => _updateWidth(node, value),
                   ),
                 ),
-                const SizedBox(width: 8),
-                // Background color popup
-                Tooltip(
-                  message: 'Gutter background',
-                  child: PopupMenuButton<int?>(
-                    offset: const Offset(0, 36),
-                    onSelected: (value) => setState(() => _lineNumberBgColor = value),
-                    itemBuilder: (ctx) => [
-                      const PopupMenuItem<int?>(value: null, child: Text('None')),
-                      for (final entry in _colorPresets.entries)
-                        PopupMenuItem<int?>(
-                          value: entry.key,
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 16,
-                                height: 16,
-                                decoration: BoxDecoration(
-                                  color: Color(entry.key),
-                                  border: Border.all(color: Colors.black26, width: 0.5),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(entry.value),
-                            ],
-                          ),
-                        ),
-                    ],
-                    child: SizedBox(
-                      height: 32,
-                      width: 32,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.format_color_fill, size: 18, color: colorScheme.onSurface),
-                          Container(
-                            height: 3,
-                            width: 16,
-                            color: _lineNumberBgColor != null
-                                ? Color(_lineNumberBgColor!)
-                                : Colors.transparent,
-                          ),
-                        ],
-                      ),
-                    ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 6),
+                  child: Text('\u00d7'), // ×
+                ),
+                Expanded(
+                  child: _DimensionField(
+                    key: ValueKey('${node.id}-h'),
+                    value: _getHeight(node),
+                    onChanged: (value) => _updateHeight(node, value),
                   ),
                 ),
               ],
             ),
-          ],
-        ]),
-      ];
-    } else {
-      final node = _document.nodeById(_propertyPanelNodeId!);
-      if (node == null) {
-        content = [];
-      } else {
-        final isTextNode = node is ParagraphNode || node is ListItemNode || node is BlockquoteNode;
-        final isTextOrCode = isTextNode || node is CodeBlockNode;
-        final isContainerBlock = _isContainerBlock(node);
-
-        content = [
-          // --- Header row ---
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  _currentBlockLabel(),
-                  style: Theme.of(context).textTheme.titleSmall,
+          ]),
+          if (node is ImageNode) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Lock Aspect',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
                 ),
+                Checkbox(
+                  value: node.lockAspect,
+                  onChanged: (value) => _updateLockAspect(node, value ?? true),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text('Image URL', style: Theme.of(context).textTheme.labelMedium),
+            const SizedBox(height: 4),
+            _UrlField(
+              key: ValueKey('${node.id}-url'),
+              value: node.imageUrl,
+              onChanged: (url) => _updateImageUrl(node, url),
+            ),
+            const SizedBox(height: 4),
+            SizedBox(
+              width: double.infinity,
+              height: 32,
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.folder_open, size: 16),
+                label: const Text('Choose File'),
+                onPressed: () => _pickImageFile(node),
               ),
-              SizedBox(
-                width: 24,
-                height: 24,
-                child: IconButton(
-                  icon: const Icon(Icons.close, size: 16),
-                  padding: EdgeInsets.zero,
-                  onPressed: _dismissPropertyPanel,
+            ),
+          ],
+        ],
+      ],
+    ];
+  }
+
+  Widget _buildPropertyPanel() {
+    if (!_showBlockPanel && !_showDocumentPanel) return const SizedBox.shrink();
+
+    final colorScheme = Theme.of(context).colorScheme;
+    const panelWidth = 240.0;
+
+    final panelDecoration = BoxDecoration(
+      color: colorScheme.surfaceContainerLow,
+      border: Border(left: BorderSide(color: colorScheme.outlineVariant)),
+    );
+
+    Widget wrapContent(List<Widget> content) {
+      return SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: content,
+          ),
+        ),
+      );
+    }
+
+    if (_showBlockPanel && _showDocumentPanel && _panelTabController != null) {
+      return SizedBox(
+        width: panelWidth,
+        height: double.infinity,
+        child: DecoratedBox(
+          decoration: panelDecoration,
+          child: Column(
+            children: [
+              TabBar(
+                controller: _panelTabController,
+                tabs: const [
+                  Tab(text: 'Block'),
+                  Tab(text: 'Document'),
+                ],
+                labelStyle: Theme.of(context).textTheme.labelSmall,
+              ),
+              Expanded(
+                child: TabBarView(
+                  controller: _panelTabController,
+                  children: [
+                    wrapContent(_buildBlockPropertiesContent()),
+                    wrapContent(_buildDocumentSettingsContent()),
+                  ],
                 ),
               ),
             ],
           ),
-
-          // --- Text section (alignment) for text-bearing nodes ---
-          if (isTextNode) ...[
-            _buildPropertySection('Text Alignment', [
-              Row(
-                children: [
-                  for (final entry in {
-                    TextAlign.start: Icons.format_align_left,
-                    TextAlign.center: Icons.format_align_center,
-                    TextAlign.right: Icons.format_align_right,
-                    TextAlign.justify: Icons.format_align_justify,
-                  }.entries)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 4),
-                      child: IconButton(
-                        icon: Icon(entry.value, size: 20),
-                        isSelected: _currentTextAlign() == entry.key,
-                        style: IconButton.styleFrom(
-                          backgroundColor: _currentTextAlign() == entry.key
-                              ? colorScheme.primaryContainer
-                              : null,
-                          minimumSize: const Size(36, 36),
-                          padding: EdgeInsets.zero,
-                        ),
-                        tooltip: entry.key.name,
-                        onPressed: () => _setTextAlign(entry.key),
-                      ),
-                    ),
-                ],
-              ),
-            ]),
-          ],
-
-          // --- Line Height section for text-bearing + code nodes ---
-          if (isTextOrCode) ...[
-            _buildPropertySection('Line Height', [
-              DropdownButtonHideUnderline(
-                child: DropdownButton<double?>(
-                  value: _getLineHeight(node),
-                  isExpanded: true,
-                  isDense: true,
-                  style: Theme.of(context).textTheme.bodySmall,
-                  onChanged: (value) => _updateLineHeight(node, value),
-                  items: const [
-                    DropdownMenuItem(value: null, child: Text('Default')),
-                    DropdownMenuItem(value: 1.0, child: Text('1.0')),
-                    DropdownMenuItem(value: 1.15, child: Text('1.15')),
-                    DropdownMenuItem(value: 1.5, child: Text('1.5')),
-                    DropdownMenuItem(value: 2.0, child: Text('2.0')),
-                  ],
-                ),
-              ),
-            ]),
-          ],
-
-          // --- Spacing section for all block types that support it ---
-          if (_hasSpacingProperties(node)) ...[
-            _buildPropertySection('Spacing', [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Before',
-                          style: Theme.of(context).textTheme.labelSmall,
-                        ),
-                        const SizedBox(height: 2),
-                        _DimensionField(
-                          key: ValueKey('${node.id}-sb'),
-                          value: _getSpaceBefore(node),
-                          onChanged: (value) {
-                            if (value == null) {
-                              _clearSpaceBefore(node);
-                            } else {
-                              _updateSpacing(node, spaceBefore: value);
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'After',
-                          style: Theme.of(context).textTheme.labelSmall,
-                        ),
-                        const SizedBox(height: 2),
-                        _DimensionField(
-                          key: ValueKey('${node.id}-sa'),
-                          value: _getSpaceAfter(node),
-                          onChanged: (value) {
-                            if (value == null) {
-                              _clearSpaceAfter(node);
-                            } else {
-                              _updateSpacing(node, spaceAfter: value);
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ]),
-          ],
-
-          // --- Indent section for text nodes (Paragraph, ListItem, Blockquote) ---
-          if (_hasIndentProperties(node)) ...[
-            _buildPropertySection('Indent', [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Left',
-                          style: Theme.of(context).textTheme.labelSmall,
-                        ),
-                        const SizedBox(height: 2),
-                        _DimensionField(
-                          key: ValueKey('${node.id}-il'),
-                          value: _getIndentLeft(node),
-                          onChanged: (value) => _replaceNodeWithIndent(
-                            node,
-                            indentLeft: value,
-                            indentRight: _getIndentRight(node),
-                            firstLineIndent: _getFirstLineIndent(node),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Right',
-                          style: Theme.of(context).textTheme.labelSmall,
-                        ),
-                        const SizedBox(height: 2),
-                        _DimensionField(
-                          key: ValueKey('${node.id}-ir'),
-                          value: _getIndentRight(node),
-                          onChanged: (value) => _replaceNodeWithIndent(
-                            node,
-                            indentLeft: _getIndentLeft(node),
-                            indentRight: value,
-                            firstLineIndent: _getFirstLineIndent(node),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              // First-line indent (not for ListItemNode)
-              if (node is! ListItemNode) ...[
-                const SizedBox(height: 6),
-                Text(
-                  'First Line',
-                  style: Theme.of(context).textTheme.labelSmall,
-                ),
-                const SizedBox(height: 2),
-                _DimensionField(
-                  key: ValueKey('${node.id}-fli'),
-                  value: _getFirstLineIndent(node),
-                  onChanged: (value) => _replaceNodeWithIndent(
-                    node,
-                    indentLeft: _getIndentLeft(node),
-                    indentRight: _getIndentRight(node),
-                    firstLineIndent: value,
-                  ),
-                ),
-              ],
-            ]),
-          ],
-
-          // --- Layout section for container blocks ---
-          if (isContainerBlock) ...[
-            _buildPropertySection('Block Alignment', [
-              Row(
-                children: [
-                  for (final entry in {
-                    BlockAlignment.start: Icons.align_horizontal_left,
-                    BlockAlignment.center: Icons.align_horizontal_center,
-                    BlockAlignment.end: Icons.align_horizontal_right,
-                    BlockAlignment.stretch: Icons.expand,
-                  }.entries)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 4),
-                      child: IconButton(
-                        icon: entry.key == BlockAlignment.stretch
-                            ? const RotatedBox(
-                                quarterTurns: 1,
-                                child: Icon(Icons.expand, size: 20),
-                              )
-                            : Icon(entry.value, size: 20),
-                        isSelected: _getBlockAlignment(node) == entry.key,
-                        style: IconButton.styleFrom(
-                          backgroundColor: _getBlockAlignment(node) == entry.key
-                              ? colorScheme.primaryContainer
-                              : null,
-                          minimumSize: const Size(36, 36),
-                          padding: EdgeInsets.zero,
-                        ),
-                        tooltip: entry.key.name,
-                        onPressed: () => _updateBlockAlignment(node, entry.key),
-                      ),
-                    ),
-                ],
-              ),
-            ]),
-            if (_hasSizingProperties(node)) ...[
-              _buildPropertySection('Text Wrap', [
-                Row(
-                  children: [
-                    for (final entry in {
-                      TextWrapMode.none: Icons.close,
-                      TextWrapMode.wrap: Icons.wrap_text,
-                      TextWrapMode.behindText: Icons.flip_to_back,
-                      TextWrapMode.inFrontOfText: Icons.flip_to_front,
-                    }.entries)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 4),
-                        child: IconButton(
-                          icon: Icon(entry.value, size: 20),
-                          isSelected: _getTextWrap(node) == entry.key,
-                          style: IconButton.styleFrom(
-                            backgroundColor: _getTextWrap(node) == entry.key
-                                ? colorScheme.primaryContainer
-                                : null,
-                            minimumSize: const Size(36, 36),
-                            padding: EdgeInsets.zero,
-                          ),
-                          tooltip: entry.key.name,
-                          onPressed: () => _updateTextWrap(node, entry.key),
-                        ),
-                      ),
-                  ],
-                ),
-              ]),
-              _buildPropertySection('Width \u00d7 Height', [
-                Row(
-                  children: [
-                    Expanded(
-                      child: _DimensionField(
-                        key: ValueKey('${node.id}-w'),
-                        value: _getWidth(node),
-                        onChanged: (value) => _updateWidth(node, value),
-                      ),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 6),
-                      child: Text('\u00d7'), // ×
-                    ),
-                    Expanded(
-                      child: _DimensionField(
-                        key: ValueKey('${node.id}-h'),
-                        value: _getHeight(node),
-                        onChanged: (value) => _updateHeight(node, value),
-                      ),
-                    ),
-                  ],
-                ),
-              ]),
-              if (node is ImageNode) ...[
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Lock Aspect',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ),
-                    Checkbox(
-                      value: node.lockAspect,
-                      onChanged: (value) => _updateLockAspect(node, value ?? true),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text('Image URL', style: Theme.of(context).textTheme.labelMedium),
-                const SizedBox(height: 4),
-                _UrlField(
-                  key: ValueKey('${node.id}-url'),
-                  value: node.imageUrl,
-                  onChanged: (url) => _updateImageUrl(node, url),
-                ),
-                const SizedBox(height: 4),
-                SizedBox(
-                  width: double.infinity,
-                  height: 32,
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.folder_open, size: 16),
-                    label: const Text('Choose File'),
-                    onPressed: () => _pickImageFile(node),
-                  ),
-                ),
-              ],
-            ],
-          ],
-        ];
-      }
+        ),
+      );
     }
+
+    final content =
+        _showBlockPanel ? _buildBlockPropertiesContent() : _buildDocumentSettingsContent();
 
     return SizedBox(
       width: panelWidth,
       height: double.infinity,
       child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerLow,
-          border: Border(left: BorderSide(color: colorScheme.outlineVariant)),
-        ),
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: content,
-            ),
-          ),
-        ),
+        decoration: panelDecoration,
+        child: wrapContent(content),
       ),
     );
   }
@@ -3332,6 +3378,12 @@ class _DocumentDemoState extends State<DocumentDemo> {
     properties.add(DoubleProperty('lineNumberFontSize', _lineNumberFontSize, defaultValue: null));
     properties.add(IntProperty('lineNumberColor', _lineNumberColor, defaultValue: null));
     properties.add(IntProperty('lineNumberBgColor', _lineNumberBgColor, defaultValue: null));
+    properties.add(
+      FlagProperty('showBlockPanel', value: _showBlockPanel, ifTrue: 'showBlockPanel'),
+    );
+    properties.add(
+      FlagProperty('showDocumentPanel', value: _showDocumentPanel, ifTrue: 'showDocumentPanel'),
+    );
   }
 }
 
