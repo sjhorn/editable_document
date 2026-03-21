@@ -467,6 +467,7 @@ class _DocumentLayoutRenderWidget extends MultiChildRenderObjectWidget {
       lineNumberTextStyle: lineNumberTextStyle,
       lineNumberBackgroundColor: lineNumberBackgroundColor,
       lineNumberAlignment: lineNumberAlignment,
+      baseTextStyle: DefaultTextStyle.of(context).style,
     );
   }
 
@@ -480,7 +481,8 @@ class _DocumentLayoutRenderWidget extends MultiChildRenderObjectWidget {
       ..lineNumberWidth = lineNumberWidth
       ..lineNumberTextStyle = lineNumberTextStyle
       ..lineNumberBackgroundColor = lineNumberBackgroundColor
-      ..lineNumberAlignment = lineNumberAlignment;
+      ..lineNumberAlignment = lineNumberAlignment
+      ..baseTextStyle = DefaultTextStyle.of(context).style;
   }
 
   @override

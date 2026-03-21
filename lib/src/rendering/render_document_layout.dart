@@ -15,7 +15,6 @@ import '../model/document_selection.dart';
 import '../model/node_position.dart';
 import '../model/text_wrap_mode.dart';
 import 'render_document_block.dart';
-import 'render_text_block.dart';
 
 // ---------------------------------------------------------------------------
 // DocumentBlockParentData
@@ -295,6 +294,7 @@ class RenderDocumentLayout extends RenderBox
     TextStyle? lineNumberTextStyle,
     Color? lineNumberBackgroundColor,
     LineNumberAlignment lineNumberAlignment = LineNumberAlignment.top,
+    TextStyle? baseTextStyle,
   })  : _blockSpacing = blockSpacing,
         _viewportWidth = viewportWidth,
         _documentPadding = documentPadding,
@@ -302,7 +302,8 @@ class RenderDocumentLayout extends RenderBox
         _lineNumberWidth = lineNumberWidth,
         _lineNumberTextStyle = lineNumberTextStyle,
         _lineNumberBackgroundColor = lineNumberBackgroundColor,
-        _lineNumberAlignment = lineNumberAlignment;
+        _lineNumberAlignment = lineNumberAlignment,
+        _baseTextStyle = baseTextStyle;
 
   // ---------------------------------------------------------------------------
   // blockSpacing
@@ -486,26 +487,38 @@ class RenderDocumentLayout extends RenderBox
     markNeedsPaint();
   }
 
+  // ---------------------------------------------------------------------------
+  // baseTextStyle
+  // ---------------------------------------------------------------------------
+
+  TextStyle? _baseTextStyle;
+
+  /// The ambient text style from the widget tree (typically from
+  /// [DefaultTextStyle]).
+  ///
+  /// When [lineNumberTextStyle] is `null`, this style is used for line-number
+  /// labels so they automatically match the document's font family, size, and
+  /// weight.  The widget layer sets this from `DefaultTextStyle.of(context)`.
+  TextStyle? get baseTextStyle => _baseTextStyle;
+
+  /// Sets [baseTextStyle] and schedules a repaint when the value changes.
+  set baseTextStyle(TextStyle? value) {
+    if (_baseTextStyle == value) return;
+    _baseTextStyle = value;
+    markNeedsPaint();
+  }
+
   /// Returns the effective [TextStyle] for line-number labels.
   ///
-  /// If [lineNumberTextStyle] is set, returns it directly.  Otherwise derives
-  /// a style from the first [RenderTextBlock] child (matching the document's
-  /// font family, size, and weight) with the color forced to black.  Falls
-  /// back to `TextStyle(fontSize: 14, color: Color(0xFF000000))` when there
-  /// are no text-block children.
+  /// Priority: [lineNumberTextStyle] > [baseTextStyle] > hardcoded fallback.
+  /// The colour is forced to black when the resolved style has no explicit
+  /// colour.
   TextStyle _resolvedLineNumberStyle() {
-    if (_lineNumberTextStyle != null) return _lineNumberTextStyle!;
-    // Walk children to find the first non-float RenderTextBlock.
-    RenderDocumentBlock? child = firstChild;
-    while (child != null) {
-      final parentData = child.parentData as DocumentBlockParentData;
-      if (!parentData.isFloat && child is RenderTextBlock) {
-        // Inherit the document font but ensure the color is explicit.
-        return child.textStyle.copyWith(
-          color: child.textStyle.color ?? const Color(0xFF000000),
-        );
-      }
-      child = childAfter(child);
+    final style = _lineNumberTextStyle ?? _baseTextStyle;
+    if (style != null) {
+      return style.copyWith(
+        color: style.color ?? const Color(0xFF000000),
+      );
     }
     return const TextStyle(fontSize: 14, color: Color(0xFF000000));
   }
@@ -1473,6 +1486,8 @@ class RenderDocumentLayout extends RenderBox
         ColorProperty('lineNumberBackgroundColor', lineNumberBackgroundColor, defaultValue: null));
     properties.add(EnumProperty<LineNumberAlignment>('lineNumberAlignment', lineNumberAlignment,
         defaultValue: LineNumberAlignment.top));
+    properties
+        .add(DiagnosticsProperty<TextStyle>('baseTextStyle', baseTextStyle, defaultValue: null));
   }
 }
 
