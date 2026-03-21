@@ -204,6 +204,12 @@ class _DocumentDemoState extends State<DocumentDemo> {
   /// Font size for line numbers.
   double _lineNumberFontSize = 11;
 
+  /// Text color for line numbers (`null` = default grey).
+  int? _lineNumberColor = 0xFF9E9E9E;
+
+  /// Background color for the line number gutter (`null` = none).
+  int? _lineNumberBgColor = 0xFFF5F5F5;
+
   /// The node ID for which the floating property panel is shown, or `null`
   /// when the panel is hidden.
   String? _propertyPanelNodeId;
@@ -2668,6 +2674,125 @@ class _DocumentDemoState extends State<DocumentDemo> {
                 ],
               ),
             ),
+            // --- Text color & background color ---
+            const SizedBox(height: 8),
+            Text('Color', style: Theme.of(context).textTheme.labelSmall),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                // Text color popup
+                Tooltip(
+                  message: 'Number color',
+                  child: PopupMenuButton<int?>(
+                    offset: const Offset(0, 36),
+                    onSelected: (value) => setState(() => _lineNumberColor = value),
+                    itemBuilder: (ctx) => [
+                      const PopupMenuItem<int?>(value: null, child: Text('Default')),
+                      for (final entry in _colorPresets.entries)
+                        PopupMenuItem<int?>(
+                          value: entry.key,
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 16,
+                                height: 16,
+                                decoration: BoxDecoration(
+                                  color: Color(entry.key),
+                                  border: Border.all(color: Colors.black26, width: 0.5),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(entry.value),
+                            ],
+                          ),
+                        ),
+                    ],
+                    child: SizedBox(
+                      height: 32,
+                      width: 32,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.format_color_text, size: 18, color: colorScheme.onSurface),
+                          Container(
+                            height: 3,
+                            width: 16,
+                            color: _lineNumberColor != null
+                                ? Color(_lineNumberColor!)
+                                : Colors.transparent,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Background color popup
+                Tooltip(
+                  message: 'Gutter background',
+                  child: PopupMenuButton<int?>(
+                    offset: const Offset(0, 36),
+                    onSelected: (value) => setState(() => _lineNumberBgColor = value),
+                    itemBuilder: (ctx) => [
+                      const PopupMenuItem<int?>(value: null, child: Text('None')),
+                      for (final entry in _colorPresets.entries)
+                        PopupMenuItem<int?>(
+                          value: entry.key,
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 16,
+                                height: 16,
+                                decoration: BoxDecoration(
+                                  color: Color(entry.key),
+                                  border: Border.all(color: Colors.black26, width: 0.5),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(entry.value),
+                            ],
+                          ),
+                        ),
+                      // Light grey — useful default for gutters.
+                      PopupMenuItem<int?>(
+                        value: 0xFFF5F5F5,
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 16,
+                              height: 16,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF5F5F5),
+                                border: Border.all(color: Colors.black26, width: 0.5),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Text('Light Grey'),
+                          ],
+                        ),
+                      ),
+                    ],
+                    child: SizedBox(
+                      height: 32,
+                      width: 32,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.format_color_fill, size: 18, color: colorScheme.onSurface),
+                          Container(
+                            height: 3,
+                            width: 16,
+                            color: _lineNumberBgColor != null
+                                ? Color(_lineNumberBgColor!)
+                                : Colors.transparent,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
         ]),
       ];
@@ -3142,10 +3267,11 @@ class _DocumentDemoState extends State<DocumentDemo> {
                 lineNumberTextStyle: TextStyle(
                   fontFamily: _lineNumberFontFamily,
                   fontSize: _lineNumberFontSize,
-                  color: const Color(0xFF9E9E9E),
+                  color: _lineNumberColor != null ? Color(_lineNumberColor!) : null,
                   fontFeatures: const [FontFeature.tabularFigures()],
                 ),
-                lineNumberBackgroundColor: const Color(0xFFF5F5F5),
+                lineNumberBackgroundColor:
+                    _lineNumberBgColor != null ? Color(_lineNumberBgColor!) : null,
                 componentBuilders: [
                   _syntaxBuilder,
                   ...defaultComponentBuilders.where((b) => b is! CodeBlockComponentBuilder),
@@ -3217,6 +3343,8 @@ class _DocumentDemoState extends State<DocumentDemo> {
     properties
         .add(StringProperty('lineNumberFontFamily', _lineNumberFontFamily, defaultValue: null));
     properties.add(DoubleProperty('lineNumberFontSize', _lineNumberFontSize, defaultValue: 11.0));
+    properties.add(IntProperty('lineNumberColor', _lineNumberColor, defaultValue: 0xFF9E9E9E));
+    properties.add(IntProperty('lineNumberBgColor', _lineNumberBgColor, defaultValue: 0xFFF5F5F5));
   }
 }
 
