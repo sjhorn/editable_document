@@ -19,6 +19,7 @@
 /// - Float-style text wrapping with textWrap property
 /// - Dual concurrent floats: start + end images with text wrapping around both
 /// - BlockquoteNode with left accent border
+/// - BlockBorder: solid, dashed, and dotted outside borders on individual blocks
 /// - Scrollable property panel shown for ALL block types with sections for:
 ///   text alignment, line height, spacing (before/after), indent (left/right/first-line),
 ///   and block layout (alignment, text wrap, dimensions) for container blocks
@@ -747,6 +748,68 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
           'Use InsertTableRequest, UpdateTableCellRequest, and DeleteTableRequest '
           'to mutate table content through the standard editor pipeline, giving '
           'full undo/redo support for every cell edit.',
+        ),
+      ),
+      // --- Block Borders section ---
+      //
+      // BlockBorder lets you draw a solid, dashed, or dotted outline around
+      // any document block. The border is paint-only — it does not inset the
+      // block's content area — and each block accepts an independent border.
+      HorizontalRuleNode(id: 'rule-before-borders'),
+      ParagraphNode(
+        id: 'h2-borders',
+        text: AttributedText('Block Borders'),
+        blockType: ParagraphBlockType.header2,
+      ),
+      ParagraphNode(
+        id: 'borders-intro',
+        text: AttributedText(
+          'Any document block can carry an optional BlockBorder that is drawn '
+          'around its outside bounds. Three styles are available: solid, dashed, '
+          'and dotted. The border does not affect layout — content dimensions '
+          'are unchanged.',
+        ),
+      ),
+      // Solid border — blue, 2 px.
+      ParagraphNode(
+        id: 'border-solid',
+        text: AttributedText(
+          'Solid border — 2 px blue outline drawn with BlockBorderStyle.solid.',
+        ),
+        border: const BlockBorder(
+          style: BlockBorderStyle.solid,
+          width: 2.0,
+          color: Color(0xFF2196F3),
+        ),
+      ),
+      // Dashed border — orange, 1.5 px, on a code block.
+      CodeBlockNode(
+        id: 'border-dashed',
+        text: AttributedText(
+          'final border = BlockBorder(\n'
+          '  style: BlockBorderStyle.dashed,\n'
+          '  width: 1.5,\n'
+          '  color: Color(0xFFFF9800),\n'
+          ');',
+        ),
+        language: 'dart',
+        border: const BlockBorder(
+          style: BlockBorderStyle.dashed,
+          width: 1.5,
+          color: Color(0xFFFF9800),
+        ),
+      ),
+      // Dotted border — green, 2 px, on a blockquote.
+      BlockquoteNode(
+        id: 'border-dotted',
+        text: AttributedText(
+          'Dotted border — 2 px green outline drawn with BlockBorderStyle.dotted. '
+          'Borders work on every block type, including blockquotes.',
+        ),
+        border: const BlockBorder(
+          style: BlockBorderStyle.dotted,
+          width: 2.0,
+          color: Color(0xFF4CAF50),
         ),
       ),
       // --- Document Padding & Line Numbers section ---
