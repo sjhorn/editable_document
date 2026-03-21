@@ -15,6 +15,7 @@ import '../model/document_selection.dart';
 import '../model/node_position.dart';
 import '../model/text_wrap_mode.dart';
 import 'render_document_block.dart';
+import 'render_text_block.dart';
 
 // ---------------------------------------------------------------------------
 // DocumentBlockParentData
@@ -430,7 +431,11 @@ class RenderDocumentLayout extends RenderBox
 
   /// The [TextStyle] used to render the line-number labels in the gutter.
   ///
-  /// When `null` a default style of `TextStyle(fontSize: 14)` is used.
+  /// When `null`, the style is derived from the first [RenderTextBlock] child
+  /// so that line numbers automatically match the document's font. If there
+  /// are no text-block children, a fallback of `TextStyle(fontSize: 14)` is
+  /// used.
+  ///
   /// Changing this property only triggers a repaint, not a full re-layout,
   /// because the gutter width is fixed once [performLayout] runs.
   TextStyle? get lineNumberTextStyle => _lineNumberTextStyle;
@@ -479,6 +484,30 @@ class RenderDocumentLayout extends RenderBox
     if (_lineNumberAlignment == value) return;
     _lineNumberAlignment = value;
     markNeedsPaint();
+  }
+
+  /// Returns the effective [TextStyle] for line-number labels.
+  ///
+  /// If [lineNumberTextStyle] is set, returns it directly.  Otherwise derives
+  /// a style from the first [RenderTextBlock] child (matching the document's
+  /// font family, size, and weight) with the color forced to black.  Falls
+  /// back to `TextStyle(fontSize: 14, color: Color(0xFF000000))` when there
+  /// are no text-block children.
+  TextStyle _resolvedLineNumberStyle() {
+    if (_lineNumberTextStyle != null) return _lineNumberTextStyle!;
+    // Walk children to find the first non-float RenderTextBlock.
+    RenderDocumentBlock? child = firstChild;
+    while (child != null) {
+      final parentData = child.parentData as DocumentBlockParentData;
+      if (!parentData.isFloat && child is RenderTextBlock) {
+        // Inherit the document font but ensure the color is explicit.
+        return child.textStyle.copyWith(
+          color: child.textStyle.color ?? const Color(0xFF000000),
+        );
+      }
+      child = childAfter(child);
+    }
+    return const TextStyle(fontSize: 14, color: Color(0xFF000000));
   }
 
   // ---------------------------------------------------------------------------
@@ -547,8 +576,7 @@ class RenderDocumentLayout extends RenderBox
       } else {
         // Auto-compute from the string representation of the child count
         // (e.g. "5" for 5 children, "15" for 15 children) plus 16 dp padding.
-        final labelStyle =
-            _lineNumberTextStyle ?? const TextStyle(fontSize: 14, color: Color(0xFF000000));
+        final labelStyle = _resolvedLineNumberStyle();
         final label = '$childCount';
         final tp = TextPainter(
           text: TextSpan(text: label, style: labelStyle),
