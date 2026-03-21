@@ -218,13 +218,16 @@ class _DocumentDemoState extends State<DocumentDemo> {
   ///
   /// Keys are ARGB 32-bit integer values; values are display labels.
   static const _colorPresets = {
+    0x00000000: 'Transparent',
+    0xFFFFFFFF: 'White',
     0xFF000000: 'Black',
+    0xFF9E9E9E: 'Grey',
+    0xFFF5F5F5: 'Light Grey',
     0xFFF44336: 'Red',
     0xFF4CAF50: 'Green',
     0xFF2196F3: 'Blue',
     0xFFFF9800: 'Orange',
     0xFF9C27B0: 'Purple',
-    0xFF9E9E9E: 'Grey',
   };
 
   @override
@@ -2753,24 +2756,6 @@ class _DocumentDemoState extends State<DocumentDemo> {
                             ],
                           ),
                         ),
-                      // Light grey — useful default for gutters.
-                      PopupMenuItem<int?>(
-                        value: 0xFFF5F5F5,
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 16,
-                              height: 16,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF5F5F5),
-                                border: Border.all(color: Colors.black26, width: 0.5),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            const Text('Light Grey'),
-                          ],
-                        ),
-                      ),
                     ],
                     child: SizedBox(
                       height: 32,
