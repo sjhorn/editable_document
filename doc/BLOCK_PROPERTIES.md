@@ -38,6 +38,45 @@ class DocumentStyle {
 }
 ```
 
+### Implemented subset (Phase 4)
+
+The following document-level properties are **implemented** in `EditableDocument`
+and `RenderDocumentLayout` as of Phase 4:
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `documentPadding` | `EdgeInsets` | `EdgeInsets.zero` | Insets around the entire content area. Horizontal values narrow the column; vertical values add whitespace above the first block and below the last. |
+| `showLineNumbers` | `bool` | `false` | Renders a sequential number beside each non-float block in a left-side gutter column. |
+| `lineNumberWidth` | `double` | `0.0` | Explicit gutter width in logical pixels. `0.0` means auto-compute from block count and text style. |
+| `lineNumberTextStyle` | `TextStyle?` | `null` | Style for line-number labels. `null` uses a built-in fallback. |
+| `lineNumberBackgroundColor` | `Color?` | `null` | Fill color painted behind the gutter. `null` means transparent. |
+
+**Usage example:**
+
+```dart
+EditableDocument(
+  controller: controller,
+  focusNode: focusNode,
+  documentPadding: const EdgeInsets.symmetric(
+    horizontal: 24,
+    vertical: 16,
+  ),
+  showLineNumbers: true,
+  lineNumberTextStyle: const TextStyle(
+    fontSize: 11,
+    color: Color(0xFF9E9E9E),
+    fontFeatures: [FontFeature.tabularFigures()],
+  ),
+  lineNumberBackgroundColor: const Color(0xFFF5F5F5),
+)
+```
+
+These five properties flow through `DocumentLayout` to `RenderDocumentLayout`,
+which handles gutter painting and offset adjustments for all child blocks.
+The full `DocumentStyle` class described above (including `pageWidth`,
+`fontFamily`, `pageBackground`, etc.) is aspirational — it documents the
+planned long-term API shape and serves as the design reference for future phases.
+
 ---
 
 ## Level 1 — Block Style (`BlockStyle`)

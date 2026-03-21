@@ -22,7 +22,12 @@
 /// - Scrollable property panel shown for ALL block types with sections for:
 ///   text alignment, line height, spacing (before/after), indent (left/right/first-line),
 ///   and block layout (alignment, text wrap, dimensions) for container blocks
-/// - Document Settings panel (when nothing selected): block spacing and default line height
+/// - Document Settings panel (when nothing selected): block spacing, default line height,
+///   document padding, and line number gutter controls
+/// - documentPadding: EdgeInsets applied around the content area (horizontal/vertical
+///   sliders wired live via Document Settings panel)
+/// - showLineNumbers: optional left-gutter that numbers each block sequentially,
+///   toggled from the Document Settings panel with a configurable background color
 /// - TableNode: insert via toolbar table button with 8×8 grid-size picker popup
 /// - Contextual table toolbar: appears between the main toolbar and the editor
 ///   when the cursor is inside a table cell; provides resize, column text
@@ -177,6 +182,15 @@ class _DocumentDemoState extends State<DocumentDemo> {
 
   /// Document-level default line height multiplier.
   double _defaultLineHeight = 1.0;
+
+  /// Horizontal padding (left + right) around the document content area.
+  double _documentPaddingH = 0.0;
+
+  /// Vertical padding (top + bottom) around the document content area.
+  double _documentPaddingV = 0.0;
+
+  /// Whether to show line numbers in a left-side gutter.
+  bool _showLineNumbers = false;
 
   /// The node ID for which the floating property panel is shown, or `null`
   /// when the panel is hidden.
@@ -710,6 +724,59 @@ class _DocumentDemoState extends State<DocumentDemo> {
           'to mutate table content through the standard editor pipeline, giving '
           'full undo/redo support for every cell edit.',
         ),
+      ),
+      // --- Document Padding & Line Numbers section ---
+      HorizontalRuleNode(id: 'rule-before-layout'),
+      ParagraphNode(
+        id: 'h2-layout-props',
+        text: AttributedText('Document Padding and Line Numbers'),
+        blockType: ParagraphBlockType.header2,
+      ),
+      ParagraphNode(
+        id: 'layout-props-intro',
+        text: AttributedText(
+          'Two new document-level properties are available from the Document '
+          'Settings panel (visible when nothing is selected).',
+        ),
+      ),
+      ParagraphNode(
+        id: 'layout-props-padding',
+        text: AttributedText(
+          'documentPadding accepts an EdgeInsets and insets the entire content '
+          'area — horizontal padding narrows the column while vertical padding '
+          'adds whitespace above the first block and below the last. Use the H '
+          'and V sliders in Document Settings to see it live.',
+        ),
+      ),
+      ParagraphNode(
+        id: 'layout-props-linenums',
+        text: AttributedText(
+          'showLineNumbers renders a sequential number beside each top-level '
+          'block in a left-side gutter. Toggle it from the Line Numbers switch '
+          'in Document Settings. The gutter width is auto-computed from the '
+          'block count; lineNumberWidth pins it to a fixed value.',
+        ),
+      ),
+      CodeBlockNode(
+        id: 'code-layout-props',
+        text: AttributedText(
+          'EditableDocument(\n'
+          '  controller: controller,\n'
+          '  focusNode: focusNode,\n'
+          '  // 24 px inset on each side, 16 px top/bottom whitespace\n'
+          '  documentPadding: const EdgeInsets.symmetric(\n'
+          '    horizontal: 24,\n'
+          '    vertical: 16,\n'
+          '  ),\n'
+          '  showLineNumbers: true,\n'
+          '  lineNumberTextStyle: const TextStyle(\n'
+          '    fontSize: 11,\n'
+          '    color: Color(0xFF9E9E9E),\n'
+          '  ),\n'
+          '  lineNumberBackgroundColor: const Color(0xFFF5F5F5),\n'
+          ')',
+        ),
+        language: 'dart',
       ),
     ]);
   }
@@ -2457,6 +2524,79 @@ class _DocumentDemoState extends State<DocumentDemo> {
             ),
           ),
         ]),
+        _buildPropertySection('Document Padding', [
+          // Horizontal padding slider
+          Row(
+            children: [
+              SizedBox(
+                width: 52,
+                child: Text(
+                  'H: ${_documentPaddingH.toStringAsFixed(0)}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+              Expanded(
+                child: Slider(
+                  value: _documentPaddingH,
+                  min: 0,
+                  max: 80,
+                  divisions: 8,
+                  label: _documentPaddingH.toStringAsFixed(0),
+                  onChanged: (value) => setState(() => _documentPaddingH = value),
+                ),
+              ),
+            ],
+          ),
+          // Vertical padding slider
+          Row(
+            children: [
+              SizedBox(
+                width: 52,
+                child: Text(
+                  'V: ${_documentPaddingV.toStringAsFixed(0)}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+              Expanded(
+                child: Slider(
+                  value: _documentPaddingV,
+                  min: 0,
+                  max: 80,
+                  divisions: 8,
+                  label: _documentPaddingV.toStringAsFixed(0),
+                  onChanged: (value) => setState(() => _documentPaddingV = value),
+                ),
+              ),
+            ],
+          ),
+        ]),
+        _buildPropertySection('Line Numbers', [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Show line numbers',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
+              Switch(
+                value: _showLineNumbers,
+                onChanged: (value) => setState(() => _showLineNumbers = value),
+              ),
+            ],
+          ),
+          if (_showLineNumbers)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                'Gutter uses tabular figures, 11px, grey text '
+                'on a light background.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+            ),
+        ]),
       ];
     } else {
       final node = _document.nodeById(_propertyPanelNodeId!);
@@ -2920,6 +3060,17 @@ class _DocumentDemoState extends State<DocumentDemo> {
                 editor: _editor,
                 blockSpacing: _blockSpacing,
                 style: TextStyle(height: _defaultLineHeight),
+                documentPadding: EdgeInsets.symmetric(
+                  horizontal: _documentPaddingH,
+                  vertical: _documentPaddingV,
+                ),
+                showLineNumbers: _showLineNumbers,
+                lineNumberTextStyle: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF9E9E9E),
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+                lineNumberBackgroundColor: const Color(0xFFF5F5F5),
                 componentBuilders: [
                   _syntaxBuilder,
                   ...defaultComponentBuilders.where((b) => b is! CodeBlockComponentBuilder),
@@ -2976,6 +3127,13 @@ class _DocumentDemoState extends State<DocumentDemo> {
         'controller',
         _controller,
       ),
+    );
+    properties.add(DoubleProperty('blockSpacing', _blockSpacing));
+    properties.add(DoubleProperty('defaultLineHeight', _defaultLineHeight));
+    properties.add(DoubleProperty('documentPaddingH', _documentPaddingH));
+    properties.add(DoubleProperty('documentPaddingV', _documentPaddingV));
+    properties.add(
+      FlagProperty('showLineNumbers', value: _showLineNumbers, ifTrue: 'showLineNumbers'),
     );
   }
 }
