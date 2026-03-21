@@ -198,6 +198,12 @@ class _DocumentDemoState extends State<DocumentDemo> {
   /// Vertical alignment of each line number label within its block row.
   LineNumberAlignment _lineNumberAlignment = LineNumberAlignment.top;
 
+  /// Font family for line numbers (`null` = default sans-serif).
+  String? _lineNumberFontFamily;
+
+  /// Font size for line numbers.
+  double _lineNumberFontSize = 11;
+
   /// The node ID for which the floating property panel is shown, or `null`
   /// when the panel is hidden.
   String? _propertyPanelNodeId;
@@ -2592,50 +2598,74 @@ class _DocumentDemoState extends State<DocumentDemo> {
             ],
           ),
           if (_showLineNumbers) ...[
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                'Gutter uses tabular figures, 11px, grey text '
-                'on a light background.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-              ),
-            ),
+            // --- Vertical alignment toolbar ---
             const SizedBox(height: 8),
+            Text('Vertical Alignment', style: Theme.of(context).textTheme.labelSmall),
+            const SizedBox(height: 4),
             Row(
               children: [
-                Expanded(
-                  child: Text(
-                    'Number alignment',
-                    style: Theme.of(context).textTheme.bodyMedium,
+                for (final entry in {
+                  LineNumberAlignment.top: Icons.vertical_align_top,
+                  LineNumberAlignment.middle: Icons.vertical_align_center,
+                  LineNumberAlignment.bottom: Icons.vertical_align_bottom,
+                }.entries)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: IconButton(
+                      icon: Icon(entry.value, size: 20),
+                      isSelected: _lineNumberAlignment == entry.key,
+                      style: IconButton.styleFrom(
+                        backgroundColor:
+                            _lineNumberAlignment == entry.key ? colorScheme.primaryContainer : null,
+                        minimumSize: const Size(36, 36),
+                        padding: EdgeInsets.zero,
+                      ),
+                      tooltip: entry.key.name,
+                      onPressed: () => setState(() => _lineNumberAlignment = entry.key),
+                    ),
                   ),
-                ),
               ],
             ),
+            // --- Font family dropdown ---
+            const SizedBox(height: 8),
+            Text('Font', style: Theme.of(context).textTheme.labelSmall),
             const SizedBox(height: 4),
-            SegmentedButton<LineNumberAlignment>(
-              segments: const [
-                ButtonSegment(
-                  value: LineNumberAlignment.top,
-                  label: Text('Top'),
-                ),
-                ButtonSegment(
-                  value: LineNumberAlignment.middle,
-                  label: Text('Middle'),
-                ),
-                ButtonSegment(
-                  value: LineNumberAlignment.bottom,
-                  label: Text('Bottom'),
-                ),
-              ],
-              selected: {_lineNumberAlignment},
-              onSelectionChanged: (selection) => setState(
-                () => _lineNumberAlignment = selection.first,
+            DropdownButtonHideUnderline(
+              child: DropdownButton<String?>(
+                value: _lineNumberFontFamily,
+                isExpanded: true,
+                isDense: true,
+                style: Theme.of(context).textTheme.bodySmall,
+                onChanged: (value) => setState(() => _lineNumberFontFamily = value),
+                items: const [
+                  DropdownMenuItem<String?>(value: null, child: Text('Default')),
+                  DropdownMenuItem<String?>(value: 'Georgia', child: Text('Serif')),
+                  DropdownMenuItem<String?>(value: 'Courier New', child: Text('Mono')),
+                  DropdownMenuItem<String?>(value: 'Comic Sans MS', child: Text('Casual')),
+                ],
               ),
-              style: const ButtonStyle(
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
+            ),
+            // --- Font size dropdown ---
+            const SizedBox(height: 8),
+            Text('Size', style: Theme.of(context).textTheme.labelSmall),
+            const SizedBox(height: 4),
+            DropdownButtonHideUnderline(
+              child: DropdownButton<double>(
+                value: _lineNumberFontSize,
+                isExpanded: true,
+                isDense: true,
+                style: Theme.of(context).textTheme.bodySmall,
+                onChanged: (value) {
+                  if (value != null) setState(() => _lineNumberFontSize = value);
+                },
+                items: const [
+                  DropdownMenuItem(value: 9.0, child: Text('9')),
+                  DropdownMenuItem(value: 10.0, child: Text('10')),
+                  DropdownMenuItem(value: 11.0, child: Text('11')),
+                  DropdownMenuItem(value: 12.0, child: Text('12')),
+                  DropdownMenuItem(value: 14.0, child: Text('14')),
+                  DropdownMenuItem(value: 16.0, child: Text('16')),
+                ],
               ),
             ),
           ],
@@ -3109,10 +3139,11 @@ class _DocumentDemoState extends State<DocumentDemo> {
                 ),
                 showLineNumbers: _showLineNumbers,
                 lineNumberAlignment: _lineNumberAlignment,
-                lineNumberTextStyle: const TextStyle(
-                  fontSize: 11,
-                  color: Color(0xFF9E9E9E),
-                  fontFeatures: [FontFeature.tabularFigures()],
+                lineNumberTextStyle: TextStyle(
+                  fontFamily: _lineNumberFontFamily,
+                  fontSize: _lineNumberFontSize,
+                  color: const Color(0xFF9E9E9E),
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
                 lineNumberBackgroundColor: const Color(0xFFF5F5F5),
                 componentBuilders: [
@@ -3183,6 +3214,9 @@ class _DocumentDemoState extends State<DocumentDemo> {
       EnumProperty<LineNumberAlignment>('lineNumberAlignment', _lineNumberAlignment,
           defaultValue: LineNumberAlignment.top),
     );
+    properties
+        .add(StringProperty('lineNumberFontFamily', _lineNumberFontFamily, defaultValue: null));
+    properties.add(DoubleProperty('lineNumberFontSize', _lineNumberFontSize, defaultValue: 11.0));
   }
 }
 
