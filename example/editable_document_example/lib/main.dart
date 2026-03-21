@@ -196,7 +196,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
   bool _showLineNumbers = false;
 
   /// Vertical alignment of each line number label within its block row.
-  LineNumberAlignment _lineNumberAlignment = LineNumberAlignment.middle;
+  LineNumberAlignment _lineNumberAlignment = LineNumberAlignment.top;
 
   /// Font family for line numbers (`null` = inherit from document).
   String? _lineNumberFontFamily;
@@ -3325,7 +3325,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
     );
     properties.add(
       EnumProperty<LineNumberAlignment>('lineNumberAlignment', _lineNumberAlignment,
-          defaultValue: LineNumberAlignment.middle),
+          defaultValue: LineNumberAlignment.top),
     );
     properties
         .add(StringProperty('lineNumberFontFamily', _lineNumberFontFamily, defaultValue: null));

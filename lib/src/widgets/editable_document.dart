@@ -96,7 +96,7 @@ class EditableDocument extends StatefulWidget {
   /// `null`). [lineNumberBackgroundColor] is the fill colour behind the gutter
   /// (default `null` — transparent). [lineNumberAlignment] controls the
   /// vertical alignment of each label within its block (default
-  /// [LineNumberAlignment.middle]). All six are forwarded to [DocumentLayout]
+  /// [LineNumberAlignment.top]). All six are forwarded to [DocumentLayout]
   /// and ultimately to [RenderDocumentLayout].
   const EditableDocument({
     super.key,
@@ -122,7 +122,7 @@ class EditableDocument extends StatefulWidget {
     this.lineNumberWidth = 0.0,
     this.lineNumberTextStyle,
     this.lineNumberBackgroundColor,
-    this.lineNumberAlignment = LineNumberAlignment.middle,
+    this.lineNumberAlignment = LineNumberAlignment.top,
   });
 
   /// The document editing controller holding the [MutableDocument] and current
@@ -266,7 +266,7 @@ class EditableDocument extends StatefulWidget {
   /// - [LineNumberAlignment.bottom] — label aligns with the block's bottom edge.
   ///
   /// Forwarded to [RenderDocumentLayout.lineNumberAlignment].
-  /// Defaults to [LineNumberAlignment.middle].
+  /// Defaults to [LineNumberAlignment.top].
   final LineNumberAlignment lineNumberAlignment;
 
   @override
@@ -323,7 +323,7 @@ class EditableDocument extends StatefulWidget {
     properties.add(EnumProperty<LineNumberAlignment>(
       'lineNumberAlignment',
       lineNumberAlignment,
-      defaultValue: LineNumberAlignment.middle,
+      defaultValue: LineNumberAlignment.top,
     ));
   }
 }

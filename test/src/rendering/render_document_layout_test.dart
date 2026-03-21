@@ -4015,9 +4015,9 @@ void main() {
     // lineNumberAlignment tests
     // -----------------------------------------------------------------------
 
-    test('lineNumberAlignment defaults to LineNumberAlignment.middle', () {
+    test('lineNumberAlignment defaults to LineNumberAlignment.top', () {
       final layout = RenderDocumentLayout();
-      expect(layout.lineNumberAlignment, LineNumberAlignment.middle);
+      expect(layout.lineNumberAlignment, LineNumberAlignment.top);
     });
 
     test('lineNumberAlignment can be set via constructor', () {
@@ -4045,10 +4045,10 @@ void main() {
     });
 
     test('setting lineNumberAlignment to same value does not trigger repaint', () {
-      final layout = RenderDocumentLayout(lineNumberAlignment: LineNumberAlignment.middle);
+      final layout = RenderDocumentLayout(lineNumberAlignment: LineNumberAlignment.top);
       // No exception; same-value setter is a no-op.
-      layout.lineNumberAlignment = LineNumberAlignment.middle;
-      expect(layout.lineNumberAlignment, LineNumberAlignment.middle);
+      layout.lineNumberAlignment = LineNumberAlignment.top;
+      expect(layout.lineNumberAlignment, LineNumberAlignment.top);
     });
 
     test('debugFillProperties includes lineNumberAlignment', () {

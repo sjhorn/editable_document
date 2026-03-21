@@ -2190,7 +2190,7 @@ void main() {
       expect(ro.lineNumberBackgroundColor, color);
     });
 
-    testWidgets('default lineNumberAlignment is LineNumberAlignment.middle', (tester) async {
+    testWidgets('default lineNumberAlignment is LineNumberAlignment.top', (tester) async {
       final controller = _makeController();
       final focusNode = FocusNode();
       addTearDown(focusNode.dispose);
@@ -2206,7 +2206,7 @@ void main() {
       );
 
       final widget = tester.widget<EditableDocument>(find.byType(EditableDocument));
-      expect(widget.lineNumberAlignment, LineNumberAlignment.middle);
+      expect(widget.lineNumberAlignment, LineNumberAlignment.top);
     });
 
     testWidgets('lineNumberAlignment is forwarded through to RenderDocumentLayout', (tester) async {

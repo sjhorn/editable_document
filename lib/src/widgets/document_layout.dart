@@ -83,7 +83,7 @@ class DocumentLayout extends StatefulWidget {
   /// `null`). [lineNumberBackgroundColor] is the fill colour behind the gutter
   /// (default `null` — transparent). [lineNumberAlignment] controls the
   /// vertical alignment of each label within its block (default
-  /// [LineNumberAlignment.middle]).
+  /// [LineNumberAlignment.top]).
   const DocumentLayout({
     super.key,
     required this.document,
@@ -96,7 +96,7 @@ class DocumentLayout extends StatefulWidget {
     this.lineNumberWidth = 0.0,
     this.lineNumberTextStyle,
     this.lineNumberBackgroundColor,
-    this.lineNumberAlignment = LineNumberAlignment.middle,
+    this.lineNumberAlignment = LineNumberAlignment.top,
   });
 
   /// The document whose nodes are rendered.
@@ -163,7 +163,7 @@ class DocumentLayout extends StatefulWidget {
   /// - [LineNumberAlignment.middle] — label is centred vertically within the block.
   /// - [LineNumberAlignment.bottom] — label aligns with the block's bottom edge.
   ///
-  /// Defaults to [LineNumberAlignment.middle].
+  /// Defaults to [LineNumberAlignment.top].
   final LineNumberAlignment lineNumberAlignment;
 
   @override
@@ -192,7 +192,7 @@ class DocumentLayout extends StatefulWidget {
     properties.add(EnumProperty<LineNumberAlignment>(
       'lineNumberAlignment',
       lineNumberAlignment,
-      defaultValue: LineNumberAlignment.middle,
+      defaultValue: LineNumberAlignment.top,
     ));
   }
 }
@@ -400,7 +400,7 @@ class _DocumentLayoutRenderWidget extends MultiChildRenderObjectWidget {
     this.lineNumberWidth = 0.0,
     this.lineNumberTextStyle,
     this.lineNumberBackgroundColor,
-    this.lineNumberAlignment = LineNumberAlignment.middle,
+    this.lineNumberAlignment = LineNumberAlignment.top,
     super.children,
   });
 
@@ -505,7 +505,7 @@ class _DocumentLayoutRenderWidget extends MultiChildRenderObjectWidget {
     properties.add(EnumProperty<LineNumberAlignment>(
       'lineNumberAlignment',
       lineNumberAlignment,
-      defaultValue: LineNumberAlignment.middle,
+      defaultValue: LineNumberAlignment.top,
     ));
   }
 }
