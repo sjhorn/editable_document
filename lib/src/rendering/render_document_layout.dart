@@ -547,7 +547,8 @@ class RenderDocumentLayout extends RenderBox
       } else {
         // Auto-compute from the string representation of the child count
         // (e.g. "5" for 5 children, "15" for 15 children) plus 16 dp padding.
-        final labelStyle = _lineNumberTextStyle ?? const TextStyle(fontSize: 12);
+        final labelStyle =
+            _lineNumberTextStyle ?? const TextStyle(fontSize: 12, color: Color(0xFF000000));
         final label = '$childCount';
         final tp = TextPainter(
           text: TextSpan(text: label, style: labelStyle),
@@ -1045,7 +1046,8 @@ class RenderDocumentLayout extends RenderBox
       }
 
       // Paint line-number labels for non-float children.
-      final labelStyle = _lineNumberTextStyle ?? const TextStyle(fontSize: 12);
+      final labelStyle =
+          _lineNumberTextStyle ?? const TextStyle(fontSize: 12, color: Color(0xFF000000));
       final tp = TextPainter(textDirection: TextDirection.ltr);
       var lineNumber = 1;
 
