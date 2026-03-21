@@ -430,7 +430,7 @@ class RenderDocumentLayout extends RenderBox
 
   /// The [TextStyle] used to render the line-number labels in the gutter.
   ///
-  /// When `null` a default style of `TextStyle(fontSize: 12)` is used.
+  /// When `null` a default style of `TextStyle(fontSize: 14)` is used.
   /// Changing this property only triggers a repaint, not a full re-layout,
   /// because the gutter width is fixed once [performLayout] runs.
   TextStyle? get lineNumberTextStyle => _lineNumberTextStyle;
@@ -548,7 +548,7 @@ class RenderDocumentLayout extends RenderBox
         // Auto-compute from the string representation of the child count
         // (e.g. "5" for 5 children, "15" for 15 children) plus 16 dp padding.
         final labelStyle =
-            _lineNumberTextStyle ?? const TextStyle(fontSize: 12, color: Color(0xFF000000));
+            _lineNumberTextStyle ?? const TextStyle(fontSize: 14, color: Color(0xFF000000));
         final label = '$childCount';
         final tp = TextPainter(
           text: TextSpan(text: label, style: labelStyle),
@@ -1047,7 +1047,7 @@ class RenderDocumentLayout extends RenderBox
 
       // Paint line-number labels for non-float children.
       final labelStyle =
-          _lineNumberTextStyle ?? const TextStyle(fontSize: 12, color: Color(0xFF000000));
+          _lineNumberTextStyle ?? const TextStyle(fontSize: 14, color: Color(0xFF000000));
       final tp = TextPainter(textDirection: TextDirection.ltr);
       var lineNumber = 1;
 
