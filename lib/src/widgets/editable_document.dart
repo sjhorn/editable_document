@@ -87,6 +87,15 @@ class EditableDocument extends StatefulWidget {
   ///
   /// [controller] and [focusNode] are required. All other parameters have
   /// sensible defaults.
+  ///
+  /// [documentPadding] sets the inset space around the entire content area
+  /// (default [EdgeInsets.zero]). [showLineNumbers] controls whether a
+  /// line-number gutter is rendered (default `false`). [lineNumberWidth] is
+  /// the explicit gutter width in logical pixels (default `0.0` — auto).
+  /// [lineNumberTextStyle] is the [TextStyle] for line-number labels (default
+  /// `null`). [lineNumberBackgroundColor] is the fill colour behind the gutter
+  /// (default `null` — transparent). All five are forwarded to [DocumentLayout]
+  /// and ultimately to [RenderDocumentLayout].
   const EditableDocument({
     super.key,
     required this.controller,
@@ -106,6 +115,11 @@ class EditableDocument extends StatefulWidget {
     this.stylesheet,
     this.editor,
     this.scrollPadding = const EdgeInsets.all(20.0),
+    this.documentPadding = EdgeInsets.zero,
+    this.showLineNumbers = false,
+    this.lineNumberWidth = 0.0,
+    this.lineNumberTextStyle,
+    this.lineNumberBackgroundColor,
   });
 
   /// The document editing controller holding the [MutableDocument] and current
@@ -204,6 +218,44 @@ class EditableDocument extends StatefulWidget {
   /// Defaults to `EdgeInsets.all(20.0)`, matching [EditableText.scrollPadding].
   final EdgeInsets scrollPadding;
 
+  /// The padding inset applied around the document's content area.
+  ///
+  /// The [EdgeInsets.top] and [EdgeInsets.bottom] values add whitespace above
+  /// the first child and below the last child respectively. The
+  /// [EdgeInsets.left] and [EdgeInsets.right] values shift all children inward
+  /// and reduce each child's available width by the horizontal total.
+  ///
+  /// Forwarded to [DocumentLayout] and [RenderDocumentLayout.documentPadding].
+  /// Defaults to [EdgeInsets.zero].
+  final EdgeInsets documentPadding;
+
+  /// Whether to render a line-number gutter on the left side of the content
+  /// area.
+  ///
+  /// When `true`, each non-float block receives a sequential line-number label
+  /// in a vertical gutter column. Forwarded to [DocumentLayout] and
+  /// [RenderDocumentLayout.showLineNumbers]. Defaults to `false`.
+  final bool showLineNumbers;
+
+  /// The explicit gutter width in logical pixels.
+  ///
+  /// When `0.0` (the default), the width is auto-computed from the child count
+  /// and [lineNumberTextStyle]. Supply a positive value to pin the gutter to a
+  /// fixed width. Forwarded to [RenderDocumentLayout.lineNumberWidth].
+  final double lineNumberWidth;
+
+  /// The [TextStyle] used to render the line-number labels in the gutter.
+  ///
+  /// When `null` (the default), a built-in fallback style is used. Forwarded
+  /// to [RenderDocumentLayout.lineNumberTextStyle].
+  final TextStyle? lineNumberTextStyle;
+
+  /// The fill [Color] painted behind the entire gutter column.
+  ///
+  /// When `null` (the default), no background is drawn. Forwarded to
+  /// [RenderDocumentLayout.lineNumberBackgroundColor].
+  final Color? lineNumberBackgroundColor;
+
   @override
   State<EditableDocument> createState() => EditableDocumentState();
 
@@ -243,6 +295,18 @@ class EditableDocument extends StatefulWidget {
     properties.add(DiagnosticsProperty<Editor?>('editor', editor, defaultValue: null));
     properties.add(DiagnosticsProperty<GlobalKey<DocumentLayoutState>?>('layoutKey', layoutKey));
     properties.add(DiagnosticsProperty<EdgeInsets>('scrollPadding', scrollPadding));
+    properties.add(DiagnosticsProperty<EdgeInsets>('documentPadding', documentPadding));
+    properties
+        .add(FlagProperty('showLineNumbers', value: showLineNumbers, ifTrue: 'showLineNumbers'));
+    properties.add(DoubleProperty('lineNumberWidth', lineNumberWidth, defaultValue: 0.0));
+    properties.add(
+      DiagnosticsProperty<TextStyle?>('lineNumberTextStyle', lineNumberTextStyle,
+          defaultValue: null),
+    );
+    properties.add(
+      DiagnosticsProperty<Color?>('lineNumberBackgroundColor', lineNumberBackgroundColor,
+          defaultValue: null),
+    );
   }
 }
 
@@ -790,6 +854,11 @@ class EditableDocumentState extends State<EditableDocument> {
           componentBuilders: builders,
           blockSpacing: widget.blockSpacing,
           stylesheet: widget.stylesheet,
+          documentPadding: widget.documentPadding,
+          showLineNumbers: widget.showLineNumbers,
+          lineNumberWidth: widget.lineNumberWidth,
+          lineNumberTextStyle: widget.lineNumberTextStyle,
+          lineNumberBackgroundColor: widget.lineNumberBackgroundColor,
         ),
       ),
     );

@@ -477,6 +477,430 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
+  // documentPadding property
+  // -------------------------------------------------------------------------
+
+  group('DocumentLayout — documentPadding', () {
+    testWidgets('default documentPadding is EdgeInsets.zero', (tester) async {
+      final doc = _docWith([ParagraphNode(id: 'p1', text: AttributedText('A'))]);
+      final controller = _controller(doc);
+
+      await tester.pumpWidget(
+        _buildLayout(
+          DocumentLayout(
+            document: doc,
+            controller: controller,
+            componentBuilders: defaultComponentBuilders,
+          ),
+        ),
+      );
+
+      final layout = tester.widget<DocumentLayout>(find.byType(DocumentLayout));
+      expect(layout.documentPadding, EdgeInsets.zero);
+    });
+
+    testWidgets('documentPadding is stored on widget and forwarded to render object',
+        (tester) async {
+      final doc = _docWith([ParagraphNode(id: 'p1', text: AttributedText('A'))]);
+      final controller = _controller(doc);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+      const padding = EdgeInsets.all(16.0);
+
+      await tester.pumpWidget(
+        _buildLayout(
+          DocumentLayout(
+            key: layoutKey,
+            document: doc,
+            controller: controller,
+            componentBuilders: defaultComponentBuilders,
+            documentPadding: padding,
+          ),
+        ),
+      );
+
+      final layout = tester.widget<DocumentLayout>(find.byType(DocumentLayout));
+      expect(layout.documentPadding, padding);
+
+      final ro = layoutKey.currentState!.renderObject!;
+      expect(ro.documentPadding, padding);
+    });
+
+    testWidgets('updateRenderObject syncs documentPadding when it changes', (tester) async {
+      final doc = _docWith([ParagraphNode(id: 'p1', text: AttributedText('A'))]);
+      final controller = _controller(doc);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+
+      await tester.pumpWidget(
+        _buildLayout(
+          DocumentLayout(
+            key: layoutKey,
+            document: doc,
+            controller: controller,
+            componentBuilders: defaultComponentBuilders,
+            documentPadding: const EdgeInsets.all(8.0),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _buildLayout(
+          DocumentLayout(
+            key: layoutKey,
+            document: doc,
+            controller: controller,
+            componentBuilders: defaultComponentBuilders,
+            documentPadding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
+          ),
+        ),
+      );
+
+      final ro = layoutKey.currentState!.renderObject!;
+      expect(ro.documentPadding, const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0));
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // showLineNumbers property
+  // -------------------------------------------------------------------------
+
+  group('DocumentLayout — showLineNumbers', () {
+    testWidgets('default showLineNumbers is false', (tester) async {
+      final doc = _docWith([ParagraphNode(id: 'p1', text: AttributedText('A'))]);
+      final controller = _controller(doc);
+
+      await tester.pumpWidget(
+        _buildLayout(
+          DocumentLayout(
+            document: doc,
+            controller: controller,
+            componentBuilders: defaultComponentBuilders,
+          ),
+        ),
+      );
+
+      final layout = tester.widget<DocumentLayout>(find.byType(DocumentLayout));
+      expect(layout.showLineNumbers, isFalse);
+    });
+
+    testWidgets('showLineNumbers is stored on widget and forwarded to render object',
+        (tester) async {
+      final doc = _docWith([ParagraphNode(id: 'p1', text: AttributedText('A'))]);
+      final controller = _controller(doc);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+
+      await tester.pumpWidget(
+        _buildLayout(
+          DocumentLayout(
+            key: layoutKey,
+            document: doc,
+            controller: controller,
+            componentBuilders: defaultComponentBuilders,
+            showLineNumbers: true,
+          ),
+        ),
+      );
+
+      final layout = tester.widget<DocumentLayout>(find.byType(DocumentLayout));
+      expect(layout.showLineNumbers, isTrue);
+
+      final ro = layoutKey.currentState!.renderObject!;
+      expect(ro.showLineNumbers, isTrue);
+    });
+
+    testWidgets('updateRenderObject syncs showLineNumbers when it changes', (tester) async {
+      final doc = _docWith([ParagraphNode(id: 'p1', text: AttributedText('A'))]);
+      final controller = _controller(doc);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+
+      await tester.pumpWidget(
+        _buildLayout(
+          DocumentLayout(
+            key: layoutKey,
+            document: doc,
+            controller: controller,
+            componentBuilders: defaultComponentBuilders,
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _buildLayout(
+          DocumentLayout(
+            key: layoutKey,
+            document: doc,
+            controller: controller,
+            componentBuilders: defaultComponentBuilders,
+            showLineNumbers: true,
+          ),
+        ),
+      );
+
+      final ro = layoutKey.currentState!.renderObject!;
+      expect(ro.showLineNumbers, isTrue);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // lineNumberWidth property
+  // -------------------------------------------------------------------------
+
+  group('DocumentLayout — lineNumberWidth', () {
+    testWidgets('default lineNumberWidth is 0.0', (tester) async {
+      final doc = _docWith([ParagraphNode(id: 'p1', text: AttributedText('A'))]);
+      final controller = _controller(doc);
+
+      await tester.pumpWidget(
+        _buildLayout(
+          DocumentLayout(
+            document: doc,
+            controller: controller,
+            componentBuilders: defaultComponentBuilders,
+          ),
+        ),
+      );
+
+      final layout = tester.widget<DocumentLayout>(find.byType(DocumentLayout));
+      expect(layout.lineNumberWidth, 0.0);
+    });
+
+    testWidgets('lineNumberWidth is stored on widget and forwarded to render object',
+        (tester) async {
+      final doc = _docWith([ParagraphNode(id: 'p1', text: AttributedText('A'))]);
+      final controller = _controller(doc);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+
+      await tester.pumpWidget(
+        _buildLayout(
+          DocumentLayout(
+            key: layoutKey,
+            document: doc,
+            controller: controller,
+            componentBuilders: defaultComponentBuilders,
+            showLineNumbers: true,
+            lineNumberWidth: 48.0,
+          ),
+        ),
+      );
+
+      final layout = tester.widget<DocumentLayout>(find.byType(DocumentLayout));
+      expect(layout.lineNumberWidth, 48.0);
+
+      final ro = layoutKey.currentState!.renderObject!;
+      expect(ro.lineNumberWidth, 48.0);
+    });
+
+    testWidgets('updateRenderObject syncs lineNumberWidth when it changes', (tester) async {
+      final doc = _docWith([ParagraphNode(id: 'p1', text: AttributedText('A'))]);
+      final controller = _controller(doc);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+
+      await tester.pumpWidget(
+        _buildLayout(
+          DocumentLayout(
+            key: layoutKey,
+            document: doc,
+            controller: controller,
+            componentBuilders: defaultComponentBuilders,
+            showLineNumbers: true,
+            lineNumberWidth: 40.0,
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _buildLayout(
+          DocumentLayout(
+            key: layoutKey,
+            document: doc,
+            controller: controller,
+            componentBuilders: defaultComponentBuilders,
+            showLineNumbers: true,
+            lineNumberWidth: 56.0,
+          ),
+        ),
+      );
+
+      final ro = layoutKey.currentState!.renderObject!;
+      expect(ro.lineNumberWidth, 56.0);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // lineNumberTextStyle property
+  // -------------------------------------------------------------------------
+
+  group('DocumentLayout — lineNumberTextStyle', () {
+    testWidgets('default lineNumberTextStyle is null', (tester) async {
+      final doc = _docWith([ParagraphNode(id: 'p1', text: AttributedText('A'))]);
+      final controller = _controller(doc);
+
+      await tester.pumpWidget(
+        _buildLayout(
+          DocumentLayout(
+            document: doc,
+            controller: controller,
+            componentBuilders: defaultComponentBuilders,
+          ),
+        ),
+      );
+
+      final layout = tester.widget<DocumentLayout>(find.byType(DocumentLayout));
+      expect(layout.lineNumberTextStyle, isNull);
+    });
+
+    testWidgets('lineNumberTextStyle is stored on widget and forwarded to render object',
+        (tester) async {
+      final doc = _docWith([ParagraphNode(id: 'p1', text: AttributedText('A'))]);
+      final controller = _controller(doc);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+      const style = TextStyle(fontSize: 11, color: Color(0xFF888888));
+
+      await tester.pumpWidget(
+        _buildLayout(
+          DocumentLayout(
+            key: layoutKey,
+            document: doc,
+            controller: controller,
+            componentBuilders: defaultComponentBuilders,
+            showLineNumbers: true,
+            lineNumberTextStyle: style,
+          ),
+        ),
+      );
+
+      final layout = tester.widget<DocumentLayout>(find.byType(DocumentLayout));
+      expect(layout.lineNumberTextStyle, style);
+
+      final ro = layoutKey.currentState!.renderObject!;
+      expect(ro.lineNumberTextStyle, style);
+    });
+
+    testWidgets('updateRenderObject syncs lineNumberTextStyle when it changes', (tester) async {
+      final doc = _docWith([ParagraphNode(id: 'p1', text: AttributedText('A'))]);
+      final controller = _controller(doc);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+
+      await tester.pumpWidget(
+        _buildLayout(
+          DocumentLayout(
+            key: layoutKey,
+            document: doc,
+            controller: controller,
+            componentBuilders: defaultComponentBuilders,
+            showLineNumbers: true,
+            lineNumberTextStyle: const TextStyle(fontSize: 10),
+          ),
+        ),
+      );
+
+      const newStyle = TextStyle(fontSize: 13, color: Color(0xFF333333));
+      await tester.pumpWidget(
+        _buildLayout(
+          DocumentLayout(
+            key: layoutKey,
+            document: doc,
+            controller: controller,
+            componentBuilders: defaultComponentBuilders,
+            showLineNumbers: true,
+            lineNumberTextStyle: newStyle,
+          ),
+        ),
+      );
+
+      final ro = layoutKey.currentState!.renderObject!;
+      expect(ro.lineNumberTextStyle, newStyle);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // lineNumberBackgroundColor property
+  // -------------------------------------------------------------------------
+
+  group('DocumentLayout — lineNumberBackgroundColor', () {
+    testWidgets('default lineNumberBackgroundColor is null', (tester) async {
+      final doc = _docWith([ParagraphNode(id: 'p1', text: AttributedText('A'))]);
+      final controller = _controller(doc);
+
+      await tester.pumpWidget(
+        _buildLayout(
+          DocumentLayout(
+            document: doc,
+            controller: controller,
+            componentBuilders: defaultComponentBuilders,
+          ),
+        ),
+      );
+
+      final layout = tester.widget<DocumentLayout>(find.byType(DocumentLayout));
+      expect(layout.lineNumberBackgroundColor, isNull);
+    });
+
+    testWidgets('lineNumberBackgroundColor is stored on widget and forwarded to render object',
+        (tester) async {
+      final doc = _docWith([ParagraphNode(id: 'p1', text: AttributedText('A'))]);
+      final controller = _controller(doc);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+      const color = Color(0xFFF0F0F0);
+
+      await tester.pumpWidget(
+        _buildLayout(
+          DocumentLayout(
+            key: layoutKey,
+            document: doc,
+            controller: controller,
+            componentBuilders: defaultComponentBuilders,
+            showLineNumbers: true,
+            lineNumberBackgroundColor: color,
+          ),
+        ),
+      );
+
+      final layout = tester.widget<DocumentLayout>(find.byType(DocumentLayout));
+      expect(layout.lineNumberBackgroundColor, color);
+
+      final ro = layoutKey.currentState!.renderObject!;
+      expect(ro.lineNumberBackgroundColor, color);
+    });
+
+    testWidgets('updateRenderObject syncs lineNumberBackgroundColor when it changes',
+        (tester) async {
+      final doc = _docWith([ParagraphNode(id: 'p1', text: AttributedText('A'))]);
+      final controller = _controller(doc);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+
+      await tester.pumpWidget(
+        _buildLayout(
+          DocumentLayout(
+            key: layoutKey,
+            document: doc,
+            controller: controller,
+            componentBuilders: defaultComponentBuilders,
+            showLineNumbers: true,
+            lineNumberBackgroundColor: const Color(0xFFEEEEEE),
+          ),
+        ),
+      );
+
+      const newColor = Color(0xFFCCCCCC);
+      await tester.pumpWidget(
+        _buildLayout(
+          DocumentLayout(
+            key: layoutKey,
+            document: doc,
+            controller: controller,
+            componentBuilders: defaultComponentBuilders,
+            showLineNumbers: true,
+            lineNumberBackgroundColor: newColor,
+          ),
+        ),
+      );
+
+      final ro = layoutKey.currentState!.renderObject!;
+      expect(ro.lineNumberBackgroundColor, newColor);
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // Center float text wrapping
   // -------------------------------------------------------------------------
 

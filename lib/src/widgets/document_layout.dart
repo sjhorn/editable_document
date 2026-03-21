@@ -74,6 +74,14 @@ class DocumentLayout extends StatefulWidget {
   /// [blockSpacing] is the vertical gap between consecutive blocks (default
   /// `12.0`). [stylesheet] is an optional map of style-key strings to
   /// [TextStyle]s passed to every [ComponentContext].
+  ///
+  /// [documentPadding] sets the inset space around the entire content area
+  /// (default [EdgeInsets.zero]). [showLineNumbers] controls whether a
+  /// line-number gutter is rendered (default `false`). [lineNumberWidth] is
+  /// the explicit gutter width in logical pixels (default `0.0` — auto).
+  /// [lineNumberTextStyle] is the [TextStyle] for line-number labels (default
+  /// `null`). [lineNumberBackgroundColor] is the fill colour behind the gutter
+  /// (default `null` — transparent).
   const DocumentLayout({
     super.key,
     required this.document,
@@ -81,6 +89,11 @@ class DocumentLayout extends StatefulWidget {
     required this.componentBuilders,
     this.blockSpacing = 12.0,
     this.stylesheet,
+    this.documentPadding = EdgeInsets.zero,
+    this.showLineNumbers = false,
+    this.lineNumberWidth = 0.0,
+    this.lineNumberTextStyle,
+    this.lineNumberBackgroundColor,
   });
 
   /// The document whose nodes are rendered.
@@ -107,6 +120,40 @@ class DocumentLayout extends StatefulWidget {
   /// typography using well-known keys such as `'body'`, `'h1'`, or `'code'`.
   final Map<String, TextStyle>? stylesheet;
 
+  /// The padding inset applied around the document's content area.
+  ///
+  /// The [EdgeInsets.top] and [EdgeInsets.bottom] values add whitespace above
+  /// the first child and below the last child respectively. The
+  /// [EdgeInsets.left] and [EdgeInsets.right] values shift all children inward
+  /// and reduce each child's available width by the horizontal total.
+  ///
+  /// Defaults to [EdgeInsets.zero].
+  final EdgeInsets documentPadding;
+
+  /// Whether to render a line-number gutter on the left side of the content
+  /// area.
+  ///
+  /// When `true`, each non-float block receives a sequential line-number label
+  /// in a vertical gutter column. Defaults to `false`.
+  final bool showLineNumbers;
+
+  /// The explicit gutter width in logical pixels.
+  ///
+  /// When `0.0` (the default), the width is auto-computed from the child count
+  /// and [lineNumberTextStyle]. Supply a positive value to pin the gutter to a
+  /// fixed width regardless of child count.
+  final double lineNumberWidth;
+
+  /// The [TextStyle] used to render the line-number labels in the gutter.
+  ///
+  /// When `null`, a default built-in style is used. Defaults to `null`.
+  final TextStyle? lineNumberTextStyle;
+
+  /// The fill [Color] painted behind the entire gutter column.
+  ///
+  /// When `null` (the default), no background is drawn.
+  final Color? lineNumberBackgroundColor;
+
   @override
   State<DocumentLayout> createState() => DocumentLayoutState();
 
@@ -118,6 +165,18 @@ class DocumentLayout extends StatefulWidget {
     properties.add(IntProperty('componentBuilders', componentBuilders.length));
     properties.add(DoubleProperty('blockSpacing', blockSpacing));
     properties.add(DiagnosticsProperty<Map<String, TextStyle>>('stylesheet', stylesheet));
+    properties.add(DiagnosticsProperty<EdgeInsets>('documentPadding', documentPadding));
+    properties
+        .add(FlagProperty('showLineNumbers', value: showLineNumbers, ifTrue: 'showLineNumbers'));
+    properties.add(DoubleProperty('lineNumberWidth', lineNumberWidth, defaultValue: 0.0));
+    properties.add(
+      DiagnosticsProperty<TextStyle?>('lineNumberTextStyle', lineNumberTextStyle,
+          defaultValue: null),
+    );
+    properties.add(
+      DiagnosticsProperty<Color?>('lineNumberBackgroundColor', lineNumberBackgroundColor,
+          defaultValue: null),
+    );
   }
 }
 
@@ -292,6 +351,11 @@ class DocumentLayoutState extends State<DocumentLayout> {
       isFocused: scope?.isFocused ?? false,
       isReadOnly: scope?.isReadOnly ?? false,
       viewportWidth: viewportWidth,
+      documentPadding: widget.documentPadding,
+      showLineNumbers: widget.showLineNumbers,
+      lineNumberWidth: widget.lineNumberWidth,
+      lineNumberTextStyle: widget.lineNumberTextStyle,
+      lineNumberBackgroundColor: widget.lineNumberBackgroundColor,
       children: _buildChildren(),
     );
   }
@@ -313,6 +377,11 @@ class _DocumentLayoutRenderWidget extends MultiChildRenderObjectWidget {
     required this.isFocused,
     required this.isReadOnly,
     this.viewportWidth,
+    this.documentPadding = EdgeInsets.zero,
+    this.showLineNumbers = false,
+    this.lineNumberWidth = 0.0,
+    this.lineNumberTextStyle,
+    this.lineNumberBackgroundColor,
     super.children,
   });
 
@@ -335,19 +404,57 @@ class _DocumentLayoutRenderWidget extends MultiChildRenderObjectWidget {
   /// horizontal [SingleChildScrollView].
   final double? viewportWidth;
 
+  /// The padding inset applied around the document's content area.
+  ///
+  /// Forwarded to [RenderDocumentLayout.documentPadding].
+  final EdgeInsets documentPadding;
+
+  /// Whether to render a line-number gutter.
+  ///
+  /// Forwarded to [RenderDocumentLayout.showLineNumbers].
+  final bool showLineNumbers;
+
+  /// The explicit gutter width in logical pixels.
+  ///
+  /// Forwarded to [RenderDocumentLayout.lineNumberWidth].
+  final double lineNumberWidth;
+
+  /// The [TextStyle] used to render line-number labels.
+  ///
+  /// Forwarded to [RenderDocumentLayout.lineNumberTextStyle].
+  final TextStyle? lineNumberTextStyle;
+
+  /// The fill [Color] behind the gutter column.
+  ///
+  /// Forwarded to [RenderDocumentLayout.lineNumberBackgroundColor].
+  final Color? lineNumberBackgroundColor;
+
   @override
   DocumentLayoutElement createElement() => DocumentLayoutElement(this);
 
   @override
   RenderDocumentLayout createRenderObject(BuildContext context) {
-    return RenderDocumentLayout(blockSpacing: blockSpacing, viewportWidth: viewportWidth);
+    return RenderDocumentLayout(
+      blockSpacing: blockSpacing,
+      viewportWidth: viewportWidth,
+      documentPadding: documentPadding,
+      showLineNumbers: showLineNumbers,
+      lineNumberWidth: lineNumberWidth,
+      lineNumberTextStyle: lineNumberTextStyle,
+      lineNumberBackgroundColor: lineNumberBackgroundColor,
+    );
   }
 
   @override
   void updateRenderObject(BuildContext context, RenderDocumentLayout renderObject) {
     renderObject
       ..blockSpacing = blockSpacing
-      ..viewportWidth = viewportWidth;
+      ..viewportWidth = viewportWidth
+      ..documentPadding = documentPadding
+      ..showLineNumbers = showLineNumbers
+      ..lineNumberWidth = lineNumberWidth
+      ..lineNumberTextStyle = lineNumberTextStyle
+      ..lineNumberBackgroundColor = lineNumberBackgroundColor;
   }
 
   @override
@@ -357,6 +464,18 @@ class _DocumentLayoutRenderWidget extends MultiChildRenderObjectWidget {
     properties.add(FlagProperty('isFocused', value: isFocused, ifTrue: 'focused'));
     properties.add(FlagProperty('isReadOnly', value: isReadOnly, ifTrue: 'readOnly'));
     properties.add(DoubleProperty('viewportWidth', viewportWidth, defaultValue: null));
+    properties.add(DiagnosticsProperty<EdgeInsets>('documentPadding', documentPadding));
+    properties
+        .add(FlagProperty('showLineNumbers', value: showLineNumbers, ifTrue: 'showLineNumbers'));
+    properties.add(DoubleProperty('lineNumberWidth', lineNumberWidth, defaultValue: 0.0));
+    properties.add(
+      DiagnosticsProperty<TextStyle?>('lineNumberTextStyle', lineNumberTextStyle,
+          defaultValue: null),
+    );
+    properties.add(
+      DiagnosticsProperty<Color?>('lineNumberBackgroundColor', lineNumberBackgroundColor,
+          defaultValue: null),
+    );
   }
 }
 

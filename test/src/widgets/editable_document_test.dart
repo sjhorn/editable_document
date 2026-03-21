@@ -1964,4 +1964,230 @@ void main() {
       expect(configMap['autofill'], isNull);
     });
   });
+
+  // -------------------------------------------------------------------------
+  // documentPadding / line-number pass-through to DocumentLayout
+  // -------------------------------------------------------------------------
+
+  group('EditableDocument — documentPadding and line-number pass-through', () {
+    testWidgets('default documentPadding is EdgeInsets.zero', (tester) async {
+      final controller = _makeController();
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(EditableDocument(controller: controller, focusNode: focusNode)),
+      );
+
+      final widget = tester.widget<EditableDocument>(find.byType(EditableDocument));
+      expect(widget.documentPadding, EdgeInsets.zero);
+    });
+
+    testWidgets('default showLineNumbers is false', (tester) async {
+      final controller = _makeController();
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(EditableDocument(controller: controller, focusNode: focusNode)),
+      );
+
+      final widget = tester.widget<EditableDocument>(find.byType(EditableDocument));
+      expect(widget.showLineNumbers, isFalse);
+    });
+
+    testWidgets('default lineNumberWidth is 0.0', (tester) async {
+      final controller = _makeController();
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(EditableDocument(controller: controller, focusNode: focusNode)),
+      );
+
+      final widget = tester.widget<EditableDocument>(find.byType(EditableDocument));
+      expect(widget.lineNumberWidth, 0.0);
+    });
+
+    testWidgets('default lineNumberTextStyle is null', (tester) async {
+      final controller = _makeController();
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(EditableDocument(controller: controller, focusNode: focusNode)),
+      );
+
+      final widget = tester.widget<EditableDocument>(find.byType(EditableDocument));
+      expect(widget.lineNumberTextStyle, isNull);
+    });
+
+    testWidgets('default lineNumberBackgroundColor is null', (tester) async {
+      final controller = _makeController();
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(EditableDocument(controller: controller, focusNode: focusNode)),
+      );
+
+      final widget = tester.widget<EditableDocument>(find.byType(EditableDocument));
+      expect(widget.lineNumberBackgroundColor, isNull);
+    });
+
+    testWidgets('documentPadding is forwarded through to RenderDocumentLayout', (tester) async {
+      final controller = _makeController();
+      final focusNode = FocusNode();
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+      const padding = EdgeInsets.symmetric(horizontal: 32.0, vertical: 16.0);
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+            layoutKey: layoutKey,
+            documentPadding: padding,
+          ),
+        ),
+      );
+
+      final ro = layoutKey.currentState!.renderObject!;
+      expect(ro.documentPadding, padding);
+    });
+
+    testWidgets('showLineNumbers is forwarded through to RenderDocumentLayout', (tester) async {
+      final controller = _makeController();
+      final focusNode = FocusNode();
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+            layoutKey: layoutKey,
+            showLineNumbers: true,
+          ),
+        ),
+      );
+
+      final ro = layoutKey.currentState!.renderObject!;
+      expect(ro.showLineNumbers, isTrue);
+    });
+
+    testWidgets('lineNumberWidth is forwarded through to RenderDocumentLayout', (tester) async {
+      final controller = _makeController();
+      final focusNode = FocusNode();
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+            layoutKey: layoutKey,
+            showLineNumbers: true,
+            lineNumberWidth: 52.0,
+          ),
+        ),
+      );
+
+      final ro = layoutKey.currentState!.renderObject!;
+      expect(ro.lineNumberWidth, 52.0);
+    });
+
+    testWidgets('lineNumberTextStyle is forwarded through to RenderDocumentLayout', (tester) async {
+      final controller = _makeController();
+      final focusNode = FocusNode();
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+      const style = TextStyle(fontSize: 11, color: Color(0xFF777777));
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+            layoutKey: layoutKey,
+            showLineNumbers: true,
+            lineNumberTextStyle: style,
+          ),
+        ),
+      );
+
+      final ro = layoutKey.currentState!.renderObject!;
+      expect(ro.lineNumberTextStyle, style);
+    });
+
+    testWidgets('lineNumberBackgroundColor is forwarded through to RenderDocumentLayout',
+        (tester) async {
+      final controller = _makeController();
+      final focusNode = FocusNode();
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+      const color = Color(0xFFF5F5F5);
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+            layoutKey: layoutKey,
+            showLineNumbers: true,
+            lineNumberBackgroundColor: color,
+          ),
+        ),
+      );
+
+      final ro = layoutKey.currentState!.renderObject!;
+      expect(ro.lineNumberBackgroundColor, color);
+    });
+
+    testWidgets('all five properties reach RenderDocumentLayout together', (tester) async {
+      final controller = _makeController();
+      final focusNode = FocusNode();
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+      const padding = EdgeInsets.all(20.0);
+      const style = TextStyle(fontSize: 12);
+      const color = Color(0xFFEEEEEE);
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+            layoutKey: layoutKey,
+            documentPadding: padding,
+            showLineNumbers: true,
+            lineNumberWidth: 44.0,
+            lineNumberTextStyle: style,
+            lineNumberBackgroundColor: color,
+          ),
+        ),
+      );
+
+      final ro = layoutKey.currentState!.renderObject!;
+      expect(ro.documentPadding, padding);
+      expect(ro.showLineNumbers, isTrue);
+      expect(ro.lineNumberWidth, 44.0);
+      expect(ro.lineNumberTextStyle, style);
+      expect(ro.lineNumberBackgroundColor, color);
+    });
+  });
 }
