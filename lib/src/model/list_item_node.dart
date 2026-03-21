@@ -9,6 +9,7 @@ import 'dart:ui' show TextAlign;
 import 'package:flutter/foundation.dart';
 
 import 'attributed_text.dart';
+import 'block_border.dart';
 import 'text_node.dart';
 
 // ---------------------------------------------------------------------------
@@ -47,8 +48,9 @@ class ListItemNode extends TextNode {
   /// [type] defaults to [ListItemType.unordered], [indent] defaults to `0`,
   /// [textAlign] defaults to [TextAlign.start], [lineHeight] defaults to
   /// `null` (inherit document default), [spaceBefore] / [spaceAfter]
-  /// default to `null` (use document-level default spacing), and
-  /// [indentLeft] / [indentRight] default to `null` (no extra indent).
+  /// default to `null` (use document-level default spacing),
+  /// [indentLeft] / [indentRight] default to `null` (no extra indent), and
+  /// [border] defaults to `null` (no border drawn).
   ListItemNode({
     required super.id,
     super.text,
@@ -60,6 +62,7 @@ class ListItemNode extends TextNode {
     this.spaceAfter,
     this.indentLeft,
     this.indentRight,
+    this.border,
     super.metadata,
   });
 
@@ -100,6 +103,9 @@ class ListItemNode extends TextNode {
   /// Right indent in logical pixels, or `null` for no extra indent.
   final double? indentRight;
 
+  /// The outside border drawn around this block, or `null` for no border.
+  final BlockBorder? border;
+
   @override
   ListItemNode copyWith({
     String? id,
@@ -112,6 +118,7 @@ class ListItemNode extends TextNode {
     double? spaceAfter,
     double? indentLeft,
     double? indentRight,
+    BlockBorder? border,
     Map<String, dynamic>? metadata,
   }) {
     return ListItemNode(
@@ -125,6 +132,7 @@ class ListItemNode extends TextNode {
       spaceAfter: spaceAfter ?? this.spaceAfter,
       indentLeft: indentLeft ?? this.indentLeft,
       indentRight: indentRight ?? this.indentRight,
+      border: border ?? this.border,
       metadata: metadata ?? this.metadata,
     );
   }
@@ -144,6 +152,7 @@ class ListItemNode extends TextNode {
         other.spaceAfter == spaceAfter &&
         other.indentLeft == indentLeft &&
         other.indentRight == indentRight &&
+        other.border == border &&
         mapEquals(other.metadata, metadata);
   }
 
@@ -159,6 +168,7 @@ class ListItemNode extends TextNode {
         spaceAfter,
         indentLeft,
         indentRight,
+        border,
         Object.hashAll(metadata.entries.map((e) => e)),
       );
 
@@ -175,12 +185,13 @@ class ListItemNode extends TextNode {
     properties.add(DoubleProperty('spaceAfter', spaceAfter, defaultValue: null));
     properties.add(DoubleProperty('indentLeft', indentLeft, defaultValue: null));
     properties.add(DoubleProperty('indentRight', indentRight, defaultValue: null));
+    properties.add(DiagnosticsProperty<BlockBorder?>('border', border, defaultValue: null));
   }
 
   @override
   String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) =>
       'ListItemNode(id: $id, type: $type, indent: $indent, textAlign: $textAlign, '
       'lineHeight: $lineHeight, spaceBefore: $spaceBefore, spaceAfter: $spaceAfter, '
-      'indentLeft: $indentLeft, indentRight: $indentRight, '
+      'indentLeft: $indentLeft, indentRight: $indentRight, border: $border, '
       'text: $text, metadata: $metadata)';
 }

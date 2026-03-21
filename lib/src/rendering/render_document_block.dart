@@ -9,6 +9,7 @@ library;
 import 'package:flutter/rendering.dart';
 
 import '../model/block_alignment.dart';
+import '../model/block_border.dart';
 import '../model/document_selection.dart';
 import '../model/node_position.dart';
 import '../model/text_wrap_mode.dart';
@@ -162,6 +163,16 @@ abstract class RenderDocumentBlock extends RenderBox {
   /// should override this getter and store a [double?] field.
   double? get spaceAfter => null;
 
+  /// The outside border drawn around this block, or `null` for no border.
+  ///
+  /// When non-null, [RenderDocumentLayout] draws a border around this block
+  /// using the specified style, width, and color. The border is paint-only —
+  /// it does not inset the block's content area.
+  ///
+  /// Defaults to `null`. Concrete subclasses that support per-block borders
+  /// should override this getter and store a [BlockBorder?] field.
+  BlockBorder? get border => null;
+
   /// Returns the y-offsets of each visual line relative to this block's top.
   ///
   /// Used by [RenderDocumentLayout] to paint per-visual-line numbers.
@@ -187,5 +198,6 @@ abstract class RenderDocumentBlock extends RenderBox {
         defaultValue: null));
     properties.add(DoubleProperty('spaceBefore', spaceBefore, defaultValue: null));
     properties.add(DoubleProperty('spaceAfter', spaceAfter, defaultValue: null));
+    properties.add(DiagnosticsProperty<BlockBorder?>('border', border, defaultValue: null));
   }
 }

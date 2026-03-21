@@ -274,4 +274,33 @@ void main() {
       expect(block.clearsFloat, isTrue);
     });
   });
+
+  group('RenderHorizontalRuleBlock border property', () {
+    test('border is null by default', () {
+      final block = RenderHorizontalRuleBlock(nodeId: 'hr-1');
+      expect(block.border, isNull);
+    });
+
+    test('border returns value set via setter', () {
+      final block = RenderHorizontalRuleBlock(nodeId: 'hr-1');
+      const border = BlockBorder(style: BlockBorderStyle.solid, width: 2.0);
+      block.border = border;
+      expect(block.border, equals(border));
+    });
+
+    test('setting border to same value is a no-op', () {
+      final block = RenderHorizontalRuleBlock(nodeId: 'hr-1');
+      const border = BlockBorder(style: BlockBorderStyle.dotted, width: 1.0);
+      block.border = border;
+      block.border = border;
+      expect(block.border, equals(border));
+    });
+
+    test('setting border to null clears the value', () {
+      final block = RenderHorizontalRuleBlock(nodeId: 'hr-1');
+      block.border = const BlockBorder();
+      block.border = null;
+      expect(block.border, isNull);
+    });
+  });
 }

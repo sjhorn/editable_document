@@ -6,6 +6,7 @@ library;
 
 import 'package:editable_document/src/model/attributed_text.dart';
 import 'package:editable_document/src/model/block_alignment.dart';
+import 'package:editable_document/src/model/block_border.dart';
 import 'package:editable_document/src/model/code_block_node.dart';
 import 'package:editable_document/src/model/text_node.dart';
 import 'package:editable_document/src/model/text_wrap_mode.dart';
@@ -346,6 +347,77 @@ void main() {
     test('CodeBlockNode is a TextNode', () {
       final node = CodeBlockNode(id: 'cb1');
       expect(node, isA<TextNode>());
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // CodeBlockNode — border default value
+  // ---------------------------------------------------------------------------
+  group('CodeBlockNode border default', () {
+    test('border defaults to null', () {
+      final node = CodeBlockNode(id: 'cb1');
+      expect(node.border, isNull);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // CodeBlockNode — constructor with border
+  // ---------------------------------------------------------------------------
+  group('CodeBlockNode constructor with border', () {
+    test('border is set correctly', () {
+      const border = BlockBorder(style: BlockBorderStyle.solid, width: 2.0);
+      final node = CodeBlockNode(id: 'cb1', border: border);
+      expect(node.border, border);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // CodeBlockNode — copyWith with border
+  // ---------------------------------------------------------------------------
+  group('CodeBlockNode copyWith border', () {
+    test('copyWith replaces border', () {
+      const original = BlockBorder(style: BlockBorderStyle.solid, width: 1.0);
+      const replacement = BlockBorder(style: BlockBorderStyle.dashed, width: 2.0);
+      final node = CodeBlockNode(id: 'cb1', border: original);
+      final copy = node.copyWith(border: replacement);
+      expect(copy.border, replacement);
+    });
+
+    test('copyWith preserves border when not specified', () {
+      const border = BlockBorder(style: BlockBorderStyle.dotted, width: 3.0);
+      final node = CodeBlockNode(id: 'cb1', border: border);
+      final copy = node.copyWith(id: 'cb2');
+      expect(copy.border, border);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // CodeBlockNode — equality with border
+  // ---------------------------------------------------------------------------
+  group('CodeBlockNode equality with border', () {
+    test('equal when border is both null', () {
+      final a = CodeBlockNode(id: 'cb1');
+      final b = CodeBlockNode(id: 'cb1');
+      expect(a, equals(b));
+    });
+
+    test('equal when border matches', () {
+      const border = BlockBorder(style: BlockBorderStyle.solid, width: 2.0);
+      final a = CodeBlockNode(id: 'cb1', border: border);
+      final b = CodeBlockNode(id: 'cb1', border: border);
+      expect(a, equals(b));
+    });
+
+    test('unequal when border differs', () {
+      final a = CodeBlockNode(id: 'cb1', border: const BlockBorder(width: 1.0));
+      final b = CodeBlockNode(id: 'cb1', border: const BlockBorder(width: 2.0));
+      expect(a, isNot(equals(b)));
+    });
+
+    test('unequal when one border is null and other is not', () {
+      final a = CodeBlockNode(id: 'cb1');
+      final b = CodeBlockNode(id: 'cb1', border: const BlockBorder());
+      expect(a, isNot(equals(b)));
     });
   });
 

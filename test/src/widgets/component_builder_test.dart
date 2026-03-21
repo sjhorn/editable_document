@@ -2085,6 +2085,337 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
+  // border field — all 7 view models
+  // -------------------------------------------------------------------------
+
+  group('border field — ParagraphComponentViewModel', () {
+    const testBorder = BlockBorder(style: BlockBorderStyle.solid, width: 2.0);
+
+    test('createViewModel copies border from ParagraphNode', () {
+      final node = ParagraphNode(id: 'p1', text: AttributedText('Hello'), border: testBorder);
+      final doc = _doc([node]);
+      final vm = const ParagraphComponentBuilder().createViewModel(doc, node)
+          as ParagraphComponentViewModel;
+      expect(vm.border, testBorder);
+    });
+
+    test('createViewModel defaults border to null', () {
+      final node = _paragraph();
+      final doc = _doc([node]);
+      final vm = const ParagraphComponentBuilder().createViewModel(doc, node)
+          as ParagraphComponentViewModel;
+      expect(vm.border, isNull);
+    });
+
+    test('ParagraphComponentViewModel equality considers border', () {
+      final a = ParagraphComponentViewModel(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        blockType: ParagraphBlockType.paragraph,
+        textStyle: const TextStyle(),
+        border: testBorder,
+      );
+      final b = ParagraphComponentViewModel(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        blockType: ParagraphBlockType.paragraph,
+        textStyle: const TextStyle(),
+        border: testBorder,
+      );
+      final c = ParagraphComponentViewModel(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        blockType: ParagraphBlockType.paragraph,
+        textStyle: const TextStyle(),
+      );
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+      expect(a, isNot(equals(c)));
+    });
+  });
+
+  group('border field — ListItemComponentViewModel', () {
+    const testBorder = BlockBorder(style: BlockBorderStyle.dashed, width: 1.5);
+
+    test('createViewModel copies border from ListItemNode', () {
+      final node = ListItemNode(id: 'li1', text: AttributedText('Item'), border: testBorder);
+      final doc = _doc([node]);
+      final vm =
+          const ListItemComponentBuilder().createViewModel(doc, node) as ListItemComponentViewModel;
+      expect(vm.border, testBorder);
+    });
+
+    test('createViewModel defaults border to null', () {
+      final node = _listItem();
+      final doc = _doc([node]);
+      final vm =
+          const ListItemComponentBuilder().createViewModel(doc, node) as ListItemComponentViewModel;
+      expect(vm.border, isNull);
+    });
+
+    test('ListItemComponentViewModel equality considers border', () {
+      final a = ListItemComponentViewModel(
+        nodeId: 'li1',
+        text: AttributedText('Item'),
+        type: ListItemType.unordered,
+        indent: 0,
+        ordinalIndex: 1,
+        textStyle: const TextStyle(),
+        border: testBorder,
+      );
+      final b = ListItemComponentViewModel(
+        nodeId: 'li1',
+        text: AttributedText('Item'),
+        type: ListItemType.unordered,
+        indent: 0,
+        ordinalIndex: 1,
+        textStyle: const TextStyle(),
+        border: testBorder,
+      );
+      final c = ListItemComponentViewModel(
+        nodeId: 'li1',
+        text: AttributedText('Item'),
+        type: ListItemType.unordered,
+        indent: 0,
+        ordinalIndex: 1,
+        textStyle: const TextStyle(),
+      );
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+      expect(a, isNot(equals(c)));
+    });
+  });
+
+  group('border field — ImageComponentViewModel', () {
+    const testBorder = BlockBorder(style: BlockBorderStyle.dotted, width: 1.0);
+
+    test('createViewModel copies border from ImageNode', () {
+      final node = ImageNode(
+        id: 'img1',
+        imageUrl: 'https://example.com/img.png',
+        border: testBorder,
+      );
+      final doc = _doc([node]);
+      final vm =
+          const ImageComponentBuilder().createViewModel(doc, node) as ImageComponentViewModel;
+      expect(vm.border, testBorder);
+    });
+
+    test('createViewModel defaults border to null', () {
+      final node = _image();
+      final doc = _doc([node]);
+      final vm =
+          const ImageComponentBuilder().createViewModel(doc, node) as ImageComponentViewModel;
+      expect(vm.border, isNull);
+    });
+
+    test('ImageComponentViewModel equality considers border', () {
+      const a = ImageComponentViewModel(
+        nodeId: 'img1',
+        imageUrl: 'https://example.com/img.png',
+        border: testBorder,
+      );
+      const b = ImageComponentViewModel(
+        nodeId: 'img1',
+        imageUrl: 'https://example.com/img.png',
+        border: testBorder,
+      );
+      const c = ImageComponentViewModel(
+        nodeId: 'img1',
+        imageUrl: 'https://example.com/img.png',
+      );
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+      expect(a, isNot(equals(c)));
+    });
+  });
+
+  group('border field — CodeBlockComponentViewModel', () {
+    const testBorder = BlockBorder(style: BlockBorderStyle.solid, width: 3.0);
+
+    test('createViewModel copies border from CodeBlockNode', () {
+      final node = CodeBlockNode(
+        id: 'cb1',
+        text: AttributedText('void main() {}'),
+        border: testBorder,
+      );
+      final doc = _doc([node]);
+      final vm = const CodeBlockComponentBuilder().createViewModel(doc, node)
+          as CodeBlockComponentViewModel;
+      expect(vm.border, testBorder);
+    });
+
+    test('createViewModel defaults border to null', () {
+      final node = _codeBlock();
+      final doc = _doc([node]);
+      final vm = const CodeBlockComponentBuilder().createViewModel(doc, node)
+          as CodeBlockComponentViewModel;
+      expect(vm.border, isNull);
+    });
+
+    test('CodeBlockComponentViewModel equality considers border', () {
+      final a = CodeBlockComponentViewModel(
+        nodeId: 'cb1',
+        text: AttributedText('code'),
+        textStyle: const TextStyle(),
+        border: testBorder,
+      );
+      final b = CodeBlockComponentViewModel(
+        nodeId: 'cb1',
+        text: AttributedText('code'),
+        textStyle: const TextStyle(),
+        border: testBorder,
+      );
+      final c = CodeBlockComponentViewModel(
+        nodeId: 'cb1',
+        text: AttributedText('code'),
+        textStyle: const TextStyle(),
+      );
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+      expect(a, isNot(equals(c)));
+    });
+  });
+
+  group('border field — HorizontalRuleComponentViewModel', () {
+    const testBorder = BlockBorder(style: BlockBorderStyle.dashed, width: 2.0);
+
+    test('createViewModel copies border from HorizontalRuleNode', () {
+      final node = HorizontalRuleNode(id: 'hr1', border: testBorder);
+      final doc = _doc([node]);
+      final vm = const HorizontalRuleComponentBuilder().createViewModel(doc, node)
+          as HorizontalRuleComponentViewModel;
+      expect(vm.border, testBorder);
+    });
+
+    test('createViewModel defaults border to null', () {
+      final node = _rule();
+      final doc = _doc([node]);
+      final vm = const HorizontalRuleComponentBuilder().createViewModel(doc, node)
+          as HorizontalRuleComponentViewModel;
+      expect(vm.border, isNull);
+    });
+
+    test('HorizontalRuleComponentViewModel equality considers border', () {
+      const a = HorizontalRuleComponentViewModel(nodeId: 'hr1', border: testBorder);
+      const b = HorizontalRuleComponentViewModel(nodeId: 'hr1', border: testBorder);
+      const c = HorizontalRuleComponentViewModel(nodeId: 'hr1');
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+      expect(a, isNot(equals(c)));
+    });
+  });
+
+  group('border field — BlockquoteComponentViewModel', () {
+    const testBorder = BlockBorder(style: BlockBorderStyle.solid, width: 4.0);
+
+    test('createViewModel copies border from BlockquoteNode', () {
+      final node = BlockquoteNode(
+        id: 'bq1',
+        text: AttributedText('quote'),
+        border: testBorder,
+      );
+      final doc = _doc([node]);
+      final vm = const BlockquoteComponentBuilder().createViewModel(doc, node)
+          as BlockquoteComponentViewModel;
+      expect(vm.border, testBorder);
+    });
+
+    test('createViewModel defaults border to null', () {
+      final node = _blockquote();
+      final doc = _doc([node]);
+      final vm = const BlockquoteComponentBuilder().createViewModel(doc, node)
+          as BlockquoteComponentViewModel;
+      expect(vm.border, isNull);
+    });
+
+    test('BlockquoteComponentViewModel equality considers border', () {
+      final a = BlockquoteComponentViewModel(
+        nodeId: 'bq1',
+        text: AttributedText('quote'),
+        textStyle: const TextStyle(),
+        border: testBorder,
+      );
+      final b = BlockquoteComponentViewModel(
+        nodeId: 'bq1',
+        text: AttributedText('quote'),
+        textStyle: const TextStyle(),
+        border: testBorder,
+      );
+      final c = BlockquoteComponentViewModel(
+        nodeId: 'bq1',
+        text: AttributedText('quote'),
+        textStyle: const TextStyle(),
+      );
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+      expect(a, isNot(equals(c)));
+    });
+  });
+
+  group('border field — TableComponentViewModel', () {
+    const testBorder = BlockBorder(style: BlockBorderStyle.solid, width: 2.0);
+
+    TableNode _tableWithBorder({BlockBorder? border}) => TableNode(
+          id: 't1',
+          rowCount: 1,
+          columnCount: 1,
+          cells: [
+            [AttributedText('cell')],
+          ],
+          border: border,
+        );
+
+    test('createViewModel copies border from TableNode', () {
+      final node = _tableWithBorder(border: testBorder);
+      final doc = _doc([node]);
+      final vm =
+          const TableComponentBuilder().createViewModel(doc, node) as TableComponentViewModel;
+      expect(vm.border, testBorder);
+    });
+
+    test('createViewModel defaults border to null', () {
+      final node = _tableWithBorder();
+      final doc = _doc([node]);
+      final vm =
+          const TableComponentBuilder().createViewModel(doc, node) as TableComponentViewModel;
+      expect(vm.border, isNull);
+    });
+
+    test('TableComponentViewModel equality considers border', () {
+      final a = TableComponentViewModel(
+        nodeId: 't1',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('cell')],
+        ],
+        border: testBorder,
+      );
+      final b = TableComponentViewModel(
+        nodeId: 't1',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('cell')],
+        ],
+        border: testBorder,
+      );
+      final c = TableComponentViewModel(
+        nodeId: 't1',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('cell')],
+        ],
+      );
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+      expect(a, isNot(equals(c)));
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // defaultComponentBuilders priority — first non-null wins
   // -------------------------------------------------------------------------
 

@@ -7,6 +7,7 @@ library;
 import 'package:flutter/rendering.dart';
 
 import '../model/block_alignment.dart';
+import '../model/block_border.dart';
 import '../model/document_selection.dart';
 import '../model/node_position.dart';
 import '../model/text_wrap_mode.dart';
@@ -66,6 +67,7 @@ class RenderHorizontalRuleBlock extends RenderDocumentBlock with BlockLayoutMixi
   DocumentSelection? _nodeSelection;
   double? _spaceBefore;
   double? _spaceAfter;
+  BlockBorder? _border;
 
   // ---------------------------------------------------------------------------
   // RenderDocumentBlock — nodeId
@@ -166,6 +168,21 @@ class RenderHorizontalRuleBlock extends RenderDocumentBlock with BlockLayoutMixi
     if (_spaceAfter == value) return;
     _spaceAfter = value;
     if (parent is RenderObject) (parent!).markNeedsLayout();
+  }
+
+  /// The outside border drawn around this block, or `null` for no border.
+  ///
+  /// When non-null, [RenderDocumentLayout] draws a border around this block
+  /// using the specified style, width, and color.
+  @override
+  // ignore: diagnostic_describe_all_properties
+  BlockBorder? get border => _border;
+
+  /// Sets [border] and triggers a repaint when the value changes.
+  set border(BlockBorder? value) {
+    if (_border == value) return;
+    _border = value;
+    markNeedsPaint();
   }
 
   // ---------------------------------------------------------------------------
@@ -269,6 +286,7 @@ class RenderHorizontalRuleBlock extends RenderDocumentBlock with BlockLayoutMixi
     properties.add(DoubleProperty('verticalPadding', _verticalPadding));
     properties.add(DoubleProperty('spaceBefore', _spaceBefore, defaultValue: null));
     properties.add(DoubleProperty('spaceAfter', _spaceAfter, defaultValue: null));
+    properties.add(DiagnosticsProperty<BlockBorder?>('border', _border, defaultValue: null));
     debugFillBlockLayoutProperties(properties);
   }
 }

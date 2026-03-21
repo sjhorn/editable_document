@@ -15,6 +15,7 @@ import 'package:flutter/rendering.dart';
 import '../model/attributed_text.dart';
 import '../model/attribution.dart';
 import '../model/block_alignment.dart';
+import '../model/block_border.dart';
 import '../model/document_selection.dart';
 import '../model/node_position.dart';
 import '../model/table_vertical_alignment.dart';
@@ -178,6 +179,7 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
   DocumentSelection? _nodeSelection;
   double? _spaceBefore;
   double? _spaceAfter;
+  BlockBorder? _border;
 
   /// Cache of per-cell layout results; rebuilt by [performLayout].
   List<List<_CellLayout>>? _cellLayouts;
@@ -253,6 +255,21 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
     if (_spaceAfter == value) return;
     _spaceAfter = value;
     if (parent is RenderObject) (parent!).markNeedsLayout();
+  }
+
+  /// The outside border drawn around this block, or `null` for no border.
+  ///
+  /// When non-null, [RenderDocumentLayout] draws a border around this block
+  /// using the specified style, width, and color.
+  @override
+  // ignore: diagnostic_describe_all_properties
+  BlockBorder? get border => _border;
+
+  /// Sets [border] and triggers a repaint when the value changes.
+  set border(BlockBorder? value) {
+    if (_border == value) return;
+    _border = value;
+    markNeedsPaint();
   }
 
   // ---------------------------------------------------------------------------
@@ -988,5 +1005,6 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
     properties.add(IterableProperty<double>('computedRowHeights', computedRowHeights));
     properties.add(DoubleProperty('spaceBefore', _spaceBefore, defaultValue: null));
     properties.add(DoubleProperty('spaceAfter', _spaceAfter, defaultValue: null));
+    properties.add(DiagnosticsProperty<BlockBorder?>('border', _border, defaultValue: null));
   }
 }

@@ -3,6 +3,7 @@
 library;
 
 import 'package:editable_document/src/model/block_alignment.dart';
+import 'package:editable_document/src/model/block_border.dart';
 import 'package:editable_document/src/model/horizontal_rule_node.dart';
 import 'package:editable_document/src/model/text_wrap_mode.dart';
 import 'package:flutter/foundation.dart';
@@ -310,6 +311,50 @@ void main() {
             orElse: () => throw StateError('spaceAfter property not found'),
           );
       expect(prop.value, 16.0);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // border — default and construction
+  // -------------------------------------------------------------------------
+
+  group('HorizontalRuleNode border', () {
+    test('border defaults to null', () {
+      final node = HorizontalRuleNode(id: 'hr-28');
+      expect(node.border, isNull);
+    });
+
+    test('constructor stores border', () {
+      const border = BlockBorder(style: BlockBorderStyle.solid, width: 2.0);
+      final node = HorizontalRuleNode(id: 'hr-29', border: border);
+      expect(node.border, border);
+    });
+
+    test('copyWith preserves border when not overridden', () {
+      const border = BlockBorder(style: BlockBorderStyle.dashed, width: 1.5);
+      final original = HorizontalRuleNode(id: 'hr-30', border: border);
+      final copy = original.copyWith(id: 'hr-30-copy');
+      expect(copy.border, border);
+    });
+
+    test('copyWith replaces border', () {
+      const original = BlockBorder(style: BlockBorderStyle.solid, width: 1.0);
+      const replacement = BlockBorder(style: BlockBorderStyle.dotted, width: 3.0);
+      final node = HorizontalRuleNode(id: 'hr-31', border: original);
+      final copy = node.copyWith(border: replacement);
+      expect(copy.border, replacement);
+    });
+
+    test('nodes with different border are not equal', () {
+      final a = HorizontalRuleNode(id: 'hr-32', border: const BlockBorder(width: 1.0));
+      final b = HorizontalRuleNode(id: 'hr-32', border: const BlockBorder(width: 2.0));
+      expect(a, isNot(equals(b)));
+    });
+
+    test('unequal when one border is null and other is not', () {
+      final a = HorizontalRuleNode(id: 'hr-33');
+      final b = HorizontalRuleNode(id: 'hr-33', border: const BlockBorder());
+      expect(a, isNot(equals(b)));
     });
   });
 }

@@ -1,6 +1,7 @@
 /// Tests for [ImageNode] — lockAspect, spaceBefore, and spaceAfter fields.
 library;
 
+import 'package:editable_document/src/model/block_border.dart';
 import 'package:editable_document/src/model/image_node.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -299,6 +300,74 @@ void main() {
             orElse: () => throw StateError('spaceAfter property not found'),
           );
       expect(prop.value, 16.0);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // border — default value
+  // -------------------------------------------------------------------------
+
+  group('ImageNode border', () {
+    test('border defaults to null', () {
+      final node = ImageNode(id: 'img-23', imageUrl: 'https://example.com/a.png');
+      expect(node.border, isNull);
+    });
+
+    test('constructor stores border', () {
+      const border = BlockBorder(style: BlockBorderStyle.solid, width: 2.0);
+      final node = ImageNode(
+        id: 'img-24',
+        imageUrl: 'https://example.com/a.png',
+        border: border,
+      );
+      expect(node.border, border);
+    });
+
+    test('copyWith preserves border when not overridden', () {
+      const border = BlockBorder(style: BlockBorderStyle.dashed, width: 1.5);
+      final original = ImageNode(
+        id: 'img-25',
+        imageUrl: 'https://example.com/a.png',
+        border: border,
+      );
+      final copy = original.copyWith(id: 'img-25-copy');
+      expect(copy.border, border);
+    });
+
+    test('copyWith replaces border', () {
+      const original = BlockBorder(style: BlockBorderStyle.solid, width: 1.0);
+      const replacement = BlockBorder(style: BlockBorderStyle.dotted, width: 3.0);
+      final node = ImageNode(
+        id: 'img-26',
+        imageUrl: 'https://example.com/a.png',
+        border: original,
+      );
+      final copy = node.copyWith(border: replacement);
+      expect(copy.border, replacement);
+    });
+
+    test('nodes with different border are not equal', () {
+      final a = ImageNode(
+        id: 'img-27',
+        imageUrl: 'https://example.com/a.png',
+        border: const BlockBorder(width: 1.0),
+      );
+      final b = ImageNode(
+        id: 'img-27',
+        imageUrl: 'https://example.com/a.png',
+        border: const BlockBorder(width: 2.0),
+      );
+      expect(a, isNot(equals(b)));
+    });
+
+    test('unequal when one border is null and other is not', () {
+      final a = ImageNode(id: 'img-28', imageUrl: 'https://example.com/a.png');
+      final b = ImageNode(
+        id: 'img-28',
+        imageUrl: 'https://example.com/a.png',
+        border: const BlockBorder(),
+      );
+      expect(a, isNot(equals(b)));
     });
   });
 }

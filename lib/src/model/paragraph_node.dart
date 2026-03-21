@@ -9,6 +9,7 @@ import 'dart:ui' show TextAlign;
 import 'package:flutter/foundation.dart';
 
 import 'attributed_text.dart';
+import 'block_border.dart';
 import 'text_node.dart';
 
 // ---------------------------------------------------------------------------
@@ -67,7 +68,7 @@ enum ParagraphBlockType {
 class ParagraphNode extends TextNode {
   /// Creates a [ParagraphNode] with an optional [blockType], [textAlign],
   /// [lineHeight], [spaceBefore], [spaceAfter], [indentLeft], [indentRight],
-  /// and [firstLineIndent].
+  /// [firstLineIndent], and [border].
   ///
   /// [blockType] defaults to [ParagraphBlockType.paragraph].
   /// [textAlign] defaults to [TextAlign.start].
@@ -77,6 +78,7 @@ class ParagraphNode extends TextNode {
   /// document-level default spacing is used.
   /// [indentLeft], [indentRight], and [firstLineIndent] default to `null`,
   /// which means no extra indent is applied.
+  /// [border] defaults to `null`, which means no border is drawn.
   ParagraphNode({
     required super.id,
     super.text,
@@ -88,6 +90,7 @@ class ParagraphNode extends TextNode {
     this.indentLeft,
     this.indentRight,
     this.firstLineIndent,
+    this.border,
     super.metadata,
   });
 
@@ -128,6 +131,9 @@ class ParagraphNode extends TextNode {
   /// hanging indent (all lines except the first are indented).
   final double? firstLineIndent;
 
+  /// The outside border drawn around this block, or `null` for no border.
+  final BlockBorder? border;
+
   @override
   ParagraphNode copyWith({
     String? id,
@@ -140,6 +146,7 @@ class ParagraphNode extends TextNode {
     double? indentLeft,
     double? indentRight,
     double? firstLineIndent,
+    BlockBorder? border,
     Map<String, dynamic>? metadata,
   }) {
     return ParagraphNode(
@@ -153,6 +160,7 @@ class ParagraphNode extends TextNode {
       indentLeft: indentLeft ?? this.indentLeft,
       indentRight: indentRight ?? this.indentRight,
       firstLineIndent: firstLineIndent ?? this.firstLineIndent,
+      border: border ?? this.border,
       metadata: metadata ?? this.metadata,
     );
   }
@@ -172,6 +180,7 @@ class ParagraphNode extends TextNode {
         other.indentLeft == indentLeft &&
         other.indentRight == indentRight &&
         other.firstLineIndent == firstLineIndent &&
+        other.border == border &&
         mapEquals(other.metadata, metadata);
   }
 
@@ -187,6 +196,7 @@ class ParagraphNode extends TextNode {
         indentLeft,
         indentRight,
         firstLineIndent,
+        border,
         Object.hashAll(metadata.entries.map((e) => e)),
       );
 
@@ -203,6 +213,7 @@ class ParagraphNode extends TextNode {
     properties.add(DoubleProperty('indentLeft', indentLeft, defaultValue: null));
     properties.add(DoubleProperty('indentRight', indentRight, defaultValue: null));
     properties.add(DoubleProperty('firstLineIndent', firstLineIndent, defaultValue: null));
+    properties.add(DiagnosticsProperty<BlockBorder?>('border', border, defaultValue: null));
   }
 
   @override
@@ -210,5 +221,5 @@ class ParagraphNode extends TextNode {
       'ParagraphNode(id: $id, blockType: $blockType, textAlign: $textAlign, '
       'lineHeight: $lineHeight, spaceBefore: $spaceBefore, spaceAfter: $spaceAfter, '
       'indentLeft: $indentLeft, indentRight: $indentRight, firstLineIndent: $firstLineIndent, '
-      'text: $text, metadata: $metadata)';
+      'border: $border, text: $text, metadata: $metadata)';
 }

@@ -1926,4 +1926,52 @@ void main() {
       }
     });
   });
+
+  group('RenderTextBlock border property', () {
+    test('border is null by default', () {
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      expect(block.border, isNull);
+    });
+
+    test('border returns value set via setter', () {
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      const border = BlockBorder(style: BlockBorderStyle.solid, width: 2.0);
+      block.border = border;
+      expect(block.border, equals(border));
+    });
+
+    test('setting border to same value does not call markNeedsPaint', () {
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      const border = BlockBorder(style: BlockBorderStyle.dotted, width: 1.0);
+      block.border = border;
+      // Assign the same value again — setter must early-return without side effects.
+      block.border = border;
+      // The block is not attached, so this can only be verified structurally.
+      expect(block.border, equals(border));
+    });
+
+    test('setting border to null clears the value', () {
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      block.border = const BlockBorder();
+      expect(block.border, isNotNull);
+      block.border = null;
+      expect(block.border, isNull);
+    });
+  });
 }

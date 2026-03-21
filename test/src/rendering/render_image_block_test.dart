@@ -473,4 +473,33 @@ void main() {
       expect(block.textWrap, TextWrapMode.wrap);
     });
   });
+
+  group('RenderImageBlock border property', () {
+    test('border is null by default', () {
+      final block = RenderImageBlock(nodeId: 'img-1');
+      expect(block.border, isNull);
+    });
+
+    test('border returns value set via setter', () {
+      final block = RenderImageBlock(nodeId: 'img-1');
+      const border = BlockBorder(style: BlockBorderStyle.solid, width: 2.0);
+      block.border = border;
+      expect(block.border, equals(border));
+    });
+
+    test('setting border to same value is a no-op', () {
+      final block = RenderImageBlock(nodeId: 'img-1');
+      const border = BlockBorder(style: BlockBorderStyle.dashed, width: 1.0);
+      block.border = border;
+      block.border = border;
+      expect(block.border, equals(border));
+    });
+
+    test('setting border to null clears the value', () {
+      final block = RenderImageBlock(nodeId: 'img-1');
+      block.border = const BlockBorder();
+      block.border = null;
+      expect(block.border, isNull);
+    });
+  });
 }

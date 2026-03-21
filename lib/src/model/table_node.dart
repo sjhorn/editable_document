@@ -11,6 +11,7 @@ import 'package:flutter/foundation.dart';
 
 import 'attributed_text.dart';
 import 'block_alignment.dart';
+import 'block_border.dart';
 import 'block_layout.dart';
 import 'document_node.dart';
 import 'node_position.dart';
@@ -95,6 +96,7 @@ class TableNode extends DocumentNode implements HasBlockLayout {
   /// [width] and [height] default to `null` (use available / intrinsic size).
   /// [spaceBefore] and [spaceAfter] default to `null` (use document-level
   /// default spacing).
+  /// [border] defaults to `null` (no border drawn).
   TableNode({
     required super.id,
     required this.rowCount,
@@ -110,6 +112,7 @@ class TableNode extends DocumentNode implements HasBlockLayout {
     this.height,
     this.spaceBefore,
     this.spaceAfter,
+    this.border,
     super.metadata,
   })  : _cells = List<List<AttributedText>>.unmodifiable(
           cells.map((row) => List<AttributedText>.unmodifiable(row)),
@@ -197,6 +200,9 @@ class TableNode extends DocumentNode implements HasBlockLayout {
   /// document-level default spacing.
   final double? spaceAfter;
 
+  /// The outside border drawn around this block, or `null` for no border.
+  final BlockBorder? border;
+
   /// Internal unmodifiable storage of the 2D cell grid.
   final List<List<AttributedText>> _cells;
 
@@ -235,6 +241,7 @@ class TableNode extends DocumentNode implements HasBlockLayout {
     double? height,
     double? spaceBefore,
     double? spaceAfter,
+    BlockBorder? border,
     Map<String, dynamic>? metadata,
   }) {
     return TableNode(
@@ -257,6 +264,7 @@ class TableNode extends DocumentNode implements HasBlockLayout {
       height: height ?? this.height,
       spaceBefore: spaceBefore ?? this.spaceBefore,
       spaceAfter: spaceAfter ?? this.spaceAfter,
+      border: border ?? this.border,
       metadata: metadata ?? this.metadata,
     );
   }
@@ -275,6 +283,7 @@ class TableNode extends DocumentNode implements HasBlockLayout {
         other.height != height ||
         other.spaceBefore != spaceBefore ||
         other.spaceAfter != spaceAfter ||
+        other.border != border ||
         !mapEquals(other.metadata, metadata)) {
       return false;
     }
@@ -347,6 +356,7 @@ class TableNode extends DocumentNode implements HasBlockLayout {
       height,
       spaceBefore,
       spaceAfter,
+      border,
       Object.hashAll(metadata.entries.map((e) => e)),
     );
   }
@@ -382,6 +392,7 @@ class TableNode extends DocumentNode implements HasBlockLayout {
     ));
     properties.add(DoubleProperty('spaceBefore', spaceBefore, defaultValue: null));
     properties.add(DoubleProperty('spaceAfter', spaceAfter, defaultValue: null));
+    properties.add(DiagnosticsProperty<BlockBorder?>('border', border, defaultValue: null));
   }
 
   @override
@@ -391,7 +402,7 @@ class TableNode extends DocumentNode implements HasBlockLayout {
       'width: $width, height: $height, '
       'columnWidths: $columnWidths, rowHeights: $rowHeights, '
       'cellTextAligns: $cellTextAligns, cellVerticalAligns: $cellVerticalAligns, '
-      'spaceBefore: $spaceBefore, spaceAfter: $spaceAfter, metadata: $metadata)';
+      'spaceBefore: $spaceBefore, spaceAfter: $spaceAfter, border: $border, metadata: $metadata)';
 }
 
 // ---------------------------------------------------------------------------

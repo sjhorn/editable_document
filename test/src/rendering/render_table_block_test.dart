@@ -1029,4 +1029,42 @@ void main() {
       expect(names, contains('cellVerticalAligns'));
     });
   });
+
+  group('RenderTableBlock border property', () {
+    RenderTableBlock _makeBlock() => RenderTableBlock(
+          nodeId: 'table1',
+          rowCount: 1,
+          columnCount: 1,
+          cells: [
+            [AttributedText('A')],
+          ],
+          textStyle: const TextStyle(fontSize: 16),
+        );
+
+    test('border is null by default', () {
+      expect(_makeBlock().border, isNull);
+    });
+
+    test('border returns value set via setter', () {
+      final block = _makeBlock();
+      const border = BlockBorder(style: BlockBorderStyle.solid, width: 2.0);
+      block.border = border;
+      expect(block.border, equals(border));
+    });
+
+    test('setting border to same value is a no-op', () {
+      final block = _makeBlock();
+      const border = BlockBorder(style: BlockBorderStyle.dashed, width: 1.0);
+      block.border = border;
+      block.border = border;
+      expect(block.border, equals(border));
+    });
+
+    test('setting border to null clears the value', () {
+      final block = _makeBlock();
+      block.border = const BlockBorder();
+      block.border = null;
+      expect(block.border, isNull);
+    });
+  });
 }

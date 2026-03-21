@@ -8,6 +8,7 @@ library;
 
 import 'dart:ui' show TextAlign;
 
+import 'package:editable_document/src/model/block_border.dart';
 import 'package:editable_document/src/model/list_item_node.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -569,6 +570,77 @@ void main() {
       for (final p in props) {
         expect(p.value, isNull);
       }
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // ListItemNode — border default value
+  // ---------------------------------------------------------------------------
+  group('ListItemNode border default', () {
+    test('border defaults to null', () {
+      final node = ListItemNode(id: 'li1');
+      expect(node.border, isNull);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // ListItemNode — constructor with border
+  // ---------------------------------------------------------------------------
+  group('ListItemNode constructor with border', () {
+    test('border is set correctly', () {
+      const border = BlockBorder(style: BlockBorderStyle.solid, width: 2.0);
+      final node = ListItemNode(id: 'li1', border: border);
+      expect(node.border, border);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // ListItemNode — copyWith with border
+  // ---------------------------------------------------------------------------
+  group('ListItemNode copyWith border', () {
+    test('copyWith replaces border', () {
+      const original = BlockBorder(style: BlockBorderStyle.solid, width: 1.0);
+      const replacement = BlockBorder(style: BlockBorderStyle.dashed, width: 2.0);
+      final node = ListItemNode(id: 'li1', border: original);
+      final copy = node.copyWith(border: replacement);
+      expect(copy.border, replacement);
+    });
+
+    test('copyWith preserves border when not specified', () {
+      const border = BlockBorder(style: BlockBorderStyle.dotted, width: 3.0);
+      final node = ListItemNode(id: 'li1', border: border);
+      final copy = node.copyWith(id: 'li2');
+      expect(copy.border, border);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // ListItemNode — equality with border
+  // ---------------------------------------------------------------------------
+  group('ListItemNode equality with border', () {
+    test('equal when border is both null', () {
+      final a = ListItemNode(id: 'li1');
+      final b = ListItemNode(id: 'li1');
+      expect(a, equals(b));
+    });
+
+    test('equal when border matches', () {
+      const border = BlockBorder(style: BlockBorderStyle.solid, width: 2.0);
+      final a = ListItemNode(id: 'li1', border: border);
+      final b = ListItemNode(id: 'li1', border: border);
+      expect(a, equals(b));
+    });
+
+    test('unequal when border differs', () {
+      final a = ListItemNode(id: 'li1', border: const BlockBorder(width: 1.0));
+      final b = ListItemNode(id: 'li1', border: const BlockBorder(width: 2.0));
+      expect(a, isNot(equals(b)));
+    });
+
+    test('unequal when one border is null and other is not', () {
+      final a = ListItemNode(id: 'li1');
+      final b = ListItemNode(id: 'li1', border: const BlockBorder());
+      expect(a, isNot(equals(b)));
     });
   });
 }

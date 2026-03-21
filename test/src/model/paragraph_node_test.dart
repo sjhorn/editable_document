@@ -8,6 +8,7 @@ library;
 
 import 'dart:ui' show TextAlign;
 
+import 'package:editable_document/src/model/block_border.dart';
 import 'package:editable_document/src/model/paragraph_node.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -625,6 +626,112 @@ void main() {
       node.debugFillProperties(builder);
       final props =
           builder.properties.whereType<DoubleProperty>().where((p) => p.name == 'indentLeft');
+      for (final p in props) {
+        expect(p.value, isNull);
+      }
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // ParagraphNode — border default value
+  // ---------------------------------------------------------------------------
+  group('ParagraphNode border default', () {
+    test('border defaults to null', () {
+      final node = ParagraphNode(id: 'p1');
+      expect(node.border, isNull);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // ParagraphNode — constructor with border
+  // ---------------------------------------------------------------------------
+  group('ParagraphNode constructor with border', () {
+    test('border is set correctly', () {
+      const border = BlockBorder(style: BlockBorderStyle.solid, width: 2.0);
+      final node = ParagraphNode(id: 'p1', border: border);
+      expect(node.border, border);
+    });
+
+    test('border with dashed style is set correctly', () {
+      const border = BlockBorder(style: BlockBorderStyle.dashed, width: 1.5);
+      final node = ParagraphNode(id: 'p1', border: border);
+      expect(node.border?.style, BlockBorderStyle.dashed);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // ParagraphNode — copyWith with border
+  // ---------------------------------------------------------------------------
+  group('ParagraphNode copyWith border', () {
+    test('copyWith replaces border', () {
+      const original = BlockBorder(style: BlockBorderStyle.solid, width: 1.0);
+      const replacement = BlockBorder(style: BlockBorderStyle.dashed, width: 2.0);
+      final node = ParagraphNode(id: 'p1', border: original);
+      final copy = node.copyWith(border: replacement);
+      expect(copy.border, replacement);
+    });
+
+    test('copyWith preserves border when not specified', () {
+      const border = BlockBorder(style: BlockBorderStyle.dotted, width: 3.0);
+      final node = ParagraphNode(id: 'p1', border: border);
+      final copy = node.copyWith(id: 'p2');
+      expect(copy.border, border);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // ParagraphNode — equality with border
+  // ---------------------------------------------------------------------------
+  group('ParagraphNode equality with border', () {
+    test('equal when border is both null', () {
+      final a = ParagraphNode(id: 'p1');
+      final b = ParagraphNode(id: 'p1');
+      expect(a, equals(b));
+    });
+
+    test('equal when border matches', () {
+      const border = BlockBorder(style: BlockBorderStyle.solid, width: 2.0);
+      final a = ParagraphNode(id: 'p1', border: border);
+      final b = ParagraphNode(id: 'p1', border: border);
+      expect(a, equals(b));
+    });
+
+    test('unequal when border differs', () {
+      final a = ParagraphNode(id: 'p1', border: const BlockBorder(width: 1.0));
+      final b = ParagraphNode(id: 'p1', border: const BlockBorder(width: 2.0));
+      expect(a, isNot(equals(b)));
+    });
+
+    test('unequal when one border is null and other is not', () {
+      final a = ParagraphNode(id: 'p1');
+      final b = ParagraphNode(id: 'p1', border: const BlockBorder());
+      expect(a, isNot(equals(b)));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // ParagraphNode — debugFillProperties includes border
+  // ---------------------------------------------------------------------------
+  group('ParagraphNode debugFillProperties with border', () {
+    test('debugFillProperties includes border when non-null', () {
+      const border = BlockBorder(style: BlockBorderStyle.dashed, width: 2.0);
+      final node = ParagraphNode(id: 'p1', border: border);
+      final builder = DiagnosticPropertiesBuilder();
+      node.debugFillProperties(builder);
+      final prop = builder.properties.whereType<DiagnosticsProperty<BlockBorder?>>().firstWhere(
+            (p) => p.name == 'border',
+            orElse: () => throw StateError('border property not found'),
+          );
+      expect(prop.value, border);
+    });
+
+    test('debugFillProperties border value is null when not set', () {
+      final node = ParagraphNode(id: 'p1');
+      final builder = DiagnosticPropertiesBuilder();
+      node.debugFillProperties(builder);
+      final props = builder.properties
+          .whereType<DiagnosticsProperty<BlockBorder?>>()
+          .where((p) => p.name == 'border');
       for (final p in props) {
         expect(p.value, isNull);
       }

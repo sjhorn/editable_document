@@ -7,6 +7,7 @@ library;
 import 'package:flutter/foundation.dart';
 
 import 'block_alignment.dart';
+import 'block_border.dart';
 import 'block_layout.dart';
 import 'document_node.dart';
 import 'text_wrap_mode.dart';
@@ -41,6 +42,7 @@ class ImageNode extends DocumentNode implements HasBlockLayout {
   /// [lockAspect] defaults to `true` (aspect-ratio-preserving resize).
   /// [spaceBefore] and [spaceAfter] default to `null` (use document-level
   /// default spacing).
+  /// [border] defaults to `null` (no border drawn).
   ImageNode({
     required super.id,
     required this.imageUrl,
@@ -52,6 +54,7 @@ class ImageNode extends DocumentNode implements HasBlockLayout {
     this.lockAspect = true,
     this.spaceBefore,
     this.spaceAfter,
+    this.border,
     super.metadata,
   });
 
@@ -96,6 +99,9 @@ class ImageNode extends DocumentNode implements HasBlockLayout {
   /// document-level default spacing.
   final double? spaceAfter;
 
+  /// The outside border drawn around this block, or `null` for no border.
+  final BlockBorder? border;
+
   @override
   bool get isDraggable => true;
 
@@ -121,6 +127,7 @@ class ImageNode extends DocumentNode implements HasBlockLayout {
     bool? lockAspect,
     double? spaceBefore,
     double? spaceAfter,
+    BlockBorder? border,
     Map<String, dynamic>? metadata,
   }) {
     return ImageNode(
@@ -134,6 +141,7 @@ class ImageNode extends DocumentNode implements HasBlockLayout {
       lockAspect: lockAspect ?? this.lockAspect,
       spaceBefore: spaceBefore ?? this.spaceBefore,
       spaceAfter: spaceAfter ?? this.spaceAfter,
+      border: border ?? this.border,
       metadata: metadata ?? this.metadata,
     );
   }
@@ -153,6 +161,7 @@ class ImageNode extends DocumentNode implements HasBlockLayout {
         other.lockAspect == lockAspect &&
         other.spaceBefore == spaceBefore &&
         other.spaceAfter == spaceAfter &&
+        other.border == border &&
         mapEquals(other.metadata, metadata);
   }
 
@@ -168,6 +177,7 @@ class ImageNode extends DocumentNode implements HasBlockLayout {
         lockAspect,
         spaceBefore,
         spaceAfter,
+        border,
         Object.hashAll(metadata.entries.map((e) => e)),
       );
 
@@ -187,6 +197,7 @@ class ImageNode extends DocumentNode implements HasBlockLayout {
     properties.add(DiagnosticsProperty<bool>('lockAspect', lockAspect, defaultValue: true));
     properties.add(DoubleProperty('spaceBefore', spaceBefore, defaultValue: null));
     properties.add(DoubleProperty('spaceAfter', spaceAfter, defaultValue: null));
+    properties.add(DiagnosticsProperty<BlockBorder?>('border', border, defaultValue: null));
   }
 
   @override
@@ -194,5 +205,5 @@ class ImageNode extends DocumentNode implements HasBlockLayout {
       'ImageNode(id: $id, imageUrl: $imageUrl, altText: $altText, '
       'width: $width, height: $height, alignment: ${alignment.name}, '
       'textWrap: $textWrap, lockAspect: $lockAspect, '
-      'spaceBefore: $spaceBefore, spaceAfter: $spaceAfter, metadata: $metadata)';
+      'spaceBefore: $spaceBefore, spaceAfter: $spaceAfter, border: $border, metadata: $metadata)';
 }

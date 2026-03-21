@@ -12,6 +12,7 @@ import 'package:flutter/rendering.dart';
 
 import '../model/attributed_text.dart';
 import '../model/attribution.dart';
+import '../model/block_border.dart';
 import '../model/document_selection.dart';
 import '../model/node_position.dart';
 import 'render_document_block.dart';
@@ -281,6 +282,7 @@ class RenderTextBlock extends RenderDocumentBlock {
   double _firstLineIndent = 0;
   double? _spaceBefore;
   double? _spaceAfter;
+  BlockBorder? _border;
 
   final TextPainter _textPainter;
 
@@ -504,6 +506,21 @@ class RenderTextBlock extends RenderDocumentBlock {
     if (_spaceAfter == value) return;
     _spaceAfter = value;
     if (parent is RenderObject) (parent!).markNeedsLayout();
+  }
+
+  /// The outside border drawn around this block, or `null` for no border.
+  ///
+  /// When non-null, [RenderDocumentLayout] draws a border around this block
+  /// using the specified style, width, and color.
+  @override
+  // ignore: diagnostic_describe_all_properties
+  BlockBorder? get border => _border;
+
+  /// Sets [border] and triggers a repaint when the value changes.
+  set border(BlockBorder? value) {
+    if (_border == value) return;
+    _border = value;
+    markNeedsPaint();
   }
 
   // ---------------------------------------------------------------------------
@@ -2300,5 +2317,6 @@ class RenderTextBlock extends RenderDocumentBlock {
     properties.add(DoubleProperty('firstLineIndent', _firstLineIndent, defaultValue: 0.0));
     properties.add(DoubleProperty('spaceBefore', _spaceBefore, defaultValue: null));
     properties.add(DoubleProperty('spaceAfter', _spaceAfter, defaultValue: null));
+    properties.add(DiagnosticsProperty<BlockBorder?>('border', _border, defaultValue: null));
   }
 }

@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 
 import 'attributed_text.dart';
 import 'block_alignment.dart';
+import 'block_border.dart';
 import 'block_layout.dart';
 import 'document_node.dart';
 import 'text_node.dart';
@@ -44,6 +45,7 @@ class CodeBlockNode extends TextNode implements HasBlockLayout {
   /// [width] and [height] default to `null` (use available / intrinsic size).
   /// [spaceBefore] and [spaceAfter] default to `null` (use document-level
   /// default spacing).
+  /// [border] defaults to `null` (no border drawn).
   CodeBlockNode({
     required super.id,
     super.text,
@@ -55,6 +57,7 @@ class CodeBlockNode extends TextNode implements HasBlockLayout {
     this.lineHeight,
     this.spaceBefore,
     this.spaceAfter,
+    this.border,
     super.metadata,
   });
 
@@ -98,6 +101,9 @@ class CodeBlockNode extends TextNode implements HasBlockLayout {
   /// document-level default spacing.
   final double? spaceAfter;
 
+  /// The outside border drawn around this block, or `null` for no border.
+  final BlockBorder? border;
+
   @override
   bool get isDraggable => true;
 
@@ -123,6 +129,7 @@ class CodeBlockNode extends TextNode implements HasBlockLayout {
     double? lineHeight,
     double? spaceBefore,
     double? spaceAfter,
+    BlockBorder? border,
     Map<String, dynamic>? metadata,
   }) {
     return CodeBlockNode(
@@ -136,6 +143,7 @@ class CodeBlockNode extends TextNode implements HasBlockLayout {
       lineHeight: lineHeight ?? this.lineHeight,
       spaceBefore: spaceBefore ?? this.spaceBefore,
       spaceAfter: spaceAfter ?? this.spaceAfter,
+      border: border ?? this.border,
       metadata: metadata ?? this.metadata,
     );
   }
@@ -155,6 +163,7 @@ class CodeBlockNode extends TextNode implements HasBlockLayout {
         other.lineHeight == lineHeight &&
         other.spaceBefore == spaceBefore &&
         other.spaceAfter == spaceAfter &&
+        other.border == border &&
         mapEquals(other.metadata, metadata);
   }
 
@@ -170,6 +179,7 @@ class CodeBlockNode extends TextNode implements HasBlockLayout {
         lineHeight,
         spaceBefore,
         spaceAfter,
+        border,
         Object.hashAll(metadata.entries.map((e) => e)),
       );
 
@@ -188,12 +198,13 @@ class CodeBlockNode extends TextNode implements HasBlockLayout {
     properties.add(DoubleProperty('lineHeight', lineHeight, defaultValue: null));
     properties.add(DoubleProperty('spaceBefore', spaceBefore, defaultValue: null));
     properties.add(DoubleProperty('spaceAfter', spaceAfter, defaultValue: null));
+    properties.add(DiagnosticsProperty<BlockBorder?>('border', border, defaultValue: null));
   }
 
   @override
   String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) =>
       'CodeBlockNode(id: $id, language: $language, width: $width, height: $height, '
       'alignment: ${alignment.name}, textWrap: $textWrap, lineHeight: $lineHeight, '
-      'spaceBefore: $spaceBefore, spaceAfter: $spaceAfter, '
+      'spaceBefore: $spaceBefore, spaceAfter: $spaceAfter, border: $border, '
       'text: $text, metadata: $metadata)';
 }

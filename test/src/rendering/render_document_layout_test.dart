@@ -1,6 +1,10 @@
 /// Tests for [RenderDocumentLayout].
 library;
 
+import 'dart:typed_data' show Float32List, Float64List, Int32List;
+import 'dart:ui'
+    show ClipOp, Image, Paragraph, Picture, PictureRecorder, PointMode, RSTransform, Vertices;
+
 import 'package:editable_document/editable_document.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -82,6 +86,156 @@ class _RecordingPaintingContext extends PaintingContext {
 
 /// Fake [ContainerLayer] used to construct the [_RecordingPaintingContext].
 class _FakeContainerLayer extends ContainerLayer {}
+
+// ---------------------------------------------------------------------------
+// Recording canvas for border-paint tests
+// ---------------------------------------------------------------------------
+
+/// Records which draw methods were called on the canvas.
+///
+/// Wraps a real [Canvas] backed by a [PictureRecorder] so all calls remain
+/// valid, while also tracking which high-level draw verbs were used.
+class _TrackingPaintingContext extends PaintingContext {
+  _TrackingPaintingContext()
+      : _recorder = PictureRecorder(),
+        super(_FakeContainerLayer(), Rect.largest) {
+    _canvas = Canvas(_recorder);
+  }
+
+  final PictureRecorder _recorder;
+  late final Canvas _canvas;
+
+  bool drewRect = false;
+  bool drewCircle = false;
+  bool drewLine = false;
+
+  @override
+  Canvas get canvas => _TrackingCanvas(_canvas, this);
+
+  @override
+  void paintChild(RenderObject child, Offset offset) {
+    // Skip actual child painting in border-specific tests.
+  }
+}
+
+/// Proxy [Canvas] that records which draw verbs are called.
+class _TrackingCanvas implements Canvas {
+  _TrackingCanvas(this._delegate, this._tracker);
+
+  final Canvas _delegate;
+  final _TrackingPaintingContext _tracker;
+
+  @override
+  void drawRect(Rect rect, Paint paint) {
+    _tracker.drewRect = true;
+    _delegate.drawRect(rect, paint);
+  }
+
+  @override
+  void drawCircle(Offset c, double radius, Paint paint) {
+    _tracker.drewCircle = true;
+    _delegate.drawCircle(c, radius, paint);
+  }
+
+  @override
+  void drawLine(Offset p1, Offset p2, Paint paint) {
+    _tracker.drewLine = true;
+    _delegate.drawLine(p1, p2, paint);
+  }
+
+  // Delegate all other Canvas methods to _delegate.
+  @override
+  void clipPath(Path path, {bool doAntiAlias = true}) =>
+      _delegate.clipPath(path, doAntiAlias: doAntiAlias);
+  @override
+  void clipRRect(RRect rrect, {bool doAntiAlias = true}) =>
+      _delegate.clipRRect(rrect, doAntiAlias: doAntiAlias);
+  @override
+  void clipRect(Rect rect, {ClipOp clipOp = ClipOp.intersect, bool doAntiAlias = true}) =>
+      _delegate.clipRect(rect, clipOp: clipOp, doAntiAlias: doAntiAlias);
+  @override
+  void drawArc(Rect rect, double startAngle, double sweepAngle, bool useCenter, Paint paint) =>
+      _delegate.drawArc(rect, startAngle, sweepAngle, useCenter, paint);
+  @override
+  void drawAtlas(Image atlas, List<RSTransform> transforms, List<Rect> rects, List<Color>? colors,
+          BlendMode? blendMode, Rect? cullRect, Paint paint) =>
+      _delegate.drawAtlas(atlas, transforms, rects, colors, blendMode, cullRect, paint);
+  @override
+  void drawColor(Color color, BlendMode blendMode) => _delegate.drawColor(color, blendMode);
+  @override
+  void drawDRRect(RRect outer, RRect inner, Paint paint) =>
+      _delegate.drawDRRect(outer, inner, paint);
+  @override
+  void drawImage(Image image, Offset offset, Paint paint) =>
+      _delegate.drawImage(image, offset, paint);
+  @override
+  void drawImageNine(Image image, Rect center, Rect dst, Paint paint) =>
+      _delegate.drawImageNine(image, center, dst, paint);
+  @override
+  void drawImageRect(Image image, Rect src, Rect dst, Paint paint) =>
+      _delegate.drawImageRect(image, src, dst, paint);
+  @override
+  void drawOval(Rect rect, Paint paint) => _delegate.drawOval(rect, paint);
+  @override
+  void drawPaint(Paint paint) => _delegate.drawPaint(paint);
+  @override
+  void drawParagraph(Paragraph paragraph, Offset offset) =>
+      _delegate.drawParagraph(paragraph, offset);
+  @override
+  void drawPath(Path path, Paint paint) => _delegate.drawPath(path, paint);
+  @override
+  void drawPicture(Picture picture) => _delegate.drawPicture(picture);
+  @override
+  void drawPoints(PointMode pointMode, List<Offset> points, Paint paint) =>
+      _delegate.drawPoints(pointMode, points, paint);
+  @override
+  void drawRawAtlas(Image atlas, Float32List rstTransforms, Float32List rects, Int32List? colors,
+          BlendMode? blendMode, Rect? cullRect, Paint paint) =>
+      _delegate.drawRawAtlas(atlas, rstTransforms, rects, colors, blendMode, cullRect, paint);
+  @override
+  void drawRawPoints(PointMode pointMode, Float32List points, Paint paint) =>
+      _delegate.drawRawPoints(pointMode, points, paint);
+  @override
+  void drawRRect(RRect rrect, Paint paint) => _delegate.drawRRect(rrect, paint);
+  @override
+  void drawShadow(Path path, Color color, double elevation, bool transparentOccluder) =>
+      _delegate.drawShadow(path, color, elevation, transparentOccluder);
+  @override
+  void drawVertices(Vertices vertices, BlendMode blendMode, Paint paint) =>
+      _delegate.drawVertices(vertices, blendMode, paint);
+  @override
+  int getSaveCount() => _delegate.getSaveCount();
+  @override
+  void restore() => _delegate.restore();
+  @override
+  void restoreToCount(int count) => _delegate.restoreToCount(count);
+  @override
+  void rotate(double radians) => _delegate.rotate(radians);
+  @override
+  void save() => _delegate.save();
+  @override
+  void saveLayer(Rect? bounds, Paint paint) => _delegate.saveLayer(bounds, paint);
+  @override
+  void scale(double sx, [double? sy]) => _delegate.scale(sx, sy);
+  @override
+  void skew(double sx, double sy) => _delegate.skew(sx, sy);
+  @override
+  void transform(Float64List matrix4) => _delegate.transform(matrix4);
+  @override
+  void translate(double dx, double dy) => _delegate.translate(dx, dy);
+  @override
+  Rect getLocalClipBounds() => _delegate.getLocalClipBounds();
+  @override
+  Rect getDestinationClipBounds() => _delegate.getDestinationClipBounds();
+  @override
+  Float64List getTransform() => _delegate.getTransform();
+  @override
+  void clipRSuperellipse(RSuperellipse rsuperellipse, {bool doAntiAlias = true}) =>
+      _delegate.clipRSuperellipse(rsuperellipse, doAntiAlias: doAntiAlias);
+  @override
+  void drawRSuperellipse(RSuperellipse rsuperellipse, Paint paint) =>
+      _delegate.drawRSuperellipse(rsuperellipse, paint);
+}
 
 /// A [RenderImageBlock] that appends its [nodeId] to [paintOrder] when painted.
 class _RecordingImageBlock extends RenderImageBlock {
@@ -4220,6 +4374,97 @@ void main() {
       // The child's x-offset reflects the resolved gutter width.
       final textX = textData.offset.dx;
       expect(textX, closeTo(expectedNarrow, 1.0));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Block border painting tests
+  // ---------------------------------------------------------------------------
+
+  group('RenderDocumentLayout — block border painting', () {
+    /// Helper that builds a laid-out layout with one image child that has the
+    /// given [border].  The image has a fixed 400×80 size.
+    ({RenderDocumentLayout layout, RenderImageBlock child}) _borderLayout(BlockBorder? border) {
+      final child = RenderImageBlock(
+        nodeId: 'img',
+        imageWidth: 400,
+        imageHeight: 80,
+        requestedWidth: 400,
+        requestedHeight: 80,
+      )..border = border;
+      final layout = RenderDocumentLayout(blockSpacing: 0.0);
+      layout.add(child);
+      layout.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      return (layout: layout, child: child);
+    }
+
+    test('block with null border does not crash during paint', () {
+      final (:layout, child: _) = _borderLayout(null);
+      final ctx = _TrackingPaintingContext();
+      expect(() => layout.paint(ctx, Offset.zero), returnsNormally);
+    });
+
+    test('BlockBorderStyle.none does not draw any border', () {
+      final (:layout, child: _) = _borderLayout(
+        const BlockBorder(style: BlockBorderStyle.none),
+      );
+      final ctx = _TrackingPaintingContext();
+      layout.paint(ctx, Offset.zero);
+      expect(ctx.drewRect, isFalse, reason: 'none border must not call drawRect');
+      expect(ctx.drewCircle, isFalse, reason: 'none border must not call drawCircle');
+      expect(ctx.drewLine, isFalse, reason: 'none border must not call drawLine');
+    });
+
+    test('BlockBorderStyle.solid uses drawRect', () {
+      final (:layout, child: _) = _borderLayout(
+        const BlockBorder(style: BlockBorderStyle.solid, width: 2.0),
+      );
+      final ctx = _TrackingPaintingContext();
+      layout.paint(ctx, Offset.zero);
+      expect(ctx.drewRect, isTrue, reason: 'solid border must call drawRect');
+      expect(ctx.drewCircle, isFalse, reason: 'solid border must not call drawCircle');
+      expect(ctx.drewLine, isFalse, reason: 'solid border must not call drawLine');
+    });
+
+    test('BlockBorderStyle.dotted uses drawCircle', () {
+      final (:layout, child: _) = _borderLayout(
+        const BlockBorder(style: BlockBorderStyle.dotted, width: 2.0),
+      );
+      final ctx = _TrackingPaintingContext();
+      layout.paint(ctx, Offset.zero);
+      expect(ctx.drewCircle, isTrue, reason: 'dotted border must call drawCircle');
+      expect(ctx.drewRect, isFalse, reason: 'dotted border must not call drawRect');
+    });
+
+    test('BlockBorderStyle.dashed uses drawLine', () {
+      final (:layout, child: _) = _borderLayout(
+        const BlockBorder(style: BlockBorderStyle.dashed, width: 2.0),
+      );
+      final ctx = _TrackingPaintingContext();
+      layout.paint(ctx, Offset.zero);
+      expect(ctx.drewLine, isTrue, reason: 'dashed border must call drawLine');
+      expect(ctx.drewCircle, isFalse, reason: 'dashed border must not call drawCircle');
+    });
+
+    test('solid border uses the specified color', () {
+      final (:layout, child: _) = _borderLayout(
+        const BlockBorder(
+          style: BlockBorderStyle.solid,
+          width: 2.0,
+          color: Color(0xFFFF0000),
+        ),
+      );
+      // Verify painting completes without error.
+      final ctx = _TrackingPaintingContext();
+      expect(() => layout.paint(ctx, Offset.zero), returnsNormally);
+    });
+
+    test('solid border with null color defaults to black (no crash)', () {
+      final (:layout, child: _) = _borderLayout(
+        const BlockBorder(style: BlockBorderStyle.solid, width: 1.0),
+      );
+      final ctx = _TrackingPaintingContext();
+      expect(() => layout.paint(ctx, Offset.zero), returnsNormally);
     });
   });
 }

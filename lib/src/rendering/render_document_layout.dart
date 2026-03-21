@@ -10,6 +10,7 @@ import 'dart:math';
 import 'package:flutter/rendering.dart';
 
 import '../model/block_alignment.dart';
+import '../model/block_border.dart';
 import '../model/document_position.dart';
 import '../model/document_selection.dart';
 import '../model/node_position.dart';
@@ -1195,6 +1196,9 @@ class RenderDocumentLayout extends RenderBox
       final parentData = child.parentData as DocumentBlockParentData;
       if (parentData.isFloat && parentData.wrapMode == TextWrapMode.behindText) {
         context.paintChild(child, offset + parentData.offset);
+        if (child.border != null) {
+          _paintBlockBorder(context.canvas, child.border!, child.size, offset + parentData.offset);
+        }
       }
       child = childAfter(child);
     }
@@ -1205,6 +1209,9 @@ class RenderDocumentLayout extends RenderBox
       final parentData = child.parentData as DocumentBlockParentData;
       if (!parentData.isFloat) {
         context.paintChild(child, offset + parentData.offset);
+        if (child.border != null) {
+          _paintBlockBorder(context.canvas, child.border!, child.size, offset + parentData.offset);
+        }
       }
       child = childAfter(child);
     }
@@ -1215,9 +1222,111 @@ class RenderDocumentLayout extends RenderBox
       final parentData = child.parentData as DocumentBlockParentData;
       if (parentData.isFloat && parentData.wrapMode != TextWrapMode.behindText) {
         context.paintChild(child, offset + parentData.offset);
+        if (child.border != null) {
+          _paintBlockBorder(context.canvas, child.border!, child.size, offset + parentData.offset);
+        }
       }
       child = childAfter(child);
     }
+  }
+
+  /// Draws a border around a block using its [BlockBorder] specification.
+  void _paintBlockBorder(
+    Canvas canvas,
+    BlockBorder border,
+    Size childSize,
+    Offset childOffset,
+  ) {
+    if (border.style == BlockBorderStyle.none) return;
+
+    final color = border.color ?? const Color(0xFF000000);
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = border.width;
+
+    // Inset by half the stroke width so the stroke stays inside the bounds.
+    final half = border.width / 2;
+    final rect = Rect.fromLTWH(
+      childOffset.dx + half,
+      childOffset.dy + half,
+      childSize.width - border.width,
+      childSize.height - border.width,
+    );
+
+    switch (border.style) {
+      case BlockBorderStyle.none:
+        break;
+      case BlockBorderStyle.solid:
+        paint.style = PaintingStyle.stroke;
+        canvas.drawRect(rect, paint);
+      case BlockBorderStyle.dotted:
+        _paintDottedRect(canvas, rect, paint, border.width);
+      case BlockBorderStyle.dashed:
+        _paintDashedRect(canvas, rect, paint);
+    }
+  }
+
+  /// Draws a dotted rectangle by placing filled circles at regular intervals.
+  void _paintDottedRect(Canvas canvas, Rect rect, Paint paint, double dotSize) {
+    paint.style = PaintingStyle.fill;
+    final radius = dotSize / 2;
+    final spacing = dotSize * 3;
+
+    // Top edge
+    for (var x = rect.left; x <= rect.right; x += spacing) {
+      canvas.drawCircle(Offset(x, rect.top), radius, paint);
+    }
+    // Right edge
+    for (var y = rect.top + spacing; y <= rect.bottom; y += spacing) {
+      canvas.drawCircle(Offset(rect.right, y), radius, paint);
+    }
+    // Bottom edge
+    for (var x = rect.right; x >= rect.left; x -= spacing) {
+      canvas.drawCircle(Offset(x, rect.bottom), radius, paint);
+    }
+    // Left edge
+    for (var y = rect.bottom - spacing; y >= rect.top + spacing; y -= spacing) {
+      canvas.drawCircle(Offset(rect.left, y), radius, paint);
+    }
+  }
+
+  /// Draws a dashed rectangle using line segments with gaps.
+  void _paintDashedRect(Canvas canvas, Rect rect, Paint paint) {
+    paint.style = PaintingStyle.stroke;
+    final dashLength = paint.strokeWidth * 4;
+    final gapLength = paint.strokeWidth * 2;
+
+    void drawDashedLine(Offset start, Offset end) {
+      final dx = end.dx - start.dx;
+      final dy = end.dy - start.dy;
+      final distance = (Offset(dx, dy)).distance;
+      final unitDx = dx / distance;
+      final unitDy = dy / distance;
+      var drawn = 0.0;
+      var drawing = true;
+      while (drawn < distance) {
+        final segLen = drawing
+            ? (drawn + dashLength > distance ? distance - drawn : dashLength)
+            : (drawn + gapLength > distance ? distance - drawn : gapLength);
+        if (drawing) {
+          canvas.drawLine(
+            Offset(start.dx + unitDx * drawn, start.dy + unitDy * drawn),
+            Offset(
+              start.dx + unitDx * (drawn + segLen),
+              start.dy + unitDy * (drawn + segLen),
+            ),
+            paint,
+          );
+        }
+        drawn += segLen;
+        drawing = !drawing;
+      }
+    }
+
+    drawDashedLine(rect.topLeft, rect.topRight);
+    drawDashedLine(rect.topRight, rect.bottomRight);
+    drawDashedLine(rect.bottomRight, rect.bottomLeft);
+    drawDashedLine(rect.bottomLeft, rect.topLeft);
   }
 
   // ---------------------------------------------------------------------------

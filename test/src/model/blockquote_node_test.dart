@@ -2,6 +2,7 @@ import 'dart:ui' show TextAlign;
 
 import 'package:editable_document/src/model/attributed_text.dart';
 import 'package:editable_document/src/model/block_alignment.dart';
+import 'package:editable_document/src/model/block_border.dart';
 import 'package:editable_document/src/model/blockquote_node.dart';
 import 'package:editable_document/src/model/text_node.dart';
 import 'package:editable_document/src/model/text_wrap_mode.dart';
@@ -950,6 +951,77 @@ void main() {
       for (final p in props) {
         expect(p.value, isNull);
       }
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // BlockquoteNode — border default value
+  // ---------------------------------------------------------------------------
+  group('BlockquoteNode border default', () {
+    test('border defaults to null', () {
+      final node = BlockquoteNode(id: 'bq1');
+      expect(node.border, isNull);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // BlockquoteNode — constructor with border
+  // ---------------------------------------------------------------------------
+  group('BlockquoteNode constructor with border', () {
+    test('border is set correctly', () {
+      const border = BlockBorder(style: BlockBorderStyle.solid, width: 2.0);
+      final node = BlockquoteNode(id: 'bq1', border: border);
+      expect(node.border, border);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // BlockquoteNode — copyWith with border
+  // ---------------------------------------------------------------------------
+  group('BlockquoteNode copyWith border', () {
+    test('copyWith replaces border', () {
+      const original = BlockBorder(style: BlockBorderStyle.solid, width: 1.0);
+      const replacement = BlockBorder(style: BlockBorderStyle.dashed, width: 2.0);
+      final node = BlockquoteNode(id: 'bq1', border: original);
+      final copy = node.copyWith(border: replacement);
+      expect(copy.border, replacement);
+    });
+
+    test('copyWith preserves border when not specified', () {
+      const border = BlockBorder(style: BlockBorderStyle.dotted, width: 3.0);
+      final node = BlockquoteNode(id: 'bq1', border: border);
+      final copy = node.copyWith(id: 'bq2');
+      expect(copy.border, border);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // BlockquoteNode — equality with border
+  // ---------------------------------------------------------------------------
+  group('BlockquoteNode equality with border', () {
+    test('equal when border is both null', () {
+      final a = BlockquoteNode(id: 'bq1');
+      final b = BlockquoteNode(id: 'bq1');
+      expect(a, equals(b));
+    });
+
+    test('equal when border matches', () {
+      const border = BlockBorder(style: BlockBorderStyle.solid, width: 2.0);
+      final a = BlockquoteNode(id: 'bq1', border: border);
+      final b = BlockquoteNode(id: 'bq1', border: border);
+      expect(a, equals(b));
+    });
+
+    test('unequal when border differs', () {
+      final a = BlockquoteNode(id: 'bq1', border: const BlockBorder(width: 1.0));
+      final b = BlockquoteNode(id: 'bq1', border: const BlockBorder(width: 2.0));
+      expect(a, isNot(equals(b)));
+    });
+
+    test('unequal when one border is null and other is not', () {
+      final a = BlockquoteNode(id: 'bq1');
+      final b = BlockquoteNode(id: 'bq1', border: const BlockBorder());
+      expect(a, isNot(equals(b)));
     });
   });
 }

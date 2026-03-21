@@ -5,6 +5,7 @@ import 'dart:ui' show TextAffinity, TextAlign;
 
 import 'package:editable_document/src/model/attributed_text.dart';
 import 'package:editable_document/src/model/block_alignment.dart';
+import 'package:editable_document/src/model/block_border.dart';
 import 'package:editable_document/src/model/block_layout.dart';
 import 'package:editable_document/src/model/document_node.dart';
 import 'package:editable_document/src/model/node_position.dart';
@@ -1915,6 +1916,109 @@ void main() {
         ],
       );
       expect(node.toString(), contains('cellVerticalAligns'));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // TableNode — border
+  // ---------------------------------------------------------------------------
+  group('TableNode border', () {
+    test('border defaults to null', () {
+      final node = TableNode(
+        id: 'tbl-border-1',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+      );
+      expect(node.border, isNull);
+    });
+
+    test('constructor stores border', () {
+      const border = BlockBorder(style: BlockBorderStyle.solid, width: 2.0);
+      final node = TableNode(
+        id: 'tbl-border-2',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        border: border,
+      );
+      expect(node.border, border);
+    });
+
+    test('copyWith preserves border when not overridden', () {
+      const border = BlockBorder(style: BlockBorderStyle.dashed, width: 1.5);
+      final original = TableNode(
+        id: 'tbl-border-3',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        border: border,
+      );
+      final copy = original.copyWith(id: 'tbl-border-3-copy');
+      expect(copy.border, border);
+    });
+
+    test('copyWith replaces border', () {
+      const original = BlockBorder(style: BlockBorderStyle.solid, width: 1.0);
+      const replacement = BlockBorder(style: BlockBorderStyle.dotted, width: 3.0);
+      final node = TableNode(
+        id: 'tbl-border-4',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        border: original,
+      );
+      final copy = node.copyWith(border: replacement);
+      expect(copy.border, replacement);
+    });
+
+    test('nodes with different border are not equal', () {
+      final cells = [
+        [AttributedText('a')]
+      ];
+      final a = TableNode(
+        id: 'tbl-border-5',
+        rowCount: 1,
+        columnCount: 1,
+        cells: cells,
+        border: const BlockBorder(width: 1.0),
+      );
+      final b = TableNode(
+        id: 'tbl-border-5',
+        rowCount: 1,
+        columnCount: 1,
+        cells: cells,
+        border: const BlockBorder(width: 2.0),
+      );
+      expect(a, isNot(equals(b)));
+    });
+
+    test('unequal when one border is null and other is not', () {
+      final cells = [
+        [AttributedText('a')]
+      ];
+      final a = TableNode(
+        id: 'tbl-border-6',
+        rowCount: 1,
+        columnCount: 1,
+        cells: cells,
+      );
+      final b = TableNode(
+        id: 'tbl-border-6',
+        rowCount: 1,
+        columnCount: 1,
+        cells: cells,
+        border: const BlockBorder(),
+      );
+      expect(a, isNot(equals(b)));
     });
   });
 }

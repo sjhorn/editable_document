@@ -10,6 +10,7 @@ import 'package:flutter/foundation.dart';
 
 import 'attributed_text.dart';
 import 'block_alignment.dart';
+import 'block_border.dart';
 import 'block_layout.dart';
 import 'document_node.dart';
 import 'text_node.dart';
@@ -45,6 +46,7 @@ class BlockquoteNode extends TextNode implements HasBlockLayout {
   /// default spacing).
   /// [indentLeft], [indentRight], and [firstLineIndent] default to `null`
   /// (no extra indent applied).
+  /// [border] defaults to `null` (no border drawn).
   BlockquoteNode({
     required super.id,
     super.text,
@@ -59,6 +61,7 @@ class BlockquoteNode extends TextNode implements HasBlockLayout {
     this.indentLeft,
     this.indentRight,
     this.firstLineIndent,
+    this.border,
     super.metadata,
   });
 
@@ -114,6 +117,9 @@ class BlockquoteNode extends TextNode implements HasBlockLayout {
   /// hanging indent (all lines except the first are indented).
   final double? firstLineIndent;
 
+  /// The outside border drawn around this block, or `null` for no border.
+  final BlockBorder? border;
+
   @override
   bool get isDraggable => true;
 
@@ -142,6 +148,7 @@ class BlockquoteNode extends TextNode implements HasBlockLayout {
     double? indentLeft,
     double? indentRight,
     double? firstLineIndent,
+    BlockBorder? border,
     Map<String, dynamic>? metadata,
   }) {
     return BlockquoteNode(
@@ -158,6 +165,7 @@ class BlockquoteNode extends TextNode implements HasBlockLayout {
       indentLeft: indentLeft ?? this.indentLeft,
       indentRight: indentRight ?? this.indentRight,
       firstLineIndent: firstLineIndent ?? this.firstLineIndent,
+      border: border ?? this.border,
       metadata: metadata ?? this.metadata,
     );
   }
@@ -180,6 +188,7 @@ class BlockquoteNode extends TextNode implements HasBlockLayout {
         other.indentLeft == indentLeft &&
         other.indentRight == indentRight &&
         other.firstLineIndent == firstLineIndent &&
+        other.border == border &&
         mapEquals(other.metadata, metadata);
   }
 
@@ -198,6 +207,7 @@ class BlockquoteNode extends TextNode implements HasBlockLayout {
         indentLeft,
         indentRight,
         firstLineIndent,
+        border,
         Object.hashAll(metadata.entries.map((e) => e)),
       );
 
@@ -221,6 +231,7 @@ class BlockquoteNode extends TextNode implements HasBlockLayout {
     properties.add(DoubleProperty('indentLeft', indentLeft, defaultValue: null));
     properties.add(DoubleProperty('indentRight', indentRight, defaultValue: null));
     properties.add(DoubleProperty('firstLineIndent', firstLineIndent, defaultValue: null));
+    properties.add(DiagnosticsProperty<BlockBorder?>('border', border, defaultValue: null));
   }
 
   @override
@@ -229,5 +240,5 @@ class BlockquoteNode extends TextNode implements HasBlockLayout {
       'alignment: ${alignment.name}, textWrap: $textWrap, textAlign: $textAlign, '
       'lineHeight: $lineHeight, spaceBefore: $spaceBefore, spaceAfter: $spaceAfter, '
       'indentLeft: $indentLeft, indentRight: $indentRight, firstLineIndent: $firstLineIndent, '
-      'metadata: $metadata)';
+      'border: $border, metadata: $metadata)';
 }
