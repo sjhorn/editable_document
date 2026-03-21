@@ -28,6 +28,9 @@
 ///   sliders wired live via Document Settings panel)
 /// - showLineNumbers: optional left-gutter that numbers each block sequentially,
 ///   toggled from the Document Settings panel with a configurable background color
+/// - lineNumberAlignment: segmented control (Top / Middle / Bottom) in the Document
+///   Settings panel that sets vertical alignment of each line number label within
+///   its block row; only visible when showLineNumbers is enabled
 /// - TableNode: insert via toolbar table button with 8×8 grid-size picker popup
 /// - Contextual table toolbar: appears between the main toolbar and the editor
 ///   when the cursor is inside a table cell; provides resize, column text
@@ -191,6 +194,9 @@ class _DocumentDemoState extends State<DocumentDemo> {
 
   /// Whether to show line numbers in a left-side gutter.
   bool _showLineNumbers = false;
+
+  /// Vertical alignment of each line number label within its block row.
+  LineNumberAlignment _lineNumberAlignment = LineNumberAlignment.top;
 
   /// The node ID for which the floating property panel is shown, or `null`
   /// when the panel is hidden.
@@ -2585,7 +2591,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
               ),
             ],
           ),
-          if (_showLineNumbers)
+          if (_showLineNumbers) ...[
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(
@@ -2596,6 +2602,43 @@ class _DocumentDemoState extends State<DocumentDemo> {
                     ),
               ),
             ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Number alignment',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            SegmentedButton<LineNumberAlignment>(
+              segments: const [
+                ButtonSegment(
+                  value: LineNumberAlignment.top,
+                  label: Text('Top'),
+                ),
+                ButtonSegment(
+                  value: LineNumberAlignment.middle,
+                  label: Text('Middle'),
+                ),
+                ButtonSegment(
+                  value: LineNumberAlignment.bottom,
+                  label: Text('Bottom'),
+                ),
+              ],
+              selected: {_lineNumberAlignment},
+              onSelectionChanged: (selection) => setState(
+                () => _lineNumberAlignment = selection.first,
+              ),
+              style: const ButtonStyle(
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+          ],
         ]),
       ];
     } else {
@@ -3065,6 +3108,7 @@ class _DocumentDemoState extends State<DocumentDemo> {
                   vertical: _documentPaddingV,
                 ),
                 showLineNumbers: _showLineNumbers,
+                lineNumberAlignment: _lineNumberAlignment,
                 lineNumberTextStyle: const TextStyle(
                   fontSize: 11,
                   color: Color(0xFF9E9E9E),
@@ -3134,6 +3178,10 @@ class _DocumentDemoState extends State<DocumentDemo> {
     properties.add(DoubleProperty('documentPaddingV', _documentPaddingV));
     properties.add(
       FlagProperty('showLineNumbers', value: _showLineNumbers, ifTrue: 'showLineNumbers'),
+    );
+    properties.add(
+      EnumProperty<LineNumberAlignment>('lineNumberAlignment', _lineNumberAlignment,
+          defaultValue: LineNumberAlignment.top),
     );
   }
 }
