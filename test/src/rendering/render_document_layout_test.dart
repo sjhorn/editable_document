@@ -4015,9 +4015,9 @@ void main() {
     // lineNumberAlignment tests
     // -----------------------------------------------------------------------
 
-    test('lineNumberAlignment defaults to LineNumberAlignment.top', () {
+    test('lineNumberAlignment defaults to LineNumberAlignment.middle', () {
       final layout = RenderDocumentLayout();
-      expect(layout.lineNumberAlignment, LineNumberAlignment.top);
+      expect(layout.lineNumberAlignment, LineNumberAlignment.middle);
     });
 
     test('lineNumberAlignment can be set via constructor', () {

@@ -905,7 +905,7 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('DocumentLayout — lineNumberAlignment', () {
-    testWidgets('default lineNumberAlignment is LineNumberAlignment.top', (tester) async {
+    testWidgets('default lineNumberAlignment is LineNumberAlignment.middle', (tester) async {
       final doc = _docWith([ParagraphNode(id: 'p1', text: AttributedText('A'))]);
       final controller = _controller(doc);
 
@@ -920,7 +920,7 @@ void main() {
       );
 
       final layout = tester.widget<DocumentLayout>(find.byType(DocumentLayout));
-      expect(layout.lineNumberAlignment, LineNumberAlignment.top);
+      expect(layout.lineNumberAlignment, LineNumberAlignment.middle);
     });
 
     testWidgets('lineNumberAlignment is stored on widget and forwarded to render object',

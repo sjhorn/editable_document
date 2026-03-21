@@ -284,7 +284,7 @@ class RenderDocumentLayout extends RenderBox
   /// column.  Defaults to `null` (transparent — no background is painted).
   ///
   /// [lineNumberAlignment] controls the vertical alignment of each line-number
-  /// label relative to its document block.  Defaults to [LineNumberAlignment.top].
+  /// label relative to its document block.  Defaults to [LineNumberAlignment.middle].
   RenderDocumentLayout({
     double blockSpacing = 12.0,
     double? viewportWidth,
@@ -293,7 +293,7 @@ class RenderDocumentLayout extends RenderBox
     double lineNumberWidth = 0.0,
     TextStyle? lineNumberTextStyle,
     Color? lineNumberBackgroundColor,
-    LineNumberAlignment lineNumberAlignment = LineNumberAlignment.top,
+    LineNumberAlignment lineNumberAlignment = LineNumberAlignment.middle,
   })  : _blockSpacing = blockSpacing,
         _viewportWidth = viewportWidth,
         _documentPadding = documentPadding,
@@ -471,7 +471,7 @@ class RenderDocumentLayout extends RenderBox
   /// - [LineNumberAlignment.bottom] — label is aligned with the block's bottom edge.
   ///
   /// Changing this property only triggers a repaint, not a full re-layout.
-  /// Defaults to [LineNumberAlignment.top].
+  /// Defaults to [LineNumberAlignment.middle].
   LineNumberAlignment get lineNumberAlignment => _lineNumberAlignment;
 
   /// Sets [lineNumberAlignment] and schedules a repaint when the value changes.
@@ -1434,7 +1434,7 @@ class RenderDocumentLayout extends RenderBox
     properties.add(
         ColorProperty('lineNumberBackgroundColor', lineNumberBackgroundColor, defaultValue: null));
     properties.add(EnumProperty<LineNumberAlignment>('lineNumberAlignment', lineNumberAlignment,
-        defaultValue: LineNumberAlignment.top));
+        defaultValue: LineNumberAlignment.middle));
   }
 }
 

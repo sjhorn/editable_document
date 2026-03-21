@@ -196,19 +196,19 @@ class _DocumentDemoState extends State<DocumentDemo> {
   bool _showLineNumbers = false;
 
   /// Vertical alignment of each line number label within its block row.
-  LineNumberAlignment _lineNumberAlignment = LineNumberAlignment.top;
+  LineNumberAlignment _lineNumberAlignment = LineNumberAlignment.middle;
 
-  /// Font family for line numbers (`null` = default sans-serif).
+  /// Font family for line numbers (`null` = inherit from document).
   String? _lineNumberFontFamily;
 
-  /// Font size for line numbers.
-  double _lineNumberFontSize = 11;
+  /// Font size for line numbers (`null` = inherit from document).
+  double? _lineNumberFontSize;
 
-  /// Text color for line numbers (`null` = default grey).
-  int? _lineNumberColor = 0xFF9E9E9E;
+  /// Text color for line numbers (`null` = inherit from document).
+  int? _lineNumberColor;
 
-  /// Background color for the line number gutter (`null` = none).
-  int? _lineNumberBgColor = 0xFFF5F5F5;
+  /// Background color for the line number gutter (`null` = transparent).
+  int? _lineNumberBgColor;
 
   /// The node ID for which the floating property panel is shown, or `null`
   /// when the panel is hidden.
@@ -2659,21 +2659,20 @@ class _DocumentDemoState extends State<DocumentDemo> {
             Text('Size', style: Theme.of(context).textTheme.labelSmall),
             const SizedBox(height: 4),
             DropdownButtonHideUnderline(
-              child: DropdownButton<double>(
+              child: DropdownButton<double?>(
                 value: _lineNumberFontSize,
                 isExpanded: true,
                 isDense: true,
                 style: Theme.of(context).textTheme.bodySmall,
-                onChanged: (value) {
-                  if (value != null) setState(() => _lineNumberFontSize = value);
-                },
+                onChanged: (value) => setState(() => _lineNumberFontSize = value),
                 items: const [
-                  DropdownMenuItem(value: 9.0, child: Text('9')),
-                  DropdownMenuItem(value: 10.0, child: Text('10')),
-                  DropdownMenuItem(value: 11.0, child: Text('11')),
-                  DropdownMenuItem(value: 12.0, child: Text('12')),
-                  DropdownMenuItem(value: 14.0, child: Text('14')),
-                  DropdownMenuItem(value: 16.0, child: Text('16')),
+                  DropdownMenuItem<double?>(value: null, child: Text('Default')),
+                  DropdownMenuItem<double?>(value: 9.0, child: Text('9')),
+                  DropdownMenuItem<double?>(value: 10.0, child: Text('10')),
+                  DropdownMenuItem<double?>(value: 11.0, child: Text('11')),
+                  DropdownMenuItem<double?>(value: 12.0, child: Text('12')),
+                  DropdownMenuItem<double?>(value: 14.0, child: Text('14')),
+                  DropdownMenuItem<double?>(value: 16.0, child: Text('16')),
                 ],
               ),
             ),
@@ -3249,12 +3248,15 @@ class _DocumentDemoState extends State<DocumentDemo> {
                 ),
                 showLineNumbers: _showLineNumbers,
                 lineNumberAlignment: _lineNumberAlignment,
-                lineNumberTextStyle: TextStyle(
-                  fontFamily: _lineNumberFontFamily,
-                  fontSize: _lineNumberFontSize,
-                  color: _lineNumberColor != null ? Color(_lineNumberColor!) : null,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
+                lineNumberTextStyle:
+                    (_lineNumberFontFamily ?? _lineNumberFontSize ?? _lineNumberColor) != null
+                        ? TextStyle(
+                            fontFamily: _lineNumberFontFamily,
+                            fontSize: _lineNumberFontSize,
+                            color: _lineNumberColor != null ? Color(_lineNumberColor!) : null,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          )
+                        : null,
                 lineNumberBackgroundColor:
                     _lineNumberBgColor != null ? Color(_lineNumberBgColor!) : null,
                 componentBuilders: [
@@ -3323,13 +3325,13 @@ class _DocumentDemoState extends State<DocumentDemo> {
     );
     properties.add(
       EnumProperty<LineNumberAlignment>('lineNumberAlignment', _lineNumberAlignment,
-          defaultValue: LineNumberAlignment.top),
+          defaultValue: LineNumberAlignment.middle),
     );
     properties
         .add(StringProperty('lineNumberFontFamily', _lineNumberFontFamily, defaultValue: null));
-    properties.add(DoubleProperty('lineNumberFontSize', _lineNumberFontSize, defaultValue: 11.0));
-    properties.add(IntProperty('lineNumberColor', _lineNumberColor, defaultValue: 0xFF9E9E9E));
-    properties.add(IntProperty('lineNumberBgColor', _lineNumberBgColor, defaultValue: 0xFFF5F5F5));
+    properties.add(DoubleProperty('lineNumberFontSize', _lineNumberFontSize, defaultValue: null));
+    properties.add(IntProperty('lineNumberColor', _lineNumberColor, defaultValue: null));
+    properties.add(IntProperty('lineNumberBgColor', _lineNumberBgColor, defaultValue: null));
   }
 }
 
