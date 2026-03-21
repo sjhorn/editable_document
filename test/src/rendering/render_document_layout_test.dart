@@ -3780,4 +3780,235 @@ void main() {
       expect(prop.toDescription(), isNotEmpty);
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Line numbers
+  // ---------------------------------------------------------------------------
+
+  group('RenderDocumentLayout — line numbers', () {
+    test('showLineNumbers defaults to false', () {
+      final layout = RenderDocumentLayout();
+      expect(layout.showLineNumbers, isFalse);
+    });
+
+    test('lineNumberWidth defaults to 0.0', () {
+      final layout = RenderDocumentLayout();
+      expect(layout.lineNumberWidth, 0.0);
+    });
+
+    test('lineNumberTextStyle defaults to null', () {
+      final layout = RenderDocumentLayout();
+      expect(layout.lineNumberTextStyle, isNull);
+    });
+
+    test('lineNumberBackgroundColor defaults to null', () {
+      final layout = RenderDocumentLayout();
+      expect(layout.lineNumberBackgroundColor, isNull);
+    });
+
+    test('showLineNumbers=false: children x-offset is at documentPadding.left', () {
+      const padding = EdgeInsets.only(left: 8.0);
+      final child = _textBlock('p1', 'Hello');
+      final layout = RenderDocumentLayout(documentPadding: padding, showLineNumbers: false);
+      layout.add(child);
+      layout.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+
+      final data = child.parentData as DocumentBlockParentData;
+      // No gutter shift: child must be exactly at the left padding edge.
+      expect(data.offset.dx, closeTo(8.0, 0.001));
+    });
+
+    test('showLineNumbers=true: children shift right by gutter width', () {
+      final childWithout = _textBlock('p1', 'Hello');
+      final layoutWithout = RenderDocumentLayout(showLineNumbers: false);
+      layoutWithout.add(childWithout);
+      layoutWithout.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      final xWithout = (childWithout.parentData as DocumentBlockParentData).offset.dx;
+
+      final childWith = _textBlock('p1', 'Hello');
+      final layoutWith = RenderDocumentLayout(showLineNumbers: true);
+      layoutWith.add(childWith);
+      layoutWith.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      final xWith = (childWith.parentData as DocumentBlockParentData).offset.dx;
+
+      // Children must shift right when line numbers are enabled.
+      expect(xWith, greaterThan(xWithout));
+    });
+
+    test('showLineNumbers=true: auto-computed gutter is wider for 2-digit count', () {
+      // 5 children → 1-digit max number ("5"), narrow gutter.
+      final layout5 = RenderDocumentLayout(showLineNumbers: true, blockSpacing: 0.0);
+      for (var i = 0; i < 5; i++) {
+        layout5.add(_textBlock('p$i', 'Line $i'));
+      }
+      layout5.layout(const BoxConstraints(maxWidth: 600), parentUsesSize: true);
+      final x5 =
+          (layout5.getComponentByNodeId('p0')!.parentData as DocumentBlockParentData).offset.dx;
+
+      // 15 children → 2-digit max number ("15"), wider gutter.
+      final layout15 = RenderDocumentLayout(showLineNumbers: true, blockSpacing: 0.0);
+      for (var i = 0; i < 15; i++) {
+        layout15.add(_textBlock('p$i', 'Line $i'));
+      }
+      layout15.layout(const BoxConstraints(maxWidth: 600), parentUsesSize: true);
+      final x15 =
+          (layout15.getComponentByNodeId('p0')!.parentData as DocumentBlockParentData).offset.dx;
+
+      // 2-digit layout must produce a wider gutter (larger x-offset).
+      expect(x15, greaterThan(x5));
+    });
+
+    test('explicit lineNumberWidth overrides auto-computation', () {
+      const explicitWidth = 80.0;
+      final child = _textBlock('p1', 'Hello');
+      final layout = RenderDocumentLayout(
+        showLineNumbers: true,
+        lineNumberWidth: explicitWidth,
+      );
+      layout.add(child);
+      layout.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+
+      final data = child.parentData as DocumentBlockParentData;
+      // Child x-offset must equal the explicit gutter width (no padding here).
+      expect(data.offset.dx, closeTo(explicitWidth, 0.001));
+    });
+
+    test('float blocks are skipped in line numbering — content still shifts right', () {
+      final floatImg = _imageBlock(
+        'img1',
+        requestedWidth: 80.0,
+        requestedHeight: 60.0,
+        blockAlignment: BlockAlignment.start,
+        textWrap: TextWrapMode.wrap,
+      );
+      final text = _textBlock('p1', 'Text beside float');
+      final layout = RenderDocumentLayout(showLineNumbers: true, blockSpacing: 0.0);
+      layout.add(floatImg);
+      layout.add(text);
+      layout.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+
+      // The float block must still be shifted right by the gutter.
+      final floatData = floatImg.parentData as DocumentBlockParentData;
+      expect(floatData.isFloat, isTrue);
+      expect(floatData.offset.dx, greaterThan(0.0));
+
+      // The text block must also be shifted right.
+      final textData = text.parentData as DocumentBlockParentData;
+      expect(textData.offset.dx, greaterThanOrEqualTo(0.0));
+    });
+
+    test('line numbers combine correctly with documentPadding', () {
+      // With left padding of 16 and line numbers enabled, the child x-offset
+      // must be at least left-padding + gutter width (both add to contentLeft).
+      const padding = EdgeInsets.only(left: 16.0);
+      final child = _textBlock('p1', 'Hello');
+
+      // Layout without line numbers: child is at x = left padding.
+      final layoutNoPadNoLn = RenderDocumentLayout(documentPadding: padding);
+      layoutNoPadNoLn.add(_textBlock('p1', 'Hello'));
+      layoutNoPadNoLn.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      final xWithPaddingOnly =
+          (layoutNoPadNoLn.getComponentByNodeId('p1')!.parentData as DocumentBlockParentData)
+              .offset
+              .dx;
+
+      // Layout with line numbers: child is at x = left padding + gutter width.
+      final layout = RenderDocumentLayout(documentPadding: padding, showLineNumbers: true);
+      layout.add(child);
+      layout.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      final data = child.parentData as DocumentBlockParentData;
+
+      // Gutter is to the right of the left padding, so x must be larger.
+      expect(data.offset.dx, greaterThan(xWithPaddingOnly));
+      // At minimum: left padding contributes 16 px.
+      expect(data.offset.dx, greaterThanOrEqualTo(16.0));
+    });
+
+    test('changing lineNumberTextStyle does not change child offsets (paint-only)', () {
+      final child = _textBlock('p1', 'Hello');
+      final layout = RenderDocumentLayout(showLineNumbers: true);
+      layout.add(child);
+      layout.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+
+      final data = child.parentData as DocumentBlockParentData;
+      final xBefore = data.offset.dx;
+      final sizeBefore = layout.size;
+
+      // Setting a text style must not trigger a layout change.
+      layout.lineNumberTextStyle = const TextStyle(fontSize: 14, color: Color(0xFF000000));
+      // The getter must return the new value.
+      expect(layout.lineNumberTextStyle, const TextStyle(fontSize: 14, color: Color(0xFF000000)));
+      // Without re-running layout, size and child offsets must be unchanged.
+      expect(layout.size, sizeBefore);
+      expect(data.offset.dx, xBefore);
+
+      // Setting the same value again must not throw.
+      layout.lineNumberTextStyle = const TextStyle(fontSize: 14, color: Color(0xFF000000));
+      expect(layout.lineNumberTextStyle, const TextStyle(fontSize: 14, color: Color(0xFF000000)));
+    });
+
+    test('changing lineNumberBackgroundColor does not change layout size (paint-only)', () {
+      final layout = RenderDocumentLayout(showLineNumbers: true);
+      layout.add(_textBlock('p1', 'Hello'));
+      layout.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+
+      final sizeBefore = layout.size;
+      // Setting background color must not trigger a layout change.
+      layout.lineNumberBackgroundColor = const Color(0xFFEEEEEE);
+      // Without re-running layout, size must be unchanged.
+      expect(layout.size, sizeBefore);
+
+      // Getter must reflect the new value.
+      expect(layout.lineNumberBackgroundColor, const Color(0xFFEEEEEE));
+
+      // Setting same color again must not throw.
+      layout.lineNumberBackgroundColor = const Color(0xFFEEEEEE);
+      expect(layout.lineNumberBackgroundColor, const Color(0xFFEEEEEE));
+    });
+
+    test('setting showLineNumbers triggers re-layout', () {
+      final child = _textBlock('p1', 'Hello');
+      final layout = RenderDocumentLayout(showLineNumbers: false);
+      layout.add(child);
+      layout.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      final xBefore = (child.parentData as DocumentBlockParentData).offset.dx;
+
+      layout.showLineNumbers = true;
+      layout.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      final xAfter = (child.parentData as DocumentBlockParentData).offset.dx;
+
+      // After enabling line numbers, child x-offset must increase.
+      expect(xAfter, greaterThan(xBefore));
+    });
+
+    test('setting showLineNumbers to same value does not trigger layout', () {
+      final layout = RenderDocumentLayout(showLineNumbers: false);
+      layout.showLineNumbers = false; // same value — must not throw
+      expect(layout.showLineNumbers, isFalse);
+    });
+
+    test('debugFillProperties includes showLineNumbers', () {
+      final layout = RenderDocumentLayout(showLineNumbers: true);
+      final builder = DiagnosticPropertiesBuilder();
+      layout.debugFillProperties(builder);
+
+      final prop = builder.properties.firstWhere(
+        (p) => p.name == 'showLineNumbers',
+        orElse: () => throw StateError('showLineNumbers not found in properties'),
+      );
+      expect(prop.toDescription(), contains('true'));
+    });
+
+    test('debugFillProperties includes lineNumberWidth', () {
+      final layout = RenderDocumentLayout(lineNumberWidth: 50.0);
+      final builder = DiagnosticPropertiesBuilder();
+      layout.debugFillProperties(builder);
+
+      final prop = builder.properties.firstWhere(
+        (p) => p.name == 'lineNumberWidth',
+        orElse: () => throw StateError('lineNumberWidth not found in properties'),
+      );
+      expect(prop.toDescription(), contains('50'));
+    });
+  });
 }

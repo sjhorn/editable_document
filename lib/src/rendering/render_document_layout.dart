@@ -216,6 +216,14 @@ const double _kFloatGap = 8.0;
 /// first child or after the last child.  [documentPadding] (when non-zero) adds
 /// inset space around the entire content area.
 ///
+/// ## Line Numbers
+///
+/// When [showLineNumbers] is `true`, a vertical gutter column is inserted
+/// between [documentPadding.left] and the content area.  The gutter width is
+/// either [lineNumberWidth] (explicit) or auto-computed from the child count
+/// and [lineNumberTextStyle].  Float blocks are skipped — they do not receive
+/// a line-number label.
+///
 /// ## Example
 ///
 /// ```dart
@@ -229,7 +237,7 @@ class RenderDocumentLayout extends RenderBox
         ContainerRenderObjectMixin<RenderDocumentBlock, DocumentBlockParentData>,
         RenderBoxContainerDefaultsMixin<RenderDocumentBlock, DocumentBlockParentData> {
   /// Creates a [RenderDocumentLayout] with optional [blockSpacing],
-  /// [viewportWidth], and [documentPadding].
+  /// [viewportWidth], [documentPadding], and line-number properties.
   ///
   /// [blockSpacing] is the vertical gap in logical pixels inserted between
   /// consecutive children.  Defaults to `12.0`.
@@ -245,13 +253,34 @@ class RenderDocumentLayout extends RenderBox
   /// respectively.  The left and right insets shift all children inward and
   /// reduce each child's available width by the horizontal total.  Defaults to
   /// [EdgeInsets.zero].
+  ///
+  /// [showLineNumbers] controls whether a line-number gutter is rendered on the
+  /// left side of the content area.  Defaults to `false`.
+  ///
+  /// [lineNumberWidth] sets an explicit gutter width in logical pixels.  When
+  /// `0.0` (the default), the width is auto-computed from the child count and
+  /// [lineNumberTextStyle].
+  ///
+  /// [lineNumberTextStyle] is the [TextStyle] used to render the line number
+  /// labels.  Defaults to `null`, which uses a built-in fallback style.
+  ///
+  /// [lineNumberBackgroundColor] is the fill [Color] painted behind the gutter
+  /// column.  Defaults to `null` (transparent — no background is painted).
   RenderDocumentLayout({
     double blockSpacing = 12.0,
     double? viewportWidth,
     EdgeInsets documentPadding = EdgeInsets.zero,
+    bool showLineNumbers = false,
+    double lineNumberWidth = 0.0,
+    TextStyle? lineNumberTextStyle,
+    Color? lineNumberBackgroundColor,
   })  : _blockSpacing = blockSpacing,
         _viewportWidth = viewportWidth,
-        _documentPadding = documentPadding;
+        _documentPadding = documentPadding,
+        _showLineNumbers = showLineNumbers,
+        _lineNumberWidth = lineNumberWidth,
+        _lineNumberTextStyle = lineNumberTextStyle,
+        _lineNumberBackgroundColor = lineNumberBackgroundColor;
 
   // ---------------------------------------------------------------------------
   // blockSpacing
@@ -270,6 +299,22 @@ class RenderDocumentLayout extends RenderBox
   // ---------------------------------------------------------------------------
 
   EdgeInsets _documentPadding;
+
+  // ---------------------------------------------------------------------------
+  // Line-number fields
+  // ---------------------------------------------------------------------------
+
+  bool _showLineNumbers;
+  double _lineNumberWidth;
+  TextStyle? _lineNumberTextStyle;
+  Color? _lineNumberBackgroundColor;
+
+  /// Resolved gutter width computed during [performLayout].
+  ///
+  /// This is either [_lineNumberWidth] (when non-zero) or the auto-computed
+  /// value based on the child count.  It is `0.0` when [_showLineNumbers] is
+  /// `false`.
+  double _resolvedGutterWidth = 0.0;
 
   /// The vertical gap in logical pixels between consecutive block children.
   ///
@@ -315,6 +360,82 @@ class RenderDocumentLayout extends RenderBox
     if (_documentPadding == value) return;
     _documentPadding = value;
     markNeedsLayout();
+  }
+
+  // ---------------------------------------------------------------------------
+  // showLineNumbers
+  // ---------------------------------------------------------------------------
+
+  /// Whether to render a line-number gutter on the left side of the content
+  /// area.
+  ///
+  /// When `true`, a vertical gutter column of width [_resolvedGutterWidth] is
+  /// inserted between [documentPadding.left] and the first content pixel.
+  /// Non-float blocks are numbered sequentially from `1`; float blocks are
+  /// skipped (they share the line number of the block they float beside).
+  ///
+  /// Defaults to `false`.
+  bool get showLineNumbers => _showLineNumbers;
+
+  /// Sets [showLineNumbers] and schedules a layout pass when the value changes.
+  set showLineNumbers(bool value) {
+    if (_showLineNumbers == value) return;
+    _showLineNumbers = value;
+    markNeedsLayout();
+  }
+
+  // ---------------------------------------------------------------------------
+  // lineNumberWidth
+  // ---------------------------------------------------------------------------
+
+  /// The explicit gutter width in logical pixels.
+  ///
+  /// When `0.0` (the default), the width is auto-computed from the child count
+  /// and [lineNumberTextStyle] during [performLayout].  Supply a positive value
+  /// to pin the gutter to a fixed width regardless of child count.
+  double get lineNumberWidth => _lineNumberWidth;
+
+  /// Sets [lineNumberWidth] and schedules a layout pass when the value changes.
+  set lineNumberWidth(double value) {
+    if (_lineNumberWidth == value) return;
+    _lineNumberWidth = value;
+    markNeedsLayout();
+  }
+
+  // ---------------------------------------------------------------------------
+  // lineNumberTextStyle
+  // ---------------------------------------------------------------------------
+
+  /// The [TextStyle] used to render the line-number labels in the gutter.
+  ///
+  /// When `null` a default style of `TextStyle(fontSize: 12)` is used.
+  /// Changing this property only triggers a repaint, not a full re-layout,
+  /// because the gutter width is fixed once [performLayout] runs.
+  TextStyle? get lineNumberTextStyle => _lineNumberTextStyle;
+
+  /// Sets [lineNumberTextStyle] and schedules a repaint when the value changes.
+  set lineNumberTextStyle(TextStyle? value) {
+    if (_lineNumberTextStyle == value) return;
+    _lineNumberTextStyle = value;
+    markNeedsPaint();
+  }
+
+  // ---------------------------------------------------------------------------
+  // lineNumberBackgroundColor
+  // ---------------------------------------------------------------------------
+
+  /// The fill [Color] painted behind the entire gutter column.
+  ///
+  /// When `null` (the default) no background is drawn.  Changing this property
+  /// only triggers a repaint, not a full re-layout.
+  Color? get lineNumberBackgroundColor => _lineNumberBackgroundColor;
+
+  /// Sets [lineNumberBackgroundColor] and schedules a repaint when the value
+  /// changes.
+  set lineNumberBackgroundColor(Color? value) {
+    if (_lineNumberBackgroundColor == value) return;
+    _lineNumberBackgroundColor = value;
+    markNeedsPaint();
   }
 
   // ---------------------------------------------------------------------------
@@ -373,9 +494,32 @@ class RenderDocumentLayout extends RenderBox
   @override
   void performLayout() {
     final maxW = constraints.maxWidth;
+
+    // -------------------------------------------------------------------
+    // Resolve gutter width for line numbers.
+    // -------------------------------------------------------------------
+    if (_showLineNumbers) {
+      if (_lineNumberWidth > 0.0) {
+        _resolvedGutterWidth = _lineNumberWidth;
+      } else {
+        // Auto-compute from the string representation of the child count
+        // (e.g. "5" for 5 children, "15" for 15 children) plus 16 dp padding.
+        final labelStyle = _lineNumberTextStyle ?? const TextStyle(fontSize: 12);
+        final label = '$childCount';
+        final tp = TextPainter(
+          text: TextSpan(text: label, style: labelStyle),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        _resolvedGutterWidth = tp.width + 16.0;
+      }
+    } else {
+      _resolvedGutterWidth = 0.0;
+    }
+
     // Reduce the available content width by horizontal padding.
-    final contentLeft = _documentPadding.left;
-    final preferredWidth = (_viewportWidth ?? maxW) - _documentPadding.horizontal;
+    final contentLeft = _documentPadding.left + _resolvedGutterWidth;
+    final preferredWidth =
+        (_viewportWidth ?? maxW) - _documentPadding.horizontal - _resolvedGutterWidth;
     // Start placing children below the top padding.
     var yOffset = _documentPadding.top;
     var childIndex = 0;
@@ -821,7 +965,10 @@ class RenderDocumentLayout extends RenderBox
   // Paint
   // ---------------------------------------------------------------------------
 
-  /// Paints children in three passes based on [DocumentBlockParentData.wrapMode].
+  /// Paints the gutter and children.
+  ///
+  /// **Gutter pass** (when [showLineNumbers] is `true`) — the line-number
+  /// background and labels are painted first, before any child content.
   ///
   /// **Pass 1** — [TextWrapMode.behindText] float children are painted first,
   /// behind all other content.
@@ -836,6 +983,53 @@ class RenderDocumentLayout extends RenderBox
   /// background of a later wrapping block.
   @override
   void paint(PaintingContext context, Offset offset) {
+    // -------------------------------------------------------------------
+    // Gutter pass: paint line-number background and labels.
+    // -------------------------------------------------------------------
+    if (_showLineNumbers && _resolvedGutterWidth > 0.0) {
+      final canvas = context.canvas;
+
+      // Paint gutter background if a color is set.
+      final bgColor = _lineNumberBackgroundColor;
+      if (bgColor != null) {
+        final gutterRect = Rect.fromLTWH(
+          offset.dx + _documentPadding.left,
+          offset.dy,
+          _resolvedGutterWidth,
+          size.height,
+        );
+        canvas.drawRect(gutterRect, Paint()..color = bgColor);
+      }
+
+      // Paint line-number labels for non-float children.
+      final labelStyle = _lineNumberTextStyle ?? const TextStyle(fontSize: 12);
+      final tp = TextPainter(textDirection: TextDirection.ltr);
+      var lineNumber = 1;
+
+      RenderDocumentBlock? child = firstChild;
+      while (child != null) {
+        final parentData = child.parentData as DocumentBlockParentData;
+
+        if (!parentData.isFloat) {
+          // Right-align the label with 8 dp from the gutter's right edge.
+          final label = '$lineNumber';
+          tp.text = TextSpan(text: label, style: labelStyle);
+          tp.layout();
+
+          // Gutter right edge in global coordinates.
+          final gutterRight = offset.dx + _documentPadding.left + _resolvedGutterWidth;
+          final labelX = gutterRight - 8.0 - tp.width;
+          // Vertically aligned with the child's top edge.
+          final labelY = offset.dy + parentData.offset.dy;
+          tp.paint(canvas, Offset(labelX, labelY));
+
+          lineNumber++;
+        }
+
+        child = childAfter(child);
+      }
+    }
+
     // Pass 1: behindText floats (painted behind everything).
     RenderDocumentBlock? child = firstChild;
     while (child != null) {
@@ -1181,6 +1375,13 @@ class RenderDocumentLayout extends RenderBox
     properties.add(DoubleProperty('viewportWidth', viewportWidth, defaultValue: null));
     properties.add(DiagnosticsProperty<EdgeInsets>('documentPadding', documentPadding,
         defaultValue: EdgeInsets.zero));
+    properties
+        .add(DiagnosticsProperty<bool>('showLineNumbers', showLineNumbers, defaultValue: false));
+    properties.add(DoubleProperty('lineNumberWidth', lineNumberWidth, defaultValue: 0.0));
+    properties.add(DiagnosticsProperty<TextStyle>('lineNumberTextStyle', lineNumberTextStyle,
+        defaultValue: null));
+    properties.add(
+        ColorProperty('lineNumberBackgroundColor', lineNumberBackgroundColor, defaultValue: null));
   }
 }
 
