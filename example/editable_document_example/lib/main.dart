@@ -24,6 +24,8 @@
 ///   Block Properties toggle button; shows text alignment, line height, spacing,
 ///   border, indent, and block layout (alignment, text wrap, dimensions) for the
 ///   selected block — all routing handled by the core widget
+/// - DocumentTheme: wraps the entire screen with DocumentThemeData (block spacing,
+///   caret color, selection color, code block background, property panel width)
 /// - Document Settings panel (when nothing selected): block spacing, default line height,
 ///   document padding, and line number gutter controls
 /// - documentPadding: EdgeInsets applied around the content area (horizontal/vertical
@@ -1394,20 +1396,31 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Column(
-        children: [
-          _buildToolbar(),
-          Expanded(
-            child: Row(
-              children: [
-                Expanded(child: _buildEditor()),
-                _buildPropertyPanel(),
-              ],
+    return DocumentTheme(
+      data: DocumentThemeData(
+        defaultBlockSpacing: _blockSpacing,
+        caretColor: Colors.blue,
+        selectionColor: Colors.blue.withValues(alpha: 0.3),
+        codeBlockBackgroundColor: const Color(0xFFF5F5F5),
+        propertyPanelTheme: const PropertyPanelThemeData(
+          width: 280,
+        ),
+      ),
+      child: Scaffold(
+        body: Column(
+          children: [
+            _buildToolbar(),
+            Expanded(
+              child: Row(
+                children: [
+                  Expanded(child: _buildEditor()),
+                  _buildPropertyPanel(),
+                ],
+              ),
             ),
-          ),
-          _buildStatusBar(),
-        ],
+            _buildStatusBar(),
+          ],
+        ),
       ),
     );
   }
