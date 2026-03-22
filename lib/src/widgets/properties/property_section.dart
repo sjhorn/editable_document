@@ -4,15 +4,18 @@ library;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../theme/property_panel_theme.dart';
+
 // ---------------------------------------------------------------------------
 // PropertySection
 // ---------------------------------------------------------------------------
 
 /// A labeled section within a property panel.
 ///
-/// Renders a [label] using [TextTheme.labelMedium] followed by [child].
-/// Adds vertical spacing above the label so consecutive sections are
-/// visually separated.
+/// Renders a [label] using [PropertyPanelThemeData.sectionLabelStyle] when
+/// a [PropertyPanelTheme] ancestor is present, falling back to
+/// [TextTheme.labelMedium]. Adds vertical spacing above the label controlled
+/// by [PropertyPanelThemeData.sectionSpacing] (default `12.0`).
 ///
 /// ```dart
 /// PropertySection(
@@ -39,11 +42,15 @@ class PropertySection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final panelTheme = PropertyPanelTheme.maybeOf(context);
+    final spacing = panelTheme?.sectionSpacing ?? 12.0;
+    final labelStyle = panelTheme?.sectionLabelStyle ?? Theme.of(context).textTheme.labelMedium;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 12),
-        Text(label, style: Theme.of(context).textTheme.labelMedium),
+        SizedBox(height: spacing),
+        Text(label, style: labelStyle),
         const SizedBox(height: 4),
         child,
       ],

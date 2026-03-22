@@ -24,6 +24,7 @@ import 'block_dimension_editor.dart';
 import 'image_properties_editor.dart';
 import 'indent_editor.dart';
 import 'line_height_editor.dart';
+import '../theme/property_panel_theme.dart';
 import 'property_section.dart';
 import 'spacing_editor.dart';
 import 'text_alignment_editor.dart';
@@ -73,8 +74,18 @@ class DocumentPropertyPanel extends StatelessWidget {
   /// When `null`, the button is not shown.
   final VoidCallback? onPickImageFile;
 
+  /// Returns the effective panel width, preferring [PropertyPanelThemeData.width]
+  /// from the ambient [PropertyPanelTheme] when provided, then [width], then
+  /// the default `280.0`.
+  double effectiveWidth(PropertyPanelThemeData? themeData) {
+    return themeData?.width ?? width;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final panelTheme = PropertyPanelTheme.maybeOf(context);
+    final resolvedWidth = effectiveWidth(panelTheme);
+
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
@@ -86,7 +97,7 @@ class DocumentPropertyPanel extends StatelessWidget {
         if (node == null) return const SizedBox.shrink();
 
         return SizedBox(
-          width: width,
+          width: resolvedWidth,
           child: _NodePropertyContent(
             node: node,
             onRequest: requestHandler,
