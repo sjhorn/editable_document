@@ -15,6 +15,7 @@ import '../model/document_position.dart';
 import '../model/document_selection.dart';
 import '../model/node_position.dart';
 import '../model/text_wrap_mode.dart';
+import 'block_layout_mixin.dart';
 import 'render_document_block.dart';
 
 // ---------------------------------------------------------------------------
@@ -289,6 +290,7 @@ class RenderDocumentLayout extends RenderBox
   RenderDocumentLayout({
     double blockSpacing = 12.0,
     double? viewportWidth,
+    double? viewportHeight,
     EdgeInsets documentPadding = EdgeInsets.zero,
     bool showLineNumbers = false,
     double lineNumberWidth = 0.0,
@@ -298,6 +300,7 @@ class RenderDocumentLayout extends RenderBox
     TextStyle? baseTextStyle,
   })  : _blockSpacing = blockSpacing,
         _viewportWidth = viewportWidth,
+        _viewportHeight = viewportHeight,
         _documentPadding = documentPadding,
         _showLineNumbers = showLineNumbers,
         _lineNumberWidth = lineNumberWidth,
@@ -317,6 +320,12 @@ class RenderDocumentLayout extends RenderBox
   // ---------------------------------------------------------------------------
 
   double? _viewportWidth;
+
+  // ---------------------------------------------------------------------------
+  // viewportHeight
+  // ---------------------------------------------------------------------------
+
+  double? _viewportHeight;
 
   // ---------------------------------------------------------------------------
   // documentPadding
@@ -371,6 +380,21 @@ class RenderDocumentLayout extends RenderBox
   set viewportWidth(double? value) {
     if (_viewportWidth == value) return;
     _viewportWidth = value;
+    markNeedsLayout();
+  }
+
+  /// The viewport height in logical pixels, used to resolve percentage-based
+  /// block heights.
+  ///
+  /// When `null`, [constraints.maxHeight] is used as the reference size when
+  /// resolving [PercentDimension] heights.  Supply a fixed value when the
+  /// document is inside a viewport with an unbounded maxHeight.
+  double? get viewportHeight => _viewportHeight;
+
+  /// Sets [viewportHeight] and schedules a layout pass when the value changes.
+  set viewportHeight(double? value) {
+    if (_viewportHeight == value) return;
+    _viewportHeight = value;
     markNeedsLayout();
   }
 
@@ -651,6 +675,15 @@ class RenderDocumentLayout extends RenderBox
 
     while (child != null) {
       final parentData = child.parentData as DocumentBlockParentData;
+
+      // Resolve percentage dimensions to pixels before reading requestedWidth
+      // or requestedHeight from this child.
+      if (child case final BlockLayoutMixin blm) {
+        blm
+          ..resolveWidth(preferredWidth)
+          ..resolveHeight(_viewportHeight ?? constraints.maxHeight);
+      }
+
       final alignment = child.blockAlignment;
       final wrapMode = child.textWrap;
       final isFloat = wrapMode != TextWrapMode.none &&
@@ -1641,6 +1674,7 @@ class RenderDocumentLayout extends RenderBox
     super.debugFillProperties(properties);
     properties.add(DoubleProperty('blockSpacing', blockSpacing));
     properties.add(DoubleProperty('viewportWidth', viewportWidth, defaultValue: null));
+    properties.add(DoubleProperty('viewportHeight', viewportHeight, defaultValue: null));
     properties.add(DiagnosticsProperty<EdgeInsets>('documentPadding', documentPadding,
         defaultValue: EdgeInsets.zero));
     properties

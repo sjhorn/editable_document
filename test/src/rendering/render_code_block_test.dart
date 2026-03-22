@@ -134,7 +134,7 @@ void main() {
       expect(block.size.width, 200.0);
     });
 
-    test('requestedHeight sets block height', () {
+    test('requestedHeight sets minimum block height when larger than intrinsic', () {
       final block = RenderCodeBlock(
         nodeId: 'code-1',
         text: AttributedText('hello'),
@@ -144,7 +144,35 @@ void main() {
         const BoxConstraints(maxWidth: 600, maxHeight: double.infinity),
         parentUsesSize: true,
       );
-      expect(block.size.height, 80.0);
+      expect(block.size.height, greaterThanOrEqualTo(80.0));
+    });
+
+    test('requestedHeight smaller than intrinsic is ignored — intrinsic wins', () {
+      // A very small requestedHeight should not crop text.
+      final block = RenderCodeBlock(
+        nodeId: 'code-1',
+        text: AttributedText('hello'),
+        requestedHeight: 2.0, // well below text + padding
+      );
+      block.layout(
+        const BoxConstraints(maxWidth: 600, maxHeight: double.infinity),
+        parentUsesSize: true,
+      );
+      // intrinsicH = textHeight + 2*16 ≥ 32, so 32 > 2 → intrinsic wins
+      expect(block.size.height, greaterThan(2.0));
+    });
+
+    test('widthDimension pixel sets block width', () {
+      final block = RenderCodeBlock(
+        nodeId: 'code-1',
+        text: AttributedText('hello'),
+        widthDimension: const BlockDimension.pixels(200.0),
+      );
+      block.layout(
+        const BoxConstraints(maxWidth: 600, maxHeight: double.infinity),
+        parentUsesSize: true,
+      );
+      expect(block.size.width, 200.0);
     });
   });
 }

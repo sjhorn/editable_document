@@ -198,7 +198,7 @@ void main() {
       expect(block.size.width, 200.0);
     });
 
-    test('requestedHeight sets block height', () {
+    test('requestedHeight sets minimum block height', () {
       final block = RenderBlockquoteBlock(
         nodeId: 'bq-1',
         text: AttributedText('hello'),
@@ -208,7 +208,8 @@ void main() {
         const BoxConstraints(maxWidth: 600, maxHeight: double.infinity),
         parentUsesSize: true,
       );
-      expect(block.size.height, 80.0);
+      // Min-height: result is max(requestedHeight, layoutTextHeight).
+      expect(block.size.height, greaterThanOrEqualTo(80.0));
     });
 
     test('requestedWidth clamped to constraints.maxWidth when larger', () {
@@ -297,6 +298,35 @@ void main() {
       const extent = TextNodePosition(offset: 2);
       final rects = block.getEndpointsForSelection(base, extent);
       expect(rects, isEmpty);
+    });
+  });
+
+  group('RenderBlockquoteBlock — min-height semantics', () {
+    test('requestedHeight smaller than intrinsic is ignored — intrinsic wins', () {
+      final block = RenderBlockquoteBlock(
+        nodeId: 'bq-1',
+        text: AttributedText('hello'),
+        requestedHeight: 1.0, // well below text height
+      );
+      block.layout(
+        const BoxConstraints(maxWidth: 600, maxHeight: double.infinity),
+        parentUsesSize: true,
+      );
+      // layoutTextHeight for 'hello' is positive; intrinsic wins over 1.0
+      expect(block.size.height, greaterThan(1.0));
+    });
+
+    test('widthDimension pixel sets block width', () {
+      final block = RenderBlockquoteBlock(
+        nodeId: 'bq-1',
+        text: AttributedText('hello'),
+        widthDimension: const BlockDimension.pixels(200.0),
+      );
+      block.layout(
+        const BoxConstraints(maxWidth: 600, maxHeight: double.infinity),
+        parentUsesSize: true,
+      );
+      expect(block.size.width, 200.0);
     });
   });
 }

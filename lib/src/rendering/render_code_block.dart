@@ -4,9 +4,12 @@
 /// monospace font and a filled background rectangle.
 library;
 
+import 'dart:math' show max;
+
 import 'package:flutter/rendering.dart';
 
 import '../model/block_alignment.dart';
+import '../model/block_dimension.dart';
 import '../model/node_position.dart';
 import '../model/text_wrap_mode.dart';
 import 'block_layout_mixin.dart';
@@ -31,9 +34,13 @@ class RenderCodeBlock extends RenderTextBlock with BlockLayoutMixin {
   /// [padding] defaults to [_kCodeBlockPadding] (16 dp) on all sides.
   /// [blockAlignment] controls horizontal positioning within the available
   /// layout width; defaults to [BlockAlignment.stretch].
-  /// [requestedWidth] overrides the layout width when non-null; the text is
-  /// laid out within `requestedWidth - 2 * padding`.
-  /// [requestedHeight] overrides the block height when non-null.
+  /// [widthDimension] overrides the layout width when non-null; the text is
+  /// laid out within `resolvedWidth - 2 * padding`.
+  /// [heightDimension] sets the minimum block height when non-null.
+  /// [requestedWidth] is a legacy pixel-only shorthand for
+  /// `widthDimension: BlockDimension.pixels(value)`.  Prefer [widthDimension].
+  /// [requestedHeight] is a legacy pixel-only shorthand for
+  /// `heightDimension: BlockDimension.pixels(value)`.  Prefer [heightDimension].
   /// [textWrap] controls how surrounding text interacts with this block;
   /// defaults to [TextWrapMode.none].
   RenderCodeBlock({
@@ -46,6 +53,8 @@ class RenderCodeBlock extends RenderTextBlock with BlockLayoutMixin {
     super.textAlign,
     super.selectionColor,
     BlockAlignment blockAlignment = BlockAlignment.stretch,
+    BlockDimension? widthDimension,
+    BlockDimension? heightDimension,
     double? requestedWidth,
     double? requestedHeight,
     TextWrapMode textWrap = TextWrapMode.none,
@@ -53,8 +62,10 @@ class RenderCodeBlock extends RenderTextBlock with BlockLayoutMixin {
         _padding = padding {
     initBlockLayout(
       blockAlignment: blockAlignment,
-      requestedWidth: requestedWidth,
-      requestedHeight: requestedHeight,
+      widthDimension:
+          widthDimension ?? (requestedWidth != null ? BlockDimension.pixels(requestedWidth) : null),
+      heightDimension: heightDimension ??
+          (requestedHeight != null ? BlockDimension.pixels(requestedHeight) : null),
       textWrap: textWrap,
     );
     // Override the text style to force monospace.
@@ -118,9 +129,10 @@ class RenderCodeBlock extends RenderTextBlock with BlockLayoutMixin {
     );
     layoutText(textMaxWidth, exclusionRect: excl);
 
-    // When requestedHeight is set, use it as the block height.  Otherwise
-    // derive the height from the laid-out text plus padding.
-    final blockH = requestedHeight ?? (layoutTextHeight + _padding * 2);
+    // When requestedHeight is set, use it as the minimum block height.
+    // Otherwise derive the height from the laid-out text plus padding.
+    final intrinsicH = layoutTextHeight + _padding * 2;
+    final blockH = requestedHeight != null ? max(requestedHeight!, intrinsicH) : intrinsicH;
 
     size = Size(blockW, blockH);
   }

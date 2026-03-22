@@ -6,12 +6,14 @@
 /// widget layer; this render object does **not** dispose the image.
 library;
 
+import 'dart:math';
 import 'dart:ui' as ui show Image;
 
 import 'package:flutter/rendering.dart';
 
 import '../model/block_alignment.dart';
 import '../model/block_border.dart';
+import '../model/block_dimension.dart';
 import '../model/document_selection.dart';
 import '../model/node_position.dart';
 import '../model/text_wrap_mode.dart';
@@ -86,10 +88,14 @@ class RenderImageBlock extends RenderDocumentBlock with BlockLayoutMixin {
   /// `null` the block is labelled `'Image'`.
   /// [blockAlignment] controls how this block is positioned horizontally within
   /// the available layout width; defaults to [BlockAlignment.stretch].
-  /// [requestedWidth] overrides the intrinsic image width for layout purposes;
-  /// when non-null the block is sized to this width (clamped to constraints).
-  /// [requestedHeight] overrides the intrinsic image height for layout purposes;
-  /// when non-null the block is sized to this height.
+  /// [widthDimension] overrides the intrinsic image width for layout purposes;
+  /// when non-null the block is sized to this dimension (clamped to constraints).
+  /// [heightDimension] overrides the intrinsic image height for layout purposes;
+  /// when non-null the block is sized to at least this dimension.
+  /// [requestedWidth] is a legacy pixel-only shorthand for
+  /// `widthDimension: BlockDimension.pixels(value)`.  Prefer [widthDimension].
+  /// [requestedHeight] is a legacy pixel-only shorthand for
+  /// `heightDimension: BlockDimension.pixels(value)`.  Prefer [heightDimension].
   /// [textWrap] controls how surrounding text interacts with this block;
   /// defaults to [TextWrapMode.none].
   RenderImageBlock({
@@ -100,6 +106,8 @@ class RenderImageBlock extends RenderDocumentBlock with BlockLayoutMixin {
     Color placeholderColor = const Color(0xFFE0E0E0),
     String? altText,
     BlockAlignment blockAlignment = BlockAlignment.stretch,
+    BlockDimension? widthDimension,
+    BlockDimension? heightDimension,
     double? requestedWidth,
     double? requestedHeight,
     TextWrapMode textWrap = TextWrapMode.none,
@@ -111,8 +119,10 @@ class RenderImageBlock extends RenderDocumentBlock with BlockLayoutMixin {
         _altText = altText {
     initBlockLayout(
       blockAlignment: blockAlignment,
-      requestedWidth: requestedWidth,
-      requestedHeight: requestedHeight,
+      widthDimension:
+          widthDimension ?? (requestedWidth != null ? BlockDimension.pixels(requestedWidth) : null),
+      heightDimension: heightDimension ??
+          (requestedHeight != null ? BlockDimension.pixels(requestedHeight) : null),
       textWrap: textWrap,
     );
   }
@@ -336,7 +346,13 @@ class RenderImageBlock extends RenderDocumentBlock with BlockLayoutMixin {
       // Both dimensions are known — use them, scaling to fit constraints.
       final w = intrinsicW.clamp(minW, maxW);
       final scale = w / intrinsicW;
-      size = Size(w, intrinsicH * scale);
+      var h = intrinsicH * scale;
+      // Min-height: when the image's natural height at this width exceeds the
+      // computed height, use the natural height so content is never clipped.
+      if (requestedHeight != null && _imageHeight != null) {
+        h = max(h, _imageHeight! * scale);
+      }
+      size = Size(w, h);
     } else if (intrinsicW != null) {
       // Only width is known.  Use the image's natural aspect ratio when
       // available; otherwise fall back to 16:9.
@@ -353,7 +369,13 @@ class RenderImageBlock extends RenderDocumentBlock with BlockLayoutMixin {
       if (_image != null) {
         final imageAspect = _image!.width.toDouble() / _image!.height.toDouble();
         final w = (intrinsicH * imageAspect).clamp(minW, maxW);
-        size = Size(w, intrinsicH);
+        // Min-height: when the image's natural height exceeds the computed
+        // height, use the natural height.
+        var h = intrinsicH;
+        if (requestedHeight != null && _imageHeight != null) {
+          h = max(h, _imageHeight!);
+        }
+        size = Size(w, h);
       } else {
         size = Size(maxW, intrinsicH);
       }

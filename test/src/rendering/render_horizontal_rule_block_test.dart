@@ -303,4 +303,36 @@ void main() {
       expect(block.border, isNull);
     });
   });
+
+  group('RenderHorizontalRuleBlock — min-height semantics', () {
+    test('requestedHeight smaller than intrinsic is ignored — intrinsic wins', () {
+      // Intrinsic height = 1 (thickness) + 2*8 (padding) = 17.
+      final block = RenderHorizontalRuleBlock(
+        nodeId: 'hr-1',
+        thickness: 1.0,
+        verticalPadding: 8.0,
+        requestedHeight: 5.0, // smaller than intrinsic 17
+      );
+      block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      expect(block.size.height, closeTo(17.0, 0.01));
+    });
+
+    test('widthDimension pixel sets block width', () {
+      final block = RenderHorizontalRuleBlock(
+        nodeId: 'hr-1',
+        widthDimension: const BlockDimension.pixels(300.0),
+      );
+      block.layout(const BoxConstraints(maxWidth: 600), parentUsesSize: true);
+      expect(block.size.width, closeTo(300.0, 0.01));
+    });
+
+    test('heightDimension pixel sets minimum block height', () {
+      final block = RenderHorizontalRuleBlock(
+        nodeId: 'hr-1',
+        heightDimension: const BlockDimension.pixels(50.0),
+      );
+      block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      expect(block.size.height, closeTo(50.0, 0.01));
+    });
+  });
 }

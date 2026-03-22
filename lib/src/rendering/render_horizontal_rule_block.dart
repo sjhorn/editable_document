@@ -4,10 +4,13 @@
 /// simple horizontal divider line.
 library;
 
+import 'dart:math' show max;
+
 import 'package:flutter/rendering.dart';
 
 import '../model/block_alignment.dart';
 import '../model/block_border.dart';
+import '../model/block_dimension.dart';
 import '../model/document_selection.dart';
 import '../model/node_position.dart';
 import '../model/text_wrap_mode.dart';
@@ -31,8 +34,12 @@ class RenderHorizontalRuleBlock extends RenderDocumentBlock with BlockLayoutMixi
   /// [verticalPadding] defaults to `8.0`.
   /// [blockAlignment] controls horizontal positioning within the available
   /// layout width; defaults to [BlockAlignment.stretch].
-  /// [requestedWidth] overrides the layout width when non-null.
-  /// [requestedHeight] overrides the layout height when non-null.
+  /// [widthDimension] overrides the layout width when non-null.
+  /// [heightDimension] sets the minimum layout height when non-null.
+  /// [requestedWidth] is a legacy pixel-only shorthand for
+  /// `widthDimension: BlockDimension.pixels(value)`.  Prefer [widthDimension].
+  /// [requestedHeight] is a legacy pixel-only shorthand for
+  /// `heightDimension: BlockDimension.pixels(value)`.  Prefer [heightDimension].
   /// [textWrap] controls how surrounding text interacts with this block;
   /// defaults to [TextWrapMode.none].
   RenderHorizontalRuleBlock({
@@ -41,6 +48,8 @@ class RenderHorizontalRuleBlock extends RenderDocumentBlock with BlockLayoutMixi
     double thickness = 1.0,
     double verticalPadding = 8.0,
     BlockAlignment blockAlignment = BlockAlignment.stretch,
+    BlockDimension? widthDimension,
+    BlockDimension? heightDimension,
     double? requestedWidth,
     double? requestedHeight,
     TextWrapMode textWrap = TextWrapMode.none,
@@ -50,8 +59,10 @@ class RenderHorizontalRuleBlock extends RenderDocumentBlock with BlockLayoutMixi
         _verticalPadding = verticalPadding {
     initBlockLayout(
       blockAlignment: blockAlignment,
-      requestedWidth: requestedWidth,
-      requestedHeight: requestedHeight,
+      widthDimension:
+          widthDimension ?? (requestedWidth != null ? BlockDimension.pixels(requestedWidth) : null),
+      heightDimension: heightDimension ??
+          (requestedHeight != null ? BlockDimension.pixels(requestedHeight) : null),
       textWrap: textWrap,
     );
   }
@@ -202,7 +213,8 @@ class RenderHorizontalRuleBlock extends RenderDocumentBlock with BlockLayoutMixi
   @override
   void performLayout() {
     final w = requestedWidth ?? constraints.maxWidth;
-    final h = requestedHeight ?? (_thickness + 2 * _verticalPadding);
+    final intrinsicH = _thickness + 2 * _verticalPadding;
+    final h = requestedHeight != null ? max(requestedHeight!, intrinsicH) : intrinsicH;
     size = Size(w, h);
   }
 

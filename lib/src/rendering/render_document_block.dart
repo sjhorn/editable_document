@@ -10,6 +10,7 @@ import 'package:flutter/rendering.dart';
 
 import '../model/block_alignment.dart';
 import '../model/block_border.dart';
+import '../model/block_dimension.dart';
 import '../model/document_selection.dart';
 import '../model/node_position.dart';
 import '../model/text_wrap_mode.dart';
@@ -81,6 +82,18 @@ abstract class RenderDocumentBlock extends RenderBox {
   /// width.  Container blocks (image, code, blockquote, horizontal rule) may
   /// override this to return the value set by the widget layer.
   BlockAlignment get blockAlignment => BlockAlignment.stretch;
+
+  /// The block dimension for width, or `null` for default sizing.
+  ///
+  /// When non-null, [RenderDocumentLayout] resolves this to [requestedWidth]
+  /// before layout.  Text blocks return `null` by default (full width).
+  BlockDimension? get widthDimension => null;
+
+  /// The block dimension for height, or `null` for default sizing.
+  ///
+  /// When non-null, [RenderDocumentLayout] resolves this to [requestedHeight]
+  /// before layout.  Text blocks return `null` by default (intrinsic height).
+  BlockDimension? get heightDimension => null;
 
   /// The requested width of this block in logical pixels, or `null`.
   ///
@@ -187,6 +200,10 @@ abstract class RenderDocumentBlock extends RenderBox {
     properties.add(StringProperty('nodeId', nodeId));
     properties.add(DiagnosticsProperty<DocumentSelection?>('nodeSelection', nodeSelection));
     properties.add(EnumProperty<BlockAlignment>('blockAlignment', blockAlignment));
+    properties.add(
+        DiagnosticsProperty<BlockDimension?>('widthDimension', widthDimension, defaultValue: null));
+    properties.add(DiagnosticsProperty<BlockDimension?>('heightDimension', heightDimension,
+        defaultValue: null));
     properties.add(DoubleProperty('requestedWidth', requestedWidth));
     properties.add(DoubleProperty('requestedHeight', requestedHeight));
     properties

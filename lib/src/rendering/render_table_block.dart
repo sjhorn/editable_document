@@ -16,6 +16,7 @@ import '../model/attributed_text.dart';
 import '../model/attribution.dart';
 import '../model/block_alignment.dart';
 import '../model/block_border.dart';
+import '../model/block_dimension.dart';
 import '../model/document_selection.dart';
 import '../model/node_position.dart';
 import '../model/table_vertical_alignment.dart';
@@ -131,6 +132,8 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
     Color selectionColor = const Color(0x663399FF),
     TextDirection textDirection = TextDirection.ltr,
     BlockAlignment blockAlignment = BlockAlignment.stretch,
+    BlockDimension? widthDimension,
+    BlockDimension? heightDimension,
     double? requestedWidth,
     double? requestedHeight,
     TextWrapMode textWrap = TextWrapMode.none,
@@ -152,8 +155,10 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
         _cellVerticalAligns = cellVerticalAligns {
     initBlockLayout(
       blockAlignment: blockAlignment,
-      requestedWidth: requestedWidth,
-      requestedHeight: requestedHeight,
+      widthDimension:
+          widthDimension ?? (requestedWidth != null ? BlockDimension.pixels(requestedWidth) : null),
+      heightDimension: heightDimension ??
+          (requestedHeight != null ? BlockDimension.pixels(requestedHeight) : null),
       textWrap: textWrap,
     );
   }
@@ -729,7 +734,12 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
     _cellLayouts = cellLayouts;
 
     // Total height: sum of row heights + borders.
-    final totalHeight = rowHeights.fold(0.0, (sum, h) => sum + h) + (_rowCount + 1) * _borderWidth;
+    final intrinsicTableHeight =
+        rowHeights.fold(0.0, (sum, h) => sum + h) + (_rowCount + 1) * _borderWidth;
+    // Min-height: requestedHeight is a lower bound on the final table height.
+    final totalHeight = requestedHeight != null
+        ? max(requestedHeight!, intrinsicTableHeight)
+        : intrinsicTableHeight;
 
     size = Size(tableWidth, totalHeight);
   }

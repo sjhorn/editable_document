@@ -4,9 +4,12 @@
 /// left-side accent border that visually identifies quoted content.
 library;
 
+import 'dart:math' show max;
+
 import 'package:flutter/rendering.dart';
 
 import '../model/block_alignment.dart';
+import '../model/block_dimension.dart';
 import '../model/node_position.dart';
 import '../model/text_wrap_mode.dart';
 import 'block_layout_mixin.dart';
@@ -58,8 +61,12 @@ class RenderBlockquoteBlock extends RenderTextBlock with BlockLayoutMixin {
   ///   `Color(0xFFBDBDBD)` (medium grey).
   /// [blockAlignment] controls horizontal positioning; defaults to
   ///   [BlockAlignment.stretch].
-  /// [requestedWidth] overrides the block width when non-null.
-  /// [requestedHeight] overrides the block height when non-null.
+  /// [widthDimension] overrides the block width when non-null.
+  /// [heightDimension] sets the minimum block height when non-null.
+  /// [requestedWidth] is a legacy pixel-only shorthand for
+  /// `widthDimension: BlockDimension.pixels(value)`.  Prefer [widthDimension].
+  /// [requestedHeight] is a legacy pixel-only shorthand for
+  /// `heightDimension: BlockDimension.pixels(value)`.  Prefer [heightDimension].
   /// [textWrap] controls how surrounding text interacts with this block;
   ///   defaults to [TextWrapMode.none].
   RenderBlockquoteBlock({
@@ -71,14 +78,18 @@ class RenderBlockquoteBlock extends RenderTextBlock with BlockLayoutMixin {
     super.selectionColor,
     Color borderColor = const Color(0xFFBDBDBD),
     BlockAlignment blockAlignment = BlockAlignment.stretch,
+    BlockDimension? widthDimension,
+    BlockDimension? heightDimension,
     double? requestedWidth,
     double? requestedHeight,
     TextWrapMode textWrap = TextWrapMode.none,
   }) : _borderColor = borderColor {
     initBlockLayout(
       blockAlignment: blockAlignment,
-      requestedWidth: requestedWidth,
-      requestedHeight: requestedHeight,
+      widthDimension:
+          widthDimension ?? (requestedWidth != null ? BlockDimension.pixels(requestedWidth) : null),
+      heightDimension: heightDimension ??
+          (requestedHeight != null ? BlockDimension.pixels(requestedHeight) : null),
       textWrap: textWrap,
     );
   }
@@ -121,7 +132,8 @@ class RenderBlockquoteBlock extends RenderTextBlock with BlockLayoutMixin {
     final excl = exclusionRectForLayout(horizontalInset: _kBorderInset + indentLeft);
     layoutText(textMaxWidth, exclusionRect: excl);
     final blockWidth = requestedWidth != null ? availableWidth : constraints.maxWidth;
-    final blockHeight = requestedHeight ?? layoutTextHeight;
+    final blockHeight =
+        requestedHeight != null ? max(requestedHeight!, layoutTextHeight) : layoutTextHeight;
     size = Size(blockWidth, blockHeight);
   }
 

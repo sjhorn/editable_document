@@ -4467,4 +4467,60 @@ void main() {
       expect(() => layout.paint(ctx, Offset.zero), returnsNormally);
     });
   });
+
+  group('RenderDocumentLayout — BlockDimension resolution', () {
+    test('PercentDimension width resolves to fraction of preferredWidth', () {
+      final image = RenderImageBlock(
+        nodeId: 'img1',
+        widthDimension: const BlockDimension.percent(0.5),
+        blockAlignment: BlockAlignment.start,
+      );
+      final layout = RenderDocumentLayout();
+      layout.add(image);
+      layout.layout(const BoxConstraints(maxWidth: 800, maxHeight: 600), parentUsesSize: true);
+      // 50% of preferredWidth (800) = 400.
+      expect(image.size.width, closeTo(400.0, 1.0));
+    });
+
+    test('PercentDimension height resolves to fraction of viewportHeight', () {
+      final hr = RenderHorizontalRuleBlock(
+        nodeId: 'hr1',
+        heightDimension: const BlockDimension.percent(0.1),
+      );
+      final layout = RenderDocumentLayout(viewportHeight: 500.0);
+      layout.add(hr);
+      layout.layout(const BoxConstraints(maxWidth: 400, maxHeight: 600), parentUsesSize: true);
+      // 10% of 500 = 50.  Intrinsic HR height is 17 (1 + 2*8), so min-height
+      // uses max(50, 17) = 50.
+      expect(hr.size.height, closeTo(50.0, 0.1));
+    });
+
+    test('PixelDimension width resolves without needing a layout pass', () {
+      final image = RenderImageBlock(
+        nodeId: 'img1',
+        widthDimension: const BlockDimension.pixels(300.0),
+        blockAlignment: BlockAlignment.start,
+      );
+      final layout = RenderDocumentLayout();
+      layout.add(image);
+      layout.layout(const BoxConstraints(maxWidth: 800, maxHeight: 600), parentUsesSize: true);
+      expect(image.size.width, closeTo(300.0, 0.1));
+    });
+
+    test('viewportHeight setter schedules a layout pass', () {
+      final layout = RenderDocumentLayout();
+      layout.layout(const BoxConstraints(maxWidth: 400, maxHeight: 600), parentUsesSize: true);
+      expect(layout.debugNeedsLayout, false);
+      layout.viewportHeight = 800.0;
+      expect(layout.debugNeedsLayout, true);
+    });
+
+    test('viewportHeight setter is a no-op for same value', () {
+      final layout = RenderDocumentLayout(viewportHeight: 600.0);
+      layout.layout(const BoxConstraints(maxWidth: 400, maxHeight: 600), parentUsesSize: true);
+      expect(layout.debugNeedsLayout, false);
+      layout.viewportHeight = 600.0;
+      expect(layout.debugNeedsLayout, false);
+    });
+  });
 }

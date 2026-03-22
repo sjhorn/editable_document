@@ -427,7 +427,7 @@ void main() {
       expect(block.size.width, 100.0);
     });
 
-    test('requestedHeight overrides layout height', () {
+    test('requestedHeight acts as min-height — natural height wins when larger', () {
       final block = RenderImageBlock(
         nodeId: 'img-1',
         imageWidth: 200,
@@ -438,7 +438,8 @@ void main() {
         const BoxConstraints(maxWidth: 600, maxHeight: double.infinity),
         parentUsesSize: true,
       );
-      expect(block.size.height, 50.0);
+      // Min-height semantics: max(requestedHeight=50, naturalHeight=100) = 100.
+      expect(block.size.height, 100.0);
     });
 
     test('constructor accepts blockAlignment parameter', () {
@@ -500,6 +501,57 @@ void main() {
       block.border = const BlockBorder();
       block.border = null;
       expect(block.border, isNull);
+    });
+  });
+
+  group('RenderImageBlock — min-height semantics and BlockDimension', () {
+    test('widthDimension pixel sets block width', () {
+      final block = RenderImageBlock(
+        nodeId: 'img-1',
+        widthDimension: const BlockDimension.pixels(200.0),
+        blockAlignment: BlockAlignment.start,
+      );
+      block.layout(
+        const BoxConstraints(maxWidth: 800, maxHeight: double.infinity),
+        parentUsesSize: true,
+      );
+      expect(block.size.width, closeTo(200.0, 0.1));
+    });
+
+    test('heightDimension pixel sets minimum block height', () {
+      final block = RenderImageBlock(
+        nodeId: 'img-1',
+        imageWidth: 400,
+        imageHeight: 100,
+        heightDimension: const BlockDimension.pixels(200.0),
+      );
+      block.layout(
+        const BoxConstraints(maxWidth: 800, maxHeight: double.infinity),
+        parentUsesSize: true,
+      );
+      // intrinsicH = imageHeight = 100; min-height = 200; max(200, 100) = 200.
+      expect(block.size.height, greaterThanOrEqualTo(200.0));
+    });
+
+    test('requestedHeight as min-height: natural height wins when larger', () async {
+      // Image is 400×200, requestedHeight=50 (smaller than natural height).
+      final img = await _createTestImage(400, 200);
+      addTearDown(img.dispose);
+
+      final block = RenderImageBlock(
+        nodeId: 'img-1',
+        imageWidth: 400,
+        imageHeight: 200,
+        image: img,
+        requestedWidth: 400,
+        requestedHeight: 50, // smaller than intrinsic after scale
+      );
+      block.layout(
+        const BoxConstraints(maxWidth: 800, maxHeight: double.infinity),
+        parentUsesSize: true,
+      );
+      // scale = 1.0, intrinsic = 200; max(50, 200) = 200.
+      expect(block.size.height, closeTo(200.0, 0.1));
     });
   });
 }
