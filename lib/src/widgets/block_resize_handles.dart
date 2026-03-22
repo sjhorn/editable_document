@@ -853,12 +853,10 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
         nodeId != null ? widget.layoutKey.currentState?.componentForNode(nodeId) : null;
     final intrinsicSize = component?.intrinsicContentSize;
     final imageNode = node is ImageNode ? node : null;
-    final imagePixelWidth = imageNode?.width is PixelDimension
-        ? (imageNode!.width! as PixelDimension).value
-        : null;
-    final imagePixelHeight = imageNode?.height is PixelDimension
-        ? (imageNode!.height! as PixelDimension).value
-        : null;
+    final imagePixelWidth =
+        imageNode?.width is PixelDimension ? (imageNode!.width! as PixelDimension).value : null;
+    final imagePixelHeight =
+        imageNode?.height is PixelDimension ? (imageNode!.height! as PixelDimension).value : null;
     final atIntrinsicSize = intrinsicSize != null &&
         imageNode != null &&
         imagePixelWidth != null &&
