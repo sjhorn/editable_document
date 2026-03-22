@@ -2,15 +2,6 @@
 library;
 
 import 'package:editable_document/editable_document.dart';
-import 'package:editable_document/src/widgets/toolbar/document_alignment_bar.dart';
-import 'package:editable_document/src/widgets/toolbar/document_block_type_bar.dart';
-import 'package:editable_document/src/widgets/toolbar/document_color_bar.dart';
-import 'package:editable_document/src/widgets/toolbar/document_font_bar.dart';
-import 'package:editable_document/src/widgets/toolbar/document_formatting_bar.dart';
-import 'package:editable_document/src/widgets/toolbar/document_insert_bar.dart';
-import 'package:editable_document/src/widgets/toolbar/document_list_indent_bar.dart';
-import 'package:editable_document/src/widgets/toolbar/document_toolbar.dart';
-import 'package:editable_document/src/widgets/toolbar/document_undo_redo_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -24,8 +15,7 @@ Widget _wrap(Widget child) => MaterialApp(
       home: Scaffold(body: SingleChildScrollView(scrollDirection: Axis.horizontal, child: child)),
     );
 
-MutableDocument _doc() =>
-    MutableDocument([ParagraphNode(id: 'p1', text: AttributedText('Hello'))]);
+MutableDocument _doc() => MutableDocument([ParagraphNode(id: 'p1', text: AttributedText('Hello'))]);
 
 UndoableEditor _editorFor(MutableDocument doc) {
   final ctrl = DocumentEditingController(document: doc);

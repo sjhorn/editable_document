@@ -109,16 +109,13 @@ class DocumentColorPicker extends StatelessWidget {
               Icon(
                 icon,
                 size: iconSize,
-                color: enabled
-                    ? colorScheme.onSurface
-                    : colorScheme.onSurface.withValues(alpha: 0.38),
+                color:
+                    enabled ? colorScheme.onSurface : colorScheme.onSurface.withValues(alpha: 0.38),
               ),
               Container(
                 height: 3,
                 width: iconSize,
-                color: activeColorValue != null
-                    ? Color(activeColorValue!)
-                    : Colors.transparent,
+                color: activeColorValue != null ? Color(activeColorValue!) : Colors.transparent,
               ),
             ],
           ),

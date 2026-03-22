@@ -90,8 +90,7 @@ export 'src/widgets/toolbar/border_color_button.dart';
 export 'src/widgets/toolbar/dimension_field.dart';
 export 'src/widgets/toolbar/document_alignment_bar.dart';
 export 'src/widgets/toolbar/document_block_type_bar.dart';
-export 'src/widgets/toolbar/document_color_bar.dart'
-    show DocumentColorBar, defaultColorPresets;
+export 'src/widgets/toolbar/document_color_bar.dart' show DocumentColorBar, defaultColorPresets;
 export 'src/widgets/toolbar/document_color_picker.dart';
 export 'src/widgets/toolbar/document_font_bar.dart';
 export 'src/widgets/toolbar/document_format_toggle.dart';

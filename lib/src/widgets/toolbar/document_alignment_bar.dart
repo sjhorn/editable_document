@@ -63,29 +63,25 @@ class DocumentAlignmentBar extends StatelessWidget {
               icon: Icons.format_align_left,
               tooltip: 'Align left',
               isActive: currentAlign == TextAlign.start,
-              onPressed:
-                  textNode != null ? () => _setAlign(textNode, TextAlign.start) : null,
+              onPressed: textNode != null ? () => _setAlign(textNode, TextAlign.start) : null,
             ),
             DocumentFormatToggle(
               icon: Icons.format_align_center,
               tooltip: 'Align center',
               isActive: currentAlign == TextAlign.center,
-              onPressed:
-                  textNode != null ? () => _setAlign(textNode, TextAlign.center) : null,
+              onPressed: textNode != null ? () => _setAlign(textNode, TextAlign.center) : null,
             ),
             DocumentFormatToggle(
               icon: Icons.format_align_right,
               tooltip: 'Align right',
               isActive: currentAlign == TextAlign.right,
-              onPressed:
-                  textNode != null ? () => _setAlign(textNode, TextAlign.right) : null,
+              onPressed: textNode != null ? () => _setAlign(textNode, TextAlign.right) : null,
             ),
             DocumentFormatToggle(
               icon: Icons.format_align_justify,
               tooltip: 'Justify',
               isActive: currentAlign == TextAlign.justify,
-              onPressed:
-                  textNode != null ? () => _setAlign(textNode, TextAlign.justify) : null,
+              onPressed: textNode != null ? () => _setAlign(textNode, TextAlign.justify) : null,
             ),
           ],
         );

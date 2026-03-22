@@ -2,8 +2,6 @@
 library;
 
 import 'package:editable_document/editable_document.dart';
-import 'package:editable_document/src/widgets/toolbar/document_block_type_bar.dart';
-import 'package:editable_document/src/widgets/toolbar/document_format_toggle.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -62,10 +60,10 @@ void main() {
       ]);
       final controller = DocumentEditingController(document: doc);
       controller.setSelection(
-        DocumentSelection.collapsed(
+        const DocumentSelection.collapsed(
           position: DocumentPosition(
             nodeId: 'p1',
-            nodePosition: const TextNodePosition(offset: 0),
+            nodePosition: TextNodePosition(offset: 0),
           ),
         ),
       );
@@ -95,10 +93,10 @@ void main() {
       ]);
       final controller = DocumentEditingController(document: doc);
       controller.setSelection(
-        DocumentSelection.collapsed(
+        const DocumentSelection.collapsed(
           position: DocumentPosition(
             nodeId: 'li1',
-            nodePosition: const TextNodePosition(offset: 0),
+            nodePosition: TextNodePosition(offset: 0),
           ),
         ),
       );

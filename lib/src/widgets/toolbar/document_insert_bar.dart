@@ -112,8 +112,7 @@ class DocumentInsertBar extends StatelessWidget {
     );
   }
 
-  HorizontalRuleNode _newHorizontalRule() =>
-      HorizontalRuleNode(id: _generateId());
+  HorizontalRuleNode _newHorizontalRule() => HorizontalRuleNode(id: _generateId());
 
   ImageNode _newImage() => ImageNode(
         id: _generateId(),

@@ -2,7 +2,6 @@
 library;
 
 import 'package:editable_document/editable_document.dart';
-import 'package:editable_document/src/widgets/toolbar/document_undo_redo_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

@@ -50,7 +50,7 @@ void main() {
     testWidgets('does not fire when onPressed is null (disabled)', (tester) async {
       await tester.pumpWidget(
         _wrap(
-          DocumentFormatToggle(
+          const DocumentFormatToggle(
             icon: Icons.format_bold,
             tooltip: 'Bold',
             isActive: false,

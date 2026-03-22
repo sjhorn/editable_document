@@ -103,12 +103,10 @@ class DocumentToolbar extends StatelessWidget {
     final theme = DocumentToolbarTheme.of(context);
     final colorScheme = Theme.of(context).colorScheme;
 
-    final backgroundColor =
-        theme.backgroundColor ?? colorScheme.surfaceContainerLow;
+    final backgroundColor = theme.backgroundColor ?? colorScheme.surfaceContainerLow;
     final borderColor = theme.borderSide?.color ?? colorScheme.outlineVariant;
     final borderWidth = theme.borderSide?.width ?? 1.0;
-    final padding =
-        theme.padding ?? const EdgeInsets.symmetric(horizontal: 8, vertical: 4);
+    final padding = theme.padding ?? const EdgeInsets.symmetric(horizontal: 8, vertical: 4);
     final dividerColor = theme.dividerColor ?? colorScheme.outlineVariant;
 
     Widget divider() => Padding(

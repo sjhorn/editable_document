@@ -2,8 +2,6 @@
 library;
 
 import 'package:editable_document/editable_document.dart';
-import 'package:editable_document/src/widgets/toolbar/document_format_toggle.dart';
-import 'package:editable_document/src/widgets/toolbar/document_formatting_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -92,10 +90,10 @@ void main() {
       final doc = _doc('Hello');
       final controller = DocumentEditingController(document: doc);
       controller.setSelection(
-        DocumentSelection.collapsed(
+        const DocumentSelection.collapsed(
           position: DocumentPosition(
             nodeId: 'p1',
-            nodePosition: const TextNodePosition(offset: 0),
+            nodePosition: TextNodePosition(offset: 0),
           ),
         ),
       );
@@ -133,10 +131,10 @@ void main() {
 
       // Initially collapsed — all toggles disabled.
       controller.setSelection(
-        DocumentSelection.collapsed(
+        const DocumentSelection.collapsed(
           position: DocumentPosition(
             nodeId: 'p1',
-            nodePosition: const TextNodePosition(offset: 0),
+            nodePosition: TextNodePosition(offset: 0),
           ),
         ),
       );
@@ -144,14 +142,14 @@ void main() {
 
       // Now expand selection.
       controller.setSelection(
-        DocumentSelection(
+        const DocumentSelection(
           base: DocumentPosition(
             nodeId: 'p1',
-            nodePosition: const TextNodePosition(offset: 0),
+            nodePosition: TextNodePosition(offset: 0),
           ),
           extent: DocumentPosition(
             nodeId: 'p1',
-            nodePosition: const TextNodePosition(offset: 5),
+            nodePosition: TextNodePosition(offset: 5),
           ),
         ),
       );
