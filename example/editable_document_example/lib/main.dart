@@ -186,8 +186,8 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
   /// Vertical spacing between document blocks.
   double _blockSpacing = 0.0;
 
-  /// Document-level default line height multiplier.
-  double _defaultLineHeight = 1.0;
+  /// Document-level default line height multiplier. `null` means inherit.
+  double? _defaultLineHeight;
 
   /// Horizontal padding (left + right) around the document content area.
   double _documentPaddingH = 0.0;
@@ -1565,290 +1565,35 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
     );
   }
 
-  /// Builds a labelled section for the property panel.
-  Widget _buildPropertySection(String title, List<Widget> children) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 12),
-        Text(title, style: Theme.of(context).textTheme.labelMedium),
-        const SizedBox(height: 4),
-        ...children,
-      ],
-    );
-  }
-
-  List<Widget> _buildDocumentSettingsContent() {
-    final colorScheme = Theme.of(context).colorScheme;
-    return [
-      Text(
-        'Document Settings',
-        style: Theme.of(context).textTheme.titleSmall,
+  /// Builds the document-wide settings panel using [DocumentSettingsPanel].
+  Widget _buildDocumentSettingsPanel() {
+    return DocumentSettingsPanel(
+      blockSpacing: _blockSpacing,
+      onBlockSpacingChanged: (v) => setState(() => _blockSpacing = v),
+      defaultLineHeight: _defaultLineHeight,
+      onDefaultLineHeightChanged: (v) => setState(() => _defaultLineHeight = v),
+      documentPadding: EdgeInsets.symmetric(
+        horizontal: _documentPaddingH,
+        vertical: _documentPaddingV,
       ),
-      _buildPropertySection('Block Spacing', [
-        DropdownButtonHideUnderline(
-          child: DropdownButton<double>(
-            value: _blockSpacing,
-            isExpanded: true,
-            isDense: true,
-            style: Theme.of(context).textTheme.bodySmall,
-            onChanged: (value) {
-              if (value != null) setState(() => _blockSpacing = value);
-            },
-            items: const [
-              DropdownMenuItem(value: 0.0, child: Text('Single')),
-              DropdownMenuItem(value: 6.0, child: Text('1.5 lines')),
-              DropdownMenuItem(value: 12.0, child: Text('Double')),
-            ],
-          ),
-        ),
-      ]),
-      _buildPropertySection('Default Line Height', [
-        DropdownButtonHideUnderline(
-          child: DropdownButton<double>(
-            value: _defaultLineHeight,
-            isExpanded: true,
-            isDense: true,
-            style: Theme.of(context).textTheme.bodySmall,
-            onChanged: (value) {
-              if (value != null) setState(() => _defaultLineHeight = value);
-            },
-            items: const [
-              DropdownMenuItem(value: 1.0, child: Text('Single')),
-              DropdownMenuItem(value: 1.15, child: Text('1.15')),
-              DropdownMenuItem(value: 1.5, child: Text('1.5 lines')),
-              DropdownMenuItem(value: 2.0, child: Text('Double')),
-            ],
-          ),
-        ),
-      ]),
-      _buildPropertySection('Document Padding', [
-        Row(
-          children: [
-            SizedBox(
-              width: 52,
-              child: Text(
-                'H: ${_documentPaddingH.toStringAsFixed(0)}',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ),
-            Expanded(
-              child: Slider(
-                value: _documentPaddingH,
-                min: 0,
-                max: 80,
-                divisions: 8,
-                label: _documentPaddingH.toStringAsFixed(0),
-                onChanged: (value) => setState(() => _documentPaddingH = value),
-              ),
-            ),
-          ],
-        ),
-        Row(
-          children: [
-            SizedBox(
-              width: 52,
-              child: Text(
-                'V: ${_documentPaddingV.toStringAsFixed(0)}',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ),
-            Expanded(
-              child: Slider(
-                value: _documentPaddingV,
-                min: 0,
-                max: 80,
-                divisions: 8,
-                label: _documentPaddingV.toStringAsFixed(0),
-                onChanged: (value) => setState(() => _documentPaddingV = value),
-              ),
-            ),
-          ],
-        ),
-      ]),
-      _buildPropertySection('Line Numbers', [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Show line numbers',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            ),
-            Switch(
-              value: _showLineNumbers,
-              onChanged: (value) => setState(() => _showLineNumbers = value),
-            ),
-          ],
-        ),
-        if (_showLineNumbers) ...[
-          const SizedBox(height: 8),
-          Text('Vertical Alignment', style: Theme.of(context).textTheme.labelSmall),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              for (final entry in {
-                LineNumberAlignment.top: Icons.vertical_align_top,
-                LineNumberAlignment.middle: Icons.vertical_align_center,
-                LineNumberAlignment.bottom: Icons.vertical_align_bottom,
-              }.entries)
-                Padding(
-                  padding: const EdgeInsets.only(right: 4),
-                  child: IconButton(
-                    icon: Icon(entry.value, size: 20),
-                    isSelected: _lineNumberAlignment == entry.key,
-                    style: IconButton.styleFrom(
-                      backgroundColor:
-                          _lineNumberAlignment == entry.key ? colorScheme.primaryContainer : null,
-                      minimumSize: const Size(36, 36),
-                      padding: EdgeInsets.zero,
-                    ),
-                    tooltip: entry.key.name,
-                    onPressed: () => setState(() => _lineNumberAlignment = entry.key),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text('Font', style: Theme.of(context).textTheme.labelSmall),
-          const SizedBox(height: 4),
-          DropdownButtonHideUnderline(
-            child: DropdownButton<String?>(
-              value: _lineNumberFontFamily,
-              isExpanded: true,
-              isDense: true,
-              style: Theme.of(context).textTheme.bodySmall,
-              onChanged: (value) => setState(() => _lineNumberFontFamily = value),
-              items: const [
-                DropdownMenuItem<String?>(value: null, child: Text('Default')),
-                DropdownMenuItem<String?>(value: 'Georgia', child: Text('Serif')),
-                DropdownMenuItem<String?>(value: 'Courier New', child: Text('Mono')),
-                DropdownMenuItem<String?>(value: 'Comic Sans MS', child: Text('Casual')),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text('Size', style: Theme.of(context).textTheme.labelSmall),
-          const SizedBox(height: 4),
-          DropdownButtonHideUnderline(
-            child: DropdownButton<double?>(
-              value: _lineNumberFontSize,
-              isExpanded: true,
-              isDense: true,
-              style: Theme.of(context).textTheme.bodySmall,
-              onChanged: (value) => setState(() => _lineNumberFontSize = value),
-              items: const [
-                DropdownMenuItem<double?>(value: null, child: Text('Default')),
-                DropdownMenuItem<double?>(value: 12, child: Text('12')),
-                DropdownMenuItem<double?>(value: 14, child: Text('14')),
-                DropdownMenuItem<double?>(value: 16, child: Text('16')),
-                DropdownMenuItem<double?>(value: 18, child: Text('18')),
-                DropdownMenuItem<double?>(value: 24, child: Text('24')),
-                DropdownMenuItem<double?>(value: 32, child: Text('32')),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text('Color', style: Theme.of(context).textTheme.labelSmall),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Tooltip(
-                message: 'Number color',
-                child: PopupMenuButton<int?>(
-                  offset: const Offset(0, 36),
-                  onSelected: (value) => setState(() => _lineNumberColor = value),
-                  itemBuilder: (ctx) => [
-                    const PopupMenuItem<int?>(value: null, child: Text('Default')),
-                    for (final entry in _colorPresets.entries)
-                      PopupMenuItem<int?>(
-                        value: entry.key,
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 16,
-                              height: 16,
-                              decoration: BoxDecoration(
-                                color: Color(entry.key),
-                                border: Border.all(color: Colors.black26, width: 0.5),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(entry.value),
-                          ],
-                        ),
-                      ),
-                  ],
-                  child: SizedBox(
-                    height: 32,
-                    width: 32,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.format_color_text, size: 18, color: colorScheme.onSurface),
-                        Container(
-                          height: 3,
-                          width: 16,
-                          color: _lineNumberColor != null
-                              ? Color(_lineNumberColor!)
-                              : Colors.transparent,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Tooltip(
-                message: 'Gutter background',
-                child: PopupMenuButton<int?>(
-                  offset: const Offset(0, 36),
-                  onSelected: (value) => setState(() => _lineNumberBgColor = value),
-                  itemBuilder: (ctx) => [
-                    const PopupMenuItem<int?>(value: null, child: Text('None')),
-                    for (final entry in _colorPresets.entries)
-                      PopupMenuItem<int?>(
-                        value: entry.key,
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 16,
-                              height: 16,
-                              decoration: BoxDecoration(
-                                color: Color(entry.key),
-                                border: Border.all(color: Colors.black26, width: 0.5),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(entry.value),
-                          ],
-                        ),
-                      ),
-                  ],
-                  child: SizedBox(
-                    height: 32,
-                    width: 32,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.format_color_fill, size: 18, color: colorScheme.onSurface),
-                        Container(
-                          height: 3,
-                          width: 16,
-                          color: _lineNumberBgColor != null
-                              ? Color(_lineNumberBgColor!)
-                              : Colors.transparent,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ]),
-    ];
+      onDocumentPaddingChanged: (v) => setState(() {
+        _documentPaddingH = v.left;
+        _documentPaddingV = v.top;
+      }),
+      showLineNumbers: _showLineNumbers,
+      onShowLineNumbersChanged: (v) => setState(() => _showLineNumbers = v),
+      lineNumberAlignment: _lineNumberAlignment,
+      onLineNumberAlignmentChanged: (v) => setState(() => _lineNumberAlignment = v),
+      lineNumberFontFamily: _lineNumberFontFamily,
+      onLineNumberFontFamilyChanged: (v) => setState(() => _lineNumberFontFamily = v),
+      lineNumberFontSize: _lineNumberFontSize,
+      onLineNumberFontSizeChanged: (v) => setState(() => _lineNumberFontSize = v),
+      lineNumberColor: _lineNumberColor,
+      onLineNumberColorChanged: (v) => setState(() => _lineNumberColor = v),
+      lineNumberBackgroundColor: _lineNumberBgColor,
+      onLineNumberBackgroundColorChanged: (v) => setState(() => _lineNumberBgColor = v),
+      colorPresets: _colorPresets,
+    );
   }
 
   Widget _buildPropertyPanel() {
@@ -1861,19 +1606,6 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
       color: colorScheme.surfaceContainerLow,
       border: Border(left: BorderSide(color: colorScheme.outlineVariant)),
     );
-
-    Widget wrapDocumentSettings() {
-      return SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: _buildDocumentSettingsContent(),
-          ),
-        ),
-      );
-    }
 
     if (_showBlockPanel && _showDocumentPanel && _panelTabController != null) {
       return SizedBox(
@@ -1901,7 +1633,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
                       width: panelWidth,
                       onPickImageFile: _pickImageFile,
                     ),
-                    wrapDocumentSettings(),
+                    _buildDocumentSettingsPanel(),
                   ],
                 ),
               ),
@@ -1932,7 +1664,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
       height: double.infinity,
       child: DecoratedBox(
         decoration: panelDecoration,
-        child: wrapDocumentSettings(),
+        child: _buildDocumentSettingsPanel(),
       ),
     );
   }
@@ -2107,7 +1839,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
       ),
     );
     properties.add(DoubleProperty('blockSpacing', _blockSpacing));
-    properties.add(DoubleProperty('defaultLineHeight', _defaultLineHeight));
+    properties.add(DoubleProperty('defaultLineHeight', _defaultLineHeight, defaultValue: null));
     properties.add(DoubleProperty('documentPaddingH', _documentPaddingH));
     properties.add(DoubleProperty('documentPaddingV', _documentPaddingV));
     properties.add(
