@@ -6,6 +6,7 @@
 library;
 
 import 'block_alignment.dart';
+import 'block_dimension.dart';
 import 'document_node.dart';
 import 'text_wrap_mode.dart';
 
@@ -21,7 +22,9 @@ import 'text_wrap_mode.dart';
 ///   final alignment = node.alignment;
 ///   final wrap = node.textWrap;
 ///   if (node.isResizable) {
-///     final resized = node.copyWithSize(width: 320.0);
+///     final resized = node.copyWithSize(
+///       width: BlockDimension.pixels(320.0),
+///     );
 ///   }
 /// }
 /// ```
@@ -32,11 +35,17 @@ abstract interface class HasBlockLayout {
   /// How surrounding text interacts with this block.
   TextWrapMode get textWrap;
 
-  /// Preferred display width in logical pixels, or `null` for default sizing.
-  double? get width;
+  /// Preferred display block dimension for width, or `null` for default sizing.
+  ///
+  /// Use [BlockDimension.pixels] for a fixed logical-pixel width or
+  /// [BlockDimension.percent] for a fraction of the document width.
+  BlockDimension? get width;
 
-  /// Preferred display height in logical pixels, or `null` for default sizing.
-  double? get height;
+  /// Preferred display block dimension for height, or `null` for default sizing.
+  ///
+  /// Use [BlockDimension.pixels] for a fixed logical-pixel height or
+  /// [BlockDimension.percent] for a fraction of the viewport height.
+  BlockDimension? get height;
 
   /// Whether this block can be dragged to a new position in the document.
   ///
@@ -59,10 +68,16 @@ abstract interface class HasBlockLayout {
   /// operations. Pass `null` for any parameter to preserve the current value.
   ///
   /// ```dart
-  /// final resized = (node as HasBlockLayout).copyWithSize(width: 400.0);
+  /// final resized = (node as HasBlockLayout).copyWithSize(
+  ///   width: BlockDimension.pixels(400.0),
+  /// );
   /// final realigned = (node as HasBlockLayout).copyWithSize(
   ///   alignment: BlockAlignment.center,
   /// );
   /// ```
-  DocumentNode copyWithSize({double? width, double? height, BlockAlignment? alignment});
+  DocumentNode copyWithSize({
+    BlockDimension? width,
+    BlockDimension? height,
+    BlockAlignment? alignment,
+  });
 }

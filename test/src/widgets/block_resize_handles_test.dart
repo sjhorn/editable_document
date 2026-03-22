@@ -57,8 +57,8 @@ TableNode _tableNode({
     columnCount: 2,
     cells: cells,
     alignment: alignment,
-    width: width,
-    height: height,
+    width: width != null ? BlockDimension.pixels(width) : null,
+    height: height != null ? BlockDimension.pixels(height) : null,
   );
 }
 
@@ -130,8 +130,8 @@ void main() {
       final node = ImageNode(
         id: 'img-1',
         imageUrl: 'test.png',
-        width: 200.0,
-        height: 100.0,
+        width: const BlockDimension.pixels(200.0),
+        height: const BlockDimension.pixels(100.0),
         alignment: BlockAlignment.center,
       );
 
@@ -141,16 +141,16 @@ void main() {
       final replace = req! as ReplaceNodeRequest;
       expect(replace.nodeId, 'img-1');
       final newNode = replace.newNode as ImageNode;
-      expect(newNode.width, 320.0);
-      expect(newNode.height, 160.0);
+      expect(newNode.width, const BlockDimension.pixels(320.0));
+      expect(newNode.height, const BlockDimension.pixels(160.0));
     });
 
     test('returns ReplaceNodeRequest for CodeBlockNode with updated width and height', () {
       final node = CodeBlockNode(
         id: 'code-1',
         text: AttributedText('void main() {}'),
-        width: 400.0,
-        height: 200.0,
+        width: const BlockDimension.pixels(400.0),
+        height: const BlockDimension.pixels(200.0),
         alignment: BlockAlignment.center,
       );
 
@@ -160,16 +160,16 @@ void main() {
       final replace = req! as ReplaceNodeRequest;
       expect(replace.nodeId, 'code-1');
       final newNode = replace.newNode as CodeBlockNode;
-      expect(newNode.width, 500.0);
-      expect(newNode.height, 250.0);
+      expect(newNode.width, const BlockDimension.pixels(500.0));
+      expect(newNode.height, const BlockDimension.pixels(250.0));
     });
 
     test('returns ReplaceNodeRequest for BlockquoteNode with updated width and height', () {
       final node = BlockquoteNode(
         id: 'bq-1',
         text: AttributedText('To be or not to be'),
-        width: 300.0,
-        height: 80.0,
+        width: const BlockDimension.pixels(300.0),
+        height: const BlockDimension.pixels(80.0),
         alignment: BlockAlignment.center,
       );
 
@@ -179,15 +179,15 @@ void main() {
       final replace = req! as ReplaceNodeRequest;
       expect(replace.nodeId, 'bq-1');
       final newNode = replace.newNode as BlockquoteNode;
-      expect(newNode.width, 360.0);
-      expect(newNode.height, 90.0);
+      expect(newNode.width, const BlockDimension.pixels(360.0));
+      expect(newNode.height, const BlockDimension.pixels(90.0));
     });
 
     test('returns ReplaceNodeRequest for HorizontalRuleNode with updated width and height', () {
       final node = HorizontalRuleNode(
         id: 'hr-1',
-        width: 400.0,
-        height: 2.0,
+        width: const BlockDimension.pixels(400.0),
+        height: const BlockDimension.pixels(2.0),
         alignment: BlockAlignment.center,
       );
 
@@ -197,8 +197,8 @@ void main() {
       final replace = req! as ReplaceNodeRequest;
       expect(replace.nodeId, 'hr-1');
       final newNode = replace.newNode as HorizontalRuleNode;
-      expect(newNode.width, 500.0);
-      expect(newNode.height, 4.0);
+      expect(newNode.width, const BlockDimension.pixels(500.0));
+      expect(newNode.height, const BlockDimension.pixels(4.0));
     });
 
     test('returns ReplaceNodeRequest for TableNode with updated width and height', () {
@@ -210,8 +210,8 @@ void main() {
       final replace = req! as ReplaceNodeRequest;
       expect(replace.nodeId, 'tbl-1');
       final newNode = replace.newNode as TableNode;
-      expect(newNode.width, 400.0);
-      expect(newNode.height, 200.0);
+      expect(newNode.width, const BlockDimension.pixels(400.0));
+      expect(newNode.height, const BlockDimension.pixels(200.0));
     });
 
     test('returns null for ParagraphNode', () {
@@ -226,8 +226,8 @@ void main() {
       final node = ImageNode(
         id: 'img-1',
         imageUrl: 'test.png',
-        width: 200.0,
-        height: 100.0,
+        width: const BlockDimension.pixels(200.0),
+        height: const BlockDimension.pixels(100.0),
         alignment: BlockAlignment.center,
       );
 
@@ -236,16 +236,16 @@ void main() {
       expect(req, isA<ReplaceNodeRequest>());
       final newNode = (req! as ReplaceNodeRequest).newNode as ImageNode;
       // width should be preserved from the original node
-      expect(newNode.width, 200.0);
-      expect(newNode.height, 160.0);
+      expect(newNode.width, const BlockDimension.pixels(200.0));
+      expect(newNode.height, const BlockDimension.pixels(160.0));
     });
 
     test('preserves existing height when height argument is null — ImageNode', () {
       final node = ImageNode(
         id: 'img-1',
         imageUrl: 'test.png',
-        width: 200.0,
-        height: 100.0,
+        width: const BlockDimension.pixels(200.0),
+        height: const BlockDimension.pixels(100.0),
         alignment: BlockAlignment.center,
       );
 
@@ -253,40 +253,40 @@ void main() {
 
       expect(req, isA<ReplaceNodeRequest>());
       final newNode = (req! as ReplaceNodeRequest).newNode as ImageNode;
-      expect(newNode.width, 320.0);
+      expect(newNode.width, const BlockDimension.pixels(320.0));
       // height should be preserved from the original node
-      expect(newNode.height, 100.0);
+      expect(newNode.height, const BlockDimension.pixels(100.0));
     });
 
     test('preserves existing width when width argument is null — CodeBlockNode', () {
       final node = CodeBlockNode(
         id: 'code-1',
         text: AttributedText('code'),
-        width: 400.0,
-        height: 200.0,
+        width: const BlockDimension.pixels(400.0),
+        height: const BlockDimension.pixels(200.0),
         alignment: BlockAlignment.center,
       );
 
       final req = createResizeRequest(node, null, 250.0);
 
       final newNode = (req! as ReplaceNodeRequest).newNode as CodeBlockNode;
-      expect(newNode.width, 400.0);
-      expect(newNode.height, 250.0);
+      expect(newNode.width, const BlockDimension.pixels(400.0));
+      expect(newNode.height, const BlockDimension.pixels(250.0));
     });
 
     test('preserves existing height when height argument is null — HorizontalRuleNode', () {
       final node = HorizontalRuleNode(
         id: 'hr-1',
-        width: 400.0,
-        height: 2.0,
+        width: const BlockDimension.pixels(400.0),
+        height: const BlockDimension.pixels(2.0),
         alignment: BlockAlignment.center,
       );
 
       final req = createResizeRequest(node, 500.0, null);
 
       final newNode = (req! as ReplaceNodeRequest).newNode as HorizontalRuleNode;
-      expect(newNode.width, 500.0);
-      expect(newNode.height, 2.0);
+      expect(newNode.width, const BlockDimension.pixels(500.0));
+      expect(newNode.height, const BlockDimension.pixels(2.0));
     });
 
     test('preserves existing width when width argument is null — TableNode', () {
@@ -295,8 +295,8 @@ void main() {
       final req = createResizeRequest(node, null, 200.0);
 
       final newNode = (req! as ReplaceNodeRequest).newNode as TableNode;
-      expect(newNode.width, 300.0);
-      expect(newNode.height, 200.0);
+      expect(newNode.width, const BlockDimension.pixels(300.0));
+      expect(newNode.height, const BlockDimension.pixels(200.0));
     });
 
     test('createResizeRequest switches stretch alignment to start', () {
@@ -312,8 +312,8 @@ void main() {
 
       expect(req, isA<ReplaceNodeRequest>());
       final newNode = (req! as ReplaceNodeRequest).newNode as ImageNode;
-      expect(newNode.width, 300.0);
-      expect(newNode.height, 150.0);
+      expect(newNode.width, const BlockDimension.pixels(300.0));
+      expect(newNode.height, const BlockDimension.pixels(150.0));
       expect(newNode.alignment, BlockAlignment.start,
           reason: 'stretch alignment should be auto-switched to start on resize');
     });
@@ -323,8 +323,8 @@ void main() {
       final node = ImageNode(
         id: 'img-center',
         imageUrl: 'test.png',
-        width: 200.0,
-        height: 100.0,
+        width: const BlockDimension.pixels(200.0),
+        height: const BlockDimension.pixels(100.0),
         alignment: BlockAlignment.center,
       );
 
@@ -332,8 +332,8 @@ void main() {
 
       expect(req, isA<ReplaceNodeRequest>());
       final newNode = (req! as ReplaceNodeRequest).newNode as ImageNode;
-      expect(newNode.width, 320.0);
-      expect(newNode.height, 160.0);
+      expect(newNode.width, const BlockDimension.pixels(320.0));
+      expect(newNode.height, const BlockDimension.pixels(160.0));
       expect(newNode.alignment, BlockAlignment.center,
           reason: 'non-stretch alignment should be preserved on resize');
     });
@@ -349,8 +349,8 @@ void main() {
         ImageNode(
           id: 'img-1',
           imageUrl: 'test.png',
-          width: 200.0,
-          height: 100.0,
+          width: const BlockDimension.pixels(200.0),
+          height: const BlockDimension.pixels(100.0),
           alignment: BlockAlignment.center,
         ),
       ]);
@@ -394,15 +394,15 @@ void main() {
         ImageNode(
           id: 'img-1',
           imageUrl: 'test.png',
-          width: 200.0,
-          height: 100.0,
+          width: const BlockDimension.pixels(200.0),
+          height: const BlockDimension.pixels(100.0),
           alignment: BlockAlignment.center,
         ),
         ImageNode(
           id: 'img-2',
           imageUrl: 'test2.png',
-          width: 200.0,
-          height: 100.0,
+          width: const BlockDimension.pixels(200.0),
+          height: const BlockDimension.pixels(100.0),
           alignment: BlockAlignment.center,
         ),
       ]);
@@ -483,8 +483,8 @@ void main() {
         ImageNode(
           id: 'img-1',
           imageUrl: 'test.png',
-          width: 200.0,
-          height: 100.0,
+          width: const BlockDimension.pixels(200.0),
+          height: const BlockDimension.pixels(100.0),
           alignment: BlockAlignment.center,
         ),
       ]);
@@ -514,8 +514,8 @@ void main() {
         ImageNode(
           id: 'img-1',
           imageUrl: 'test.png',
-          width: 200.0,
-          height: 100.0,
+          width: const BlockDimension.pixels(200.0),
+          height: const BlockDimension.pixels(100.0),
           alignment: BlockAlignment.center,
         ),
       ]);
@@ -556,8 +556,8 @@ void main() {
         ImageNode(
           id: 'img-1',
           imageUrl: 'test.png',
-          width: 200.0,
-          height: 100.0,
+          width: const BlockDimension.pixels(200.0),
+          height: const BlockDimension.pixels(100.0),
           alignment: BlockAlignment.center,
         ),
       ]);
@@ -692,8 +692,8 @@ void main() {
         ImageNode(
           id: 'img-1',
           imageUrl: 'test.png',
-          width: imageWidth,
-          height: imageHeight,
+          width: BlockDimension.pixels(imageWidth),
+          height: BlockDimension.pixels(imageHeight),
           alignment: BlockAlignment.center,
         ),
       ]);
@@ -842,8 +842,8 @@ void main() {
         ImageNode(
           id: 'img-1',
           imageUrl: 'test.png',
-          width: 200.0,
-          height: 100.0,
+          width: const BlockDimension.pixels(200.0),
+          height: const BlockDimension.pixels(100.0),
           alignment: BlockAlignment.center,
         ),
       ]);
@@ -891,8 +891,8 @@ void main() {
         ImageNode(
           id: 'img-1',
           imageUrl: 'test.png',
-          width: 200.0,
-          height: 100.0,
+          width: const BlockDimension.pixels(200.0),
+          height: const BlockDimension.pixels(100.0),
           alignment: BlockAlignment.center,
         ),
       ]);
@@ -980,8 +980,8 @@ void main() {
         ImageNode(
           id: 'img-1',
           imageUrl: 'test.png',
-          width: 200.0,
-          height: 100.0,
+          width: const BlockDimension.pixels(200.0),
+          height: const BlockDimension.pixels(100.0),
           alignment: BlockAlignment.center,
         ),
       ]);
@@ -1033,8 +1033,8 @@ void main() {
         ImageNode(
           id: 'img-1',
           imageUrl: 'test.png',
-          width: 200.0,
-          height: 100.0,
+          width: const BlockDimension.pixels(200.0),
+          height: const BlockDimension.pixels(100.0),
           alignment: BlockAlignment.center,
         ),
       ]);
@@ -1061,8 +1061,8 @@ void main() {
         ImageNode(
           id: 'img-1',
           imageUrl: 'test.png',
-          width: 200.0,
-          height: 100.0,
+          width: const BlockDimension.pixels(200.0),
+          height: const BlockDimension.pixels(100.0),
           alignment: BlockAlignment.center,
         ),
       ]);
@@ -1088,8 +1088,8 @@ void main() {
         ImageNode(
           id: 'img-1',
           imageUrl: 'test.png',
-          width: 200.0,
-          height: 100.0,
+          width: const BlockDimension.pixels(200.0),
+          height: const BlockDimension.pixels(100.0),
           alignment: BlockAlignment.center,
         ),
       ]);
@@ -1130,8 +1130,8 @@ void main() {
       final node = ImageNode(
         id: 'img-1',
         imageUrl: 'test.png',
-        width: 320.0,
-        height: 240.0,
+        width: const BlockDimension.pixels(320.0),
+        height: const BlockDimension.pixels(240.0),
         alignment: BlockAlignment.center,
       );
 
@@ -1153,8 +1153,8 @@ void main() {
         id: 'img-2',
         imageUrl: 'photo.jpg',
         altText: 'A photo',
-        width: 100.0,
-        height: 100.0,
+        width: const BlockDimension.pixels(100.0),
+        height: const BlockDimension.pixels(100.0),
         alignment: BlockAlignment.start,
         textWrap: TextWrapMode.wrap,
         metadata: {'key': 'value'},
@@ -1193,8 +1193,8 @@ void main() {
         ImageNode(
           id: 'img-1',
           imageUrl: 'test.png',
-          width: 200.0,
-          height: 100.0,
+          width: const BlockDimension.pixels(200.0),
+          height: const BlockDimension.pixels(100.0),
           alignment: BlockAlignment.center,
         ),
       ]);
@@ -1221,8 +1221,8 @@ void main() {
       final doc = MutableDocument([
         HorizontalRuleNode(
           id: 'hr-1',
-          width: 200.0,
-          height: 4.0,
+          width: const BlockDimension.pixels(200.0),
+          height: const BlockDimension.pixels(4.0),
           alignment: BlockAlignment.center,
         ),
       ]);
@@ -1277,8 +1277,8 @@ void main() {
         ImageNode(
           id: 'img-1',
           imageUrl: 'test.png',
-          width: 200.0,
-          height: 100.0,
+          width: const BlockDimension.pixels(200.0),
+          height: const BlockDimension.pixels(100.0),
           alignment: BlockAlignment.center,
         ),
       ]);
@@ -1326,8 +1326,8 @@ void main() {
         ImageNode(
           id: 'img-1',
           imageUrl: 'test.png',
-          width: imageWidth,
-          height: imageHeight,
+          width: BlockDimension.pixels(imageWidth),
+          height: BlockDimension.pixels(imageHeight),
           alignment: BlockAlignment.center,
           lockAspect: lockAspect,
         ),
@@ -1472,8 +1472,8 @@ void main() {
         ImageNode(
           id: 'img-1',
           imageUrl: 'test.png',
-          width: 200.0,
-          height: 100.0,
+          width: const BlockDimension.pixels(200.0),
+          height: const BlockDimension.pixels(100.0),
           alignment: BlockAlignment.center,
         ),
       ]);
@@ -1538,8 +1538,8 @@ void main() {
         ImageNode(
           id: 'img-1',
           imageUrl: 'test.png',
-          width: 200.0,
-          height: 100.0,
+          width: const BlockDimension.pixels(200.0),
+          height: const BlockDimension.pixels(100.0),
           alignment: BlockAlignment.center,
         ),
       ]);
@@ -1584,6 +1584,7 @@ void main() {
                   height: 800.0,
                   child: DocumentViewportScope(
                     viewportWidth: viewportWidth,
+                    viewportHeight: 800.0,
                     // Re-use the SAME child reference — mirrors DocumentScrollable.
                     child: innerContent,
                   ),
@@ -1749,8 +1750,8 @@ void main() {
         ImageNode(
           id: 'img-1',
           imageUrl: 'test.png',
-          width: 200.0,
-          height: 100.0,
+          width: const BlockDimension.pixels(200.0),
+          height: const BlockDimension.pixels(100.0),
           // No alignment → stretch; the image is at the very top.
         ),
       ]);
@@ -1802,8 +1803,8 @@ void main() {
       final node = ImageNode(
         id: 'img-1',
         imageUrl: 'test.png',
-        width: 320.0,
-        height: 240.0,
+        width: const BlockDimension.pixels(320.0),
+        height: const BlockDimension.pixels(240.0),
         alignment: BlockAlignment.center,
         lockAspect: true,
       );
@@ -1818,8 +1819,8 @@ void main() {
       final node = ImageNode(
         id: 'img-2',
         imageUrl: 'test.png',
-        width: 320.0,
-        height: 240.0,
+        width: const BlockDimension.pixels(320.0),
+        height: const BlockDimension.pixels(240.0),
         alignment: BlockAlignment.center,
         lockAspect: false,
       );

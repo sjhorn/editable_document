@@ -1,6 +1,7 @@
 import 'package:editable_document/src/model/attributed_text.dart';
 import 'package:editable_document/src/model/attribution.dart';
 import 'package:editable_document/src/model/block_alignment.dart';
+import 'package:editable_document/src/model/block_dimension.dart';
 import 'package:editable_document/src/model/document_node.dart';
 import 'package:editable_document/src/model/text_node.dart';
 import 'package:editable_document/src/model/paragraph_node.dart';
@@ -272,12 +273,12 @@ void main() {
         id: 'img1',
         imageUrl: 'https://example.com/img.png',
         altText: 'A photo',
-        width: 800.0,
-        height: 600.0,
+        width: const BlockDimension.pixels(800.0),
+        height: const BlockDimension.pixels(600.0),
       );
       expect(node.altText, 'A photo');
-      expect(node.width, 800.0);
-      expect(node.height, 600.0);
+      expect(node.width, const BlockDimension.pixels(800.0));
+      expect(node.height, const BlockDimension.pixels(600.0));
     });
 
     test('copyWith replaces all fields', () {
@@ -285,21 +286,21 @@ void main() {
         id: 'img1',
         imageUrl: 'https://example.com/old.png',
         altText: 'Old alt',
-        width: 100.0,
-        height: 50.0,
+        width: const BlockDimension.pixels(100.0),
+        height: const BlockDimension.pixels(50.0),
       );
       final copy = node.copyWith(
         id: 'img2',
         imageUrl: 'https://example.com/new.png',
         altText: 'New alt',
-        width: 200.0,
-        height: 150.0,
+        width: const BlockDimension.pixels(200.0),
+        height: const BlockDimension.pixels(150.0),
       );
       expect(copy.id, 'img2');
       expect(copy.imageUrl, 'https://example.com/new.png');
       expect(copy.altText, 'New alt');
-      expect(copy.width, 200.0);
-      expect(copy.height, 150.0);
+      expect(copy.width, const BlockDimension.pixels(200.0));
+      expect(copy.height, const BlockDimension.pixels(150.0));
     });
 
     test('copyWith preserves fields when not specified', () {
@@ -307,14 +308,14 @@ void main() {
         id: 'img1',
         imageUrl: 'https://example.com/img.png',
         altText: 'My alt',
-        width: 300.0,
-        height: 200.0,
+        width: const BlockDimension.pixels(300.0),
+        height: const BlockDimension.pixels(200.0),
       );
       final copy = node.copyWith(id: 'img2');
       expect(copy.imageUrl, 'https://example.com/img.png');
       expect(copy.altText, 'My alt');
-      expect(copy.width, 300.0);
-      expect(copy.height, 200.0);
+      expect(copy.width, const BlockDimension.pixels(300.0));
+      expect(copy.height, const BlockDimension.pixels(200.0));
     });
 
     test('equality includes all image fields', () {
@@ -322,22 +323,22 @@ void main() {
         id: 'img1',
         imageUrl: 'https://example.com/img.png',
         altText: 'Alt',
-        width: 100.0,
-        height: 50.0,
+        width: const BlockDimension.pixels(100.0),
+        height: const BlockDimension.pixels(50.0),
       );
       final b = ImageNode(
         id: 'img1',
         imageUrl: 'https://example.com/img.png',
         altText: 'Alt',
-        width: 100.0,
-        height: 50.0,
+        width: const BlockDimension.pixels(100.0),
+        height: const BlockDimension.pixels(50.0),
       );
       final c = ImageNode(
         id: 'img1',
         imageUrl: 'https://example.com/other.png',
         altText: 'Alt',
-        width: 100.0,
-        height: 50.0,
+        width: const BlockDimension.pixels(100.0),
+        height: const BlockDimension.pixels(50.0),
       );
       expect(a, equals(b));
       expect(a, isNot(equals(c)));
@@ -556,22 +557,29 @@ void main() {
     test('custom values set in constructor', () {
       final node = CodeBlockNode(
         id: 'cb1',
-        width: 640.0,
-        height: 480.0,
+        width: const BlockDimension.pixels(640.0),
+        height: const BlockDimension.pixels(480.0),
         alignment: BlockAlignment.center,
         textWrap: TextWrapMode.wrap,
       );
-      expect(node.width, 640.0);
-      expect(node.height, 480.0);
+      expect(node.width, const BlockDimension.pixels(640.0));
+      expect(node.height, const BlockDimension.pixels(480.0));
       expect(node.alignment, BlockAlignment.center);
       expect(node.textWrap, TextWrapMode.wrap);
     });
 
     test('copyWith replaces width and height', () {
-      final node = CodeBlockNode(id: 'cb1', width: 100.0, height: 50.0);
-      final copy = node.copyWith(width: 200.0, height: 100.0);
-      expect(copy.width, 200.0);
-      expect(copy.height, 100.0);
+      final node = CodeBlockNode(
+        id: 'cb1',
+        width: const BlockDimension.pixels(100.0),
+        height: const BlockDimension.pixels(50.0),
+      );
+      final copy = node.copyWith(
+        width: const BlockDimension.pixels(200.0),
+        height: const BlockDimension.pixels(100.0),
+      );
+      expect(copy.width, const BlockDimension.pixels(200.0));
+      expect(copy.height, const BlockDimension.pixels(100.0));
       expect(copy.id, 'cb1');
     });
 
@@ -590,22 +598,34 @@ void main() {
     test('copyWith preserves all new fields when not specified', () {
       final node = CodeBlockNode(
         id: 'cb1',
-        width: 320.0,
-        height: 240.0,
+        width: const BlockDimension.pixels(320.0),
+        height: const BlockDimension.pixels(240.0),
         alignment: BlockAlignment.center,
         textWrap: TextWrapMode.wrap,
       );
       final copy = node.copyWith(id: 'cb2');
-      expect(copy.width, 320.0);
-      expect(copy.height, 240.0);
+      expect(copy.width, const BlockDimension.pixels(320.0));
+      expect(copy.height, const BlockDimension.pixels(240.0));
       expect(copy.alignment, BlockAlignment.center);
       expect(copy.textWrap, TextWrapMode.wrap);
     });
 
     test('equality includes width and height', () {
-      final a = CodeBlockNode(id: 'cb1', width: 100.0, height: 50.0);
-      final b = CodeBlockNode(id: 'cb1', width: 100.0, height: 50.0);
-      final c = CodeBlockNode(id: 'cb1', width: 999.0, height: 50.0);
+      final a = CodeBlockNode(
+        id: 'cb1',
+        width: const BlockDimension.pixels(100.0),
+        height: const BlockDimension.pixels(50.0),
+      );
+      final b = CodeBlockNode(
+        id: 'cb1',
+        width: const BlockDimension.pixels(100.0),
+        height: const BlockDimension.pixels(50.0),
+      );
+      final c = CodeBlockNode(
+        id: 'cb1',
+        width: const BlockDimension.pixels(999.0),
+        height: const BlockDimension.pixels(50.0),
+      );
       expect(a, equals(b));
       expect(a, isNot(equals(c)));
     });
@@ -629,8 +649,8 @@ void main() {
     test('toString includes new fields', () {
       final node = CodeBlockNode(
         id: 'cb1',
-        width: 640.0,
-        height: 480.0,
+        width: const BlockDimension.pixels(640.0),
+        height: const BlockDimension.pixels(480.0),
         alignment: BlockAlignment.center,
         textWrap: TextWrapMode.wrap,
       );

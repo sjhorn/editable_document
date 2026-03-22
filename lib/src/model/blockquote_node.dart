@@ -11,6 +11,7 @@ import 'package:flutter/foundation.dart';
 import 'attributed_text.dart';
 import 'block_alignment.dart';
 import 'block_border.dart';
+import 'block_dimension.dart';
 import 'block_layout.dart';
 import 'document_node.dart';
 import 'text_node.dart';
@@ -65,11 +66,17 @@ class BlockquoteNode extends TextNode implements HasBlockLayout {
     super.metadata,
   });
 
-  /// Preferred display width in logical pixels, or `null` to use available width.
-  final double? width;
+  /// Preferred display block dimension for width, or `null` to use available width.
+  ///
+  /// Use [BlockDimension.pixels] for a fixed logical-pixel width or
+  /// [BlockDimension.percent] for a fraction of the document width.
+  final BlockDimension? width;
 
-  /// Preferred display height in logical pixels, or `null` for intrinsic height.
-  final double? height;
+  /// Preferred display block dimension for height, or `null` for intrinsic height.
+  ///
+  /// Use [BlockDimension.pixels] for a fixed logical-pixel height or
+  /// [BlockDimension.percent] for a fraction of the viewport height.
+  final BlockDimension? height;
 
   /// Horizontal alignment within the available layout width.
   ///
@@ -127,7 +134,12 @@ class BlockquoteNode extends TextNode implements HasBlockLayout {
   bool get isResizable => alignment != BlockAlignment.stretch;
 
   @override
-  DocumentNode copyWithSize({double? width, double? height, BlockAlignment? alignment}) => copyWith(
+  DocumentNode copyWithSize({
+    BlockDimension? width,
+    BlockDimension? height,
+    BlockAlignment? alignment,
+  }) =>
+      copyWith(
         width: width ?? this.width,
         height: height ?? this.height,
         alignment: alignment ?? this.alignment,
@@ -137,8 +149,8 @@ class BlockquoteNode extends TextNode implements HasBlockLayout {
   BlockquoteNode copyWith({
     String? id,
     AttributedText? text,
-    double? width,
-    double? height,
+    BlockDimension? width,
+    BlockDimension? height,
     BlockAlignment? alignment,
     TextWrapMode? textWrap,
     TextAlign? textAlign,
@@ -214,8 +226,8 @@ class BlockquoteNode extends TextNode implements HasBlockLayout {
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
-    properties.add(DoubleProperty('width', width, defaultValue: null));
-    properties.add(DoubleProperty('height', height, defaultValue: null));
+    properties.add(DiagnosticsProperty<BlockDimension?>('width', width, defaultValue: null));
+    properties.add(DiagnosticsProperty<BlockDimension?>('height', height, defaultValue: null));
     properties.add(
       EnumProperty<BlockAlignment>('alignment', alignment, defaultValue: BlockAlignment.stretch),
     );

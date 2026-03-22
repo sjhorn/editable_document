@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 
 import 'block_alignment.dart';
 import 'block_border.dart';
+import 'block_dimension.dart';
 import 'block_layout.dart';
 import 'document_node.dart';
 import 'text_wrap_mode.dart';
@@ -32,8 +33,8 @@ import 'text_wrap_mode.dart';
 /// ```dart
 /// final rule = HorizontalRuleNode(
 ///   id: generateNodeId(),
-///   width: 400.0,
-///   height: 2.0,
+///   width: BlockDimension.pixels(400.0),
+///   height: BlockDimension.pixels(2.0),
 ///   alignment: BlockAlignment.center,
 ///   textWrap: TextWrapMode.none,
 /// );
@@ -61,11 +62,17 @@ class HorizontalRuleNode extends DocumentNode implements HasBlockLayout {
     super.metadata,
   });
 
-  /// Preferred display width in logical pixels, or `null` for auto sizing.
-  final double? width;
+  /// Preferred display block dimension for width, or `null` for auto sizing.
+  ///
+  /// Use [BlockDimension.pixels] for a fixed logical-pixel width or
+  /// [BlockDimension.percent] for a fraction of the document width.
+  final BlockDimension? width;
 
-  /// Preferred display height in logical pixels, or `null` for auto sizing.
-  final double? height;
+  /// Preferred display block dimension for height, or `null` for auto sizing.
+  ///
+  /// Use [BlockDimension.pixels] for a fixed logical-pixel height or
+  /// [BlockDimension.percent] for a fraction of the viewport height.
+  final BlockDimension? height;
 
   /// How the horizontal rule is aligned within the available layout width.
   ///
@@ -99,7 +106,12 @@ class HorizontalRuleNode extends DocumentNode implements HasBlockLayout {
   bool get isResizable => alignment != BlockAlignment.stretch;
 
   @override
-  DocumentNode copyWithSize({double? width, double? height, BlockAlignment? alignment}) => copyWith(
+  DocumentNode copyWithSize({
+    BlockDimension? width,
+    BlockDimension? height,
+    BlockAlignment? alignment,
+  }) =>
+      copyWith(
         width: width ?? this.width,
         height: height ?? this.height,
         alignment: alignment ?? this.alignment,
@@ -108,8 +120,8 @@ class HorizontalRuleNode extends DocumentNode implements HasBlockLayout {
   @override
   HorizontalRuleNode copyWith({
     String? id,
-    double? width,
-    double? height,
+    BlockDimension? width,
+    BlockDimension? height,
     BlockAlignment? alignment,
     TextWrapMode? textWrap,
     double? spaceBefore,
@@ -162,8 +174,8 @@ class HorizontalRuleNode extends DocumentNode implements HasBlockLayout {
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
-    properties.add(DoubleProperty('width', width, defaultValue: null));
-    properties.add(DoubleProperty('height', height, defaultValue: null));
+    properties.add(DiagnosticsProperty<BlockDimension?>('width', width, defaultValue: null));
+    properties.add(DiagnosticsProperty<BlockDimension?>('height', height, defaultValue: null));
     properties.add(
       EnumProperty<BlockAlignment>('alignment', alignment, defaultValue: BlockAlignment.stretch),
     );

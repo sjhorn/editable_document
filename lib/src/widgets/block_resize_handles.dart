@@ -14,6 +14,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
 import '../model/block_alignment.dart';
+import '../model/block_dimension.dart';
 import '../model/block_layout.dart';
 import '../model/document.dart';
 import '../model/document_editing_controller.dart';
@@ -852,12 +853,18 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
         nodeId != null ? widget.layoutKey.currentState?.componentForNode(nodeId) : null;
     final intrinsicSize = component?.intrinsicContentSize;
     final imageNode = node is ImageNode ? node : null;
+    final imagePixelWidth = imageNode?.width is PixelDimension
+        ? (imageNode!.width! as PixelDimension).value
+        : null;
+    final imagePixelHeight = imageNode?.height is PixelDimension
+        ? (imageNode!.height! as PixelDimension).value
+        : null;
     final atIntrinsicSize = intrinsicSize != null &&
         imageNode != null &&
-        imageNode.width != null &&
-        imageNode.height != null &&
-        (imageNode.width! - intrinsicSize.width).abs() < 1.0 &&
-        (imageNode.height! - intrinsicSize.height).abs() < 1.0;
+        imagePixelWidth != null &&
+        imagePixelHeight != null &&
+        (imagePixelWidth - intrinsicSize.width).abs() < 1.0 &&
+        (imagePixelHeight - intrinsicSize.height).abs() < 1.0;
 
     final showReset = widget.onResetImageSize != null &&
         node is ImageNode &&
@@ -1007,8 +1014,8 @@ EditRequest? createResizeRequest(
   return ReplaceNodeRequest(
     nodeId: node.id,
     newNode: blockNode.copyWithSize(
-      width: width,
-      height: height,
+      width: width != null ? BlockDimension.pixels(width) : null,
+      height: height != null ? BlockDimension.pixels(height) : null,
       alignment: alignment,
     ),
   );

@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 
 import 'block_alignment.dart';
 import 'block_border.dart';
+import 'block_dimension.dart';
 import 'block_layout.dart';
 import 'document_node.dart';
 import 'text_wrap_mode.dart';
@@ -28,8 +29,8 @@ import 'text_wrap_mode.dart';
 ///   id: generateNodeId(),
 ///   imageUrl: 'https://example.com/photo.jpg',
 ///   altText: 'A scenic mountain vista',
-///   width: 1920.0,
-///   height: 1080.0,
+///   width: BlockDimension.pixels(1920.0),
+///   height: BlockDimension.pixels(1080.0),
 ///   alignment: BlockAlignment.center,
 ///   textWrap: TextWrapMode.none,
 /// );
@@ -64,11 +65,17 @@ class ImageNode extends DocumentNode implements HasBlockLayout {
   /// Accessible description of the image, or `null` if not provided.
   final String? altText;
 
-  /// Preferred display width in logical pixels, or `null` to use intrinsic size.
-  final double? width;
+  /// Preferred display block dimension for width, or `null` to use intrinsic size.
+  ///
+  /// Use [BlockDimension.pixels] for a fixed logical-pixel width or
+  /// [BlockDimension.percent] for a fraction of the document width.
+  final BlockDimension? width;
 
-  /// Preferred display height in logical pixels, or `null` to use intrinsic size.
-  final double? height;
+  /// Preferred display block dimension for height, or `null` to use intrinsic size.
+  ///
+  /// Use [BlockDimension.pixels] for a fixed logical-pixel height or
+  /// [BlockDimension.percent] for a fraction of the viewport height.
+  final BlockDimension? height;
 
   /// How the image is horizontally aligned within the available layout width.
   ///
@@ -109,7 +116,12 @@ class ImageNode extends DocumentNode implements HasBlockLayout {
   bool get isResizable => alignment != BlockAlignment.stretch;
 
   @override
-  DocumentNode copyWithSize({double? width, double? height, BlockAlignment? alignment}) => copyWith(
+  DocumentNode copyWithSize({
+    BlockDimension? width,
+    BlockDimension? height,
+    BlockAlignment? alignment,
+  }) =>
+      copyWith(
         width: width ?? this.width,
         height: height ?? this.height,
         alignment: alignment ?? this.alignment,
@@ -120,8 +132,8 @@ class ImageNode extends DocumentNode implements HasBlockLayout {
     String? id,
     String? imageUrl,
     String? altText,
-    double? width,
-    double? height,
+    BlockDimension? width,
+    BlockDimension? height,
     BlockAlignment? alignment,
     TextWrapMode? textWrap,
     bool? lockAspect,
@@ -186,8 +198,8 @@ class ImageNode extends DocumentNode implements HasBlockLayout {
     super.debugFillProperties(properties);
     properties.add(StringProperty('imageUrl', imageUrl));
     properties.add(StringProperty('altText', altText, defaultValue: null));
-    properties.add(DoubleProperty('width', width, defaultValue: null));
-    properties.add(DoubleProperty('height', height, defaultValue: null));
+    properties.add(DiagnosticsProperty<BlockDimension?>('width', width, defaultValue: null));
+    properties.add(DiagnosticsProperty<BlockDimension?>('height', height, defaultValue: null));
     properties.add(
       EnumProperty<BlockAlignment>('alignment', alignment, defaultValue: BlockAlignment.stretch),
     );

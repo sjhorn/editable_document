@@ -9,6 +9,7 @@ export 'src/model/attribution.dart';
 export 'src/model/attributed_text.dart';
 export 'src/model/block_alignment.dart';
 export 'src/model/block_border.dart';
+export 'src/model/block_dimension.dart';
 export 'src/model/block_layout.dart';
 export 'src/model/text_wrap_mode.dart';
 export 'src/model/blockquote_node.dart';

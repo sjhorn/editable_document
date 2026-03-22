@@ -25,6 +25,7 @@ import '_image_provider_stub.dart' if (dart.library.io) '_image_provider_io.dart
 import '../model/attributed_text.dart';
 import '../model/block_border.dart';
 import '../model/block_alignment.dart';
+import '../model/block_dimension.dart';
 import '../model/text_wrap_mode.dart';
 import '../model/blockquote_node.dart';
 import '../model/code_block_node.dart';
@@ -186,19 +187,25 @@ abstract interface class HasLayoutFields {
   /// How surrounding text interacts with this block.
   TextWrapMode get textWrap;
 
-  /// Preferred display width in logical pixels, or `null`.
-  double? get width;
+  /// Preferred display width as a [BlockDimension], or `null` for default sizing.
+  ///
+  /// Use [BlockDimension.pixels] for a fixed logical-pixel width or
+  /// [BlockDimension.percent] for a fraction of the document width.
+  BlockDimension? get width;
 
-  /// Preferred display height in logical pixels, or `null`.
-  double? get height;
+  /// Preferred display height as a [BlockDimension], or `null` for default sizing.
+  ///
+  /// Use [BlockDimension.pixels] for a fixed logical-pixel height or
+  /// [BlockDimension.percent] for a fraction of the viewport height.
+  BlockDimension? get height;
 }
 
 /// Updates block layout properties on a render object from a view model.
 void _updateBlockLayout(BlockLayoutMixin renderObject, HasLayoutFields vm) {
   renderObject
     ..blockAlignment = vm.alignment
-    ..requestedWidth = vm.width
-    ..requestedHeight = vm.height
+    ..widthDimension = vm.width
+    ..heightDimension = vm.height
     ..textWrap = vm.textWrap;
 }
 
@@ -655,11 +662,17 @@ class ImageComponentViewModel extends ComponentViewModel implements HasLayoutFie
   /// Accessible description of the image, or `null`.
   final String? altText;
 
-  /// Preferred display width in logical pixels, or `null`.
-  final double? imageWidth;
+  /// Preferred display width as a [BlockDimension], or `null` to use intrinsic size.
+  ///
+  /// Use [BlockDimension.pixels] for a fixed logical-pixel width or
+  /// [BlockDimension.percent] for a fraction of the document width.
+  final BlockDimension? imageWidth;
 
-  /// Preferred display height in logical pixels, or `null`.
-  final double? imageHeight;
+  /// Preferred display height as a [BlockDimension], or `null` to use intrinsic size.
+  ///
+  /// Use [BlockDimension.pixels] for a fixed logical-pixel height or
+  /// [BlockDimension.percent] for a fraction of the viewport height.
+  final BlockDimension? imageHeight;
 
   /// The horizontal alignment of this image within the layout.
   ///
@@ -683,10 +696,10 @@ class ImageComponentViewModel extends ComponentViewModel implements HasLayoutFie
   final BlockBorder? border;
 
   @override
-  double? get width => imageWidth;
+  BlockDimension? get width => imageWidth;
 
   @override
-  double? get height => imageHeight;
+  BlockDimension? get height => imageHeight;
 
   @override
   bool operator ==(Object other) {
@@ -862,13 +875,11 @@ class _RawImageBlockWidget extends LeafRenderObjectWidget {
   RenderImageBlock createRenderObject(BuildContext context) {
     return RenderImageBlock(
       nodeId: viewModel.nodeId,
-      imageWidth: viewModel.imageWidth,
-      imageHeight: viewModel.imageHeight,
       altText: viewModel.altText,
       image: image,
       blockAlignment: viewModel.alignment,
-      requestedWidth: viewModel.imageWidth,
-      requestedHeight: viewModel.imageHeight,
+      widthDimension: viewModel.imageWidth,
+      heightDimension: viewModel.imageHeight,
       textWrap: viewModel.textWrap,
     )
       ..spaceBefore = viewModel.spaceBefore
@@ -880,8 +891,6 @@ class _RawImageBlockWidget extends LeafRenderObjectWidget {
   void updateRenderObject(BuildContext context, RenderImageBlock renderObject) {
     renderObject
       ..nodeId = viewModel.nodeId
-      ..imageWidth = viewModel.imageWidth
-      ..imageHeight = viewModel.imageHeight
       ..altText = viewModel.altText
       ..image = image
       ..spaceBefore = viewModel.spaceBefore
@@ -933,11 +942,17 @@ class CodeBlockComponentViewModel extends ComponentViewModel implements HasLayou
   /// The programming language identifier for syntax highlighting, or `null`.
   final String? language;
 
-  /// Preferred display width in logical pixels, or `null`.
-  final double? width;
+  /// Preferred display width as a [BlockDimension], or `null` for default sizing.
+  ///
+  /// Use [BlockDimension.pixels] for a fixed logical-pixel width or
+  /// [BlockDimension.percent] for a fraction of the document width.
+  final BlockDimension? width;
 
-  /// Preferred display height in logical pixels, or `null`.
-  final double? height;
+  /// Preferred display height as a [BlockDimension], or `null` for default sizing.
+  ///
+  /// Use [BlockDimension.pixels] for a fixed logical-pixel height or
+  /// [BlockDimension.percent] for a fraction of the viewport height.
+  final BlockDimension? height;
 
   /// The horizontal alignment of this code block within the layout.
   ///
@@ -1053,8 +1068,8 @@ class _CodeBlockWidget extends LeafRenderObjectWidget {
       text: viewModel.text,
       baseTextStyle: DefaultTextStyle.of(context).style.merge(viewModel.textStyle),
       blockAlignment: viewModel.alignment,
-      requestedWidth: viewModel.width,
-      requestedHeight: viewModel.height,
+      widthDimension: viewModel.width,
+      heightDimension: viewModel.height,
       textWrap: viewModel.textWrap,
     )
       ..textSpanBuilder = viewModel.textSpanBuilder
@@ -1110,11 +1125,17 @@ class HorizontalRuleComponentViewModel extends ComponentViewModel implements Has
   /// Defaults to [BlockAlignment.stretch].
   final BlockAlignment alignment;
 
-  /// Preferred display width in logical pixels, or `null` to fill available width.
-  final double? width;
+  /// Preferred display width as a [BlockDimension], or `null` to fill available width.
+  ///
+  /// Use [BlockDimension.pixels] for a fixed logical-pixel width or
+  /// [BlockDimension.percent] for a fraction of the document width.
+  final BlockDimension? width;
 
-  /// Preferred display height in logical pixels, or `null` to use the default.
-  final double? height;
+  /// Preferred display height as a [BlockDimension], or `null` to use the default.
+  ///
+  /// Use [BlockDimension.pixels] for a fixed logical-pixel height or
+  /// [BlockDimension.percent] for a fraction of the viewport height.
+  final BlockDimension? height;
 
   /// How surrounding text interacts with this block.
   ///
@@ -1201,8 +1222,8 @@ class _HorizontalRuleBlockWidget extends LeafRenderObjectWidget {
     return RenderHorizontalRuleBlock(
       nodeId: viewModel.nodeId,
       blockAlignment: viewModel.alignment,
-      requestedWidth: viewModel.width,
-      requestedHeight: viewModel.height,
+      widthDimension: viewModel.width,
+      heightDimension: viewModel.height,
       textWrap: viewModel.textWrap,
     )
       ..spaceBefore = viewModel.spaceBefore
@@ -1263,11 +1284,17 @@ class BlockquoteComponentViewModel extends ComponentViewModel implements HasLayo
   /// The base [TextStyle] applied before attributions.
   final TextStyle textStyle;
 
-  /// Preferred display width in logical pixels, or `null`.
-  final double? width;
+  /// Preferred display width as a [BlockDimension], or `null` for default sizing.
+  ///
+  /// Use [BlockDimension.pixels] for a fixed logical-pixel width or
+  /// [BlockDimension.percent] for a fraction of the document width.
+  final BlockDimension? width;
 
-  /// Preferred display height in logical pixels, or `null`.
-  final double? height;
+  /// Preferred display height as a [BlockDimension], or `null` for default sizing.
+  ///
+  /// Use [BlockDimension.pixels] for a fixed logical-pixel height or
+  /// [BlockDimension.percent] for a fraction of the viewport height.
+  final BlockDimension? height;
 
   /// The horizontal alignment of this blockquote within the layout.
   ///
@@ -1397,8 +1424,8 @@ class _BlockquoteBlockWidget extends LeafRenderObjectWidget {
       text: viewModel.text,
       textStyle: DefaultTextStyle.of(context).style.merge(viewModel.textStyle),
       blockAlignment: viewModel.alignment,
-      requestedWidth: viewModel.width,
-      requestedHeight: viewModel.height,
+      widthDimension: viewModel.width,
+      heightDimension: viewModel.height,
       textWrap: viewModel.textWrap,
       textAlign: viewModel.textAlign,
     )
@@ -1559,11 +1586,17 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
   @override
   final TextWrapMode textWrap;
 
-  /// Preferred display width in logical pixels, or `null` to fill available width.
-  final double? requestedWidth;
+  /// Preferred display width as a [BlockDimension], or `null` to fill available width.
+  ///
+  /// Use [BlockDimension.pixels] for a fixed logical-pixel width or
+  /// [BlockDimension.percent] for a fraction of the document width.
+  final BlockDimension? requestedWidth;
 
-  /// Preferred display height in logical pixels, or `null` to use intrinsic height.
-  final double? requestedHeight;
+  /// Preferred display height as a [BlockDimension], or `null` to use intrinsic height.
+  ///
+  /// Use [BlockDimension.pixels] for a fixed logical-pixel height or
+  /// [BlockDimension.percent] for a fraction of the viewport height.
+  final BlockDimension? requestedHeight;
 
   /// Extra space before this block in logical pixels, or `null` to use the
   /// document-level default spacing.
@@ -1577,10 +1610,10 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
   final BlockBorder? border;
 
   @override
-  double? get width => requestedWidth;
+  BlockDimension? get width => requestedWidth;
 
   @override
-  double? get height => requestedHeight;
+  BlockDimension? get height => requestedHeight;
 
   @override
   bool operator ==(Object other) {
@@ -1738,8 +1771,8 @@ class _TableBlockWidget extends LeafRenderObjectWidget {
       borderWidth: viewModel.borderWidth,
       borderColor: viewModel.borderColor,
       blockAlignment: viewModel.alignment,
-      requestedWidth: viewModel.requestedWidth,
-      requestedHeight: viewModel.requestedHeight,
+      widthDimension: viewModel.requestedWidth,
+      heightDimension: viewModel.requestedHeight,
       textWrap: viewModel.textWrap,
     )
       ..spaceBefore = viewModel.spaceBefore

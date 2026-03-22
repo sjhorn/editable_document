@@ -7,6 +7,7 @@ library;
 import 'package:editable_document/src/model/attributed_text.dart';
 import 'package:editable_document/src/model/block_alignment.dart';
 import 'package:editable_document/src/model/block_border.dart';
+import 'package:editable_document/src/model/block_dimension.dart';
 import 'package:editable_document/src/model/code_block_node.dart';
 import 'package:editable_document/src/model/text_node.dart';
 import 'package:editable_document/src/model/text_wrap_mode.dart';
@@ -76,13 +77,13 @@ void main() {
     });
 
     test('width is set correctly', () {
-      final node = CodeBlockNode(id: 'cb1', width: 640.0);
-      expect(node.width, 640.0);
+      final node = CodeBlockNode(id: 'cb1', width: const BlockDimension.pixels(640.0));
+      expect(node.width, const BlockDimension.pixels(640.0));
     });
 
     test('height is set correctly', () {
-      final node = CodeBlockNode(id: 'cb1', height: 200.0);
-      expect(node.height, 200.0);
+      final node = CodeBlockNode(id: 'cb1', height: const BlockDimension.pixels(200.0));
+      expect(node.height, const BlockDimension.pixels(200.0));
     });
 
     test('alignment is set correctly', () {
@@ -129,15 +130,15 @@ void main() {
     });
 
     test('copyWith replaces width', () {
-      final node = CodeBlockNode(id: 'cb1', width: 100.0);
-      final copy = node.copyWith(width: 200.0);
-      expect(copy.width, 200.0);
+      final node = CodeBlockNode(id: 'cb1', width: const BlockDimension.pixels(100.0));
+      final copy = node.copyWith(width: const BlockDimension.pixels(200.0));
+      expect(copy.width, const BlockDimension.pixels(200.0));
     });
 
     test('copyWith replaces height', () {
-      final node = CodeBlockNode(id: 'cb1', height: 50.0);
-      final copy = node.copyWith(height: 150.0);
-      expect(copy.height, 150.0);
+      final node = CodeBlockNode(id: 'cb1', height: const BlockDimension.pixels(50.0));
+      final copy = node.copyWith(height: const BlockDimension.pixels(150.0));
+      expect(copy.height, const BlockDimension.pixels(150.0));
     });
 
     test('copyWith replaces alignment', () {
@@ -168,21 +169,21 @@ void main() {
       final node = CodeBlockNode(
         id: 'cb1',
         language: 'dart',
-        width: 400.0,
+        width: const BlockDimension.pixels(400.0),
         alignment: BlockAlignment.center,
         lineHeight: 1.0,
       );
       final copy = node.copyWith(lineHeight: 1.5);
       expect(copy.id, 'cb1');
       expect(copy.language, 'dart');
-      expect(copy.width, 400.0);
+      expect(copy.width, const BlockDimension.pixels(400.0));
       expect(copy.alignment, BlockAlignment.center);
       expect(copy.lineHeight, 1.5);
     });
 
     test('copyWith preserves id when not specified', () {
-      final node = CodeBlockNode(id: 'keep-me', width: 100.0);
-      final copy = node.copyWith(width: 200.0);
+      final node = CodeBlockNode(id: 'keep-me', width: const BlockDimension.pixels(100.0));
+      final copy = node.copyWith(width: const BlockDimension.pixels(200.0));
       expect(copy.id, 'keep-me');
     });
 
@@ -201,8 +202,8 @@ void main() {
       final a = CodeBlockNode(
         id: 'cb1',
         language: 'dart',
-        width: 640.0,
-        height: 200.0,
+        width: const BlockDimension.pixels(640.0),
+        height: const BlockDimension.pixels(200.0),
         alignment: BlockAlignment.center,
         textWrap: TextWrapMode.wrap,
         lineHeight: 1.5,
@@ -210,8 +211,8 @@ void main() {
       final b = CodeBlockNode(
         id: 'cb1',
         language: 'dart',
-        width: 640.0,
-        height: 200.0,
+        width: const BlockDimension.pixels(640.0),
+        height: const BlockDimension.pixels(200.0),
         alignment: BlockAlignment.center,
         textWrap: TextWrapMode.wrap,
         lineHeight: 1.5,
@@ -272,7 +273,11 @@ void main() {
     });
 
     test('hashCode is consistent on same instance', () {
-      final node = CodeBlockNode(id: 'cb1', width: 200.0, lineHeight: 1.5);
+      final node = CodeBlockNode(
+        id: 'cb1',
+        width: const BlockDimension.pixels(200.0),
+        lineHeight: 1.5,
+      );
       expect(node.hashCode, node.hashCode);
     });
 
@@ -298,7 +303,7 @@ void main() {
     });
 
     test('toString includes width', () {
-      final node = CodeBlockNode(id: 'cb1', width: 640.0);
+      final node = CodeBlockNode(id: 'cb1', width: const BlockDimension.pixels(640.0));
       expect(node.toString(), contains('640.0'));
     });
 

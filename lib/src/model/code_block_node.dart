@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'attributed_text.dart';
 import 'block_alignment.dart';
 import 'block_border.dart';
+import 'block_dimension.dart';
 import 'block_layout.dart';
 import 'document_node.dart';
 import 'text_node.dart';
@@ -31,7 +32,7 @@ import 'text_wrap_mode.dart';
 ///   id: generateNodeId(),
 ///   text: AttributedText('void main() => print("hello");'),
 ///   language: 'dart',
-///   width: 640.0,
+///   width: BlockDimension.pixels(640.0),
 ///   alignment: BlockAlignment.center,
 /// );
 /// ```
@@ -66,11 +67,17 @@ class CodeBlockNode extends TextNode implements HasBlockLayout {
   /// Common values include `'dart'`, `'python'`, `'javascript'`, etc.
   final String? language;
 
-  /// Preferred display width in logical pixels, or `null` to fill available width.
-  final double? width;
+  /// Preferred display block dimension for width, or `null` to fill available width.
+  ///
+  /// Use [BlockDimension.pixels] for a fixed logical-pixel width or
+  /// [BlockDimension.percent] for a fraction of the document width.
+  final BlockDimension? width;
 
-  /// Preferred display height in logical pixels, or `null` to use intrinsic height.
-  final double? height;
+  /// Preferred display block dimension for height, or `null` to use intrinsic height.
+  ///
+  /// Use [BlockDimension.pixels] for a fixed logical-pixel height or
+  /// [BlockDimension.percent] for a fraction of the viewport height.
+  final BlockDimension? height;
 
   /// How the code block is horizontally aligned within the available layout width.
   ///
@@ -111,7 +118,12 @@ class CodeBlockNode extends TextNode implements HasBlockLayout {
   bool get isResizable => alignment != BlockAlignment.stretch;
 
   @override
-  DocumentNode copyWithSize({double? width, double? height, BlockAlignment? alignment}) => copyWith(
+  DocumentNode copyWithSize({
+    BlockDimension? width,
+    BlockDimension? height,
+    BlockAlignment? alignment,
+  }) =>
+      copyWith(
         width: width ?? this.width,
         height: height ?? this.height,
         alignment: alignment ?? this.alignment,
@@ -122,8 +134,8 @@ class CodeBlockNode extends TextNode implements HasBlockLayout {
     String? id,
     AttributedText? text,
     String? language,
-    double? width,
-    double? height,
+    BlockDimension? width,
+    BlockDimension? height,
     BlockAlignment? alignment,
     TextWrapMode? textWrap,
     double? lineHeight,
@@ -187,8 +199,8 @@ class CodeBlockNode extends TextNode implements HasBlockLayout {
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
     properties.add(StringProperty('language', language, defaultValue: null));
-    properties.add(DoubleProperty('width', width, defaultValue: null));
-    properties.add(DoubleProperty('height', height, defaultValue: null));
+    properties.add(DiagnosticsProperty<BlockDimension?>('width', width, defaultValue: null));
+    properties.add(DiagnosticsProperty<BlockDimension?>('height', height, defaultValue: null));
     properties.add(
       EnumProperty<BlockAlignment>('alignment', alignment, defaultValue: BlockAlignment.stretch),
     );

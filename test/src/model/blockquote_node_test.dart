@@ -3,6 +3,7 @@ import 'dart:ui' show TextAlign;
 import 'package:editable_document/src/model/attributed_text.dart';
 import 'package:editable_document/src/model/block_alignment.dart';
 import 'package:editable_document/src/model/block_border.dart';
+import 'package:editable_document/src/model/block_dimension.dart';
 import 'package:editable_document/src/model/blockquote_node.dart';
 import 'package:editable_document/src/model/text_node.dart';
 import 'package:editable_document/src/model/text_wrap_mode.dart';
@@ -57,13 +58,13 @@ void main() {
     });
 
     test('width is set correctly', () {
-      final node = BlockquoteNode(id: 'bq1', width: 480.0);
-      expect(node.width, 480.0);
+      final node = BlockquoteNode(id: 'bq1', width: const BlockDimension.pixels(480.0));
+      expect(node.width, const BlockDimension.pixels(480.0));
     });
 
     test('height is set correctly', () {
-      final node = BlockquoteNode(id: 'bq1', height: 200.0);
-      expect(node.height, 200.0);
+      final node = BlockquoteNode(id: 'bq1', height: const BlockDimension.pixels(200.0));
+      expect(node.height, const BlockDimension.pixels(200.0));
     });
 
     test('alignment is set correctly', () {
@@ -81,16 +82,16 @@ void main() {
       final node = BlockquoteNode(
         id: 'bq1',
         text: text,
-        width: 640.0,
-        height: 300.0,
+        width: const BlockDimension.pixels(640.0),
+        height: const BlockDimension.pixels(300.0),
         alignment: BlockAlignment.end,
         textWrap: TextWrapMode.wrap,
         metadata: {'source': 'shakespeare'},
       );
       expect(node.id, 'bq1');
       expect(node.text.text, 'Famous quote');
-      expect(node.width, 640.0);
-      expect(node.height, 300.0);
+      expect(node.width, const BlockDimension.pixels(640.0));
+      expect(node.height, const BlockDimension.pixels(300.0));
       expect(node.alignment, BlockAlignment.end);
       expect(node.textWrap, TextWrapMode.wrap);
       expect(node.metadata['source'], 'shakespeare');
@@ -115,16 +116,16 @@ void main() {
     });
 
     test('copyWith replaces width', () {
-      final node = BlockquoteNode(id: 'bq1', width: 100.0);
-      final copy = node.copyWith(width: 200.0);
-      expect(copy.width, 200.0);
+      final node = BlockquoteNode(id: 'bq1', width: const BlockDimension.pixels(100.0));
+      final copy = node.copyWith(width: const BlockDimension.pixels(200.0));
+      expect(copy.width, const BlockDimension.pixels(200.0));
       expect(copy.id, 'bq1');
     });
 
     test('copyWith replaces height', () {
-      final node = BlockquoteNode(id: 'bq1', height: 50.0);
-      final copy = node.copyWith(height: 150.0);
-      expect(copy.height, 150.0);
+      final node = BlockquoteNode(id: 'bq1', height: const BlockDimension.pixels(50.0));
+      final copy = node.copyWith(height: const BlockDimension.pixels(150.0));
+      expect(copy.height, const BlockDimension.pixels(150.0));
     });
 
     test('copyWith replaces alignment', () {
@@ -146,8 +147,8 @@ void main() {
     });
 
     test('copyWith preserves id when not specified', () {
-      final node = BlockquoteNode(id: 'keep-me', width: 100.0);
-      final copy = node.copyWith(width: 200.0);
+      final node = BlockquoteNode(id: 'keep-me', width: const BlockDimension.pixels(100.0));
+      final copy = node.copyWith(width: const BlockDimension.pixels(200.0));
       expect(copy.id, 'keep-me');
     });
 
@@ -158,15 +159,15 @@ void main() {
     });
 
     test('copyWith preserves width when not specified', () {
-      final node = BlockquoteNode(id: 'bq1', width: 320.0);
+      final node = BlockquoteNode(id: 'bq1', width: const BlockDimension.pixels(320.0));
       final copy = node.copyWith(id: 'bq2');
-      expect(copy.width, 320.0);
+      expect(copy.width, const BlockDimension.pixels(320.0));
     });
 
     test('copyWith preserves height when not specified', () {
-      final node = BlockquoteNode(id: 'bq1', height: 240.0);
+      final node = BlockquoteNode(id: 'bq1', height: const BlockDimension.pixels(240.0));
       final copy = node.copyWith(id: 'bq2');
-      expect(copy.height, 240.0);
+      expect(copy.height, const BlockDimension.pixels(240.0));
     });
 
     test('copyWith preserves alignment when not specified', () {
@@ -197,16 +198,16 @@ void main() {
       final a = BlockquoteNode(
         id: 'bq1',
         text: text,
-        width: 400.0,
-        height: 100.0,
+        width: const BlockDimension.pixels(400.0),
+        height: const BlockDimension.pixels(100.0),
         alignment: BlockAlignment.center,
         textWrap: TextWrapMode.wrap,
       );
       final b = BlockquoteNode(
         id: 'bq1',
         text: AttributedText('quote'),
-        width: 400.0,
-        height: 100.0,
+        width: const BlockDimension.pixels(400.0),
+        height: const BlockDimension.pixels(100.0),
         alignment: BlockAlignment.center,
         textWrap: TextWrapMode.wrap,
       );
@@ -226,14 +227,14 @@ void main() {
     });
 
     test('unequal when width differs', () {
-      final a = BlockquoteNode(id: 'bq1', width: 100.0);
-      final b = BlockquoteNode(id: 'bq1', width: 200.0);
+      final a = BlockquoteNode(id: 'bq1', width: const BlockDimension.pixels(100.0));
+      final b = BlockquoteNode(id: 'bq1', width: const BlockDimension.pixels(200.0));
       expect(a, isNot(equals(b)));
     });
 
     test('unequal when height differs', () {
-      final a = BlockquoteNode(id: 'bq1', height: 50.0);
-      final b = BlockquoteNode(id: 'bq1', height: 100.0);
+      final a = BlockquoteNode(id: 'bq1', height: const BlockDimension.pixels(50.0));
+      final b = BlockquoteNode(id: 'bq1', height: const BlockDimension.pixels(100.0));
       expect(a, isNot(equals(b)));
     });
 
@@ -279,7 +280,11 @@ void main() {
     });
 
     test('hashCode is consistent on same instance', () {
-      final node = BlockquoteNode(id: 'bq1', width: 200.0, textWrap: TextWrapMode.wrap);
+      final node = BlockquoteNode(
+        id: 'bq1',
+        width: const BlockDimension.pixels(200.0),
+        textWrap: TextWrapMode.wrap,
+      );
       expect(node.hashCode, node.hashCode);
     });
   });
@@ -299,12 +304,12 @@ void main() {
     });
 
     test('toString includes width', () {
-      final node = BlockquoteNode(id: 'bq1', width: 480.0);
+      final node = BlockquoteNode(id: 'bq1', width: const BlockDimension.pixels(480.0));
       expect(node.toString(), contains('480.0'));
     });
 
     test('toString includes height', () {
-      final node = BlockquoteNode(id: 'bq1', height: 200.0);
+      final node = BlockquoteNode(id: 'bq1', height: const BlockDimension.pixels(200.0));
       expect(node.toString(), contains('200.0'));
     });
 
@@ -391,12 +396,12 @@ void main() {
         id: 'bq1',
         textAlign: TextAlign.start,
         alignment: BlockAlignment.center,
-        width: 400.0,
+        width: const BlockDimension.pixels(400.0),
       );
       final copy = node.copyWith(textAlign: TextAlign.justify);
       expect(copy.id, 'bq1');
       expect(copy.alignment, BlockAlignment.center);
-      expect(copy.width, 400.0);
+      expect(copy.width, const BlockDimension.pixels(400.0));
       expect(copy.textAlign, TextAlign.justify);
     });
   });
@@ -502,14 +507,14 @@ void main() {
         id: 'bq1',
         textAlign: TextAlign.center,
         alignment: BlockAlignment.center,
-        width: 400.0,
+        width: const BlockDimension.pixels(400.0),
         lineHeight: 1.0,
       );
       final copy = node.copyWith(lineHeight: 1.5);
       expect(copy.id, 'bq1');
       expect(copy.textAlign, TextAlign.center);
       expect(copy.alignment, BlockAlignment.center);
-      expect(copy.width, 400.0);
+      expect(copy.width, const BlockDimension.pixels(400.0));
       expect(copy.lineHeight, 1.5);
     });
   });

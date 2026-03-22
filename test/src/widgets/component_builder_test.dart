@@ -794,15 +794,15 @@ void main() {
       final node = CodeBlockNode(
         id: 'cb1',
         text: AttributedText('code'),
-        width: 400.0,
-        height: 200.0,
+        width: const BlockDimension.pixels(400.0),
+        height: const BlockDimension.pixels(200.0),
         alignment: BlockAlignment.end,
         textWrap: TextWrapMode.wrap,
       );
       final doc = _doc([node]);
       final vm = builder.createViewModel(doc, node) as CodeBlockComponentViewModel;
-      expect(vm.width, 400.0);
-      expect(vm.height, 200.0);
+      expect(vm.width, const BlockDimension.pixels(400.0));
+      expect(vm.height, const BlockDimension.pixels(200.0));
       expect(vm.alignment, BlockAlignment.end);
       expect(vm.textWrap, TextWrapMode.wrap);
     });
@@ -841,8 +841,8 @@ void main() {
         nodeId: 'cb1',
         text: AttributedText('code'),
         textStyle: const TextStyle(),
-        width: 400.0,
-        height: 200.0,
+        width: const BlockDimension.pixels(400.0),
+        height: const BlockDimension.pixels(200.0),
         alignment: BlockAlignment.center,
         textWrap: TextWrapMode.wrap,
       );
@@ -850,8 +850,8 @@ void main() {
         nodeId: 'cb1',
         text: AttributedText('code'),
         textStyle: const TextStyle(),
-        width: 400.0,
-        height: 200.0,
+        width: const BlockDimension.pixels(400.0),
+        height: const BlockDimension.pixels(200.0),
         alignment: BlockAlignment.center,
         textWrap: TextWrapMode.wrap,
       );
@@ -859,7 +859,7 @@ void main() {
         nodeId: 'cb1',
         text: AttributedText('code'),
         textStyle: const TextStyle(),
-        width: 300.0,
+        width: const BlockDimension.pixels(300.0),
         alignment: BlockAlignment.start,
       );
       expect(a, equals(b));
@@ -871,7 +871,7 @@ void main() {
         nodeId: 'cb1',
         text: AttributedText('code'),
         textStyle: const TextStyle(),
-        width: 400.0,
+        width: const BlockDimension.pixels(400.0),
         alignment: BlockAlignment.center,
         textWrap: TextWrapMode.wrap,
       );
@@ -879,7 +879,7 @@ void main() {
         nodeId: 'cb1',
         text: AttributedText('code'),
         textStyle: const TextStyle(),
-        width: 400.0,
+        width: const BlockDimension.pixels(400.0),
         alignment: BlockAlignment.center,
         textWrap: TextWrapMode.wrap,
       );
@@ -1017,16 +1017,16 @@ void main() {
       final node = BlockquoteNode(
         id: 'bq1',
         text: AttributedText('To be or not to be'),
-        width: 500.0,
-        height: 100.0,
+        width: const BlockDimension.pixels(500.0),
+        height: const BlockDimension.pixels(100.0),
         alignment: BlockAlignment.center,
         textWrap: TextWrapMode.wrap,
       );
       final doc = _doc([node]);
       final vm = builder.createViewModel(doc, node) as BlockquoteComponentViewModel;
       expect(vm.text.text, 'To be or not to be');
-      expect(vm.width, 500.0);
-      expect(vm.height, 100.0);
+      expect(vm.width, const BlockDimension.pixels(500.0));
+      expect(vm.height, const BlockDimension.pixels(100.0));
       expect(vm.alignment, BlockAlignment.center);
       expect(vm.textWrap, TextWrapMode.wrap);
     });
@@ -1065,8 +1065,8 @@ void main() {
         nodeId: 'bq1',
         text: AttributedText('quote'),
         textStyle: const TextStyle(),
-        width: 500.0,
-        height: 100.0,
+        width: const BlockDimension.pixels(500.0),
+        height: const BlockDimension.pixels(100.0),
         alignment: BlockAlignment.center,
         textWrap: TextWrapMode.wrap,
       );
@@ -1074,8 +1074,8 @@ void main() {
         nodeId: 'bq1',
         text: AttributedText('quote'),
         textStyle: const TextStyle(),
-        width: 500.0,
-        height: 100.0,
+        width: const BlockDimension.pixels(500.0),
+        height: const BlockDimension.pixels(100.0),
         alignment: BlockAlignment.center,
         textWrap: TextWrapMode.wrap,
       );

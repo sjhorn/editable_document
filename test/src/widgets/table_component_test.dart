@@ -53,8 +53,8 @@ TableNode _table({
     columnWidths: columnWidths,
     alignment: alignment,
     textWrap: textWrap,
-    width: width,
-    height: height,
+    width: width != null ? BlockDimension.pixels(width) : null,
+    height: height != null ? BlockDimension.pixels(height) : null,
   );
 }
 
@@ -130,7 +130,7 @@ void main() {
       final doc = _doc([node]);
       final vm = builder.createViewModel(doc, node) as TableComponentViewModel;
 
-      expect(vm.requestedWidth, 400.0);
+      expect(vm.requestedWidth, const BlockDimension.pixels(400.0));
     });
 
     test('wires height from TableNode', () {
@@ -138,7 +138,7 @@ void main() {
       final doc = _doc([node]);
       final vm = builder.createViewModel(doc, node) as TableComponentViewModel;
 
-      expect(vm.requestedHeight, 200.0);
+      expect(vm.requestedHeight, const BlockDimension.pixels(200.0));
     });
 
     test('wires columnWidths from TableNode', () {
@@ -288,14 +288,14 @@ void main() {
         rowCount: 2,
         columnCount: 2,
         cells: cells2x2,
-        requestedWidth: 400.0,
+        requestedWidth: const BlockDimension.pixels(400.0),
       );
       final b = TableComponentViewModel(
         nodeId: 't1',
         rowCount: 2,
         columnCount: 2,
         cells: cells2x2,
-        requestedWidth: 500.0,
+        requestedWidth: const BlockDimension.pixels(500.0),
       );
       expect(a, isNot(equals(b)));
     });
@@ -306,14 +306,14 @@ void main() {
         rowCount: 2,
         columnCount: 2,
         cells: cells2x2,
-        requestedHeight: 100.0,
+        requestedHeight: const BlockDimension.pixels(100.0),
       );
       final b = TableComponentViewModel(
         nodeId: 't1',
         rowCount: 2,
         columnCount: 2,
         cells: cells2x2,
-        requestedHeight: 200.0,
+        requestedHeight: const BlockDimension.pixels(200.0),
       );
       expect(a, isNot(equals(b)));
     });
@@ -326,8 +326,8 @@ void main() {
         cells: cells2x2,
         alignment: BlockAlignment.center,
         textWrap: TextWrapMode.wrap,
-        requestedWidth: 400.0,
-        requestedHeight: 100.0,
+        requestedWidth: const BlockDimension.pixels(400.0),
+        requestedHeight: const BlockDimension.pixels(100.0),
       );
       final b = TableComponentViewModel(
         nodeId: 't1',
@@ -336,8 +336,8 @@ void main() {
         cells: cells2x2,
         alignment: BlockAlignment.center,
         textWrap: TextWrapMode.wrap,
-        requestedWidth: 400.0,
-        requestedHeight: 100.0,
+        requestedWidth: const BlockDimension.pixels(400.0),
+        requestedHeight: const BlockDimension.pixels(100.0),
       );
       expect(a.hashCode, equals(b.hashCode));
     });

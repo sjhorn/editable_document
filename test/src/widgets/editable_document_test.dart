@@ -1286,7 +1286,7 @@ void main() {
       _installTextInputMock(tester, log);
 
       final doc = MutableDocument([
-        ImageNode(id: 'img1', imageUrl: 'test.png', height: 200),
+        ImageNode(id: 'img1', imageUrl: 'test.png', height: const BlockDimension.pixels(200)),
         ParagraphNode(id: 'p1', text: AttributedText('After image')),
       ]);
       final controller = DocumentEditingController(document: doc);
@@ -1331,7 +1331,7 @@ void main() {
       _installTextInputMock(tester, log);
 
       final doc = MutableDocument([
-        ImageNode(id: 'img1', imageUrl: 'test.png', height: 200),
+        ImageNode(id: 'img1', imageUrl: 'test.png', height: const BlockDimension.pixels(200)),
         ParagraphNode(id: 'p1', text: AttributedText('After image')),
       ]);
       final controller = DocumentEditingController(document: doc);

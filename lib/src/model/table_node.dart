@@ -12,6 +12,7 @@ import 'package:flutter/foundation.dart';
 import 'attributed_text.dart';
 import 'block_alignment.dart';
 import 'block_border.dart';
+import 'block_dimension.dart';
 import 'block_layout.dart';
 import 'document_node.dart';
 import 'node_position.dart';
@@ -184,13 +185,19 @@ class TableNode extends DocumentNode implements HasBlockLayout {
   @override
   final TextWrapMode textWrap;
 
-  /// Preferred display width in logical pixels, or `null` to fill available width.
+  /// Preferred display block dimension for width, or `null` to fill available width.
+  ///
+  /// Use [BlockDimension.pixels] for a fixed logical-pixel width or
+  /// [BlockDimension.percent] for a fraction of the document width.
   @override
-  final double? width;
+  final BlockDimension? width;
 
-  /// Preferred display height in logical pixels, or `null` to use intrinsic height.
+  /// Preferred display block dimension for height, or `null` to use intrinsic height.
+  ///
+  /// Use [BlockDimension.pixels] for a fixed logical-pixel height or
+  /// [BlockDimension.percent] for a fraction of the viewport height.
   @override
-  final double? height;
+  final BlockDimension? height;
 
   /// Extra space before this block in logical pixels, or `null` to use the
   /// document-level default spacing.
@@ -219,7 +226,12 @@ class TableNode extends DocumentNode implements HasBlockLayout {
   bool get isResizable => alignment != BlockAlignment.stretch;
 
   @override
-  DocumentNode copyWithSize({double? width, double? height, BlockAlignment? alignment}) => copyWith(
+  DocumentNode copyWithSize({
+    BlockDimension? width,
+    BlockDimension? height,
+    BlockAlignment? alignment,
+  }) =>
+      copyWith(
         width: width ?? this.width,
         height: height ?? this.height,
         alignment: alignment ?? this.alignment,
@@ -237,8 +249,8 @@ class TableNode extends DocumentNode implements HasBlockLayout {
     Object? cellVerticalAligns = _sentinel,
     BlockAlignment? alignment,
     TextWrapMode? textWrap,
-    double? width,
-    double? height,
+    BlockDimension? width,
+    BlockDimension? height,
     double? spaceBefore,
     double? spaceAfter,
     BlockBorder? border,
@@ -372,8 +384,8 @@ class TableNode extends DocumentNode implements HasBlockLayout {
     properties.add(
       EnumProperty<TextWrapMode>('textWrap', textWrap, defaultValue: TextWrapMode.none),
     );
-    properties.add(DoubleProperty('width', width, defaultValue: null));
-    properties.add(DoubleProperty('height', height, defaultValue: null));
+    properties.add(DiagnosticsProperty<BlockDimension?>('width', width, defaultValue: null));
+    properties.add(DiagnosticsProperty<BlockDimension?>('height', height, defaultValue: null));
     properties.add(
       IterableProperty<double?>('columnWidths', columnWidths, defaultValue: null),
     );

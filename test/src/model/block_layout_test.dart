@@ -60,14 +60,14 @@ void main() {
       final node = ImageNode(
         id: '7',
         imageUrl: 'https://example.com/b.png',
-        width: 200.0,
-        height: 100.0,
+        width: const BlockDimension.pixels(200.0),
+        height: const BlockDimension.pixels(100.0),
         alignment: BlockAlignment.center,
         textWrap: TextWrapMode.wrap,
       );
       final layout = node as HasBlockLayout;
-      expect(layout.width, 200.0);
-      expect(layout.height, 100.0);
+      expect(layout.width, const BlockDimension.pixels(200.0));
+      expect(layout.height, const BlockDimension.pixels(100.0));
       expect(layout.alignment, BlockAlignment.center);
       expect(layout.textWrap, TextWrapMode.wrap);
     });
@@ -193,9 +193,12 @@ void main() {
         alignment: BlockAlignment.center,
       );
       final layout = node as HasBlockLayout;
-      final copy = layout.copyWithSize(width: 320.0, height: 240.0) as ImageNode;
-      expect(copy.width, 320.0);
-      expect(copy.height, 240.0);
+      final copy = layout.copyWithSize(
+        width: const BlockDimension.pixels(320.0),
+        height: const BlockDimension.pixels(240.0),
+      ) as ImageNode;
+      expect(copy.width, const BlockDimension.pixels(320.0));
+      expect(copy.height, const BlockDimension.pixels(240.0));
       expect(copy.id, '1');
       expect(copy.imageUrl, 'https://example.com/a.png');
       expect(copy.alignment, BlockAlignment.center);
@@ -205,37 +208,45 @@ void main() {
       final node = ImageNode(
         id: '1',
         imageUrl: 'https://example.com/a.png',
-        width: 100.0,
+        width: const BlockDimension.pixels(100.0),
         alignment: BlockAlignment.center,
       );
-      final copy = (node as HasBlockLayout).copyWithSize(height: 50.0) as ImageNode;
-      expect(copy.width, 100.0);
-      expect(copy.height, 50.0);
+      final copy = (node as HasBlockLayout).copyWithSize(
+        height: const BlockDimension.pixels(50.0),
+      ) as ImageNode;
+      expect(copy.width, const BlockDimension.pixels(100.0));
+      expect(copy.height, const BlockDimension.pixels(50.0));
     });
 
     test('CodeBlockNode copyWithSize updates width and height', () {
       final node = CodeBlockNode(id: '2', alignment: BlockAlignment.center);
-      final copy =
-          (node as HasBlockLayout).copyWithSize(width: 640.0, height: 480.0) as CodeBlockNode;
-      expect(copy.width, 640.0);
-      expect(copy.height, 480.0);
+      final copy = (node as HasBlockLayout).copyWithSize(
+        width: const BlockDimension.pixels(640.0),
+        height: const BlockDimension.pixels(480.0),
+      ) as CodeBlockNode;
+      expect(copy.width, const BlockDimension.pixels(640.0));
+      expect(copy.height, const BlockDimension.pixels(480.0));
       expect(copy.id, '2');
     });
 
     test('BlockquoteNode copyWithSize updates width and height', () {
       final node = BlockquoteNode(id: '3', alignment: BlockAlignment.center);
-      final copy =
-          (node as HasBlockLayout).copyWithSize(width: 400.0, height: 200.0) as BlockquoteNode;
-      expect(copy.width, 400.0);
-      expect(copy.height, 200.0);
+      final copy = (node as HasBlockLayout).copyWithSize(
+        width: const BlockDimension.pixels(400.0),
+        height: const BlockDimension.pixels(200.0),
+      ) as BlockquoteNode;
+      expect(copy.width, const BlockDimension.pixels(400.0));
+      expect(copy.height, const BlockDimension.pixels(200.0));
     });
 
     test('HorizontalRuleNode copyWithSize updates width and height', () {
       final node = HorizontalRuleNode(id: '4', alignment: BlockAlignment.center);
-      final copy =
-          (node as HasBlockLayout).copyWithSize(width: 300.0, height: 2.0) as HorizontalRuleNode;
-      expect(copy.width, 300.0);
-      expect(copy.height, 2.0);
+      final copy = (node as HasBlockLayout).copyWithSize(
+        width: const BlockDimension.pixels(300.0),
+        height: const BlockDimension.pixels(2.0),
+      ) as HorizontalRuleNode;
+      expect(copy.width, const BlockDimension.pixels(300.0));
+      expect(copy.height, const BlockDimension.pixels(2.0));
     });
 
     test('TableNode copyWithSize updates width and height', () {
@@ -248,9 +259,12 @@ void main() {
         ],
         alignment: BlockAlignment.center,
       );
-      final copy = (node as HasBlockLayout).copyWithSize(width: 500.0, height: 300.0) as TableNode;
-      expect(copy.width, 500.0);
-      expect(copy.height, 300.0);
+      final copy = (node as HasBlockLayout).copyWithSize(
+        width: const BlockDimension.pixels(500.0),
+        height: const BlockDimension.pixels(300.0),
+      ) as TableNode;
+      expect(copy.width, const BlockDimension.pixels(500.0));
+      expect(copy.height, const BlockDimension.pixels(300.0));
       expect(copy.id, '5');
       expect(copy.rowCount, 1);
     });
@@ -259,13 +273,13 @@ void main() {
       final node = ImageNode(
         id: '1',
         imageUrl: 'https://example.com/a.png',
-        width: 100.0,
-        height: 50.0,
+        width: const BlockDimension.pixels(100.0),
+        height: const BlockDimension.pixels(50.0),
         alignment: BlockAlignment.center,
       );
       final copy = (node as HasBlockLayout).copyWithSize() as ImageNode;
-      expect(copy.width, 100.0);
-      expect(copy.height, 50.0);
+      expect(copy.width, const BlockDimension.pixels(100.0));
+      expect(copy.height, const BlockDimension.pixels(50.0));
     });
 
     test('ImageNode copyWithSize with alignment changes the alignment on the copy', () {
@@ -325,9 +339,11 @@ void main() {
         imageUrl: 'https://example.com/a.png',
         alignment: BlockAlignment.end,
       );
-      final copy = (node as HasBlockLayout).copyWithSize(width: 200.0) as ImageNode;
+      final copy = (node as HasBlockLayout).copyWithSize(
+        width: const BlockDimension.pixels(200.0),
+      ) as ImageNode;
       expect(copy.alignment, BlockAlignment.end);
-      expect(copy.width, 200.0);
+      expect(copy.width, const BlockDimension.pixels(200.0));
     });
   });
 }

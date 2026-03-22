@@ -4,6 +4,7 @@ library;
 
 import 'package:editable_document/src/model/block_alignment.dart';
 import 'package:editable_document/src/model/block_border.dart';
+import 'package:editable_document/src/model/block_dimension.dart';
 import 'package:editable_document/src/model/horizontal_rule_node.dart';
 import 'package:editable_document/src/model/text_wrap_mode.dart';
 import 'package:flutter/foundation.dart';
@@ -31,14 +32,14 @@ void main() {
     test('constructor stores explicit width, height, and textWrap', () {
       final node = HorizontalRuleNode(
         id: 'hr-2',
-        width: 400.0,
-        height: 2.0,
+        width: const BlockDimension.pixels(400.0),
+        height: const BlockDimension.pixels(2.0),
         textWrap: TextWrapMode.wrap,
         alignment: BlockAlignment.center,
       );
 
-      expect(node.width, 400.0);
-      expect(node.height, 2.0);
+      expect(node.width, const BlockDimension.pixels(400.0));
+      expect(node.height, const BlockDimension.pixels(2.0));
       expect(node.textWrap, TextWrapMode.wrap);
       expect(node.alignment, BlockAlignment.center);
     });
@@ -50,8 +51,8 @@ void main() {
     test('copyWith preserves width, height, and textWrap when not overridden', () {
       final original = HorizontalRuleNode(
         id: 'hr-3',
-        width: 300.0,
-        height: 4.0,
+        width: const BlockDimension.pixels(300.0),
+        height: const BlockDimension.pixels(4.0),
         textWrap: TextWrapMode.wrap,
         alignment: BlockAlignment.end,
       );
@@ -59,8 +60,8 @@ void main() {
       final copy = original.copyWith(id: 'hr-3-copy');
 
       expect(copy.id, 'hr-3-copy');
-      expect(copy.width, 300.0);
-      expect(copy.height, 4.0);
+      expect(copy.width, const BlockDimension.pixels(300.0));
+      expect(copy.height, const BlockDimension.pixels(4.0));
       expect(copy.textWrap, TextWrapMode.wrap);
       expect(copy.alignment, BlockAlignment.end);
     });
@@ -70,19 +71,27 @@ void main() {
     // -------------------------------------------------------------------------
 
     test('copyWith overrides width independently', () {
-      final original = HorizontalRuleNode(id: 'hr-4', width: 100.0, height: 2.0);
-      final copy = original.copyWith(width: 200.0);
+      final original = HorizontalRuleNode(
+        id: 'hr-4',
+        width: const BlockDimension.pixels(100.0),
+        height: const BlockDimension.pixels(2.0),
+      );
+      final copy = original.copyWith(width: const BlockDimension.pixels(200.0));
 
-      expect(copy.width, 200.0);
-      expect(copy.height, 2.0);
+      expect(copy.width, const BlockDimension.pixels(200.0));
+      expect(copy.height, const BlockDimension.pixels(2.0));
     });
 
     test('copyWith overrides height independently', () {
-      final original = HorizontalRuleNode(id: 'hr-5', width: 100.0, height: 2.0);
-      final copy = original.copyWith(height: 8.0);
+      final original = HorizontalRuleNode(
+        id: 'hr-5',
+        width: const BlockDimension.pixels(100.0),
+        height: const BlockDimension.pixels(2.0),
+      );
+      final copy = original.copyWith(height: const BlockDimension.pixels(8.0));
 
-      expect(copy.width, 100.0);
-      expect(copy.height, 8.0);
+      expect(copy.width, const BlockDimension.pixels(100.0));
+      expect(copy.height, const BlockDimension.pixels(8.0));
     });
 
     test('copyWith overrides textWrap independently', () {
@@ -99,15 +108,15 @@ void main() {
     test('two nodes with identical fields are equal', () {
       final a = HorizontalRuleNode(
         id: 'hr-7',
-        width: 250.0,
-        height: 3.0,
+        width: const BlockDimension.pixels(250.0),
+        height: const BlockDimension.pixels(3.0),
         textWrap: TextWrapMode.wrap,
         alignment: BlockAlignment.center,
       );
       final b = HorizontalRuleNode(
         id: 'hr-7',
-        width: 250.0,
-        height: 3.0,
+        width: const BlockDimension.pixels(250.0),
+        height: const BlockDimension.pixels(3.0),
         textWrap: TextWrapMode.wrap,
         alignment: BlockAlignment.center,
       );
@@ -120,15 +129,15 @@ void main() {
     // -------------------------------------------------------------------------
 
     test('nodes with different width are not equal', () {
-      final a = HorizontalRuleNode(id: 'hr-8', width: 100.0);
-      final b = HorizontalRuleNode(id: 'hr-8', width: 200.0);
+      final a = HorizontalRuleNode(id: 'hr-8', width: const BlockDimension.pixels(100.0));
+      final b = HorizontalRuleNode(id: 'hr-8', width: const BlockDimension.pixels(200.0));
 
       expect(a, isNot(equals(b)));
     });
 
     test('nodes with different height are not equal', () {
-      final a = HorizontalRuleNode(id: 'hr-9', height: 1.0);
-      final b = HorizontalRuleNode(id: 'hr-9', height: 5.0);
+      final a = HorizontalRuleNode(id: 'hr-9', height: const BlockDimension.pixels(1.0));
+      final b = HorizontalRuleNode(id: 'hr-9', height: const BlockDimension.pixels(5.0));
 
       expect(a, isNot(equals(b)));
     });
@@ -142,7 +151,7 @@ void main() {
 
     test('node with null width differs from node with explicit width', () {
       final a = HorizontalRuleNode(id: 'hr-11');
-      final b = HorizontalRuleNode(id: 'hr-11', width: 0.0);
+      final b = HorizontalRuleNode(id: 'hr-11', width: const BlockDimension.pixels(0.0));
 
       expect(a, isNot(equals(b)));
     });
@@ -152,8 +161,8 @@ void main() {
     // -------------------------------------------------------------------------
 
     test('hashCode differs for different width values', () {
-      final a = HorizontalRuleNode(id: 'hr-12', width: 100.0);
-      final b = HorizontalRuleNode(id: 'hr-12', width: 999.0);
+      final a = HorizontalRuleNode(id: 'hr-12', width: const BlockDimension.pixels(100.0));
+      final b = HorizontalRuleNode(id: 'hr-12', width: const BlockDimension.pixels(999.0));
 
       expect(a.hashCode, isNot(equals(b.hashCode)));
     });
@@ -161,14 +170,14 @@ void main() {
     test('hashCode is equal for identical nodes', () {
       final a = HorizontalRuleNode(
         id: 'hr-13',
-        width: 50.0,
-        height: 2.0,
+        width: const BlockDimension.pixels(50.0),
+        height: const BlockDimension.pixels(2.0),
         textWrap: TextWrapMode.wrap,
       );
       final b = HorizontalRuleNode(
         id: 'hr-13',
-        width: 50.0,
-        height: 2.0,
+        width: const BlockDimension.pixels(50.0),
+        height: const BlockDimension.pixels(2.0),
         textWrap: TextWrapMode.wrap,
       );
 
@@ -182,8 +191,8 @@ void main() {
     test('debugFillProperties includes width, height, and textWrap', () {
       final node = HorizontalRuleNode(
         id: 'hr-14',
-        width: 320.0,
-        height: 4.0,
+        width: const BlockDimension.pixels(320.0),
+        height: const BlockDimension.pixels(4.0),
         textWrap: TextWrapMode.wrap,
       );
 
@@ -200,14 +209,14 @@ void main() {
     test('toString includes width, height, and textWrap', () {
       final node = HorizontalRuleNode(
         id: 'hr-15',
-        width: 128.0,
-        height: 1.0,
+        width: const BlockDimension.pixels(128.0),
+        height: const BlockDimension.pixels(1.0),
         textWrap: TextWrapMode.wrap,
       );
 
       final s = node.toString();
-      expect(s, contains('width: 128.0'));
-      expect(s, contains('height: 1.0'));
+      expect(s, contains('128.0'));
+      expect(s, contains('1.0'));
       expect(s, contains('textWrap: TextWrapMode.wrap'));
     });
 

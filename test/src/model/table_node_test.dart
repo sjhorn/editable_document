@@ -6,6 +6,7 @@ import 'dart:ui' show TextAffinity, TextAlign;
 import 'package:editable_document/src/model/attributed_text.dart';
 import 'package:editable_document/src/model/block_alignment.dart';
 import 'package:editable_document/src/model/block_border.dart';
+import 'package:editable_document/src/model/block_dimension.dart';
 import 'package:editable_document/src/model/block_layout.dart';
 import 'package:editable_document/src/model/document_node.dart';
 import 'package:editable_document/src/model/node_position.dart';
@@ -143,13 +144,13 @@ void main() {
         ],
         alignment: BlockAlignment.center,
         textWrap: TextWrapMode.wrap,
-        width: 640.0,
-        height: 300.0,
+        width: const BlockDimension.pixels(640.0),
+        height: const BlockDimension.pixels(300.0),
       );
       expect(node.alignment, BlockAlignment.center);
       expect(node.textWrap, TextWrapMode.wrap);
-      expect(node.width, 640.0);
-      expect(node.height, 300.0);
+      expect(node.width, const BlockDimension.pixels(640.0));
+      expect(node.height, const BlockDimension.pixels(300.0));
     });
 
     test('accepts columnWidths list', () {
@@ -270,10 +271,10 @@ void main() {
         cells: [
           [AttributedText('x')]
         ],
-        width: 500.0,
+        width: const BlockDimension.pixels(500.0),
       );
       final HasBlockLayout layout = node;
-      expect(layout.width, 500.0);
+      expect(layout.width, const BlockDimension.pixels(500.0));
     });
 
     test('HasBlockLayout height getter matches field', () {
@@ -284,10 +285,10 @@ void main() {
         cells: [
           [AttributedText('x')]
         ],
-        height: 250.0,
+        height: const BlockDimension.pixels(250.0),
       );
       final HasBlockLayout layout = node;
-      expect(layout.height, 250.0);
+      expect(layout.height, const BlockDimension.pixels(250.0));
     });
   });
 
@@ -360,10 +361,10 @@ void main() {
         cells: [
           [AttributedText('a')]
         ],
-        width: 100.0,
+        width: const BlockDimension.pixels(100.0),
       );
-      final copy = node.copyWith(width: 200.0);
-      expect(copy.width, 200.0);
+      final copy = node.copyWith(width: const BlockDimension.pixels(200.0));
+      expect(copy.width, const BlockDimension.pixels(200.0));
     });
 
     test('copyWith replaces height', () {
@@ -374,10 +375,10 @@ void main() {
         cells: [
           [AttributedText('a')]
         ],
-        height: 50.0,
+        height: const BlockDimension.pixels(50.0),
       );
-      final copy = node.copyWith(height: 150.0);
-      expect(copy.height, 150.0);
+      final copy = node.copyWith(height: const BlockDimension.pixels(150.0));
+      expect(copy.height, const BlockDimension.pixels(150.0));
     });
 
     test('copyWith replaces columnWidths', () {
@@ -416,7 +417,7 @@ void main() {
           [AttributedText('a')]
         ],
       );
-      final copy = node.copyWith(width: 100.0);
+      final copy = node.copyWith(width: const BlockDimension.pixels(100.0));
       expect(copy.id, 'keep-me');
     });
 
@@ -474,8 +475,8 @@ void main() {
         ],
         alignment: BlockAlignment.center,
         textWrap: TextWrapMode.wrap,
-        width: 400.0,
-        height: 200.0,
+        width: const BlockDimension.pixels(400.0),
+        height: const BlockDimension.pixels(200.0),
       );
       final b = TableNode(
         id: 'tbl-1',
@@ -486,8 +487,8 @@ void main() {
         ],
         alignment: BlockAlignment.center,
         textWrap: TextWrapMode.wrap,
-        width: 400.0,
-        height: 200.0,
+        width: const BlockDimension.pixels(400.0),
+        height: const BlockDimension.pixels(200.0),
       );
       expect(a, equals(b));
     });
@@ -625,7 +626,7 @@ void main() {
         cells: [
           [AttributedText('a')]
         ],
-        width: 100.0,
+        width: const BlockDimension.pixels(100.0),
       );
       final b = TableNode(
         id: 'tbl-1',
@@ -634,7 +635,7 @@ void main() {
         cells: [
           [AttributedText('a')]
         ],
-        width: 200.0,
+        width: const BlockDimension.pixels(200.0),
       );
       expect(a, isNot(equals(b)));
     });
@@ -647,7 +648,7 @@ void main() {
         cells: [
           [AttributedText('a')]
         ],
-        height: 50.0,
+        height: const BlockDimension.pixels(50.0),
       );
       final b = TableNode(
         id: 'tbl-1',
@@ -656,7 +657,7 @@ void main() {
         cells: [
           [AttributedText('a')]
         ],
-        height: 100.0,
+        height: const BlockDimension.pixels(100.0),
       );
       expect(a, isNot(equals(b)));
     });

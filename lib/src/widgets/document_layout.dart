@@ -362,12 +362,14 @@ class DocumentLayoutState extends State<DocumentLayout> {
   Widget build(BuildContext context) {
     final scope = DocumentSemanticsScope.maybeOf(context);
     final viewportWidth = DocumentViewportScope.maybeOf(context);
+    final viewportHeight = DocumentViewportScope.maybeHeightOf(context);
     return _DocumentLayoutRenderWidget(
       key: _renderWidgetKey,
       blockSpacing: widget.blockSpacing,
       isFocused: scope?.isFocused ?? false,
       isReadOnly: scope?.isReadOnly ?? false,
       viewportWidth: viewportWidth,
+      viewportHeight: viewportHeight,
       documentPadding: widget.documentPadding,
       showLineNumbers: widget.showLineNumbers,
       lineNumberWidth: widget.lineNumberWidth,
@@ -395,6 +397,7 @@ class _DocumentLayoutRenderWidget extends MultiChildRenderObjectWidget {
     required this.isFocused,
     required this.isReadOnly,
     this.viewportWidth,
+    this.viewportHeight,
     this.documentPadding = EdgeInsets.zero,
     this.showLineNumbers = false,
     this.lineNumberWidth = 0.0,
@@ -422,6 +425,13 @@ class _DocumentLayoutRenderWidget extends MultiChildRenderObjectWidget {
   /// fill the visible area rather than sizing to infinity when placed inside a
   /// horizontal [SingleChildScrollView].
   final double? viewportWidth;
+
+  /// The visible viewport height in logical pixels, or `null` when unconstrained.
+  ///
+  /// Forwarded to [RenderDocumentLayout.viewportHeight] so that blocks using
+  /// [BlockDimension.percent] height dimensions can resolve to logical pixels
+  /// relative to the visible viewport height.
+  final double? viewportHeight;
 
   /// The padding inset applied around the document's content area.
   ///
@@ -461,6 +471,7 @@ class _DocumentLayoutRenderWidget extends MultiChildRenderObjectWidget {
     return RenderDocumentLayout(
       blockSpacing: blockSpacing,
       viewportWidth: viewportWidth,
+      viewportHeight: viewportHeight,
       documentPadding: documentPadding,
       showLineNumbers: showLineNumbers,
       lineNumberWidth: lineNumberWidth,
@@ -476,6 +487,7 @@ class _DocumentLayoutRenderWidget extends MultiChildRenderObjectWidget {
     renderObject
       ..blockSpacing = blockSpacing
       ..viewportWidth = viewportWidth
+      ..viewportHeight = viewportHeight
       ..documentPadding = documentPadding
       ..showLineNumbers = showLineNumbers
       ..lineNumberWidth = lineNumberWidth
@@ -492,6 +504,7 @@ class _DocumentLayoutRenderWidget extends MultiChildRenderObjectWidget {
     properties.add(FlagProperty('isFocused', value: isFocused, ifTrue: 'focused'));
     properties.add(FlagProperty('isReadOnly', value: isReadOnly, ifTrue: 'readOnly'));
     properties.add(DoubleProperty('viewportWidth', viewportWidth, defaultValue: null));
+    properties.add(DoubleProperty('viewportHeight', viewportHeight, defaultValue: null));
     properties.add(DiagnosticsProperty<EdgeInsets>('documentPadding', documentPadding));
     properties
         .add(FlagProperty('showLineNumbers', value: showLineNumbers, ifTrue: 'showLineNumbers'));

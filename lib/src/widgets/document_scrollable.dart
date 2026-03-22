@@ -367,6 +367,7 @@ class DocumentScrollableState extends State<DocumentScrollable> {
                   scrollDirection: Axis.horizontal,
                   child: DocumentViewportScope(
                     viewportWidth: contentWidth,
+                    viewportHeight: constraints.maxHeight,
                     child: innerChild,
                   ),
                 ),
