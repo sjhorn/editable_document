@@ -526,13 +526,34 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
           'aligned start, center, end, or stretch.',
         ),
       ),
+      // 50%-width code block — demonstrates BlockDimension.percent().
+      // The block occupies half the document column regardless of viewport
+      // width, centre-aligned so it sits in the middle.
+      CodeBlockNode(
+        id: 'code-percent-width',
+        text: AttributedText(
+          '// BlockDimension.percent(0.5) = 50% of document width\n'
+          'final w = BlockDimension.percent(0.5);',
+        ),
+        language: 'dart',
+        width: const BlockDimension.percent(0.5),
+        alignment: BlockAlignment.center,
+      ),
+      ParagraphNode(
+        id: 'percent-width-caption',
+        text: AttributedText(
+          'The code block above uses BlockDimension.percent(0.5), so it always '
+          'occupies 50 % of the document column width. Resize the window to see '
+          'it reflow. Fixed-pixel dimensions use BlockDimension.pixels(value).',
+        ),
+      ),
       // Center-aligned image.
       ImageNode(
         id: 'img-center',
         imageUrl: 'https://picsum.photos/300/150',
         altText: 'Center-aligned image',
-        width: 300,
-        height: 150,
+        width: const BlockDimension.pixels(300),
+        height: const BlockDimension.pixels(150),
         alignment: BlockAlignment.center,
         textWrap: TextWrapMode.wrap,
       ),
@@ -550,8 +571,8 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         id: 'img-float',
         imageUrl: 'https://picsum.photos/200/250',
         altText: 'Floated image with text wrap',
-        width: 200,
-        height: 250,
+        width: const BlockDimension.pixels(200),
+        height: const BlockDimension.pixels(250),
         alignment: BlockAlignment.start,
         textWrap: TextWrapMode.wrap,
       ),
@@ -584,7 +605,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         id: 'code-aligned',
         text: AttributedText('print("end-aligned!")'),
         language: 'dart',
-        width: 250,
+        width: const BlockDimension.pixels(250),
         alignment: BlockAlignment.end,
       ),
       // Floated code block with text wrapping.
@@ -596,7 +617,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
           '}',
         ),
         language: 'dart',
-        width: 250,
+        width: const BlockDimension.pixels(250),
         alignment: BlockAlignment.start,
         textWrap: TextWrapMode.wrap,
       ),
@@ -633,8 +654,8 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         id: 'img-dual-start',
         imageUrl: 'https://picsum.photos/seed/dual-left/150/100',
         altText: 'Left float image',
-        width: 150,
-        height: 100,
+        width: const BlockDimension.pixels(150),
+        height: const BlockDimension.pixels(100),
         alignment: BlockAlignment.start,
         textWrap: TextWrapMode.wrap,
       ),
@@ -643,8 +664,8 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         id: 'img-dual-end',
         imageUrl: 'https://picsum.photos/seed/dual-right/150/100',
         altText: 'Right float image',
-        width: 150,
-        height: 100,
+        width: const BlockDimension.pixels(150),
+        height: const BlockDimension.pixels(100),
         alignment: BlockAlignment.end,
         textWrap: TextWrapMode.wrap,
       ),
@@ -687,8 +708,8 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         id: 'img-drag-demo',
         imageUrl: 'https://picsum.photos/seed/drag-demo/400/120',
         altText: 'Draggable demo image — tap to select, then drag to reorder',
-        width: 400,
-        height: 120,
+        width: const BlockDimension.pixels(400),
+        height: const BlockDimension.pixels(120),
         alignment: BlockAlignment.center,
       ),
       ParagraphNode(
@@ -2080,14 +2101,14 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
     };
   }
 
-  double? _getWidth(DocumentNode node) {
+  BlockDimension? _getWidth(DocumentNode node) {
     return switch (node) {
       HasBlockLayout(:final width) => width,
       _ => null,
     };
   }
 
-  double? _getHeight(DocumentNode node) {
+  BlockDimension? _getHeight(DocumentNode node) {
     return switch (node) {
       HasBlockLayout(:final height) => height,
       _ => null,
@@ -2175,13 +2196,14 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
     final alignment = width != null && _getBlockAlignment(node) == BlockAlignment.stretch
         ? BlockAlignment.start
         : _getBlockAlignment(node);
+    final widthDim = width != null ? BlockDimension.pixels(width) : null;
     DocumentNode updated;
     if (node is ImageNode) {
       updated = ImageNode(
         id: node.id,
         imageUrl: node.imageUrl,
         altText: node.altText,
-        width: width,
+        width: widthDim,
         height: node.height,
         alignment: alignment,
         textWrap: node.textWrap,
@@ -2192,7 +2214,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         id: node.id,
         text: node.text,
         language: node.language,
-        width: width,
+        width: widthDim,
         height: node.height,
         alignment: alignment,
         textWrap: node.textWrap,
@@ -2202,7 +2224,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
       updated = BlockquoteNode(
         id: node.id,
         text: node.text,
-        width: width,
+        width: widthDim,
         height: node.height,
         alignment: alignment,
         textWrap: node.textWrap,
@@ -2211,7 +2233,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
     } else if (node is HorizontalRuleNode) {
       updated = HorizontalRuleNode(
         id: node.id,
-        width: width,
+        width: widthDim,
         height: node.height,
         alignment: alignment,
         textWrap: node.textWrap,
@@ -2230,6 +2252,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
     final alignment = height != null && _getBlockAlignment(node) == BlockAlignment.stretch
         ? BlockAlignment.start
         : _getBlockAlignment(node);
+    final heightDim = height != null ? BlockDimension.pixels(height) : null;
     DocumentNode updated;
     if (node is ImageNode) {
       updated = ImageNode(
@@ -2237,7 +2260,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         imageUrl: node.imageUrl,
         altText: node.altText,
         width: node.width,
-        height: height,
+        height: heightDim,
         alignment: alignment,
         textWrap: node.textWrap,
         border: node.border,
@@ -2248,7 +2271,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         text: node.text,
         language: node.language,
         width: node.width,
-        height: height,
+        height: heightDim,
         alignment: alignment,
         textWrap: node.textWrap,
         border: node.border,
@@ -2258,7 +2281,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         id: node.id,
         text: node.text,
         width: node.width,
-        height: height,
+        height: heightDim,
         alignment: alignment,
         textWrap: node.textWrap,
         border: node.border,
@@ -2267,7 +2290,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
       updated = HorizontalRuleNode(
         id: node.id,
         width: node.width,
-        height: height,
+        height: heightDim,
         alignment: alignment,
         textWrap: node.textWrap,
         border: node.border,
@@ -3418,7 +3441,11 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
                 Expanded(
                   child: _DimensionField(
                     key: ValueKey('${node.id}-w'),
-                    value: _getWidth(node),
+                    value: switch (_getWidth(node)) {
+                      PixelDimension(:final value) => value,
+                      PercentDimension(:final value) => value * 100,
+                      null => null,
+                    },
                     onChanged: (value) => _updateWidth(node, value),
                   ),
                 ),
@@ -3429,7 +3456,11 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
                 Expanded(
                   child: _DimensionField(
                     key: ValueKey('${node.id}-h'),
-                    value: _getHeight(node),
+                    value: switch (_getHeight(node)) {
+                      PixelDimension(:final value) => value,
+                      PercentDimension(:final value) => value * 100,
+                      null => null,
+                    },
                     onChanged: (value) => _updateHeight(node, value),
                   ),
                 ),
