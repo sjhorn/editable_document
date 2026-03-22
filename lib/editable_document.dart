@@ -64,6 +64,7 @@ export 'src/widgets/table_divider_resize_handles.dart';
 export 'src/widgets/caret_document_overlay.dart';
 export 'src/widgets/component_builder.dart';
 export 'src/widgets/drag_handle_auto_scroller.dart';
+export 'src/widgets/document_editing_intents.dart';
 export 'src/widgets/document_field.dart';
 export 'src/widgets/document_layout.dart';
 export 'src/widgets/document_scrollable.dart';
