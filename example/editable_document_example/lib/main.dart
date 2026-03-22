@@ -1268,6 +1268,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         if (node.indentRight != null) map['indentRight'] = node.indentRight;
         if (node.firstLineIndent != null) map['firstLineIndent'] = node.firstLineIndent;
         _addBorderFields(map, node.border);
+        _addBlockLayoutFields(map, node);
         _addAttributionSpans(map, node.text);
       } else if (node is CodeBlockNode) {
         map['type'] = 'codeBlock';
@@ -1277,6 +1278,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         if (node.spaceBefore != null) map['spaceBefore'] = node.spaceBefore;
         if (node.spaceAfter != null) map['spaceAfter'] = node.spaceAfter;
         _addBorderFields(map, node.border);
+        _addBlockLayoutFields(map, node);
       } else if (node is ImageNode) {
         map['type'] = 'image';
         map['imageUrl'] = node.imageUrl;
@@ -1284,11 +1286,13 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         if (node.spaceBefore != null) map['spaceBefore'] = node.spaceBefore;
         if (node.spaceAfter != null) map['spaceAfter'] = node.spaceAfter;
         _addBorderFields(map, node.border);
+        _addBlockLayoutFields(map, node);
       } else if (node is HorizontalRuleNode) {
         map['type'] = 'horizontalRule';
         if (node.spaceBefore != null) map['spaceBefore'] = node.spaceBefore;
         if (node.spaceAfter != null) map['spaceAfter'] = node.spaceAfter;
         _addBorderFields(map, node.border);
+        _addBlockLayoutFields(map, node);
       }
       nodes.add(map);
     }
@@ -1351,6 +1355,75 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
       style: style,
       width: (map['borderWidth'] as num?)?.toDouble() ?? 1.0,
       color: map['borderColor'] != null ? Color(map['borderColor']! as int) : null,
+    );
+  }
+
+  /// Serializes a [BlockDimension] into a JSON-safe object.
+  ///
+  /// Pixels are stored as `{"type": "pixels", "value": <num>}`.
+  /// Percent are stored as `{"type": "percent", "value": <num>}` where the
+  /// stored value is the fractional representation (e.g. 0.5 for 50%).
+  /// Returns `null` when [dim] is null.
+  Map<String, Object?>? _blockDimensionToJson(BlockDimension? dim) {
+    return switch (dim) {
+      PixelDimension(:final value) => {'type': 'pixels', 'value': value},
+      PercentDimension(:final value) => {'type': 'percent', 'value': value},
+      null => null,
+    };
+  }
+
+  /// Deserializes a [BlockDimension] from a JSON object produced by
+  /// [_blockDimensionToJson], or returns `null` when [raw] is absent.
+  BlockDimension? _parseBlockDimension(Object? raw) {
+    if (raw == null) return null;
+    final map = raw as Map<String, Object?>;
+    final type = map['type'] as String?;
+    final value = (map['value'] as num?)?.toDouble() ?? 0.0;
+    return switch (type) {
+      'percent' => BlockDimension.percent(value),
+      _ => BlockDimension.pixels(value),
+    };
+  }
+
+  /// Writes block-layout fields (width, height, alignment, textWrap) into
+  /// [map] for nodes that implement [HasBlockLayout].
+  ///
+  /// Only non-default values are written to keep the JSON compact.
+  void _addBlockLayoutFields(Map<String, Object?> map, HasBlockLayout node) {
+    final widthJson = _blockDimensionToJson(node.width);
+    if (widthJson != null) map['width'] = widthJson;
+    final heightJson = _blockDimensionToJson(node.height);
+    if (heightJson != null) map['height'] = heightJson;
+    // Only write when not the default (stretch) to keep JSON compact.
+    if (node.alignment != BlockAlignment.stretch) {
+      map['blockAlignment'] = node.alignment.name;
+    }
+    if (node.textWrap != TextWrapMode.none) {
+      map['textWrap'] = node.textWrap.name;
+    }
+  }
+
+  /// Deserializes block-layout scalars (alignment, textWrap) from [map].
+  ///
+  /// Returns [BlockAlignment.stretch] when the key is absent, matching the
+  /// default constructor value on all concrete [HasBlockLayout] nodes.
+  BlockAlignment _parseBlockAlignment(Map<String, Object?> map) {
+    final name = map['blockAlignment'] as String?;
+    if (name == null) return BlockAlignment.stretch;
+    return BlockAlignment.values.firstWhere(
+      (e) => e.name == name,
+      orElse: () => BlockAlignment.stretch,
+    );
+  }
+
+  /// Deserializes [TextWrapMode] from [map], returning [TextWrapMode.none]
+  /// when the key is absent.
+  TextWrapMode _parseTextWrap(Map<String, Object?> map) {
+    final name = map['textWrap'] as String?;
+    if (name == null) return TextWrapMode.none;
+    return TextWrapMode.values.firstWhere(
+      (e) => e.name == name,
+      orElse: () => TextWrapMode.none,
     );
   }
 
@@ -1482,6 +1555,10 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
             indentRight: (map['indentRight'] as num?)?.toDouble(),
             firstLineIndent: (map['firstLineIndent'] as num?)?.toDouble(),
             border: _parseBorder(map),
+            width: _parseBlockDimension(map['width']),
+            height: _parseBlockDimension(map['height']),
+            alignment: _parseBlockAlignment(map),
+            textWrap: _parseTextWrap(map),
           ));
         case 'codeBlock':
           final text = _textFromJson(map);
@@ -1493,6 +1570,10 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
             spaceBefore: (map['spaceBefore'] as num?)?.toDouble(),
             spaceAfter: (map['spaceAfter'] as num?)?.toDouble(),
             border: _parseBorder(map),
+            width: _parseBlockDimension(map['width']),
+            height: _parseBlockDimension(map['height']),
+            alignment: _parseBlockAlignment(map),
+            textWrap: _parseTextWrap(map),
           ));
         case 'image':
           nodes.add(ImageNode(
@@ -1502,6 +1583,10 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
             spaceBefore: (map['spaceBefore'] as num?)?.toDouble(),
             spaceAfter: (map['spaceAfter'] as num?)?.toDouble(),
             border: _parseBorder(map),
+            width: _parseBlockDimension(map['width']),
+            height: _parseBlockDimension(map['height']),
+            alignment: _parseBlockAlignment(map),
+            textWrap: _parseTextWrap(map),
           ));
         case 'horizontalRule':
           nodes.add(HorizontalRuleNode(
@@ -1509,6 +1594,10 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
             spaceBefore: (map['spaceBefore'] as num?)?.toDouble(),
             spaceAfter: (map['spaceAfter'] as num?)?.toDouble(),
             border: _parseBorder(map),
+            width: _parseBlockDimension(map['width']),
+            height: _parseBlockDimension(map['height']),
+            alignment: _parseBlockAlignment(map),
+            textWrap: _parseTextWrap(map),
           ));
         default:
           nodes.add(ParagraphNode(
@@ -2189,14 +2278,13 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
     _editor.submit(ReplaceNodeRequest(nodeId: node.id, newNode: updated));
   }
 
-  void _updateWidth(DocumentNode node, double? width) {
+  void _updateWidth(DocumentNode node, BlockDimension? widthDim) {
     // copyWith can't set nullable fields to null, so construct directly.
     // If currently stretch-aligned and a width is set, switch to start
     // (stretch ignores explicit dimensions).
-    final alignment = width != null && _getBlockAlignment(node) == BlockAlignment.stretch
+    final alignment = widthDim != null && _getBlockAlignment(node) == BlockAlignment.stretch
         ? BlockAlignment.start
         : _getBlockAlignment(node);
-    final widthDim = width != null ? BlockDimension.pixels(width) : null;
     DocumentNode updated;
     if (node is ImageNode) {
       updated = ImageNode(
@@ -2245,14 +2333,13 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
     _editor.submit(ReplaceNodeRequest(nodeId: node.id, newNode: updated));
   }
 
-  void _updateHeight(DocumentNode node, double? height) {
+  void _updateHeight(DocumentNode node, BlockDimension? heightDim) {
     // copyWith can't set nullable fields to null, so construct directly.
     // If currently stretch-aligned and a height is set, switch to start
     // (stretch ignores explicit dimensions).
-    final alignment = height != null && _getBlockAlignment(node) == BlockAlignment.stretch
+    final alignment = heightDim != null && _getBlockAlignment(node) == BlockAlignment.stretch
         ? BlockAlignment.start
         : _getBlockAlignment(node);
-    final heightDim = height != null ? BlockDimension.pixels(height) : null;
     DocumentNode updated;
     if (node is ImageNode) {
       updated = ImageNode(
@@ -2817,6 +2904,27 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         const SizedBox(height: 4),
         ...children,
       ],
+    );
+  }
+
+  /// Builds a compact px / % toggle used next to each dimension field.
+  ///
+  /// [isPercent] drives the initial selection. [onChanged] is called with
+  /// `true` when the user switches to % mode and `false` for px mode.
+  Widget _buildUnitToggle({
+    required bool isPercent,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 2),
+      child: ToggleButtons(
+        isSelected: [!isPercent, isPercent],
+        onPressed: (index) => onChanged(index == 1),
+        constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+        textStyle: const TextStyle(fontSize: 11),
+        borderRadius: BorderRadius.circular(4),
+        children: const [Text('px'), Text('%')],
+      ),
     );
   }
 
@@ -3446,8 +3554,35 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
                       PercentDimension(:final value) => value * 100,
                       null => null,
                     },
-                    onChanged: (value) => _updateWidth(node, value),
+                    onChanged: (value) {
+                      if (value == null) {
+                        _updateWidth(node, null);
+                      } else {
+                        final isPercent = _getWidth(node) is PercentDimension;
+                        _updateWidth(
+                          node,
+                          isPercent
+                              ? BlockDimension.percent(value / 100)
+                              : BlockDimension.pixels(value),
+                        );
+                      }
+                    },
                   ),
+                ),
+                _buildUnitToggle(
+                  isPercent: _getWidth(node) is PercentDimension,
+                  onChanged: (isPercent) {
+                    final current = _getWidth(node);
+                    if (current == null) return;
+                    final newDim = switch (current) {
+                      PixelDimension(:final value) when isPercent =>
+                        BlockDimension.percent(value / 100),
+                      PercentDimension(:final value) when !isPercent =>
+                        BlockDimension.pixels(value * 100),
+                      _ => current,
+                    };
+                    _updateWidth(node, newDim);
+                  },
                 ),
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 6),
@@ -3461,8 +3596,35 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
                       PercentDimension(:final value) => value * 100,
                       null => null,
                     },
-                    onChanged: (value) => _updateHeight(node, value),
+                    onChanged: (value) {
+                      if (value == null) {
+                        _updateHeight(node, null);
+                      } else {
+                        final isPercent = _getHeight(node) is PercentDimension;
+                        _updateHeight(
+                          node,
+                          isPercent
+                              ? BlockDimension.percent(value / 100)
+                              : BlockDimension.pixels(value),
+                        );
+                      }
+                    },
                   ),
+                ),
+                _buildUnitToggle(
+                  isPercent: _getHeight(node) is PercentDimension,
+                  onChanged: (isPercent) {
+                    final current = _getHeight(node);
+                    if (current == null) return;
+                    final newDim = switch (current) {
+                      PixelDimension(:final value) when isPercent =>
+                        BlockDimension.percent(value / 100),
+                      PercentDimension(:final value) when !isPercent =>
+                        BlockDimension.pixels(value * 100),
+                      _ => current,
+                    };
+                    _updateHeight(node, newDim);
+                  },
                 ),
               ],
             ),
