@@ -21,8 +21,9 @@
 /// - BlockquoteNode with left accent border
 /// - BlockBorder: solid, dashed, and dotted outside borders on individual blocks
 /// - Scrollable property panel shown for ALL block types with sections for:
-///   text alignment, line height, spacing (before/after), indent (left/right/first-line),
-///   and block layout (alignment, text wrap, dimensions) for container blocks
+///   text alignment, line height, spacing (before/after), border (style, width,
+///   color), indent (left/right/first-line), and block layout (alignment, text
+///   wrap, dimensions) for container blocks
 /// - Document Settings panel (when nothing selected): block spacing, default line height,
 ///   document padding, and line number gutter controls
 /// - documentPadding: EdgeInsets applied around the content area (horizontal/vertical
@@ -1216,6 +1217,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         if (node.indentLeft != null) map['indentLeft'] = node.indentLeft;
         if (node.indentRight != null) map['indentRight'] = node.indentRight;
         if (node.firstLineIndent != null) map['firstLineIndent'] = node.firstLineIndent;
+        _addBorderFields(map, node.border);
         _addAttributionSpans(map, node.text);
       } else if (node is ListItemNode) {
         map['type'] = 'listItem';
@@ -1230,6 +1232,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         if (node.spaceAfter != null) map['spaceAfter'] = node.spaceAfter;
         if (node.indentLeft != null) map['indentLeft'] = node.indentLeft;
         if (node.indentRight != null) map['indentRight'] = node.indentRight;
+        _addBorderFields(map, node.border);
         _addAttributionSpans(map, node.text);
       } else if (node is BlockquoteNode) {
         map['type'] = 'blockquote';
@@ -1243,6 +1246,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         if (node.indentLeft != null) map['indentLeft'] = node.indentLeft;
         if (node.indentRight != null) map['indentRight'] = node.indentRight;
         if (node.firstLineIndent != null) map['firstLineIndent'] = node.firstLineIndent;
+        _addBorderFields(map, node.border);
         _addAttributionSpans(map, node.text);
       } else if (node is CodeBlockNode) {
         map['type'] = 'codeBlock';
@@ -1251,16 +1255,19 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         if (node.lineHeight != null) map['lineHeight'] = node.lineHeight;
         if (node.spaceBefore != null) map['spaceBefore'] = node.spaceBefore;
         if (node.spaceAfter != null) map['spaceAfter'] = node.spaceAfter;
+        _addBorderFields(map, node.border);
       } else if (node is ImageNode) {
         map['type'] = 'image';
         map['imageUrl'] = node.imageUrl;
         if (node.altText != null) map['altText'] = node.altText;
         if (node.spaceBefore != null) map['spaceBefore'] = node.spaceBefore;
         if (node.spaceAfter != null) map['spaceAfter'] = node.spaceAfter;
+        _addBorderFields(map, node.border);
       } else if (node is HorizontalRuleNode) {
         map['type'] = 'horizontalRule';
         if (node.spaceBefore != null) map['spaceBefore'] = node.spaceBefore;
         if (node.spaceAfter != null) map['spaceAfter'] = node.spaceAfter;
+        _addBorderFields(map, node.border);
       }
       nodes.add(map);
     }
@@ -1294,6 +1301,36 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
       }
       return spanMap;
     }).toList();
+  }
+
+  /// Serializes [border] into [map] using three keys:
+  ///
+  /// - `borderStyle` — the [BlockBorderStyle.name] string.
+  /// - `borderWidth` — the stroke width as a [double].
+  /// - `borderColor` — the ARGB 32-bit integer (omitted when `color` is null).
+  ///
+  /// Does nothing when [border] is null.
+  void _addBorderFields(Map<String, Object?> map, BlockBorder? border) {
+    if (border == null) return;
+    map['borderStyle'] = border.style.name;
+    map['borderWidth'] = border.width;
+    if (border.color != null) map['borderColor'] = border.color!.toARGB32();
+  }
+
+  /// Deserializes a [BlockBorder] from [map], or returns `null` when the
+  /// `borderStyle` key is absent.
+  BlockBorder? _parseBorder(Map<String, Object?> map) {
+    final styleName = map['borderStyle'] as String?;
+    if (styleName == null) return null;
+    final style = BlockBorderStyle.values.firstWhere(
+      (s) => s.name == styleName,
+      orElse: () => BlockBorderStyle.solid,
+    );
+    return BlockBorder(
+      style: style,
+      width: (map['borderWidth'] as num?)?.toDouble() ?? 1.0,
+      color: map['borderColor'] != null ? Color(map['borderColor']! as int) : null,
+    );
   }
 
   void _showSaveDialog() {
@@ -1393,6 +1430,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
             indentLeft: (map['indentLeft'] as num?)?.toDouble(),
             indentRight: (map['indentRight'] as num?)?.toDouble(),
             firstLineIndent: (map['firstLineIndent'] as num?)?.toDouble(),
+            border: _parseBorder(map),
           ));
         case 'listItem':
           final text = _textFromJson(map);
@@ -1408,6 +1446,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
             spaceAfter: (map['spaceAfter'] as num?)?.toDouble(),
             indentLeft: (map['indentLeft'] as num?)?.toDouble(),
             indentRight: (map['indentRight'] as num?)?.toDouble(),
+            border: _parseBorder(map),
           ));
         case 'blockquote':
           final text = _textFromJson(map);
@@ -1421,6 +1460,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
             indentLeft: (map['indentLeft'] as num?)?.toDouble(),
             indentRight: (map['indentRight'] as num?)?.toDouble(),
             firstLineIndent: (map['firstLineIndent'] as num?)?.toDouble(),
+            border: _parseBorder(map),
           ));
         case 'codeBlock':
           final text = _textFromJson(map);
@@ -1431,6 +1471,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
             lineHeight: (map['lineHeight'] as num?)?.toDouble(),
             spaceBefore: (map['spaceBefore'] as num?)?.toDouble(),
             spaceAfter: (map['spaceAfter'] as num?)?.toDouble(),
+            border: _parseBorder(map),
           ));
         case 'image':
           nodes.add(ImageNode(
@@ -1439,12 +1480,14 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
             altText: map['altText'] as String?,
             spaceBefore: (map['spaceBefore'] as num?)?.toDouble(),
             spaceAfter: (map['spaceAfter'] as num?)?.toDouble(),
+            border: _parseBorder(map),
           ));
         case 'horizontalRule':
           nodes.add(HorizontalRuleNode(
             id: id,
             spaceBefore: (map['spaceBefore'] as num?)?.toDouble(),
             spaceAfter: (map['spaceAfter'] as num?)?.toDouble(),
+            border: _parseBorder(map),
           ));
         default:
           nodes.add(ParagraphNode(
@@ -2064,6 +2107,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
               height: null,
               alignment: alignment,
               textWrap: node.textWrap,
+              border: node.border,
             )
           : node.copyWith(alignment: alignment);
     } else if (node is CodeBlockNode) {
@@ -2076,6 +2120,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
               height: null,
               alignment: alignment,
               textWrap: node.textWrap,
+              border: node.border,
             )
           : node.copyWith(alignment: alignment);
     } else if (node is BlockquoteNode) {
@@ -2087,6 +2132,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
               height: null,
               alignment: alignment,
               textWrap: node.textWrap,
+              border: node.border,
             )
           : node.copyWith(alignment: alignment);
     } else if (node is HorizontalRuleNode) {
@@ -2097,6 +2143,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
               height: null,
               alignment: alignment,
               textWrap: node.textWrap,
+              border: node.border,
             )
           : node.copyWith(alignment: alignment);
     } else {
@@ -2138,6 +2185,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         height: node.height,
         alignment: alignment,
         textWrap: node.textWrap,
+        border: node.border,
       );
     } else if (node is CodeBlockNode) {
       updated = CodeBlockNode(
@@ -2148,6 +2196,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         height: node.height,
         alignment: alignment,
         textWrap: node.textWrap,
+        border: node.border,
       );
     } else if (node is BlockquoteNode) {
       updated = BlockquoteNode(
@@ -2157,6 +2206,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         height: node.height,
         alignment: alignment,
         textWrap: node.textWrap,
+        border: node.border,
       );
     } else if (node is HorizontalRuleNode) {
       updated = HorizontalRuleNode(
@@ -2165,6 +2215,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         height: node.height,
         alignment: alignment,
         textWrap: node.textWrap,
+        border: node.border,
       );
     } else {
       return;
@@ -2189,6 +2240,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         height: height,
         alignment: alignment,
         textWrap: node.textWrap,
+        border: node.border,
       );
     } else if (node is CodeBlockNode) {
       updated = CodeBlockNode(
@@ -2199,6 +2251,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         height: height,
         alignment: alignment,
         textWrap: node.textWrap,
+        border: node.border,
       );
     } else if (node is BlockquoteNode) {
       updated = BlockquoteNode(
@@ -2208,6 +2261,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         height: height,
         alignment: alignment,
         textWrap: node.textWrap,
+        border: node.border,
       );
     } else if (node is HorizontalRuleNode) {
       updated = HorizontalRuleNode(
@@ -2216,6 +2270,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         height: height,
         alignment: alignment,
         textWrap: node.textWrap,
+        border: node.border,
       );
     } else {
       return;
@@ -2234,6 +2289,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
       alignment: node.alignment,
       textWrap: node.textWrap,
       lockAspect: node.lockAspect,
+      border: node.border,
     );
     _editor.submit(ReplaceNodeRequest(nodeId: node.id, newNode: updated));
   }
@@ -2308,6 +2364,26 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         node is TableNode;
   }
 
+  /// Returns the border of [node], or `null` when the node type does not
+  /// support borders.
+  BlockBorder? _getBorder(DocumentNode node) {
+    return switch (node) {
+      ParagraphNode(:final border) => border,
+      ListItemNode(:final border) => border,
+      BlockquoteNode(:final border) => border,
+      CodeBlockNode(:final border) => border,
+      ImageNode(:final border) => border,
+      HorizontalRuleNode(:final border) => border,
+      TableNode(:final border) => border,
+      _ => null,
+    };
+  }
+
+  /// Whether [node] supports the [BlockBorder] property.
+  ///
+  /// The same set of node types that support spacing also support borders.
+  bool _hasBorderProperties(DocumentNode node) => _hasSpacingProperties(node);
+
   /// Sets spaceBefore and/or spaceAfter on [node].  Non-null values replace
   /// the current value; to clear a value, use [_clearSpaceBefore] or
   /// [_clearSpaceAfter].
@@ -2353,6 +2429,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         indentLeft: node.indentLeft,
         indentRight: node.indentRight,
         firstLineIndent: node.firstLineIndent,
+        border: node.border,
         metadata: node.metadata,
       );
     } else if (node is ListItemNode) {
@@ -2367,6 +2444,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         spaceAfter: spaceAfter,
         indentLeft: node.indentLeft,
         indentRight: node.indentRight,
+        border: node.border,
         metadata: node.metadata,
       );
     } else if (node is BlockquoteNode) {
@@ -2384,6 +2462,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         indentLeft: node.indentLeft,
         indentRight: node.indentRight,
         firstLineIndent: node.firstLineIndent,
+        border: node.border,
         metadata: node.metadata,
       );
     } else if (node is CodeBlockNode) {
@@ -2398,6 +2477,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         lineHeight: node.lineHeight,
         spaceBefore: spaceBefore,
         spaceAfter: spaceAfter,
+        border: node.border,
         metadata: node.metadata,
       );
     } else if (node is ImageNode) {
@@ -2412,6 +2492,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         lockAspect: node.lockAspect,
         spaceBefore: spaceBefore,
         spaceAfter: spaceAfter,
+        border: node.border,
         metadata: node.metadata,
       );
     } else if (node is HorizontalRuleNode) {
@@ -2423,6 +2504,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         textWrap: node.textWrap,
         spaceBefore: spaceBefore,
         spaceAfter: spaceAfter,
+        border: node.border,
         metadata: node.metadata,
       );
     } else if (node is TableNode) {
@@ -2440,6 +2522,127 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         alignment: node.alignment,
         spaceBefore: spaceBefore,
         spaceAfter: spaceAfter,
+        border: node.border,
+        metadata: node.metadata,
+      );
+    } else {
+      return;
+    }
+    _editor.submit(ReplaceNodeRequest(nodeId: node.id, newNode: updated));
+  }
+
+  /// Replaces [node] with an updated copy that has the specified [border].
+  ///
+  /// Constructs a new node directly so that `null` correctly clears the border
+  /// (since [copyWith] uses `??` and cannot clear nullable fields to `null`).
+  /// All other fields are preserved verbatim.
+  void _replaceNodeWithBorder(DocumentNode node, BlockBorder? border) {
+    final DocumentNode updated;
+    if (node is ParagraphNode) {
+      updated = ParagraphNode(
+        id: node.id,
+        text: node.text,
+        blockType: node.blockType,
+        textAlign: node.textAlign,
+        lineHeight: node.lineHeight,
+        spaceBefore: node.spaceBefore,
+        spaceAfter: node.spaceAfter,
+        indentLeft: node.indentLeft,
+        indentRight: node.indentRight,
+        firstLineIndent: node.firstLineIndent,
+        border: border,
+        metadata: node.metadata,
+      );
+    } else if (node is ListItemNode) {
+      updated = ListItemNode(
+        id: node.id,
+        text: node.text,
+        type: node.type,
+        indent: node.indent,
+        textAlign: node.textAlign,
+        lineHeight: node.lineHeight,
+        spaceBefore: node.spaceBefore,
+        spaceAfter: node.spaceAfter,
+        indentLeft: node.indentLeft,
+        indentRight: node.indentRight,
+        border: border,
+        metadata: node.metadata,
+      );
+    } else if (node is BlockquoteNode) {
+      updated = BlockquoteNode(
+        id: node.id,
+        text: node.text,
+        width: node.width,
+        height: node.height,
+        alignment: node.alignment,
+        textWrap: node.textWrap,
+        textAlign: node.textAlign,
+        lineHeight: node.lineHeight,
+        spaceBefore: node.spaceBefore,
+        spaceAfter: node.spaceAfter,
+        indentLeft: node.indentLeft,
+        indentRight: node.indentRight,
+        firstLineIndent: node.firstLineIndent,
+        border: border,
+        metadata: node.metadata,
+      );
+    } else if (node is CodeBlockNode) {
+      updated = CodeBlockNode(
+        id: node.id,
+        text: node.text,
+        language: node.language,
+        width: node.width,
+        height: node.height,
+        alignment: node.alignment,
+        textWrap: node.textWrap,
+        lineHeight: node.lineHeight,
+        spaceBefore: node.spaceBefore,
+        spaceAfter: node.spaceAfter,
+        border: border,
+        metadata: node.metadata,
+      );
+    } else if (node is ImageNode) {
+      updated = ImageNode(
+        id: node.id,
+        imageUrl: node.imageUrl,
+        altText: node.altText,
+        width: node.width,
+        height: node.height,
+        alignment: node.alignment,
+        textWrap: node.textWrap,
+        lockAspect: node.lockAspect,
+        spaceBefore: node.spaceBefore,
+        spaceAfter: node.spaceAfter,
+        border: border,
+        metadata: node.metadata,
+      );
+    } else if (node is HorizontalRuleNode) {
+      updated = HorizontalRuleNode(
+        id: node.id,
+        width: node.width,
+        height: node.height,
+        alignment: node.alignment,
+        textWrap: node.textWrap,
+        spaceBefore: node.spaceBefore,
+        spaceAfter: node.spaceAfter,
+        border: border,
+        metadata: node.metadata,
+      );
+    } else if (node is TableNode) {
+      final cells = [
+        for (var r = 0; r < node.rowCount; r++)
+          [for (var c = 0; c < node.columnCount; c++) node.cellAt(r, c)],
+      ];
+      updated = TableNode(
+        id: node.id,
+        rowCount: node.rowCount,
+        columnCount: node.columnCount,
+        cells: cells,
+        columnWidths: node.columnWidths,
+        alignment: node.alignment,
+        spaceBefore: node.spaceBefore,
+        spaceAfter: node.spaceAfter,
+        border: border,
         metadata: node.metadata,
       );
     } else {
@@ -2507,6 +2710,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         indentLeft: indentLeft,
         indentRight: indentRight,
         firstLineIndent: firstLineIndent,
+        border: node.border,
         metadata: node.metadata,
       );
     } else if (node is ListItemNode) {
@@ -2521,6 +2725,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         spaceAfter: node.spaceAfter,
         indentLeft: indentLeft,
         indentRight: indentRight,
+        border: node.border,
         metadata: node.metadata,
       );
     } else if (node is BlockquoteNode) {
@@ -2538,6 +2743,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         indentLeft: indentLeft,
         indentRight: indentRight,
         firstLineIndent: firstLineIndent,
+        border: node.border,
         metadata: node.metadata,
       );
     } else {
@@ -2981,6 +3187,96 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
               ),
             ],
           ),
+        ]),
+      ],
+      if (_hasBorderProperties(node)) ...[
+        _buildPropertySection('Border', [
+          Text('Style', style: Theme.of(context).textTheme.labelSmall),
+          const SizedBox(height: 2),
+          DropdownButtonHideUnderline(
+            child: DropdownButton<BlockBorderStyle?>(
+              value: _getBorder(node)?.style,
+              isExpanded: true,
+              isDense: true,
+              style: Theme.of(context).textTheme.bodySmall,
+              onChanged: (style) {
+                if (style == null || style == BlockBorderStyle.none) {
+                  _replaceNodeWithBorder(node, null);
+                } else {
+                  final current = _getBorder(node);
+                  _replaceNodeWithBorder(
+                    node,
+                    BlockBorder(
+                      style: style,
+                      width: current?.width ?? 1.0,
+                      color: current?.color,
+                    ),
+                  );
+                }
+              },
+              items: const [
+                DropdownMenuItem(value: null, child: Text('None')),
+                DropdownMenuItem(value: BlockBorderStyle.solid, child: Text('Solid')),
+                DropdownMenuItem(value: BlockBorderStyle.dashed, child: Text('Dashed')),
+                DropdownMenuItem(value: BlockBorderStyle.dotted, child: Text('Dotted')),
+              ],
+            ),
+          ),
+          if (_getBorder(node) != null) ...[
+            const SizedBox(height: 6),
+            Text('Width', style: Theme.of(context).textTheme.labelSmall),
+            const SizedBox(height: 2),
+            _DimensionField(
+              key: ValueKey('${node.id}-bw'),
+              value: _getBorder(node)!.width,
+              onChanged: (value) {
+                if (value == null) return;
+                final current = _getBorder(node)!;
+                _replaceNodeWithBorder(
+                  node,
+                  BlockBorder(
+                    style: current.style,
+                    width: value,
+                    color: current.color,
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 6),
+            Text('Color', style: Theme.of(context).textTheme.labelSmall),
+            const SizedBox(height: 2),
+            Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: [
+                for (final entry in {
+                  'Default': null,
+                  'Red': const Color(0xFFE53935),
+                  'Blue': const Color(0xFF2196F3),
+                  'Green': const Color(0xFF4CAF50),
+                  'Orange': const Color(0xFFFF9800),
+                  'Purple': const Color(0xFF9C27B0),
+                  'Grey': const Color(0xFF757575),
+                }.entries)
+                  _BorderColorButton(
+                    label: entry.key,
+                    color: entry.value,
+                    isSelected: _getBorder(node)?.color == entry.value,
+                    onTap: () {
+                      final current = _getBorder(node)!;
+                      _replaceNodeWithBorder(
+                        node,
+                        BlockBorder(
+                          style: current.style,
+                          width: current.width,
+                          color: entry.value,
+                        ),
+                      );
+                    },
+                  ),
+              ],
+            ),
+          ],
         ]),
       ],
       if (_hasIndentProperties(node)) ...[
@@ -3645,6 +3941,69 @@ class _UrlFieldState extends State<_UrlField> {
         ),
       ),
     );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Border color button
+// ---------------------------------------------------------------------------
+
+/// A small color swatch button used in the Border section of the property panel.
+///
+/// Shows a 24×24 rounded square filled with [color] (or black for the default
+/// swatch). When [isSelected], the border uses [ColorScheme.primary] at double
+/// width to indicate the active choice.
+class _BorderColorButton extends StatelessWidget {
+  const _BorderColorButton({
+    required this.label,
+    required this.color,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  /// Tooltip label for accessibility.
+  final String label;
+
+  /// Fill color, or `null` for the default (black) swatch.
+  final Color? color;
+
+  /// Whether this swatch is the currently active selection.
+  final bool isSelected;
+
+  /// Called when the swatch is tapped.
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: label,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            color: color ?? Colors.black,
+            border: Border.all(
+              color: isSelected
+                  ? Theme.of(context).colorScheme.primary
+                  : Theme.of(context).colorScheme.outline,
+              width: isSelected ? 2.0 : 1.0,
+            ),
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties.add(StringProperty('label', label));
+    properties.add(ColorProperty('color', color, defaultValue: null));
+    properties.add(FlagProperty('isSelected', value: isSelected, ifTrue: 'selected'));
+    properties.add(ObjectFlagProperty<VoidCallback>.has('onTap', onTap));
   }
 }
 
