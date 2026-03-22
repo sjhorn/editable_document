@@ -12,8 +12,9 @@
 /// - Block type changes (headings, blockquote, paragraph)
 /// - Block insertion (lists, code blocks, horizontal rules, images)
 /// - Undo/redo via UndoableEditor
-/// - Clipboard (Cmd/Ctrl+C/X/V/A) and right-click context menu
-/// - JSON save/load round-trip with full attribution serialization
+/// - Clipboard (Cmd/Ctrl+C/X/V/A) and right-click context menu via
+///   defaultDocumentContextMenuButtonItems
+/// - JSON save/load round-trip via DocumentJsonSerializer
 /// - Text alignment (start, center, end, justify) for paragraph, list, and blockquote nodes
 /// - Block alignment (start, center, end, stretch) for container blocks
 /// - Float-style text wrapping with textWrap property
@@ -38,9 +39,11 @@
 /// - DocumentToolbar: core toolbar widget wired as the main toolbar; file
 ///   actions (save/load JSON) and panel toggles are passed via leading/trailing
 /// - TableNode: insert via toolbar table button with 8×8 grid-size picker popup
-/// - Contextual table toolbar: appears between the main toolbar and the editor
-///   when the cursor is inside a table cell; provides resize, column text
-///   alignment, row vertical alignment, row/column insertion, and deletion
+/// - TableContextToolbar (core widget): contextual toolbar above the table cell
+///   for resize, column text alignment, row vertical alignment, row/column
+///   insertion, and deletion
+/// - DocumentStatusBar (core widget): block count, word count, character count,
+///   and current block type label, updated automatically from the controller
 /// - Block drag-to-move: tap a non-text block to select it, then drag it to
 ///   reorder it within the document — a blue insertion indicator shows the
 ///   drop position (wired automatically via DocumentSelectionOverlay)
@@ -53,7 +56,6 @@ library;
 
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:re_highlight/languages/all.dart';
@@ -217,22 +219,6 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
   bool _showDocumentPanel = false;
   TabController? _panelTabController;
 
-  /// Preset color swatches for text-color and background-color pickers.
-  ///
-  /// Keys are ARGB 32-bit integer values; values are display labels.
-  static const _colorPresets = {
-    0x00000000: 'Transparent',
-    0xFFFFFFFF: 'White',
-    0xFF000000: 'Black',
-    0xFF9E9E9E: 'Grey',
-    0xFFF5F5F5: 'Light Grey',
-    0xFFF44336: 'Red',
-    0xFF4CAF50: 'Green',
-    0xFF2196F3: 'Blue',
-    0xFFFF9800: 'Orange',
-    0xFF9C27B0: 'Purple',
-  };
-
   @override
   void initState() {
     super.initState();
@@ -274,103 +260,29 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
   // -----------------------------------------------------------------------
 
   void _showContextMenu(Offset globalPosition) {
-    final selection = _controller.selection;
-    final bool hasExpanded = selection != null && selection.isExpanded;
-
     _contextMenuController.show(
       context: context,
       contextMenuBuilder: (BuildContext menuContext) {
         return AdaptiveTextSelectionToolbar.buttonItems(
-          anchors: TextSelectionToolbarAnchors(
-            primaryAnchor: globalPosition,
-          ),
-          buttonItems: [
-            if (hasExpanded)
-              ContextMenuButtonItem(
-                label: 'Cut',
-                onPressed: () {
-                  _contextMenuController.remove();
-                  _handleCut();
-                },
-              ),
-            if (hasExpanded)
-              ContextMenuButtonItem(
-                label: 'Copy',
-                onPressed: () {
-                  _contextMenuController.remove();
-                  _handleCopy();
-                },
-              ),
-            ContextMenuButtonItem(
-              label: 'Paste',
-              onPressed: () {
-                _contextMenuController.remove();
-                _handlePaste();
-              },
-            ),
-            ContextMenuButtonItem(
-              label: 'Select All',
-              onPressed: () {
-                _contextMenuController.remove();
-                _handleSelectAll();
-              },
-            ),
-          ],
+          anchors: TextSelectionToolbarAnchors(primaryAnchor: globalPosition),
+          buttonItems: defaultDocumentContextMenuButtonItems(
+            controller: _controller,
+            clipboard: _clipboard,
+            requestHandler: _editor.submit,
+          ).map((item) {
+            final originalPressed = item.onPressed;
+            return ContextMenuButtonItem(
+              label: item.label,
+              onPressed: originalPressed == null
+                  ? null
+                  : () {
+                      _contextMenuController.remove();
+                      originalPressed();
+                    },
+            );
+          }).toList(),
         );
       },
-    );
-  }
-
-  void _handleCopy() {
-    final selection = _controller.selection;
-    if (selection == null || selection.isCollapsed) return;
-    _clipboard.copy(_document, selection);
-  }
-
-  void _handleCut() {
-    final selection = _controller.selection;
-    if (selection == null || selection.isCollapsed) return;
-    _clipboard.cut(_document, selection).then((request) {
-      if (request != null) _editor.submit(request);
-    });
-  }
-
-  void _handlePaste() {
-    final selection = _controller.selection;
-    if (selection == null) return;
-    if (selection.isExpanded) {
-      _editor.submit(DeleteContentRequest(selection: selection));
-    }
-    final pasteSelection = _controller.selection;
-    if (pasteSelection == null) return;
-    final pos = pasteSelection.extent;
-    final node = _document.nodeById(pos.nodeId);
-    if (node == null || node is! TextNode) return;
-    final offset = (pos.nodePosition as TextNodePosition).offset;
-    _clipboard.paste(pos.nodeId, offset).then((request) {
-      if (request != null) _editor.submit(request);
-    });
-  }
-
-  void _handleSelectAll() {
-    if (_document.nodes.isEmpty) return;
-    final first = _document.nodes.first;
-    final last = _document.nodes.last;
-    _controller.setSelection(
-      DocumentSelection(
-        base: DocumentPosition(
-          nodeId: first.id,
-          nodePosition: first is TextNode
-              ? const TextNodePosition(offset: 0)
-              : const BinaryNodePosition.upstream(),
-        ),
-        extent: DocumentPosition(
-          nodeId: last.id,
-          nodePosition: last is TextNode
-              ? TextNodePosition(offset: last.text.text.length)
-              : const BinaryNodePosition.downstream(),
-        ),
-      ),
     );
   }
 
@@ -886,256 +798,14 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
     ]);
   }
 
-  /// Returns the current block type name for the selected node.
-  String _currentBlockLabel() {
-    final sel = _controller.selection;
-    if (sel == null) return '';
-    final node = _document.nodeById(sel.extent.nodeId);
-    if (node is ParagraphNode) {
-      switch (node.blockType) {
-        case ParagraphBlockType.header1:
-          return 'H1';
-        case ParagraphBlockType.header2:
-          return 'H2';
-        case ParagraphBlockType.header3:
-          return 'H3';
-        case ParagraphBlockType.blockquote:
-          return 'Blockquote';
-        case ParagraphBlockType.paragraph:
-          return 'Paragraph';
-        default:
-          return 'Paragraph';
-      }
-    } else if (node is ListItemNode) {
-      return node.type == ListItemType.ordered ? 'Ordered list' : 'Bullet list';
-    } else if (node is BlockquoteNode) {
-      return 'Blockquote';
-    } else if (node is CodeBlockNode) {
-      return 'Code block';
-    } else if (node is HorizontalRuleNode) {
-      return 'Horizontal rule';
-    } else if (node is ImageNode) {
-      return 'Image';
-    } else if (node is TableNode) {
-      return 'Table';
-    }
-    return '';
-  }
-
   // ---------------------------------------------------------------------------
   // JSON save/load
   // ---------------------------------------------------------------------------
 
-  Map<String, Object?> _documentToJson() {
-    final nodes = <Map<String, Object?>>[];
-    for (final node in _document.nodes) {
-      final map = <String, Object?>{'id': node.id};
-      if (node is ParagraphNode) {
-        map['type'] = 'paragraph';
-        map['text'] = node.text.text;
-        if (node.blockType != ParagraphBlockType.paragraph) {
-          map['blockType'] = node.blockType.name;
-        }
-        if (node.textAlign != TextAlign.start) {
-          map['textAlign'] = node.textAlign.name;
-        }
-        if (node.lineHeight != null) map['lineHeight'] = node.lineHeight;
-        if (node.spaceBefore != null) map['spaceBefore'] = node.spaceBefore;
-        if (node.spaceAfter != null) map['spaceAfter'] = node.spaceAfter;
-        if (node.indentLeft != null) map['indentLeft'] = node.indentLeft;
-        if (node.indentRight != null) map['indentRight'] = node.indentRight;
-        if (node.firstLineIndent != null) map['firstLineIndent'] = node.firstLineIndent;
-        _addBorderFields(map, node.border);
-        _addAttributionSpans(map, node.text);
-      } else if (node is ListItemNode) {
-        map['type'] = 'listItem';
-        map['text'] = node.text.text;
-        map['listType'] = node.type.name;
-        if (node.indent > 0) map['indent'] = node.indent;
-        if (node.textAlign != TextAlign.start) {
-          map['textAlign'] = node.textAlign.name;
-        }
-        if (node.lineHeight != null) map['lineHeight'] = node.lineHeight;
-        if (node.spaceBefore != null) map['spaceBefore'] = node.spaceBefore;
-        if (node.spaceAfter != null) map['spaceAfter'] = node.spaceAfter;
-        if (node.indentLeft != null) map['indentLeft'] = node.indentLeft;
-        if (node.indentRight != null) map['indentRight'] = node.indentRight;
-        _addBorderFields(map, node.border);
-        _addAttributionSpans(map, node.text);
-      } else if (node is BlockquoteNode) {
-        map['type'] = 'blockquote';
-        map['text'] = node.text.text;
-        if (node.textAlign != TextAlign.start) {
-          map['textAlign'] = node.textAlign.name;
-        }
-        if (node.lineHeight != null) map['lineHeight'] = node.lineHeight;
-        if (node.spaceBefore != null) map['spaceBefore'] = node.spaceBefore;
-        if (node.spaceAfter != null) map['spaceAfter'] = node.spaceAfter;
-        if (node.indentLeft != null) map['indentLeft'] = node.indentLeft;
-        if (node.indentRight != null) map['indentRight'] = node.indentRight;
-        if (node.firstLineIndent != null) map['firstLineIndent'] = node.firstLineIndent;
-        _addBorderFields(map, node.border);
-        _addBlockLayoutFields(map, node);
-        _addAttributionSpans(map, node.text);
-      } else if (node is CodeBlockNode) {
-        map['type'] = 'codeBlock';
-        map['text'] = node.text.text;
-        if (node.language != null) map['language'] = node.language;
-        if (node.lineHeight != null) map['lineHeight'] = node.lineHeight;
-        if (node.spaceBefore != null) map['spaceBefore'] = node.spaceBefore;
-        if (node.spaceAfter != null) map['spaceAfter'] = node.spaceAfter;
-        _addBorderFields(map, node.border);
-        _addBlockLayoutFields(map, node);
-      } else if (node is ImageNode) {
-        map['type'] = 'image';
-        map['imageUrl'] = node.imageUrl;
-        if (node.altText != null) map['altText'] = node.altText;
-        if (node.spaceBefore != null) map['spaceBefore'] = node.spaceBefore;
-        if (node.spaceAfter != null) map['spaceAfter'] = node.spaceAfter;
-        _addBorderFields(map, node.border);
-        _addBlockLayoutFields(map, node);
-      } else if (node is HorizontalRuleNode) {
-        map['type'] = 'horizontalRule';
-        if (node.spaceBefore != null) map['spaceBefore'] = node.spaceBefore;
-        if (node.spaceAfter != null) map['spaceAfter'] = node.spaceAfter;
-        _addBorderFields(map, node.border);
-        _addBlockLayoutFields(map, node);
-      }
-      nodes.add(map);
-    }
-    return {'nodes': nodes};
-  }
-
-  /// Serializes attribution spans from [text] into [map] under the key
-  /// `'attributions'`.
-  ///
-  /// Parameterized attributions ([FontFamilyAttribution], [FontSizeAttribution],
-  /// [TextColorAttribution], [BackgroundColorAttribution]) include an additional
-  /// `'value'` key so the round-trip can reconstruct the correct type.
-  void _addAttributionSpans(Map<String, Object?> map, AttributedText text) {
-    final spans = text.getAttributionSpansInRange(0, text.text.length);
-    if (spans.isEmpty) return;
-    map['attributions'] = spans.map((s) {
-      final spanMap = <String, Object?>{
-        'attribution': s.attribution.id,
-        'start': s.start,
-        'end': s.end,
-      };
-      final attr = s.attribution;
-      if (attr is FontFamilyAttribution) {
-        spanMap['value'] = attr.fontFamily;
-      } else if (attr is FontSizeAttribution) {
-        spanMap['value'] = attr.fontSize;
-      } else if (attr is TextColorAttribution) {
-        spanMap['value'] = attr.colorValue;
-      } else if (attr is BackgroundColorAttribution) {
-        spanMap['value'] = attr.colorValue;
-      }
-      return spanMap;
-    }).toList();
-  }
-
-  /// Serializes [border] into [map] using three keys:
-  ///
-  /// - `borderStyle` — the [BlockBorderStyle.name] string.
-  /// - `borderWidth` — the stroke width as a [double].
-  /// - `borderColor` — the ARGB 32-bit integer (omitted when `color` is null).
-  ///
-  /// Does nothing when [border] is null.
-  void _addBorderFields(Map<String, Object?> map, BlockBorder? border) {
-    if (border == null) return;
-    map['borderStyle'] = border.style.name;
-    map['borderWidth'] = border.width;
-    if (border.color != null) map['borderColor'] = border.color!.toARGB32();
-  }
-
-  /// Deserializes a [BlockBorder] from [map], or returns `null` when the
-  /// `borderStyle` key is absent.
-  BlockBorder? _parseBorder(Map<String, Object?> map) {
-    final styleName = map['borderStyle'] as String?;
-    if (styleName == null) return null;
-    final style = BlockBorderStyle.values.firstWhere(
-      (s) => s.name == styleName,
-      orElse: () => BlockBorderStyle.solid,
-    );
-    return BlockBorder(
-      style: style,
-      width: (map['borderWidth'] as num?)?.toDouble() ?? 1.0,
-      color: map['borderColor'] != null ? Color(map['borderColor']! as int) : null,
-    );
-  }
-
-  /// Serializes a [BlockDimension] into a JSON-safe object.
-  ///
-  /// Pixels are stored as `{"type": "pixels", "value": <num>}`.
-  /// Percent are stored as `{"type": "percent", "value": <num>}` where the
-  /// stored value is the fractional representation (e.g. 0.5 for 50%).
-  /// Returns `null` when [dim] is null.
-  Map<String, Object?>? _blockDimensionToJson(BlockDimension? dim) {
-    return switch (dim) {
-      PixelDimension(:final value) => {'type': 'pixels', 'value': value},
-      PercentDimension(:final value) => {'type': 'percent', 'value': value},
-      null => null,
-    };
-  }
-
-  /// Deserializes a [BlockDimension] from a JSON object produced by
-  /// [_blockDimensionToJson], or returns `null` when [raw] is absent.
-  BlockDimension? _parseBlockDimension(Object? raw) {
-    if (raw == null) return null;
-    final map = raw as Map<String, Object?>;
-    final type = map['type'] as String?;
-    final value = (map['value'] as num?)?.toDouble() ?? 0.0;
-    return switch (type) {
-      'percent' => BlockDimension.percent(value),
-      _ => BlockDimension.pixels(value),
-    };
-  }
-
-  /// Writes block-layout fields (width, height, alignment, textWrap) into
-  /// [map] for nodes that implement [HasBlockLayout].
-  ///
-  /// Only non-default values are written to keep the JSON compact.
-  void _addBlockLayoutFields(Map<String, Object?> map, HasBlockLayout node) {
-    final widthJson = _blockDimensionToJson(node.width);
-    if (widthJson != null) map['width'] = widthJson;
-    final heightJson = _blockDimensionToJson(node.height);
-    if (heightJson != null) map['height'] = heightJson;
-    // Only write when not the default (stretch) to keep JSON compact.
-    if (node.alignment != BlockAlignment.stretch) {
-      map['blockAlignment'] = node.alignment.name;
-    }
-    if (node.textWrap != TextWrapMode.none) {
-      map['textWrap'] = node.textWrap.name;
-    }
-  }
-
-  /// Deserializes block-layout scalars (alignment, textWrap) from [map].
-  ///
-  /// Returns [BlockAlignment.stretch] when the key is absent, matching the
-  /// default constructor value on all concrete [HasBlockLayout] nodes.
-  BlockAlignment _parseBlockAlignment(Map<String, Object?> map) {
-    final name = map['blockAlignment'] as String?;
-    if (name == null) return BlockAlignment.stretch;
-    return BlockAlignment.values.firstWhere(
-      (e) => e.name == name,
-      orElse: () => BlockAlignment.stretch,
-    );
-  }
-
-  /// Deserializes [TextWrapMode] from [map], returning [TextWrapMode.none]
-  /// when the key is absent.
-  TextWrapMode _parseTextWrap(Map<String, Object?> map) {
-    final name = map['textWrap'] as String?;
-    if (name == null) return TextWrapMode.none;
-    return TextWrapMode.values.firstWhere(
-      (e) => e.name == name,
-      orElse: () => TextWrapMode.none,
-    );
-  }
+  static const _serializer = DocumentJsonSerializer();
 
   void _showSaveDialog() {
-    final json = const JsonEncoder.withIndent('  ').convert(_documentToJson());
+    final json = const JsonEncoder.withIndent('  ').convert(_serializer.toJson(_document));
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1205,189 +875,10 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
   }
 
   void _loadDocumentFromJson(Map<String, Object?> data) {
-    final nodeList = data['nodes'] as List<Object?>? ?? [];
-    final nodes = <DocumentNode>[];
-    for (final raw in nodeList) {
-      final map = raw! as Map<String, Object?>;
-      final id = map['id'] as String? ?? generateNodeId();
-      final type = map['type'] as String?;
-      switch (type) {
-        case 'paragraph':
-          final text = _textFromJson(map);
-          final blockTypeName = map['blockType'] as String?;
-          nodes.add(ParagraphNode(
-            id: id,
-            text: text,
-            blockType: blockTypeName != null
-                ? ParagraphBlockType.values.firstWhere(
-                    (bt) => bt.name == blockTypeName,
-                    orElse: () => ParagraphBlockType.paragraph,
-                  )
-                : ParagraphBlockType.paragraph,
-            textAlign: _parseTextAlign(map['textAlign'] as String?),
-            lineHeight: (map['lineHeight'] as num?)?.toDouble(),
-            spaceBefore: (map['spaceBefore'] as num?)?.toDouble(),
-            spaceAfter: (map['spaceAfter'] as num?)?.toDouble(),
-            indentLeft: (map['indentLeft'] as num?)?.toDouble(),
-            indentRight: (map['indentRight'] as num?)?.toDouble(),
-            firstLineIndent: (map['firstLineIndent'] as num?)?.toDouble(),
-            border: _parseBorder(map),
-          ));
-        case 'listItem':
-          final text = _textFromJson(map);
-          final listTypeName = map['listType'] as String? ?? 'unordered';
-          nodes.add(ListItemNode(
-            id: id,
-            text: text,
-            type: listTypeName == 'ordered' ? ListItemType.ordered : ListItemType.unordered,
-            indent: (map['indent'] as int?) ?? 0,
-            textAlign: _parseTextAlign(map['textAlign'] as String?),
-            lineHeight: (map['lineHeight'] as num?)?.toDouble(),
-            spaceBefore: (map['spaceBefore'] as num?)?.toDouble(),
-            spaceAfter: (map['spaceAfter'] as num?)?.toDouble(),
-            indentLeft: (map['indentLeft'] as num?)?.toDouble(),
-            indentRight: (map['indentRight'] as num?)?.toDouble(),
-            border: _parseBorder(map),
-          ));
-        case 'blockquote':
-          final text = _textFromJson(map);
-          nodes.add(BlockquoteNode(
-            id: id,
-            text: text,
-            textAlign: _parseTextAlign(map['textAlign'] as String?),
-            lineHeight: (map['lineHeight'] as num?)?.toDouble(),
-            spaceBefore: (map['spaceBefore'] as num?)?.toDouble(),
-            spaceAfter: (map['spaceAfter'] as num?)?.toDouble(),
-            indentLeft: (map['indentLeft'] as num?)?.toDouble(),
-            indentRight: (map['indentRight'] as num?)?.toDouble(),
-            firstLineIndent: (map['firstLineIndent'] as num?)?.toDouble(),
-            border: _parseBorder(map),
-            width: _parseBlockDimension(map['width']),
-            height: _parseBlockDimension(map['height']),
-            alignment: _parseBlockAlignment(map),
-            textWrap: _parseTextWrap(map),
-          ));
-        case 'codeBlock':
-          final text = _textFromJson(map);
-          nodes.add(CodeBlockNode(
-            id: id,
-            text: text,
-            language: map['language'] as String?,
-            lineHeight: (map['lineHeight'] as num?)?.toDouble(),
-            spaceBefore: (map['spaceBefore'] as num?)?.toDouble(),
-            spaceAfter: (map['spaceAfter'] as num?)?.toDouble(),
-            border: _parseBorder(map),
-            width: _parseBlockDimension(map['width']),
-            height: _parseBlockDimension(map['height']),
-            alignment: _parseBlockAlignment(map),
-            textWrap: _parseTextWrap(map),
-          ));
-        case 'image':
-          nodes.add(ImageNode(
-            id: id,
-            imageUrl: map['imageUrl'] as String? ?? '',
-            altText: map['altText'] as String?,
-            spaceBefore: (map['spaceBefore'] as num?)?.toDouble(),
-            spaceAfter: (map['spaceAfter'] as num?)?.toDouble(),
-            border: _parseBorder(map),
-            width: _parseBlockDimension(map['width']),
-            height: _parseBlockDimension(map['height']),
-            alignment: _parseBlockAlignment(map),
-            textWrap: _parseTextWrap(map),
-          ));
-        case 'horizontalRule':
-          nodes.add(HorizontalRuleNode(
-            id: id,
-            spaceBefore: (map['spaceBefore'] as num?)?.toDouble(),
-            spaceAfter: (map['spaceAfter'] as num?)?.toDouble(),
-            border: _parseBorder(map),
-            width: _parseBlockDimension(map['width']),
-            height: _parseBlockDimension(map['height']),
-            alignment: _parseBlockAlignment(map),
-            textWrap: _parseTextWrap(map),
-          ));
-        default:
-          nodes.add(ParagraphNode(
-            id: id,
-            text: AttributedText(map['text'] as String? ?? ''),
-          ));
-      }
-    }
+    final nodes = _serializer.fromJson(data);
     if (nodes.isEmpty) return;
-
     _controller.clearSelection();
     _document.reset(nodes);
-  }
-
-  /// Parses a [TextAlign] from its [TextAlign.name] string, returning
-  /// [TextAlign.start] for unrecognised or null values.
-  TextAlign _parseTextAlign(String? value) {
-    if (value == null) return TextAlign.start;
-    return TextAlign.values.firstWhere(
-      (e) => e.name == value,
-      orElse: () => TextAlign.start,
-    );
-  }
-
-  /// Deserializes an [AttributedText] from a JSON node map.
-  ///
-  /// Handles both plain [NamedAttribution]s (stored with only an `'attribution'`
-  /// id key) and the four parameterized attribution types
-  /// ([FontFamilyAttribution], [FontSizeAttribution], [TextColorAttribution],
-  /// [BackgroundColorAttribution]), which include a `'value'` key.
-  AttributedText _textFromJson(Map<String, Object?> map) {
-    final text = AttributedText(map['text'] as String? ?? '');
-    final attributions = map['attributions'] as List<Object?>?;
-    if (attributions != null) {
-      for (final raw in attributions) {
-        final span = raw! as Map<String, Object?>;
-        final attrId = span['attribution'] as String;
-        final start = span['start'] as int;
-        final end = span['end'] as int;
-        final Attribution attribution;
-        switch (attrId) {
-          case 'fontFamily':
-            attribution = FontFamilyAttribution(span['value'] as String);
-          case 'fontSize':
-            attribution = FontSizeAttribution((span['value'] as num).toDouble());
-          case 'textColor':
-            attribution = TextColorAttribution(span['value'] as int);
-          case 'backgroundColor':
-            attribution = BackgroundColorAttribution(span['value'] as int);
-          default:
-            attribution = NamedAttribution(attrId);
-        }
-        text.applyAttribution(attribution, start, end);
-      }
-    }
-    return text;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Word and character count
-  // ---------------------------------------------------------------------------
-
-  int _wordCount() {
-    var count = 0;
-    for (final node in _document.nodes) {
-      if (node is TextNode) {
-        final trimmed = node.text.text.trim();
-        if (trimmed.isNotEmpty) {
-          count += trimmed.split(RegExp(r'\s+')).length;
-        }
-      }
-    }
-    return count;
-  }
-
-  int _charCount() {
-    var count = 0;
-    for (final node in _document.nodes) {
-      if (node is TextNode) {
-        count += node.text.text.length;
-      }
-    }
-    return count;
   }
 
   // ---------------------------------------------------------------------------
@@ -1592,7 +1083,6 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
       onLineNumberColorChanged: (v) => setState(() => _lineNumberColor = v),
       lineNumberBackgroundColor: _lineNumberBgColor,
       onLineNumberBackgroundColorChanged: (v) => setState(() => _lineNumberBgColor = v),
-      colorPresets: _colorPresets,
     );
   }
 
@@ -1712,7 +1202,9 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
     return Positioned(
       left: tableOffset.dx,
       top: tableOffset.dy - 36,
-      child: _TableContextToolbar(
+      child: TableContextToolbar(
+        controller: _controller,
+        requestHandler: _editor.submit,
         nodeId: node.id,
         minRow: minRow,
         maxRow: maxRow,
@@ -1722,7 +1214,6 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         cellVerticalAligns: node.cellVerticalAligns,
         rowCount: node.rowCount,
         columnCount: node.columnCount,
-        editor: _editor,
       ),
     );
   }
@@ -1803,7 +1294,6 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
   }
 
   Widget _buildStatusBar() {
-    final style = Theme.of(context).textTheme.bodySmall;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       decoration: BoxDecoration(
@@ -1812,17 +1302,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
           top: BorderSide(color: Theme.of(context).dividerColor),
         ),
       ),
-      child: Row(
-        children: [
-          Text('${_document.nodeCount} blocks', style: style),
-          const SizedBox(width: 16),
-          Text('${_wordCount()} words', style: style),
-          const SizedBox(width: 16),
-          Text('${_charCount()} chars', style: style),
-          const Spacer(),
-          if (_controller.selection != null) Text(_currentBlockLabel(), style: style),
-        ],
-      ),
+      child: DocumentStatusBar(controller: _controller),
     );
   }
 
@@ -1861,544 +1341,4 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
       FlagProperty('showDocumentPanel', value: _showDocumentPanel, ifTrue: 'showDocumentPanel'),
     );
   }
-}
-
-// ---------------------------------------------------------------------------
-// Table resize button — contextual table toolbar
-// ---------------------------------------------------------------------------
-
-/// A toolbar button in the contextual table toolbar that opens an 8×8 grid
-/// picker for choosing the new table dimensions via [ResizeTableRequest].
-///
-/// Uses [_TableSizePickerOverlay] and calls [onResize] with the chosen
-/// (rows, cols) when the user confirms a selection.
-class _TableResizeButton extends StatefulWidget {
-  const _TableResizeButton({required this.onResize, this.existingRows, this.existingCols});
-
-  /// Called with the chosen (rows, cols) when the user confirms a selection.
-  final void Function(int rows, int cols) onResize;
-
-  /// Current table row count, shown as a distinct region in the grid picker.
-  final int? existingRows;
-
-  /// Current table column count, shown as a distinct region in the grid picker.
-  final int? existingCols;
-
-  @override
-  State<_TableResizeButton> createState() => _TableResizeButtonState();
-
-  @override
-  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
-    super.debugFillProperties(properties);
-    properties.add(
-      ObjectFlagProperty<void Function(int, int)>.has('onResize', onResize),
-    );
-  }
-}
-
-class _TableResizeButtonState extends State<_TableResizeButton> {
-  final _layerLink = LayerLink();
-  OverlayEntry? _overlayEntry;
-
-  void _showPicker() {
-    _overlayEntry?.remove();
-    _overlayEntry = OverlayEntry(
-      builder: (context) => _TableSizePickerOverlay(
-        layerLink: _layerLink,
-        existingRows: widget.existingRows,
-        existingCols: widget.existingCols,
-        onSelect: (rows, cols) {
-          _hideOverlay();
-          widget.onResize(rows, cols);
-        },
-        onDismiss: _hideOverlay,
-      ),
-    );
-    Overlay.of(context).insert(_overlayEntry!);
-  }
-
-  void _hideOverlay() {
-    _overlayEntry?.remove();
-    _overlayEntry = null;
-  }
-
-  @override
-  void dispose() {
-    _hideOverlay();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return CompositedTransformTarget(
-      link: _layerLink,
-      child: IconButton(
-        icon: const Icon(Icons.grid_on, size: 18),
-        onPressed: _showPicker,
-        tooltip: 'Resize table',
-        style: IconButton.styleFrom(
-          minimumSize: const Size(32, 32),
-          padding: const EdgeInsets.all(4),
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Table context toolbar
-// ---------------------------------------------------------------------------
-
-/// Compact toolbar for table operations, positioned above the table in the
-/// document's scrollable content stack.
-class _TableContextToolbar extends StatelessWidget {
-  const _TableContextToolbar({
-    required this.nodeId,
-    required this.minRow,
-    required this.maxRow,
-    required this.minCol,
-    required this.maxCol,
-    required this.cellTextAligns,
-    required this.cellVerticalAligns,
-    required this.rowCount,
-    required this.columnCount,
-    required this.editor,
-  });
-
-  final String nodeId;
-  final int minRow;
-  final int maxRow;
-  final int minCol;
-  final int maxCol;
-  final List<List<TextAlign>>? cellTextAligns;
-  final List<List<TableVerticalAlignment>>? cellVerticalAligns;
-  final int rowCount;
-  final int columnCount;
-  final UndoableEditor editor;
-
-  /// Returns the shared [TextAlign] for all selected cells, or `null` if mixed.
-  TextAlign? _sharedCellAlign() {
-    TextAlign? shared;
-    for (int r = minRow; r <= maxRow; r++) {
-      for (int c = minCol; c <= maxCol; c++) {
-        final align =
-            cellTextAligns != null && r < cellTextAligns!.length && c < cellTextAligns![r].length
-                ? cellTextAligns![r][c]
-                : TextAlign.start;
-        if (shared == null) {
-          shared = align;
-        } else if (shared != align) {
-          return null;
-        }
-      }
-    }
-    return shared;
-  }
-
-  /// Returns the shared [TableVerticalAlignment] for all selected cells, or `null` if mixed.
-  TableVerticalAlignment? _sharedCellVAlign() {
-    TableVerticalAlignment? shared;
-    for (int r = minRow; r <= maxRow; r++) {
-      for (int c = minCol; c <= maxCol; c++) {
-        final align = cellVerticalAligns != null &&
-                r < cellVerticalAligns!.length &&
-                c < cellVerticalAligns![r].length
-            ? cellVerticalAligns![r][c]
-            : TableVerticalAlignment.top;
-        if (shared == null) {
-          shared = align;
-        } else if (shared != align) {
-          return null;
-        }
-      }
-    }
-    return shared;
-  }
-
-  /// Submits a [ChangeTableCellAlignRequest] for every selected cell.
-  void _setCellAlign(TextAlign align) {
-    for (int r = minRow; r <= maxRow; r++) {
-      for (int c = minCol; c <= maxCol; c++) {
-        editor.submit(
-          ChangeTableCellAlignRequest(nodeId: nodeId, row: r, col: c, textAlign: align),
-        );
-      }
-    }
-  }
-
-  /// Submits a [ChangeTableCellVerticalAlignRequest] for every selected cell.
-  void _setCellVAlign(TableVerticalAlignment align) {
-    for (int r = minRow; r <= maxRow; r++) {
-      for (int c = minCol; c <= maxCol; c++) {
-        editor.submit(
-          ChangeTableCellVerticalAlignRequest(nodeId: nodeId, row: r, col: c, verticalAlign: align),
-        );
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    const iconSize = 16.0;
-    final buttonStyle = IconButton.styleFrom(
-      minimumSize: const Size(28, 28),
-      padding: const EdgeInsets.all(2),
-    );
-
-    Widget divider() => const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 2),
-          child: SizedBox(height: 20, child: VerticalDivider(width: 1)),
-        );
-
-    final colAlign = _sharedCellAlign();
-    final rowVAlign = _sharedCellVAlign();
-    final deleteColor = colorScheme.error;
-
-    return Material(
-      color: colorScheme.surfaceContainerHigh,
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Resize
-            _TableResizeButton(
-              existingRows: rowCount,
-              existingCols: columnCount,
-              onResize: (rows, cols) => editor.submit(
-                ResizeTableRequest(nodeId: nodeId, newRowCount: rows, newColumnCount: cols),
-              ),
-            ),
-            divider(),
-            // Column text alignment — applies to all selected columns
-            DocumentFormatToggle(
-              icon: Icons.format_align_left,
-              tooltip: 'Align column left',
-              isActive: colAlign == TextAlign.start,
-              onPressed: () => _setCellAlign(TextAlign.start),
-            ),
-            DocumentFormatToggle(
-              icon: Icons.format_align_center,
-              tooltip: 'Align column center',
-              isActive: colAlign == TextAlign.center,
-              onPressed: () => _setCellAlign(TextAlign.center),
-            ),
-            DocumentFormatToggle(
-              icon: Icons.format_align_right,
-              tooltip: 'Align column right',
-              isActive: colAlign == TextAlign.right,
-              onPressed: () => _setCellAlign(TextAlign.right),
-            ),
-            divider(),
-            // Row vertical alignment — applies to all selected rows
-            DocumentFormatToggle(
-              icon: Icons.vertical_align_top,
-              tooltip: 'Align row top',
-              isActive: rowVAlign == TableVerticalAlignment.top,
-              onPressed: () => _setCellVAlign(TableVerticalAlignment.top),
-            ),
-            DocumentFormatToggle(
-              icon: Icons.vertical_align_center,
-              tooltip: 'Align row middle',
-              isActive: rowVAlign == TableVerticalAlignment.middle,
-              onPressed: () => _setCellVAlign(TableVerticalAlignment.middle),
-            ),
-            DocumentFormatToggle(
-              icon: Icons.vertical_align_bottom,
-              tooltip: 'Align row bottom',
-              isActive: rowVAlign == TableVerticalAlignment.bottom,
-              onPressed: () => _setCellVAlign(TableVerticalAlignment.bottom),
-            ),
-            divider(),
-            // Insert row — above first / below last selected row
-            IconButton(
-              icon: const Icon(Icons.keyboard_arrow_up, size: iconSize),
-              tooltip: 'Insert row above',
-              style: buttonStyle,
-              onPressed: () => editor.submit(
-                InsertTableRowRequest(nodeId: nodeId, rowIndex: minRow, insertBefore: true),
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.keyboard_arrow_down, size: iconSize),
-              tooltip: 'Insert row below',
-              style: buttonStyle,
-              onPressed: () => editor.submit(
-                InsertTableRowRequest(nodeId: nodeId, rowIndex: maxRow, insertBefore: false),
-              ),
-            ),
-            divider(),
-            // Insert column — left of first / right of last selected column
-            IconButton(
-              icon: const Icon(Icons.keyboard_arrow_left, size: iconSize),
-              tooltip: 'Insert column left',
-              style: buttonStyle,
-              onPressed: () => editor.submit(
-                InsertTableColumnRequest(nodeId: nodeId, colIndex: minCol, insertBefore: true),
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.keyboard_arrow_right, size: iconSize),
-              tooltip: 'Insert column right',
-              style: buttonStyle,
-              onPressed: () => editor.submit(
-                InsertTableColumnRequest(nodeId: nodeId, colIndex: maxCol, insertBefore: false),
-              ),
-            ),
-            divider(),
-            // Delete row / column / table
-            IconButton(
-              icon: Icon(Icons.table_rows_outlined, size: iconSize, color: deleteColor),
-              tooltip: 'Delete row',
-              style: buttonStyle,
-              onPressed: () {
-                // Delete selected rows from bottom to top to preserve indices.
-                for (int r = maxRow; r >= minRow; r--) {
-                  editor.submit(DeleteTableRowRequest(nodeId: nodeId, rowIndex: r));
-                }
-              },
-            ),
-            IconButton(
-              icon: Icon(Icons.view_column_outlined, size: iconSize, color: deleteColor),
-              tooltip: 'Delete column',
-              style: buttonStyle,
-              onPressed: () {
-                // Delete selected columns from right to left to preserve indices.
-                for (int c = maxCol; c >= minCol; c--) {
-                  editor.submit(DeleteTableColumnRequest(nodeId: nodeId, colIndex: c));
-                }
-              },
-            ),
-            IconButton(
-              icon: Icon(Icons.delete_outline, size: iconSize, color: deleteColor),
-              tooltip: 'Delete table',
-              style: buttonStyle,
-              onPressed: () => editor.submit(DeleteTableRequest(nodeId: nodeId)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Table size picker overlay (shared by resize button in context toolbar)
-// ---------------------------------------------------------------------------
-
-/// Overlay popup showing an 8×8 grid for picking table dimensions.
-///
-/// Uses [CompositedTransformFollower] to anchor below the originating button.
-/// Mouse hover updates the highlighted region; tapping a cell confirms the
-/// selection and calls [onSelect].
-class _TableSizePickerOverlay extends StatefulWidget {
-  const _TableSizePickerOverlay({
-    required this.layerLink,
-    required this.onSelect,
-    required this.onDismiss,
-    this.existingRows,
-    this.existingCols,
-  });
-
-  final LayerLink layerLink;
-
-  /// Called with the chosen (rows, cols) when the user taps a cell.
-  final void Function(int rows, int cols) onSelect;
-
-  /// Called when the user taps outside the popup.
-  final VoidCallback onDismiss;
-
-  /// Current table row count, shown with a distinct fill in the grid.
-  final int? existingRows;
-
-  /// Current table column count, shown with a distinct fill in the grid.
-  final int? existingCols;
-
-  @override
-  State<_TableSizePickerOverlay> createState() => _TableSizePickerOverlayState();
-
-  @override
-  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
-    super.debugFillProperties(properties);
-    properties.add(DiagnosticsProperty<LayerLink>('layerLink', layerLink));
-    properties.add(
-      ObjectFlagProperty<void Function(int, int)>.has('onSelect', onSelect),
-    );
-    properties.add(ObjectFlagProperty<VoidCallback>.has('onDismiss', onDismiss));
-  }
-}
-
-class _TableSizePickerOverlayState extends State<_TableSizePickerOverlay> {
-  static const int _maxRows = 8;
-  static const int _maxCols = 8;
-  static const double _cellSize = 24.0;
-  static const double _cellSpacing = 2.0;
-
-  int _hoverRow = 0;
-  int _hoverCol = 0;
-
-  void _onHover(Offset localPosition) {
-    final col = (localPosition.dx / (_cellSize + _cellSpacing)).floor().clamp(0, _maxCols - 1);
-    final row = (localPosition.dy / (_cellSize + _cellSpacing)).floor().clamp(0, _maxRows - 1);
-    if (row != _hoverRow || col != _hoverCol) {
-      setState(() {
-        _hoverRow = row;
-        _hoverCol = col;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    const gridWidth = _maxCols * (_cellSize + _cellSpacing) - _cellSpacing;
-    const gridHeight = _maxRows * (_cellSize + _cellSpacing) - _cellSpacing;
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Stack(
-      children: [
-        // Full-screen transparent layer to catch outside taps.
-        Positioned.fill(
-          child: GestureDetector(
-            onTap: widget.onDismiss,
-            behavior: HitTestBehavior.opaque,
-            child: const SizedBox.expand(),
-          ),
-        ),
-        // Popup anchored to the button via CompositedTransformFollower.
-        CompositedTransformFollower(
-          link: widget.layerLink,
-          targetAnchor: Alignment.bottomLeft,
-          followerAnchor: Alignment.topLeft,
-          offset: const Offset(0, 4),
-          child: Material(
-            elevation: 8,
-            borderRadius: BorderRadius.circular(8),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  MouseRegion(
-                    onHover: (event) => _onHover(event.localPosition),
-                    child: GestureDetector(
-                      onTapUp: (_) => widget.onSelect(_hoverRow + 1, _hoverCol + 1),
-                      child: SizedBox(
-                        width: gridWidth,
-                        height: gridHeight,
-                        child: CustomPaint(
-                          painter: _GridPainter(
-                            maxRows: _maxRows,
-                            maxCols: _maxCols,
-                            cellSize: _cellSize,
-                            cellSpacing: _cellSpacing,
-                            selectedRows: _hoverRow + 1,
-                            selectedCols: _hoverCol + 1,
-                            existingRows: widget.existingRows ?? 0,
-                            existingCols: widget.existingCols ?? 0,
-                            highlightColor: colorScheme.primary.withValues(alpha: 0.3),
-                            existingColor: colorScheme.primary.withValues(alpha: 0.12),
-                            borderColor: colorScheme.outline.withValues(alpha: 0.3),
-                            selectedBorderColor: colorScheme.primary,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '${_hoverRow + 1} \u00d7 ${_hoverCol + 1}',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// [CustomPainter] that draws the table size picker grid.
-///
-/// Cells in rows 0..[selectedRows)-1 and columns 0..[selectedCols)-1 are
-/// filled with [highlightColor] and outlined with [selectedBorderColor].
-/// All other cells are outlined with [borderColor] only.
-class _GridPainter extends CustomPainter {
-  _GridPainter({
-    required this.maxRows,
-    required this.maxCols,
-    required this.cellSize,
-    required this.cellSpacing,
-    required this.selectedRows,
-    required this.selectedCols,
-    required this.existingRows,
-    required this.existingCols,
-    required this.highlightColor,
-    required this.existingColor,
-    required this.borderColor,
-    required this.selectedBorderColor,
-  });
-
-  final int maxRows;
-  final int maxCols;
-  final double cellSize;
-  final double cellSpacing;
-  final int selectedRows;
-  final int selectedCols;
-  final int existingRows;
-  final int existingCols;
-  final Color highlightColor;
-  final Color existingColor;
-  final Color borderColor;
-  final Color selectedBorderColor;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    const radius = Radius.circular(3);
-    final fillPaint = Paint()..color = highlightColor;
-    final existingPaint = Paint()..color = existingColor;
-    final selectedStroke = Paint()
-      ..color = selectedBorderColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-    final normalStroke = Paint()
-      ..color = borderColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-
-    for (int r = 0; r < maxRows; r++) {
-      for (int c = 0; c < maxCols; c++) {
-        final rect = Rect.fromLTWH(
-          c * (cellSize + cellSpacing),
-          r * (cellSize + cellSpacing),
-          cellSize,
-          cellSize,
-        );
-        final rrect = RRect.fromRectAndRadius(rect, radius);
-        final isSelected = r < selectedRows && c < selectedCols;
-        final isExisting = r < existingRows && c < existingCols;
-
-        if (isSelected) {
-          canvas.drawRRect(rrect, fillPaint);
-        } else if (isExisting) {
-          canvas.drawRRect(rrect, existingPaint);
-        }
-        canvas.drawRRect(rrect, isSelected ? selectedStroke : normalStroke);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_GridPainter old) =>
-      old.selectedRows != selectedRows ||
-      old.selectedCols != selectedCols ||
-      old.existingRows != existingRows ||
-      old.existingCols != existingCols ||
-      old.highlightColor != highlightColor ||
-      old.existingColor != existingColor ||
-      old.borderColor != borderColor ||
-      old.selectedBorderColor != selectedBorderColor;
 }
