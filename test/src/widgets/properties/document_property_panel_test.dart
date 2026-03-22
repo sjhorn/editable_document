@@ -3,7 +3,6 @@ library;
 
 import 'package:editable_document/src/model/attributed_text.dart';
 import 'package:editable_document/src/model/document_editing_controller.dart';
-import 'package:editable_document/src/model/document_node.dart';
 import 'package:editable_document/src/model/document_position.dart';
 import 'package:editable_document/src/model/document_selection.dart';
 import 'package:editable_document/src/model/edit_request.dart';
@@ -27,10 +26,10 @@ DocumentEditingController _controllerWithParagraph() {
   ]);
   return DocumentEditingController(
     document: doc,
-    selection: DocumentSelection.collapsed(
+    selection: const DocumentSelection.collapsed(
       position: DocumentPosition(
         nodeId: 'p1',
-        nodePosition: const TextNodePosition(offset: 0),
+        nodePosition: TextNodePosition(offset: 0),
       ),
     ),
   );
@@ -45,10 +44,10 @@ DocumentEditingController _controllerWithImage() {
   ]);
   return DocumentEditingController(
     document: doc,
-    selection: DocumentSelection.collapsed(
+    selection: const DocumentSelection.collapsed(
       position: DocumentPosition(
         nodeId: 'img1',
-        nodePosition: const BinaryNodePosition.upstream(),
+        nodePosition: BinaryNodePosition.upstream(),
       ),
     ),
   );
@@ -188,10 +187,10 @@ void main() {
 
       // Set selection to paragraph.
       controller.setSelection(
-        DocumentSelection.collapsed(
+        const DocumentSelection.collapsed(
           position: DocumentPosition(
             nodeId: 'p1',
-            nodePosition: const TextNodePosition(offset: 0),
+            nodePosition: TextNodePosition(offset: 0),
           ),
         ),
       );

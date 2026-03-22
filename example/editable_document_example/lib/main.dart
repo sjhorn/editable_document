@@ -20,10 +20,10 @@
 /// - Dual concurrent floats: start + end images with text wrapping around both
 /// - BlockquoteNode with left accent border
 /// - BlockBorder: solid, dashed, and dotted outside borders on individual blocks
-/// - Scrollable property panel shown for ALL block types with sections for:
-///   text alignment, line height, spacing (before/after), border (style, width,
-///   color), indent (left/right/first-line), and block layout (alignment, text
-///   wrap, dimensions) for container blocks
+/// - DocumentPropertyPanel: core block-property panel widget wired via the
+///   Block Properties toggle button; shows text alignment, line height, spacing,
+///   border, indent, and block layout (alignment, text wrap, dimensions) for the
+///   selected block — all routing handled by the core widget
 /// - Document Settings panel (when nothing selected): block spacing, default line height,
 ///   document padding, and line number gutter controls
 /// - documentPadding: EdgeInsets applied around the content area (horizontal/vertical
@@ -33,6 +33,8 @@
 /// - lineNumberAlignment: segmented control (Top / Middle / Bottom) in the Document
 ///   Settings panel that sets vertical alignment of each line number label within
 ///   its block row; only visible when showLineNumbers is enabled
+/// - DocumentToolbar: core toolbar widget wired as the main toolbar; file
+///   actions (save/load JSON) and panel toggles are passed via leading/trailing
 /// - TableNode: insert via toolbar table button with 8×8 grid-size picker popup
 /// - Contextual table toolbar: appears between the main toolbar and the editor
 ///   when the cursor is inside a table cell; provides resize, column text
@@ -179,9 +181,6 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
   final _clipboard = const DocumentClipboard();
   final _syntaxBuilder = SyntaxHighlightCodeBlockBuilder();
 
-  /// Counter for generating unique node IDs.
-  int _nextNodeId = 100;
-
   /// Vertical spacing between document blocks.
   double _blockSpacing = 0.0;
 
@@ -211,10 +210,6 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
 
   /// Background color for the line number gutter (`null` = transparent).
   int? _lineNumberBgColor;
-
-  /// The node ID for which the floating property panel is shown, or `null`
-  /// when the panel is hidden.
-  String? _propertyPanelNodeId;
 
   bool _showBlockPanel = false;
   bool _showDocumentPanel = false;
@@ -265,7 +260,6 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
     _contextMenuController.remove();
     final sel = _controller.selection;
     final node = sel != null ? _document.nodeById(sel.extent.nodeId) : null;
-    _propertyPanelNodeId = node?.id;
     if (node == null && _showBlockPanel) {
       _showBlockPanel = false;
       _syncPanelTabController();
@@ -890,55 +884,6 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
     ]);
   }
 
-  // ---------------------------------------------------------------------------
-  // Insert helpers
-  // ---------------------------------------------------------------------------
-
-  String _newId() => 'dynamic-${_nextNodeId++}';
-
-  void _insertNode(DocumentNode node) {
-    final sel = _controller.selection;
-
-    // Build the follow-on node for non-text insertions.
-    final sourceNode = sel != null ? _document.nodeById(sel.extent.nodeId) : null;
-    final followOn = node is TextNode ? null : _emptyBlockLike(sourceNode);
-
-    _editor.submit(InsertNodeAtPositionRequest(
-      node: node,
-      position: sel?.extent,
-      followOnNode: followOn,
-    ));
-
-    // Place cursor on the block after the inserted node. In a mid-text split
-    // the command skips the follow-on and creates a remaining-text paragraph
-    // instead, so we always resolve the target by index lookup.
-    final nodeIndex = _document.getNodeIndexById(node.id);
-    final cursorTarget = (nodeIndex >= 0 && nodeIndex + 1 < _document.nodeCount)
-        ? _document.nodeAt(nodeIndex + 1)
-        : node;
-    _controller.setSelection(DocumentSelection.collapsed(
-      position: DocumentPosition(
-        nodeId: cursorTarget.id,
-        nodePosition: const TextNodePosition(offset: 0),
-      ),
-    ));
-  }
-
-  /// Returns a new empty text block matching the type of [source].
-  ///
-  /// If [source] is `null` or a non-text node, a plain [ParagraphNode] is
-  /// returned as the default.
-  TextNode _emptyBlockLike(DocumentNode? source) {
-    final id = _newId();
-    final empty = AttributedText('');
-    if (source is BlockquoteNode) return BlockquoteNode(id: id, text: empty);
-    if (source is CodeBlockNode) return CodeBlockNode(id: id, text: empty);
-    if (source is ListItemNode) {
-      return ListItemNode(id: id, text: empty, type: source.type);
-    }
-    return ParagraphNode(id: id, text: empty);
-  }
-
   /// Returns the current block type name for the selected node.
   String _currentBlockLabel() {
     final sel = _controller.selection;
@@ -973,246 +918,6 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
       return 'Table';
     }
     return '';
-  }
-
-  /// Returns the [TextNode]s covered by the current selection.
-  List<TextNode> _selectedTextNodes() {
-    final sel = _controller.selection;
-    if (sel == null) return const [];
-    final baseIdx = _document.getNodeIndexById(sel.base.nodeId);
-    final extentIdx = _document.getNodeIndexById(sel.extent.nodeId);
-    if (baseIdx < 0 || extentIdx < 0) return const [];
-    final start = baseIdx < extentIdx ? baseIdx : extentIdx;
-    final end = baseIdx < extentIdx ? extentIdx : baseIdx;
-    return [
-      for (var i = start; i <= end; i++)
-        if (_document.nodeAt(i) is TextNode) _document.nodeAt(i) as TextNode,
-    ];
-  }
-
-  /// Returns `true` when the node matches [type].
-  bool _nodeMatchesType(DocumentNode? node, String type) {
-    return switch (type) {
-      'paragraph' => node is ParagraphNode && node.blockType == ParagraphBlockType.paragraph,
-      'blockquote' => node is BlockquoteNode,
-      'code' => node is CodeBlockNode,
-      'unordered' => node is ListItemNode && node.type == ListItemType.unordered,
-      'ordered' => node is ListItemNode && node.type == ListItemType.ordered,
-      _ => false,
-    };
-  }
-
-  /// Returns `true` when **all** selected text nodes match [type].
-  bool _isBlockType(String type) {
-    final nodes = _selectedTextNodes();
-    if (nodes.isEmpty) return false;
-    return nodes.every((n) => _nodeMatchesType(n, type));
-  }
-
-  /// Returns the common [TextAlign] of all selected alignable nodes,
-  /// or `null` if the selection spans nodes with different alignments
-  /// or if no alignable nodes are selected.
-  TextAlign? _currentTextAlign() {
-    final selection = _controller.selection;
-    if (selection == null) return null;
-
-    final doc = _controller.document;
-    final baseIndex = doc.getNodeIndexById(selection.base.nodeId);
-    final extentIndex = doc.getNodeIndexById(selection.extent.nodeId);
-    final start = baseIndex < extentIndex ? baseIndex : extentIndex;
-    final end = baseIndex < extentIndex ? extentIndex : baseIndex;
-
-    TextAlign? common;
-    for (var i = start; i <= end; i++) {
-      final node = doc.nodeAt(i);
-      final TextAlign? nodeAlign;
-      if (node is ParagraphNode) {
-        nodeAlign = node.textAlign;
-      } else if (node is ListItemNode) {
-        nodeAlign = node.textAlign;
-      } else if (node is BlockquoteNode) {
-        nodeAlign = node.textAlign;
-      } else {
-        continue;
-      }
-      if (common == null) {
-        common = nodeAlign;
-      } else if (common != nodeAlign) {
-        return null; // mixed
-      }
-    }
-    return common;
-  }
-
-  /// Sets the [TextAlign] of all selected alignable nodes.
-  void _setTextAlign(TextAlign align) {
-    final selection = _controller.selection;
-    if (selection == null) return;
-
-    final doc = _controller.document;
-    final baseIndex = doc.getNodeIndexById(selection.base.nodeId);
-    final extentIndex = doc.getNodeIndexById(selection.extent.nodeId);
-    final start = baseIndex < extentIndex ? baseIndex : extentIndex;
-    final end = baseIndex < extentIndex ? extentIndex : baseIndex;
-
-    for (var i = start; i <= end; i++) {
-      final node = doc.nodeAt(i);
-      if (node is ParagraphNode || node is ListItemNode || node is BlockquoteNode) {
-        _editor.submit(ChangeTextAlignRequest(nodeId: node.id, newTextAlign: align));
-      }
-    }
-  }
-
-  /// Creates a new [TextNode] of [type] preserving [id], [text], and [textAlign].
-  TextNode? _makeNode(
-    String type,
-    String id,
-    AttributedText text, {
-    TextAlign textAlign = TextAlign.start,
-  }) {
-    return switch (type) {
-      'paragraph' => ParagraphNode(id: id, text: text, textAlign: textAlign),
-      'blockquote' => BlockquoteNode(id: id, text: text, textAlign: textAlign),
-      'code' => CodeBlockNode(id: id, text: text),
-      'unordered' =>
-        ListItemNode(id: id, text: text, type: ListItemType.unordered, textAlign: textAlign),
-      'ordered' =>
-        ListItemNode(id: id, text: text, type: ListItemType.ordered, textAlign: textAlign),
-      _ => null,
-    };
-  }
-
-  /// Converts all selected text nodes to [type], or back to paragraph if
-  /// every selected node already matches (toggle behavior).
-  ///
-  /// The [TextAlign] of each node is preserved during conversion.
-  void _toggleBlockType(String type) {
-    final nodes = _selectedTextNodes();
-    if (nodes.isEmpty) return;
-
-    // If every node already matches, toggle back to paragraph.
-    final allMatch = nodes.every((n) => _nodeMatchesType(n, type));
-    final targetType = allMatch && type != 'paragraph' ? 'paragraph' : type;
-
-    for (final node in nodes) {
-      if (_nodeMatchesType(node, targetType)) continue;
-      // Preserve the existing text alignment across the block type conversion.
-      final existingAlign = switch (node) {
-        ParagraphNode(:final textAlign) => textAlign,
-        ListItemNode(:final textAlign) => textAlign,
-        BlockquoteNode(:final textAlign) => textAlign,
-        _ => TextAlign.start,
-      };
-      final newNode = _makeNode(targetType, node.id, node.text, textAlign: existingAlign);
-      if (newNode != null) {
-        _editor.submit(ReplaceNodeRequest(nodeId: node.id, newNode: newNode));
-      }
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Formatting toolbar actions
-  // ---------------------------------------------------------------------------
-
-  void _toggleAttribution(Attribution attribution) {
-    final sel = _controller.selection;
-    if (sel == null || sel.isCollapsed) return;
-
-    final startNode = _document.nodeById(sel.base.nodeId);
-    final isApplied = startNode is TextNode &&
-        sel.base.nodePosition is TextNodePosition &&
-        startNode.text.hasAttributionAt(
-          (sel.base.nodePosition as TextNodePosition).offset,
-          attribution,
-        );
-
-    if (isApplied) {
-      _editor.submit(RemoveAttributionRequest(
-        selection: sel,
-        attribution: attribution,
-      ));
-    } else {
-      _editor.submit(ApplyAttributionRequest(
-        selection: sel,
-        attribution: attribution,
-      ));
-    }
-  }
-
-  bool _isAttributionActive(Attribution attribution) {
-    final sel = _controller.selection;
-    if (sel == null || sel.isCollapsed) return false;
-    final node = _document.nodeById(sel.base.nodeId);
-    if (node is! TextNode) return false;
-    final pos = sel.base.nodePosition;
-    if (pos is! TextNodePosition) return false;
-    return node.text.hasAttributionAt(pos.offset, attribution);
-  }
-
-  /// Returns the active parameterized attribution of type [T] at the selection
-  /// base offset, or `null` if none is found.
-  ///
-  /// Looks at the text node at the selection base and searches its attributions
-  /// at that offset for an instance of [T].
-  T? _getAttributionValue<T extends Attribution>() {
-    final sel = _controller.selection;
-    if (sel == null) return null;
-    final node = _document.nodeById(sel.base.nodeId);
-    if (node is! TextNode) return null;
-    final pos = sel.base.nodePosition;
-    if (pos is! TextNodePosition) return null;
-    final offset = pos.offset;
-    final attributions = node.text.getAttributionsAt(offset);
-    return attributions.whereType<T>().firstOrNull;
-  }
-
-  /// Applies a parameterized [attribution] to the current expanded selection.
-  ///
-  /// Removes any existing attribution of the same runtime type from the
-  /// selection first, then applies the new one. This ensures only one value
-  /// of each parameterized type is active at a time.
-  void _applyParameterizedAttribution(Attribution newAttribution) {
-    final sel = _controller.selection;
-    if (sel == null || sel.isCollapsed) return;
-
-    // Remove any existing attribution of the same runtime type.
-    final node = _document.nodeById(sel.base.nodeId);
-    if (node is TextNode) {
-      final pos = sel.base.nodePosition;
-      if (pos is TextNodePosition) {
-        final existing = node.text.getAttributionsAt(pos.offset);
-        for (final attr in existing) {
-          if (attr.runtimeType == newAttribution.runtimeType) {
-            _editor.submit(RemoveAttributionRequest(
-              selection: sel,
-              attribution: attr,
-            ));
-          }
-        }
-      }
-    }
-
-    _editor.submit(ApplyAttributionRequest(
-      selection: sel,
-      attribution: newAttribution,
-    ));
-  }
-
-  /// Removes all attributions of type [T] from the current expanded selection.
-  void _clearParameterizedAttribution<T extends Attribution>() {
-    final sel = _controller.selection;
-    if (sel == null || sel.isCollapsed) return;
-    final node = _document.nodeById(sel.base.nodeId);
-    if (node is! TextNode) return;
-    final pos = sel.base.nodePosition;
-    if (pos is! TextNodePosition) return;
-    final existing = node.text.getAttributionsAt(pos.offset);
-    for (final attr in existing.whereType<T>()) {
-      _editor.submit(RemoveAttributionRequest(
-        selection: sel,
-        attribution: attr,
-      ));
-    }
   }
 
   // ---------------------------------------------------------------------------
@@ -1708,445 +1413,64 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
   }
 
   Widget _buildToolbar() {
-    final sel = _controller.selection;
-    final hasExpandedSelection = sel != null && !sel.isCollapsed;
-    final hasCursor = sel != null;
-    final selectedNode = sel != null ? _document.nodeById(sel.extent.nodeId) : null;
-    final isOnTextNode = selectedNode is TextNode;
-    final colorScheme = Theme.of(context).colorScheme;
-
-    const iconSize = 18.0;
-    final bodySmall = Theme.of(context).textTheme.bodySmall;
-    final buttonStyle = IconButton.styleFrom(
-      minimumSize: const Size(32, 32),
-      padding: const EdgeInsets.all(4),
-    );
-
-    Widget divider() => const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 4),
-          child: SizedBox(height: 24, child: VerticalDivider(width: 1)),
-        );
-
-    // Resolve current parameterized attribution values at the selection base.
-    final currentFontFamily = _getAttributionValue<FontFamilyAttribution>()?.fontFamily;
-    final currentFontSize = _getAttributionValue<FontSizeAttribution>()?.fontSize;
-    final activeTextColor = _getAttributionValue<TextColorAttribution>()?.colorValue;
-    final activeBgColor = _getAttributionValue<BackgroundColorAttribution>()?.colorValue;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: LayoutBuilder(
-        builder: (context, constraints) => SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minWidth: constraints.maxWidth),
-            child: Row(
-              children: [
-                // --- File actions ---
-                IconButton(
-                  icon: const Icon(Icons.save_outlined, size: iconSize),
-                  onPressed: _showSaveDialog,
-                  tooltip: 'Save as JSON',
-                  style: buttonStyle,
+    return ListenableBuilder(
+      listenable: _controller,
+      builder: (context, _) {
+        final selectedNode = _controller.selection != null
+            ? _document.nodeById(_controller.selection!.extent.nodeId)
+            : null;
+        return DocumentToolbar(
+          controller: _controller,
+          requestHandler: _editor.submit,
+          editor: _editor,
+          leading: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.save_outlined, size: 18),
+                onPressed: _showSaveDialog,
+                tooltip: 'Save as JSON',
+                style: IconButton.styleFrom(
+                  minimumSize: const Size(32, 32),
+                  padding: const EdgeInsets.all(4),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.file_open_outlined, size: iconSize),
-                  onPressed: _showLoadDialog,
-                  tooltip: 'Load from JSON',
-                  style: buttonStyle,
+              ),
+              IconButton(
+                icon: const Icon(Icons.file_open_outlined, size: 18),
+                onPressed: _showLoadDialog,
+                tooltip: 'Load from JSON',
+                style: IconButton.styleFrom(
+                  minimumSize: const Size(32, 32),
+                  padding: const EdgeInsets.all(4),
                 ),
-                divider(),
-                // --- Undo / Redo ---
-                IconButton(
-                  icon: const Icon(Icons.undo, size: iconSize),
-                  onPressed: _editor.canUndo ? () => setState(() => _editor.undo()) : null,
-                  tooltip: 'Undo',
-                  style: buttonStyle,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.redo, size: iconSize),
-                  onPressed: _editor.canRedo ? () => setState(() => _editor.redo()) : null,
-                  tooltip: 'Redo',
-                  style: buttonStyle,
-                ),
-                divider(),
-                // --- Block type toggles ---
-                _FormatToggle(
-                  icon: Icons.segment,
-                  tooltip: 'Paragraph',
-                  isActive: _isBlockType('paragraph'),
-                  onPressed: isOnTextNode ? () => _toggleBlockType('paragraph') : null,
-                ),
-                _FormatToggle(
-                  icon: Icons.format_quote,
-                  tooltip: 'Blockquote',
-                  isActive: _isBlockType('blockquote'),
-                  onPressed: isOnTextNode ? () => _toggleBlockType('blockquote') : null,
-                ),
-                _FormatToggle(
-                  icon: Icons.data_object,
-                  tooltip: 'Code',
-                  isActive: _isBlockType('code'),
-                  onPressed: isOnTextNode ? () => _toggleBlockType('code') : null,
-                ),
-                _FormatToggle(
-                  icon: Icons.format_list_bulleted,
-                  tooltip: 'Bullet list',
-                  isActive: _isBlockType('unordered'),
-                  onPressed: isOnTextNode ? () => _toggleBlockType('unordered') : null,
-                ),
-                _FormatToggle(
-                  icon: Icons.format_list_numbered,
-                  tooltip: 'Numbered list',
-                  isActive: _isBlockType('ordered'),
-                  onPressed: isOnTextNode ? () => _toggleBlockType('ordered') : null,
-                ),
-                // --- Insert block buttons ---
-                IconButton(
-                  icon: const Icon(Icons.horizontal_rule, size: iconSize),
-                  onPressed: hasCursor ? () => _insertNode(HorizontalRuleNode(id: _newId())) : null,
-                  tooltip: 'Horizontal rule',
-                  style: buttonStyle,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.image_outlined, size: iconSize),
-                  onPressed: hasCursor
-                      ? () => _insertNode(ImageNode(
-                            id: _newId(),
-                            imageUrl: 'https://picsum.photos/600/200',
-                            altText: 'Inserted image',
-                          ))
-                      : null,
-                  tooltip: 'Image',
-                  style: buttonStyle,
-                ),
-                _TableInsertButton(
-                  enabled: hasCursor,
-                  onInsert: (rows, cols) => _insertNode(
-                    TableNode(
-                      id: _newId(),
-                      rowCount: rows,
-                      columnCount: cols,
-                      cells: List.generate(
-                        rows,
-                        (_) => List.generate(cols, (_) => AttributedText('')),
-                      ),
-                    ),
-                  ),
-                ),
-                divider(),
-                // --- Text alignment ---
-                _FormatToggle(
-                  icon: Icons.format_align_left,
-                  tooltip: 'Align left',
-                  isActive: _currentTextAlign() == TextAlign.start,
-                  onPressed: isOnTextNode ? () => _setTextAlign(TextAlign.start) : null,
-                ),
-                _FormatToggle(
-                  icon: Icons.format_align_center,
-                  tooltip: 'Align center',
-                  isActive: _currentTextAlign() == TextAlign.center,
-                  onPressed: isOnTextNode ? () => _setTextAlign(TextAlign.center) : null,
-                ),
-                _FormatToggle(
-                  icon: Icons.format_align_right,
-                  tooltip: 'Align right',
-                  isActive: _currentTextAlign() == TextAlign.right,
-                  onPressed: isOnTextNode ? () => _setTextAlign(TextAlign.right) : null,
-                ),
-                _FormatToggle(
-                  icon: Icons.format_align_justify,
-                  tooltip: 'Justify',
-                  isActive: _currentTextAlign() == TextAlign.justify,
-                  onPressed: isOnTextNode ? () => _setTextAlign(TextAlign.justify) : null,
-                ),
-                divider(),
-                // --- Inline formatting ---
-                _FormatToggle(
-                  icon: Icons.format_bold,
-                  tooltip: 'Bold',
-                  isActive: _isAttributionActive(NamedAttribution.bold),
-                  onPressed:
-                      hasExpandedSelection ? () => _toggleAttribution(NamedAttribution.bold) : null,
-                ),
-                _FormatToggle(
-                  icon: Icons.format_italic,
-                  tooltip: 'Italic',
-                  isActive: _isAttributionActive(NamedAttribution.italics),
-                  onPressed: hasExpandedSelection
-                      ? () => _toggleAttribution(NamedAttribution.italics)
-                      : null,
-                ),
-                _FormatToggle(
-                  icon: Icons.format_underlined,
-                  tooltip: 'Underline',
-                  isActive: _isAttributionActive(NamedAttribution.underline),
-                  onPressed: hasExpandedSelection
-                      ? () => _toggleAttribution(NamedAttribution.underline)
-                      : null,
-                ),
-                _FormatToggle(
-                  icon: Icons.strikethrough_s,
-                  tooltip: 'Strikethrough',
-                  isActive: _isAttributionActive(NamedAttribution.strikethrough),
-                  onPressed: hasExpandedSelection
-                      ? () => _toggleAttribution(NamedAttribution.strikethrough)
-                      : null,
-                ),
-                _FormatToggle(
-                  icon: Icons.code,
-                  tooltip: 'Inline code',
-                  isActive: _isAttributionActive(NamedAttribution.code),
-                  onPressed:
-                      hasExpandedSelection ? () => _toggleAttribution(NamedAttribution.code) : null,
-                ),
-                divider(),
-                // --- Font family dropdown ---
-                SizedBox(
-                  width: 120,
-                  height: 32,
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String?>(
-                      value: currentFontFamily,
-                      hint: Text('Font', style: bodySmall),
-                      style: bodySmall,
-                      isDense: true,
-                      isExpanded: true,
-                      onChanged: hasExpandedSelection
-                          ? (value) {
-                              if (value == null) {
-                                _clearParameterizedAttribution<FontFamilyAttribution>();
-                              } else {
-                                _applyParameterizedAttribution(FontFamilyAttribution(value));
-                              }
-                            }
-                          : null,
-                      items: const [
-                        DropdownMenuItem<String?>(value: null, child: Text('Default')),
-                        DropdownMenuItem<String?>(value: 'Georgia', child: Text('Serif')),
-                        DropdownMenuItem<String?>(value: 'Courier New', child: Text('Mono')),
-                        DropdownMenuItem<String?>(value: 'Comic Sans MS', child: Text('Casual')),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                // --- Font size dropdown ---
-                SizedBox(
-                  width: 80,
-                  height: 32,
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<double?>(
-                      value: currentFontSize,
-                      hint: Text('Size', style: bodySmall),
-                      style: bodySmall,
-                      isDense: true,
-                      isExpanded: true,
-                      onChanged: hasExpandedSelection
-                          ? (value) {
-                              if (value == null) {
-                                _clearParameterizedAttribution<FontSizeAttribution>();
-                              } else {
-                                _applyParameterizedAttribution(FontSizeAttribution(value));
-                              }
-                            }
-                          : null,
-                      items: const [
-                        DropdownMenuItem<double?>(value: null, child: Text('Default')),
-                        DropdownMenuItem<double?>(value: 12, child: Text('12')),
-                        DropdownMenuItem<double?>(value: 14, child: Text('14')),
-                        DropdownMenuItem<double?>(value: 16, child: Text('16')),
-                        DropdownMenuItem<double?>(value: 18, child: Text('18')),
-                        DropdownMenuItem<double?>(value: 24, child: Text('24')),
-                        DropdownMenuItem<double?>(value: 32, child: Text('32')),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                divider(),
-                // --- Text color popup ---
-                Tooltip(
-                  message: 'Text color',
-                  child: PopupMenuButton<int?>(
-                    enabled: hasExpandedSelection,
-                    offset: const Offset(0, 36),
-                    onSelected: (value) {
-                      if (value == null) {
-                        _clearParameterizedAttribution<TextColorAttribution>();
-                      } else {
-                        _applyParameterizedAttribution(TextColorAttribution(value));
-                      }
-                    },
-                    itemBuilder: (ctx) => [
-                      const PopupMenuItem<int?>(
-                        value: null,
-                        child: Text('Default'),
-                      ),
-                      for (final entry in _colorPresets.entries)
-                        PopupMenuItem<int?>(
-                          value: entry.key,
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 16,
-                                height: 16,
-                                decoration: BoxDecoration(
-                                  color: Color(entry.key),
-                                  border: Border.all(
-                                    color: Colors.black26,
-                                    width: 0.5,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(entry.value),
-                            ],
-                          ),
-                        ),
-                    ],
-                    child: SizedBox(
-                      height: 32,
-                      width: 32,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.format_color_text,
-                            size: 18,
-                            color: hasExpandedSelection
-                                ? colorScheme.onSurface
-                                : colorScheme.onSurface.withValues(alpha: 0.38),
-                          ),
-                          Container(
-                            height: 3,
-                            width: 16,
-                            color: activeTextColor != null
-                                ? Color(activeTextColor)
-                                : Colors.transparent,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                // --- Background color popup ---
-                Tooltip(
-                  message: 'Background color',
-                  child: PopupMenuButton<int?>(
-                    enabled: hasExpandedSelection,
-                    offset: const Offset(0, 36),
-                    onSelected: (value) {
-                      if (value == null) {
-                        _clearParameterizedAttribution<BackgroundColorAttribution>();
-                      } else {
-                        _applyParameterizedAttribution(BackgroundColorAttribution(value));
-                      }
-                    },
-                    itemBuilder: (ctx) => [
-                      const PopupMenuItem<int?>(
-                        value: null,
-                        child: Text('Default'),
-                      ),
-                      for (final entry in _colorPresets.entries)
-                        PopupMenuItem<int?>(
-                          value: entry.key,
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 16,
-                                height: 16,
-                                decoration: BoxDecoration(
-                                  color: Color(entry.key),
-                                  border: Border.all(
-                                    color: Colors.black26,
-                                    width: 0.5,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(entry.value),
-                            ],
-                          ),
-                        ),
-                    ],
-                    child: SizedBox(
-                      height: 32,
-                      width: 32,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.format_color_fill,
-                            size: 18,
-                            color: hasExpandedSelection
-                                ? colorScheme.onSurface
-                                : colorScheme.onSurface.withValues(alpha: 0.38),
-                          ),
-                          Container(
-                            height: 3,
-                            width: 16,
-                            color:
-                                activeBgColor != null ? Color(activeBgColor) : Colors.transparent,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                divider(),
-                // --- List indent/unindent ---
-                IconButton(
-                  icon: const Icon(Icons.format_indent_increase, size: iconSize),
-                  onPressed: selectedNode is ListItemNode
-                      ? () => _editor.submit(
-                            IndentListItemRequest(nodeId: selectedNode.id),
-                          )
-                      : null,
-                  tooltip: 'Indent',
-                  style: buttonStyle,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.format_indent_decrease, size: iconSize),
-                  onPressed: selectedNode is ListItemNode && selectedNode.indent > 0
-                      ? () => _editor.submit(
-                            UnindentListItemRequest(nodeId: selectedNode.id),
-                          )
-                      : null,
-                  tooltip: 'Unindent',
-                  style: buttonStyle,
-                ),
-                divider(),
-                _FormatToggle(
-                  icon: Icons.view_sidebar_outlined,
-                  tooltip: 'Block Properties',
-                  isActive: _showBlockPanel,
-                  onPressed: selectedNode != null ? _toggleBlockPanel : null,
-                ),
-                _FormatToggle(
-                  icon: Icons.settings_outlined,
-                  tooltip: 'Document Settings',
-                  isActive: _showDocumentPanel,
-                  onPressed: _toggleDocumentPanel,
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ),
-      ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DocumentFormatToggle(
+                icon: Icons.view_sidebar_outlined,
+                tooltip: 'Block Properties',
+                isActive: _showBlockPanel,
+                onPressed: selectedNode != null ? _toggleBlockPanel : null,
+              ),
+              DocumentFormatToggle(
+                icon: Icons.settings_outlined,
+                tooltip: 'Document Settings',
+                isActive: _showDocumentPanel,
+                onPressed: _toggleDocumentPanel,
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
   // ---------------------------------------------------------------------------
   // Block property panel
   // ---------------------------------------------------------------------------
-
-  /// Returns true if [node] is a container block that supports layout properties.
-  bool _isContainerBlock(DocumentNode? node) => node is HasBlockLayout;
 
   void _toggleBlockPanel() {
     setState(() {
@@ -2173,725 +1497,59 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
     }
   }
 
-  /// Returns true if [node] supports width/height/textWrap properties.
-  bool _hasSizingProperties(DocumentNode? node) => node is HasBlockLayout;
-
-  BlockAlignment _getBlockAlignment(DocumentNode node) {
-    return switch (node) {
-      HasBlockLayout(:final alignment) => alignment,
-      _ => BlockAlignment.stretch,
-    };
-  }
-
-  TextWrapMode _getTextWrap(DocumentNode node) {
-    return switch (node) {
-      HasBlockLayout(:final textWrap) => textWrap,
-      _ => TextWrapMode.none,
-    };
-  }
-
-  BlockDimension? _getWidth(DocumentNode node) {
-    return switch (node) {
-      HasBlockLayout(:final width) => width,
-      _ => null,
-    };
-  }
-
-  BlockDimension? _getHeight(DocumentNode node) {
-    return switch (node) {
-      HasBlockLayout(:final height) => height,
-      _ => null,
-    };
-  }
-
-  void _updateBlockAlignment(DocumentNode node, BlockAlignment alignment) {
-    // When switching to stretch, clear width/height (stretch ignores them).
-    DocumentNode updated;
-    if (node is ImageNode) {
-      updated = alignment == BlockAlignment.stretch
-          ? ImageNode(
-              id: node.id,
-              imageUrl: node.imageUrl,
-              altText: node.altText,
-              width: null,
-              height: null,
-              alignment: alignment,
-              textWrap: node.textWrap,
-              border: node.border,
-            )
-          : node.copyWith(alignment: alignment);
-    } else if (node is CodeBlockNode) {
-      updated = alignment == BlockAlignment.stretch
-          ? CodeBlockNode(
-              id: node.id,
-              text: node.text,
-              language: node.language,
-              width: null,
-              height: null,
-              alignment: alignment,
-              textWrap: node.textWrap,
-              border: node.border,
-            )
-          : node.copyWith(alignment: alignment);
-    } else if (node is BlockquoteNode) {
-      updated = alignment == BlockAlignment.stretch
-          ? BlockquoteNode(
-              id: node.id,
-              text: node.text,
-              width: null,
-              height: null,
-              alignment: alignment,
-              textWrap: node.textWrap,
-              border: node.border,
-            )
-          : node.copyWith(alignment: alignment);
-    } else if (node is HorizontalRuleNode) {
-      updated = alignment == BlockAlignment.stretch
-          ? HorizontalRuleNode(
-              id: node.id,
-              width: null,
-              height: null,
-              alignment: alignment,
-              textWrap: node.textWrap,
-              border: node.border,
-            )
-          : node.copyWith(alignment: alignment);
-    } else {
-      return;
-    }
-    _editor.submit(ReplaceNodeRequest(nodeId: node.id, newNode: updated));
-  }
-
-  void _updateTextWrap(DocumentNode node, TextWrapMode textWrap) {
-    DocumentNode updated;
-    if (node is ImageNode) {
-      updated = node.copyWith(textWrap: textWrap);
-    } else if (node is CodeBlockNode) {
-      updated = node.copyWith(textWrap: textWrap);
-    } else if (node is BlockquoteNode) {
-      updated = node.copyWith(textWrap: textWrap);
-    } else if (node is HorizontalRuleNode) {
-      updated = node.copyWith(textWrap: textWrap);
-    } else {
-      return;
-    }
-    _editor.submit(ReplaceNodeRequest(nodeId: node.id, newNode: updated));
-  }
-
-  void _updateWidth(DocumentNode node, BlockDimension? widthDim) {
-    // copyWith can't set nullable fields to null, so construct directly.
-    // If currently stretch-aligned and a width is set, switch to start
-    // (stretch ignores explicit dimensions).
-    final alignment = widthDim != null && _getBlockAlignment(node) == BlockAlignment.stretch
-        ? BlockAlignment.start
-        : _getBlockAlignment(node);
-    DocumentNode updated;
-    if (node is ImageNode) {
-      updated = ImageNode(
-        id: node.id,
-        imageUrl: node.imageUrl,
-        altText: node.altText,
-        width: widthDim,
-        height: node.height,
-        alignment: alignment,
-        textWrap: node.textWrap,
-        border: node.border,
-      );
-    } else if (node is CodeBlockNode) {
-      updated = CodeBlockNode(
-        id: node.id,
-        text: node.text,
-        language: node.language,
-        width: widthDim,
-        height: node.height,
-        alignment: alignment,
-        textWrap: node.textWrap,
-        border: node.border,
-      );
-    } else if (node is BlockquoteNode) {
-      updated = BlockquoteNode(
-        id: node.id,
-        text: node.text,
-        width: widthDim,
-        height: node.height,
-        alignment: alignment,
-        textWrap: node.textWrap,
-        border: node.border,
-      );
-    } else if (node is HorizontalRuleNode) {
-      updated = HorizontalRuleNode(
-        id: node.id,
-        width: widthDim,
-        height: node.height,
-        alignment: alignment,
-        textWrap: node.textWrap,
-        border: node.border,
-      );
-    } else {
-      return;
-    }
-    _editor.submit(ReplaceNodeRequest(nodeId: node.id, newNode: updated));
-  }
-
-  void _updateHeight(DocumentNode node, BlockDimension? heightDim) {
-    // copyWith can't set nullable fields to null, so construct directly.
-    // If currently stretch-aligned and a height is set, switch to start
-    // (stretch ignores explicit dimensions).
-    final alignment = heightDim != null && _getBlockAlignment(node) == BlockAlignment.stretch
-        ? BlockAlignment.start
-        : _getBlockAlignment(node);
-    DocumentNode updated;
-    if (node is ImageNode) {
-      updated = ImageNode(
-        id: node.id,
-        imageUrl: node.imageUrl,
-        altText: node.altText,
-        width: node.width,
-        height: heightDim,
-        alignment: alignment,
-        textWrap: node.textWrap,
-        border: node.border,
-      );
-    } else if (node is CodeBlockNode) {
-      updated = CodeBlockNode(
-        id: node.id,
-        text: node.text,
-        language: node.language,
-        width: node.width,
-        height: heightDim,
-        alignment: alignment,
-        textWrap: node.textWrap,
-        border: node.border,
-      );
-    } else if (node is BlockquoteNode) {
-      updated = BlockquoteNode(
-        id: node.id,
-        text: node.text,
-        width: node.width,
-        height: heightDim,
-        alignment: alignment,
-        textWrap: node.textWrap,
-        border: node.border,
-      );
-    } else if (node is HorizontalRuleNode) {
-      updated = HorizontalRuleNode(
-        id: node.id,
-        width: node.width,
-        height: heightDim,
-        alignment: alignment,
-        textWrap: node.textWrap,
-        border: node.border,
-      );
-    } else {
-      return;
-    }
-    _editor.submit(ReplaceNodeRequest(nodeId: node.id, newNode: updated));
-  }
-
-  void _updateImageUrl(DocumentNode node, String url) {
+  /// Shows a dialog for choosing an image file path, then submits a
+  /// [ReplaceNodeRequest] to update the current image node's URL.
+  ///
+  /// Does nothing if the current selection is not an [ImageNode].
+  Future<void> _pickImageFile() async {
+    final sel = _controller.selection;
+    if (sel == null) return;
+    final node = _document.nodeById(sel.extent.nodeId);
     if (node is! ImageNode) return;
-    final updated = ImageNode(
-      id: node.id,
-      imageUrl: url,
-      altText: node.altText,
-      width: node.width,
-      height: node.height,
-      alignment: node.alignment,
-      textWrap: node.textWrap,
-      lockAspect: node.lockAspect,
-      border: node.border,
-    );
-    _editor.submit(ReplaceNodeRequest(nodeId: node.id, newNode: updated));
-  }
 
-  void _updateLockAspect(ImageNode node, bool value) {
-    _editor.submit(
-      ReplaceNodeRequest(
-        nodeId: node.id,
-        newNode: node.copyWith(lockAspect: value),
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // Line height, spacing, and indent helpers
-  // ---------------------------------------------------------------------------
-
-  /// Returns the line height multiplier of [node], or `null` if the node type
-  /// does not support it.
-  double? _getLineHeight(DocumentNode node) {
-    return switch (node) {
-      ParagraphNode(:final lineHeight) => lineHeight,
-      ListItemNode(:final lineHeight) => lineHeight,
-      BlockquoteNode(:final lineHeight) => lineHeight,
-      CodeBlockNode(:final lineHeight) => lineHeight,
-      _ => null,
-    };
-  }
-
-  /// Sets the line height multiplier of [node].  Passing `null` resets to the
-  /// document default.
-  void _updateLineHeight(DocumentNode node, double? value) {
-    _editor.submit(ChangeLineHeightRequest(nodeId: node.id, newLineHeight: value));
-  }
-
-  /// Returns the spaceBefore value of [node], or `null` when not supported.
-  double? _getSpaceBefore(DocumentNode node) {
-    return switch (node) {
-      ParagraphNode(:final spaceBefore) => spaceBefore,
-      ListItemNode(:final spaceBefore) => spaceBefore,
-      BlockquoteNode(:final spaceBefore) => spaceBefore,
-      CodeBlockNode(:final spaceBefore) => spaceBefore,
-      ImageNode(:final spaceBefore) => spaceBefore,
-      HorizontalRuleNode(:final spaceBefore) => spaceBefore,
-      TableNode(:final spaceBefore) => spaceBefore,
-      _ => null,
-    };
-  }
-
-  /// Returns the spaceAfter value of [node], or `null` when not supported.
-  double? _getSpaceAfter(DocumentNode node) {
-    return switch (node) {
-      ParagraphNode(:final spaceAfter) => spaceAfter,
-      ListItemNode(:final spaceAfter) => spaceAfter,
-      BlockquoteNode(:final spaceAfter) => spaceAfter,
-      CodeBlockNode(:final spaceAfter) => spaceAfter,
-      ImageNode(:final spaceAfter) => spaceAfter,
-      HorizontalRuleNode(:final spaceAfter) => spaceAfter,
-      TableNode(:final spaceAfter) => spaceAfter,
-      _ => null,
-    };
-  }
-
-  /// Whether [node] supports spaceBefore / spaceAfter properties.
-  bool _hasSpacingProperties(DocumentNode node) {
-    return node is ParagraphNode ||
-        node is ListItemNode ||
-        node is BlockquoteNode ||
-        node is CodeBlockNode ||
-        node is ImageNode ||
-        node is HorizontalRuleNode ||
-        node is TableNode;
-  }
-
-  /// Returns the border of [node], or `null` when the node type does not
-  /// support borders.
-  BlockBorder? _getBorder(DocumentNode node) {
-    return switch (node) {
-      ParagraphNode(:final border) => border,
-      ListItemNode(:final border) => border,
-      BlockquoteNode(:final border) => border,
-      CodeBlockNode(:final border) => border,
-      ImageNode(:final border) => border,
-      HorizontalRuleNode(:final border) => border,
-      TableNode(:final border) => border,
-      _ => null,
-    };
-  }
-
-  /// Whether [node] supports the [BlockBorder] property.
-  ///
-  /// The same set of node types that support spacing also support borders.
-  bool _hasBorderProperties(DocumentNode node) => _hasSpacingProperties(node);
-
-  /// Sets spaceBefore and/or spaceAfter on [node].  Non-null values replace
-  /// the current value; to clear a value, use [_clearSpaceBefore] or
-  /// [_clearSpaceAfter].
-  void _updateSpacing(DocumentNode node, {double? spaceBefore, double? spaceAfter}) {
-    _editor.submit(ChangeSpacingRequest(
-      nodeId: node.id,
-      newSpaceBefore: spaceBefore,
-      newSpaceAfter: spaceAfter,
-    ));
-  }
-
-  /// Clears spaceBefore to `null` for [node] using a full node replacement.
-  void _clearSpaceBefore(DocumentNode node) {
-    _replaceNodeWithSpacing(node, spaceBefore: null, spaceAfter: _getSpaceAfter(node));
-  }
-
-  /// Clears spaceAfter to `null` for [node] using a full node replacement.
-  void _clearSpaceAfter(DocumentNode node) {
-    _replaceNodeWithSpacing(node, spaceBefore: _getSpaceBefore(node), spaceAfter: null);
-  }
-
-  /// Replaces [node] with an updated copy that has explicit spacing values.
-  ///
-  /// This helper is needed because [ChangeSpacingCommand] treats `null` as
-  /// "leave unchanged" — it cannot clear a value to `null`.  Direct node
-  /// construction is used so that `null` correctly resets spacing to the
-  /// document default.
-  void _replaceNodeWithSpacing(
-    DocumentNode node, {
-    required double? spaceBefore,
-    required double? spaceAfter,
-  }) {
-    final DocumentNode updated;
-    if (node is ParagraphNode) {
-      updated = ParagraphNode(
-        id: node.id,
-        text: node.text,
-        blockType: node.blockType,
-        textAlign: node.textAlign,
-        lineHeight: node.lineHeight,
-        spaceBefore: spaceBefore,
-        spaceAfter: spaceAfter,
-        indentLeft: node.indentLeft,
-        indentRight: node.indentRight,
-        firstLineIndent: node.firstLineIndent,
-        border: node.border,
-        metadata: node.metadata,
-      );
-    } else if (node is ListItemNode) {
-      updated = ListItemNode(
-        id: node.id,
-        text: node.text,
-        type: node.type,
-        indent: node.indent,
-        textAlign: node.textAlign,
-        lineHeight: node.lineHeight,
-        spaceBefore: spaceBefore,
-        spaceAfter: spaceAfter,
-        indentLeft: node.indentLeft,
-        indentRight: node.indentRight,
-        border: node.border,
-        metadata: node.metadata,
-      );
-    } else if (node is BlockquoteNode) {
-      updated = BlockquoteNode(
-        id: node.id,
-        text: node.text,
-        width: node.width,
-        height: node.height,
-        alignment: node.alignment,
-        textWrap: node.textWrap,
-        textAlign: node.textAlign,
-        lineHeight: node.lineHeight,
-        spaceBefore: spaceBefore,
-        spaceAfter: spaceAfter,
-        indentLeft: node.indentLeft,
-        indentRight: node.indentRight,
-        firstLineIndent: node.firstLineIndent,
-        border: node.border,
-        metadata: node.metadata,
-      );
-    } else if (node is CodeBlockNode) {
-      updated = CodeBlockNode(
-        id: node.id,
-        text: node.text,
-        language: node.language,
-        width: node.width,
-        height: node.height,
-        alignment: node.alignment,
-        textWrap: node.textWrap,
-        lineHeight: node.lineHeight,
-        spaceBefore: spaceBefore,
-        spaceAfter: spaceAfter,
-        border: node.border,
-        metadata: node.metadata,
-      );
-    } else if (node is ImageNode) {
-      updated = ImageNode(
-        id: node.id,
-        imageUrl: node.imageUrl,
-        altText: node.altText,
-        width: node.width,
-        height: node.height,
-        alignment: node.alignment,
-        textWrap: node.textWrap,
-        lockAspect: node.lockAspect,
-        spaceBefore: spaceBefore,
-        spaceAfter: spaceAfter,
-        border: node.border,
-        metadata: node.metadata,
-      );
-    } else if (node is HorizontalRuleNode) {
-      updated = HorizontalRuleNode(
-        id: node.id,
-        width: node.width,
-        height: node.height,
-        alignment: node.alignment,
-        textWrap: node.textWrap,
-        spaceBefore: spaceBefore,
-        spaceAfter: spaceAfter,
-        border: node.border,
-        metadata: node.metadata,
-      );
-    } else if (node is TableNode) {
-      // Reconstruct the cells grid from public cellAt accessor since _cells is private.
-      final cells = [
-        for (var r = 0; r < node.rowCount; r++)
-          [for (var c = 0; c < node.columnCount; c++) node.cellAt(r, c)],
-      ];
-      updated = TableNode(
-        id: node.id,
-        rowCount: node.rowCount,
-        columnCount: node.columnCount,
-        cells: cells,
-        columnWidths: node.columnWidths,
-        alignment: node.alignment,
-        spaceBefore: spaceBefore,
-        spaceAfter: spaceAfter,
-        border: node.border,
-        metadata: node.metadata,
-      );
-    } else {
-      return;
-    }
-    _editor.submit(ReplaceNodeRequest(nodeId: node.id, newNode: updated));
-  }
-
-  /// Replaces [node] with an updated copy that has the specified [border].
-  ///
-  /// Constructs a new node directly so that `null` correctly clears the border
-  /// (since [copyWith] uses `??` and cannot clear nullable fields to `null`).
-  /// All other fields are preserved verbatim.
-  void _replaceNodeWithBorder(DocumentNode node, BlockBorder? border) {
-    final DocumentNode updated;
-    if (node is ParagraphNode) {
-      updated = ParagraphNode(
-        id: node.id,
-        text: node.text,
-        blockType: node.blockType,
-        textAlign: node.textAlign,
-        lineHeight: node.lineHeight,
-        spaceBefore: node.spaceBefore,
-        spaceAfter: node.spaceAfter,
-        indentLeft: node.indentLeft,
-        indentRight: node.indentRight,
-        firstLineIndent: node.firstLineIndent,
-        border: border,
-        metadata: node.metadata,
-      );
-    } else if (node is ListItemNode) {
-      updated = ListItemNode(
-        id: node.id,
-        text: node.text,
-        type: node.type,
-        indent: node.indent,
-        textAlign: node.textAlign,
-        lineHeight: node.lineHeight,
-        spaceBefore: node.spaceBefore,
-        spaceAfter: node.spaceAfter,
-        indentLeft: node.indentLeft,
-        indentRight: node.indentRight,
-        border: border,
-        metadata: node.metadata,
-      );
-    } else if (node is BlockquoteNode) {
-      updated = BlockquoteNode(
-        id: node.id,
-        text: node.text,
-        width: node.width,
-        height: node.height,
-        alignment: node.alignment,
-        textWrap: node.textWrap,
-        textAlign: node.textAlign,
-        lineHeight: node.lineHeight,
-        spaceBefore: node.spaceBefore,
-        spaceAfter: node.spaceAfter,
-        indentLeft: node.indentLeft,
-        indentRight: node.indentRight,
-        firstLineIndent: node.firstLineIndent,
-        border: border,
-        metadata: node.metadata,
-      );
-    } else if (node is CodeBlockNode) {
-      updated = CodeBlockNode(
-        id: node.id,
-        text: node.text,
-        language: node.language,
-        width: node.width,
-        height: node.height,
-        alignment: node.alignment,
-        textWrap: node.textWrap,
-        lineHeight: node.lineHeight,
-        spaceBefore: node.spaceBefore,
-        spaceAfter: node.spaceAfter,
-        border: border,
-        metadata: node.metadata,
-      );
-    } else if (node is ImageNode) {
-      updated = ImageNode(
-        id: node.id,
-        imageUrl: node.imageUrl,
-        altText: node.altText,
-        width: node.width,
-        height: node.height,
-        alignment: node.alignment,
-        textWrap: node.textWrap,
-        lockAspect: node.lockAspect,
-        spaceBefore: node.spaceBefore,
-        spaceAfter: node.spaceAfter,
-        border: border,
-        metadata: node.metadata,
-      );
-    } else if (node is HorizontalRuleNode) {
-      updated = HorizontalRuleNode(
-        id: node.id,
-        width: node.width,
-        height: node.height,
-        alignment: node.alignment,
-        textWrap: node.textWrap,
-        spaceBefore: node.spaceBefore,
-        spaceAfter: node.spaceAfter,
-        border: border,
-        metadata: node.metadata,
-      );
-    } else if (node is TableNode) {
-      final cells = [
-        for (var r = 0; r < node.rowCount; r++)
-          [for (var c = 0; c < node.columnCount; c++) node.cellAt(r, c)],
-      ];
-      updated = TableNode(
-        id: node.id,
-        rowCount: node.rowCount,
-        columnCount: node.columnCount,
-        cells: cells,
-        columnWidths: node.columnWidths,
-        alignment: node.alignment,
-        spaceBefore: node.spaceBefore,
-        spaceAfter: node.spaceAfter,
-        border: border,
-        metadata: node.metadata,
-      );
-    } else {
-      return;
-    }
-    _editor.submit(ReplaceNodeRequest(nodeId: node.id, newNode: updated));
-  }
-
-  /// Returns the indentLeft value of [node], or `null` when not supported.
-  double? _getIndentLeft(DocumentNode node) {
-    return switch (node) {
-      ParagraphNode(:final indentLeft) => indentLeft,
-      ListItemNode(:final indentLeft) => indentLeft,
-      BlockquoteNode(:final indentLeft) => indentLeft,
-      _ => null,
-    };
-  }
-
-  /// Returns the indentRight value of [node], or `null` when not supported.
-  double? _getIndentRight(DocumentNode node) {
-    return switch (node) {
-      ParagraphNode(:final indentRight) => indentRight,
-      ListItemNode(:final indentRight) => indentRight,
-      BlockquoteNode(:final indentRight) => indentRight,
-      _ => null,
-    };
-  }
-
-  /// Returns the firstLineIndent value of [node], or `null` when not supported
-  /// (includes [ListItemNode] which does not use first-line indent).
-  double? _getFirstLineIndent(DocumentNode node) {
-    return switch (node) {
-      ParagraphNode(:final firstLineIndent) => firstLineIndent,
-      BlockquoteNode(:final firstLineIndent) => firstLineIndent,
-      _ => null,
-    };
-  }
-
-  /// Whether [node] supports indentLeft / indentRight properties.
-  bool _hasIndentProperties(DocumentNode node) {
-    return node is ParagraphNode || node is ListItemNode || node is BlockquoteNode;
-  }
-
-  /// Replaces [node] with an updated copy that has explicit indent values.
-  ///
-  /// Direct node construction is used so that `null` correctly resets indent
-  /// to the document default (since [copyWith] uses `??` and cannot clear
-  /// nullable fields to `null`).
-  void _replaceNodeWithIndent(
-    DocumentNode node, {
-    required double? indentLeft,
-    required double? indentRight,
-    required double? firstLineIndent,
-  }) {
-    final DocumentNode updated;
-    if (node is ParagraphNode) {
-      updated = ParagraphNode(
-        id: node.id,
-        text: node.text,
-        blockType: node.blockType,
-        textAlign: node.textAlign,
-        lineHeight: node.lineHeight,
-        spaceBefore: node.spaceBefore,
-        spaceAfter: node.spaceAfter,
-        indentLeft: indentLeft,
-        indentRight: indentRight,
-        firstLineIndent: firstLineIndent,
-        border: node.border,
-        metadata: node.metadata,
-      );
-    } else if (node is ListItemNode) {
-      updated = ListItemNode(
-        id: node.id,
-        text: node.text,
-        type: node.type,
-        indent: node.indent,
-        textAlign: node.textAlign,
-        lineHeight: node.lineHeight,
-        spaceBefore: node.spaceBefore,
-        spaceAfter: node.spaceAfter,
-        indentLeft: indentLeft,
-        indentRight: indentRight,
-        border: node.border,
-        metadata: node.metadata,
-      );
-    } else if (node is BlockquoteNode) {
-      updated = BlockquoteNode(
-        id: node.id,
-        text: node.text,
-        width: node.width,
-        height: node.height,
-        alignment: node.alignment,
-        textWrap: node.textWrap,
-        textAlign: node.textAlign,
-        lineHeight: node.lineHeight,
-        spaceBefore: node.spaceBefore,
-        spaceAfter: node.spaceAfter,
-        indentLeft: indentLeft,
-        indentRight: indentRight,
-        firstLineIndent: firstLineIndent,
-        border: node.border,
-        metadata: node.metadata,
-      );
-    } else {
-      return;
-    }
-    _editor.submit(ReplaceNodeRequest(nodeId: node.id, newNode: updated));
-  }
-
-  Future<void> _pickImageFile(DocumentNode node) async {
-    if (node is! ImageNode) return;
-    final controller = TextEditingController();
+    final textController = TextEditingController();
     final path = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         title: const Text('Open Image File'),
         content: TextField(
-          controller: controller,
+          controller: textController,
           decoration: const InputDecoration(
             hintText: '/path/to/image.png',
             labelText: 'File path',
           ),
           autofocus: true,
-          onSubmitted: (value) => Navigator.of(context).pop(value),
+          onSubmitted: (value) => Navigator.of(ctx).pop(value),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(ctx).pop(),
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () => Navigator.of(context).pop(controller.text),
+            onPressed: () => Navigator.of(ctx).pop(textController.text),
             child: const Text('Open'),
           ),
         ],
       ),
     );
     if (path == null || path.trim().isEmpty) return;
-    _updateImageUrl(node, path.trim());
+    _editor.submit(
+      ReplaceNodeRequest(
+        nodeId: node.id,
+        newNode: ImageNode(
+          id: node.id,
+          imageUrl: path.trim(),
+          altText: node.altText,
+          width: node.width,
+          height: node.height,
+          alignment: node.alignment,
+          textWrap: node.textWrap,
+          lockAspect: node.lockAspect,
+          border: node.border,
+        ),
+      ),
+    );
   }
 
   /// Builds a labelled section for the property panel.
@@ -2904,27 +1562,6 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         const SizedBox(height: 4),
         ...children,
       ],
-    );
-  }
-
-  /// Builds a compact px / % toggle used next to each dimension field.
-  ///
-  /// [isPercent] drives the initial selection. [onChanged] is called with
-  /// `true` when the user switches to % mode and `false` for px mode.
-  Widget _buildUnitToggle({
-    required bool isPercent,
-    required ValueChanged<bool> onChanged,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 2),
-      child: ToggleButtons(
-        isSelected: [!isPercent, isPercent],
-        onPressed: (index) => onChanged(index == 1),
-        constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-        textStyle: const TextStyle(fontSize: 11),
-        borderRadius: BorderRadius.circular(4),
-        children: const [Text('px'), Text('%')],
-      ),
     );
   }
 
@@ -3201,493 +1838,25 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
     ];
   }
 
-  List<Widget> _buildBlockPropertiesContent() {
-    final colorScheme = Theme.of(context).colorScheme;
-    if (_propertyPanelNodeId == null) return [];
-    final node = _document.nodeById(_propertyPanelNodeId!);
-    if (node == null) return [];
-
-    final isTextNode = node is ParagraphNode || node is ListItemNode || node is BlockquoteNode;
-    final isTextOrCode = isTextNode || node is CodeBlockNode;
-    final isContainerBlock = _isContainerBlock(node);
-
-    return [
-      Text(
-        _currentBlockLabel(),
-        style: Theme.of(context).textTheme.titleSmall,
-      ),
-      if (isTextNode) ...[
-        _buildPropertySection('Text Alignment', [
-          Row(
-            children: [
-              for (final entry in {
-                TextAlign.start: Icons.format_align_left,
-                TextAlign.center: Icons.format_align_center,
-                TextAlign.right: Icons.format_align_right,
-                TextAlign.justify: Icons.format_align_justify,
-              }.entries)
-                Padding(
-                  padding: const EdgeInsets.only(right: 4),
-                  child: IconButton(
-                    icon: Icon(entry.value, size: 20),
-                    isSelected: _currentTextAlign() == entry.key,
-                    style: IconButton.styleFrom(
-                      backgroundColor:
-                          _currentTextAlign() == entry.key ? colorScheme.primaryContainer : null,
-                      minimumSize: const Size(36, 36),
-                      padding: EdgeInsets.zero,
-                    ),
-                    tooltip: entry.key.name,
-                    onPressed: () => _setTextAlign(entry.key),
-                  ),
-                ),
-            ],
-          ),
-        ]),
-      ],
-      if (isTextOrCode) ...[
-        _buildPropertySection('Line Height', [
-          DropdownButtonHideUnderline(
-            child: DropdownButton<double?>(
-              value: _getLineHeight(node),
-              isExpanded: true,
-              isDense: true,
-              style: Theme.of(context).textTheme.bodySmall,
-              onChanged: (value) => _updateLineHeight(node, value),
-              items: const [
-                DropdownMenuItem(value: null, child: Text('Default')),
-                DropdownMenuItem(value: 1.0, child: Text('1.0')),
-                DropdownMenuItem(value: 1.15, child: Text('1.15')),
-                DropdownMenuItem(value: 1.5, child: Text('1.5')),
-                DropdownMenuItem(value: 2.0, child: Text('2.0')),
-              ],
-            ),
-          ),
-        ]),
-      ],
-      if (_hasSpacingProperties(node)) ...[
-        _buildPropertySection('Spacing', [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Before',
-                      style: Theme.of(context).textTheme.labelSmall,
-                    ),
-                    const SizedBox(height: 2),
-                    _DimensionField(
-                      key: ValueKey('${node.id}-sb'),
-                      value: _getSpaceBefore(node),
-                      onChanged: (value) {
-                        if (value == null) {
-                          _clearSpaceBefore(node);
-                        } else {
-                          _updateSpacing(node, spaceBefore: value);
-                        }
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'After',
-                      style: Theme.of(context).textTheme.labelSmall,
-                    ),
-                    const SizedBox(height: 2),
-                    _DimensionField(
-                      key: ValueKey('${node.id}-sa'),
-                      value: _getSpaceAfter(node),
-                      onChanged: (value) {
-                        if (value == null) {
-                          _clearSpaceAfter(node);
-                        } else {
-                          _updateSpacing(node, spaceAfter: value);
-                        }
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ]),
-      ],
-      if (_hasBorderProperties(node)) ...[
-        _buildPropertySection('Border', [
-          Text('Style', style: Theme.of(context).textTheme.labelSmall),
-          const SizedBox(height: 2),
-          DropdownButtonHideUnderline(
-            child: DropdownButton<BlockBorderStyle?>(
-              value: _getBorder(node)?.style,
-              isExpanded: true,
-              isDense: true,
-              style: Theme.of(context).textTheme.bodySmall,
-              onChanged: (style) {
-                if (style == null || style == BlockBorderStyle.none) {
-                  _replaceNodeWithBorder(node, null);
-                } else {
-                  final current = _getBorder(node);
-                  _replaceNodeWithBorder(
-                    node,
-                    BlockBorder(
-                      style: style,
-                      width: current?.width ?? 1.0,
-                      color: current?.color,
-                    ),
-                  );
-                }
-              },
-              items: const [
-                DropdownMenuItem(value: null, child: Text('None')),
-                DropdownMenuItem(value: BlockBorderStyle.solid, child: Text('Solid')),
-                DropdownMenuItem(value: BlockBorderStyle.dashed, child: Text('Dashed')),
-                DropdownMenuItem(value: BlockBorderStyle.dotted, child: Text('Dotted')),
-              ],
-            ),
-          ),
-          if (_getBorder(node) != null) ...[
-            const SizedBox(height: 6),
-            Text('Width', style: Theme.of(context).textTheme.labelSmall),
-            const SizedBox(height: 2),
-            _DimensionField(
-              key: ValueKey('${node.id}-bw'),
-              value: _getBorder(node)!.width,
-              onChanged: (value) {
-                if (value == null) return;
-                final current = _getBorder(node)!;
-                _replaceNodeWithBorder(
-                  node,
-                  BlockBorder(
-                    style: current.style,
-                    width: value,
-                    color: current.color,
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 6),
-            Text('Color', style: Theme.of(context).textTheme.labelSmall),
-            const SizedBox(height: 2),
-            Wrap(
-              spacing: 4,
-              runSpacing: 4,
-              children: [
-                for (final entry in {
-                  'Default': null,
-                  'Red': const Color(0xFFE53935),
-                  'Blue': const Color(0xFF2196F3),
-                  'Green': const Color(0xFF4CAF50),
-                  'Orange': const Color(0xFFFF9800),
-                  'Purple': const Color(0xFF9C27B0),
-                  'Grey': const Color(0xFF757575),
-                }.entries)
-                  _BorderColorButton(
-                    label: entry.key,
-                    color: entry.value,
-                    isSelected: _getBorder(node)?.color == entry.value,
-                    onTap: () {
-                      final current = _getBorder(node)!;
-                      _replaceNodeWithBorder(
-                        node,
-                        BlockBorder(
-                          style: current.style,
-                          width: current.width,
-                          color: entry.value,
-                        ),
-                      );
-                    },
-                  ),
-              ],
-            ),
-          ],
-        ]),
-      ],
-      if (_hasIndentProperties(node)) ...[
-        _buildPropertySection('Indent', [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Left',
-                      style: Theme.of(context).textTheme.labelSmall,
-                    ),
-                    const SizedBox(height: 2),
-                    _DimensionField(
-                      key: ValueKey('${node.id}-il'),
-                      value: _getIndentLeft(node),
-                      onChanged: (value) => _replaceNodeWithIndent(
-                        node,
-                        indentLeft: value,
-                        indentRight: _getIndentRight(node),
-                        firstLineIndent: _getFirstLineIndent(node),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Right',
-                      style: Theme.of(context).textTheme.labelSmall,
-                    ),
-                    const SizedBox(height: 2),
-                    _DimensionField(
-                      key: ValueKey('${node.id}-ir'),
-                      value: _getIndentRight(node),
-                      onChanged: (value) => _replaceNodeWithIndent(
-                        node,
-                        indentLeft: _getIndentLeft(node),
-                        indentRight: value,
-                        firstLineIndent: _getFirstLineIndent(node),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          if (node is! ListItemNode) ...[
-            const SizedBox(height: 6),
-            Text(
-              'First Line',
-              style: Theme.of(context).textTheme.labelSmall,
-            ),
-            const SizedBox(height: 2),
-            _DimensionField(
-              key: ValueKey('${node.id}-fli'),
-              value: _getFirstLineIndent(node),
-              onChanged: (value) => _replaceNodeWithIndent(
-                node,
-                indentLeft: _getIndentLeft(node),
-                indentRight: _getIndentRight(node),
-                firstLineIndent: value,
-              ),
-            ),
-          ],
-        ]),
-      ],
-      if (isContainerBlock) ...[
-        _buildPropertySection('Block Alignment', [
-          Row(
-            children: [
-              for (final entry in {
-                BlockAlignment.start: Icons.align_horizontal_left,
-                BlockAlignment.center: Icons.align_horizontal_center,
-                BlockAlignment.end: Icons.align_horizontal_right,
-                BlockAlignment.stretch: Icons.expand,
-              }.entries)
-                Padding(
-                  padding: const EdgeInsets.only(right: 4),
-                  child: IconButton(
-                    icon: entry.key == BlockAlignment.stretch
-                        ? const RotatedBox(
-                            quarterTurns: 1,
-                            child: Icon(Icons.expand, size: 20),
-                          )
-                        : Icon(entry.value, size: 20),
-                    isSelected: _getBlockAlignment(node) == entry.key,
-                    style: IconButton.styleFrom(
-                      backgroundColor: _getBlockAlignment(node) == entry.key
-                          ? colorScheme.primaryContainer
-                          : null,
-                      minimumSize: const Size(36, 36),
-                      padding: EdgeInsets.zero,
-                    ),
-                    tooltip: entry.key.name,
-                    onPressed: () => _updateBlockAlignment(node, entry.key),
-                  ),
-                ),
-            ],
-          ),
-        ]),
-        if (_hasSizingProperties(node)) ...[
-          _buildPropertySection('Text Wrap', [
-            Row(
-              children: [
-                for (final entry in {
-                  TextWrapMode.none: Icons.close,
-                  TextWrapMode.wrap: Icons.wrap_text,
-                  TextWrapMode.behindText: Icons.flip_to_back,
-                  TextWrapMode.inFrontOfText: Icons.flip_to_front,
-                }.entries)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 4),
-                    child: IconButton(
-                      icon: Icon(entry.value, size: 20),
-                      isSelected: _getTextWrap(node) == entry.key,
-                      style: IconButton.styleFrom(
-                        backgroundColor:
-                            _getTextWrap(node) == entry.key ? colorScheme.primaryContainer : null,
-                        minimumSize: const Size(36, 36),
-                        padding: EdgeInsets.zero,
-                      ),
-                      tooltip: entry.key.name,
-                      onPressed: () => _updateTextWrap(node, entry.key),
-                    ),
-                  ),
-              ],
-            ),
-          ]),
-          _buildPropertySection('Width \u00d7 Height', [
-            Row(
-              children: [
-                Expanded(
-                  child: _DimensionField(
-                    key: ValueKey('${node.id}-w'),
-                    value: switch (_getWidth(node)) {
-                      PixelDimension(:final value) => value,
-                      PercentDimension(:final value) => value * 100,
-                      null => null,
-                    },
-                    onChanged: (value) {
-                      if (value == null) {
-                        _updateWidth(node, null);
-                      } else {
-                        final isPercent = _getWidth(node) is PercentDimension;
-                        _updateWidth(
-                          node,
-                          isPercent
-                              ? BlockDimension.percent(value / 100)
-                              : BlockDimension.pixels(value),
-                        );
-                      }
-                    },
-                  ),
-                ),
-                _buildUnitToggle(
-                  isPercent: _getWidth(node) is PercentDimension,
-                  onChanged: (isPercent) {
-                    final current = _getWidth(node);
-                    if (current == null) return;
-                    final newDim = switch (current) {
-                      PixelDimension(:final value) when isPercent =>
-                        BlockDimension.percent(value / 100),
-                      PercentDimension(:final value) when !isPercent =>
-                        BlockDimension.pixels(value * 100),
-                      _ => current,
-                    };
-                    _updateWidth(node, newDim);
-                  },
-                ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 6),
-                  child: Text('\u00d7'), // ×
-                ),
-                Expanded(
-                  child: _DimensionField(
-                    key: ValueKey('${node.id}-h'),
-                    value: switch (_getHeight(node)) {
-                      PixelDimension(:final value) => value,
-                      PercentDimension(:final value) => value * 100,
-                      null => null,
-                    },
-                    onChanged: (value) {
-                      if (value == null) {
-                        _updateHeight(node, null);
-                      } else {
-                        final isPercent = _getHeight(node) is PercentDimension;
-                        _updateHeight(
-                          node,
-                          isPercent
-                              ? BlockDimension.percent(value / 100)
-                              : BlockDimension.pixels(value),
-                        );
-                      }
-                    },
-                  ),
-                ),
-                _buildUnitToggle(
-                  isPercent: _getHeight(node) is PercentDimension,
-                  onChanged: (isPercent) {
-                    final current = _getHeight(node);
-                    if (current == null) return;
-                    final newDim = switch (current) {
-                      PixelDimension(:final value) when isPercent =>
-                        BlockDimension.percent(value / 100),
-                      PercentDimension(:final value) when !isPercent =>
-                        BlockDimension.pixels(value * 100),
-                      _ => current,
-                    };
-                    _updateHeight(node, newDim);
-                  },
-                ),
-              ],
-            ),
-          ]),
-          if (node is ImageNode) ...[
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Lock Aspect',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                ),
-                Checkbox(
-                  value: node.lockAspect,
-                  onChanged: (value) => _updateLockAspect(node, value ?? true),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text('Image URL', style: Theme.of(context).textTheme.labelMedium),
-            const SizedBox(height: 4),
-            _UrlField(
-              key: ValueKey('${node.id}-url'),
-              value: node.imageUrl,
-              onChanged: (url) => _updateImageUrl(node, url),
-            ),
-            const SizedBox(height: 4),
-            SizedBox(
-              width: double.infinity,
-              height: 32,
-              child: OutlinedButton.icon(
-                icon: const Icon(Icons.folder_open, size: 16),
-                label: const Text('Choose File'),
-                onPressed: () => _pickImageFile(node),
-              ),
-            ),
-          ],
-        ],
-      ],
-    ];
-  }
-
   Widget _buildPropertyPanel() {
     if (!_showBlockPanel && !_showDocumentPanel) return const SizedBox.shrink();
 
     final colorScheme = Theme.of(context).colorScheme;
-    const panelWidth = 240.0;
+    const panelWidth = 280.0;
 
     final panelDecoration = BoxDecoration(
       color: colorScheme.surfaceContainerLow,
       border: Border(left: BorderSide(color: colorScheme.outlineVariant)),
     );
 
-    Widget wrapContent(List<Widget> content) {
+    Widget wrapDocumentSettings() {
       return SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
-            children: content,
+            children: _buildDocumentSettingsContent(),
           ),
         ),
       );
@@ -3713,8 +1882,13 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
                 child: TabBarView(
                   controller: _panelTabController,
                   children: [
-                    wrapContent(_buildBlockPropertiesContent()),
-                    wrapContent(_buildDocumentSettingsContent()),
+                    DocumentPropertyPanel(
+                      controller: _controller,
+                      requestHandler: _editor.submit,
+                      width: panelWidth,
+                      onPickImageFile: _pickImageFile,
+                    ),
+                    wrapDocumentSettings(),
                   ],
                 ),
               ),
@@ -3724,15 +1898,28 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
       );
     }
 
-    final content =
-        _showBlockPanel ? _buildBlockPropertiesContent() : _buildDocumentSettingsContent();
+    if (_showBlockPanel) {
+      return SizedBox(
+        width: panelWidth,
+        height: double.infinity,
+        child: DecoratedBox(
+          decoration: panelDecoration,
+          child: DocumentPropertyPanel(
+            controller: _controller,
+            requestHandler: _editor.submit,
+            width: panelWidth,
+            onPickImageFile: _pickImageFile,
+          ),
+        ),
+      );
+    }
 
     return SizedBox(
       width: panelWidth,
       height: double.infinity,
       child: DecoratedBox(
         decoration: panelDecoration,
-        child: wrapContent(content),
+        child: wrapDocumentSettings(),
       ),
     );
   }
@@ -3931,275 +2118,6 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
   }
 }
 
-/// A small toggle button for inline formatting in the toolbar ribbon.
-class _FormatToggle extends StatelessWidget {
-  const _FormatToggle({
-    required this.icon,
-    required this.tooltip,
-    required this.isActive,
-    required this.onPressed,
-  });
-
-  final IconData icon;
-  final String tooltip;
-  final bool isActive;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: isActive ? colorScheme.primaryContainer : Colors.transparent,
-        borderRadius: BorderRadius.circular(4),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(4),
-          onTap: onPressed,
-          child: SizedBox(
-            width: 32,
-            height: 32,
-            child: Icon(
-              icon,
-              size: 18,
-              color: onPressed == null
-                  ? Theme.of(context).disabledColor
-                  : isActive
-                      ? colorScheme.onPrimaryContainer
-                      : colorScheme.onSurface,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  @override
-  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
-    super.debugFillProperties(properties);
-    properties.add(DiagnosticsProperty<IconData>('icon', icon));
-    properties.add(StringProperty('tooltip', tooltip));
-    properties.add(FlagProperty('isActive', value: isActive, ifTrue: 'active'));
-    properties.add(ObjectFlagProperty<VoidCallback?>.has('onPressed', onPressed));
-  }
-}
-
-/// A text field for editing an optional dimension (width or height) value.
-///
-/// Shows "auto" as placeholder when [value] is null. Accepts numeric input
-/// and calls [onChanged] with the parsed value, or null to clear.
-class _DimensionField extends StatefulWidget {
-  const _DimensionField({super.key, required this.value, required this.onChanged});
-
-  final double? value;
-  final ValueChanged<double?> onChanged;
-
-  @override
-  State<_DimensionField> createState() => _DimensionFieldState();
-
-  @override
-  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
-    super.debugFillProperties(properties);
-    properties.add(DoubleProperty('value', value));
-    properties.add(ObjectFlagProperty<ValueChanged<double?>>.has('onChanged', onChanged));
-  }
-}
-
-class _DimensionFieldState extends State<_DimensionField> {
-  late final TextEditingController _textController;
-  bool _isEditing = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _textController = TextEditingController(
-      text: widget.value != null ? widget.value!.toStringAsFixed(0) : '',
-    );
-  }
-
-  @override
-  void didUpdateWidget(_DimensionField oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // Only sync from widget when not actively editing.
-    if (!_isEditing) {
-      final newText = widget.value != null ? widget.value!.toStringAsFixed(0) : '';
-      if (_textController.text != newText) {
-        _textController.text = newText;
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _textController.dispose();
-    super.dispose();
-  }
-
-  void _onChanged(String text) {
-    final trimmed = text.trim();
-    if (trimmed.isEmpty) {
-      widget.onChanged(null);
-    } else {
-      final parsed = double.tryParse(trimmed);
-      if (parsed != null && parsed > 0) {
-        widget.onChanged(parsed);
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 36,
-      child: Focus(
-        onFocusChange: (hasFocus) {
-          _isEditing = hasFocus;
-        },
-        child: TextField(
-          controller: _textController,
-          decoration: const InputDecoration(
-            hintText: 'auto',
-            isDense: true,
-            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            border: OutlineInputBorder(),
-          ),
-          keyboardType: TextInputType.number,
-          style: Theme.of(context).textTheme.bodySmall,
-          onChanged: _onChanged,
-        ),
-      ),
-    );
-  }
-}
-
-class _UrlField extends StatefulWidget {
-  const _UrlField({super.key, required this.value, required this.onChanged});
-  final String value;
-  final ValueChanged<String> onChanged;
-
-  @override
-  State<_UrlField> createState() => _UrlFieldState();
-
-  @override
-  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
-    super.debugFillProperties(properties);
-    properties.add(StringProperty('value', value));
-    properties.add(ObjectFlagProperty<ValueChanged<String>>.has('onChanged', onChanged));
-  }
-}
-
-class _UrlFieldState extends State<_UrlField> {
-  late final TextEditingController _textController;
-  bool _isEditing = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _textController = TextEditingController(text: widget.value);
-  }
-
-  @override
-  void didUpdateWidget(_UrlField oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!_isEditing && widget.value != oldWidget.value) {
-      _textController.text = widget.value;
-    }
-  }
-
-  @override
-  void dispose() {
-    _textController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 36,
-      child: Focus(
-        onFocusChange: (hasFocus) => _isEditing = hasFocus,
-        child: TextField(
-          controller: _textController,
-          decoration: const InputDecoration(
-            hintText: 'https://...',
-            isDense: true,
-            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            border: OutlineInputBorder(),
-          ),
-          style: Theme.of(context).textTheme.bodySmall,
-          onSubmitted: (text) {
-            final trimmed = text.trim();
-            if (trimmed.isNotEmpty) widget.onChanged(trimmed);
-          },
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Border color button
-// ---------------------------------------------------------------------------
-
-/// A small color swatch button used in the Border section of the property panel.
-///
-/// Shows a 24×24 rounded square filled with [color] (or black for the default
-/// swatch). When [isSelected], the border uses [ColorScheme.primary] at double
-/// width to indicate the active choice.
-class _BorderColorButton extends StatelessWidget {
-  const _BorderColorButton({
-    required this.label,
-    required this.color,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  /// Tooltip label for accessibility.
-  final String label;
-
-  /// Fill color, or `null` for the default (black) swatch.
-  final Color? color;
-
-  /// Whether this swatch is the currently active selection.
-  final bool isSelected;
-
-  /// Called when the swatch is tapped.
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: label,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: 24,
-          height: 24,
-          decoration: BoxDecoration(
-            color: color ?? Colors.black,
-            border: Border.all(
-              color: isSelected
-                  ? Theme.of(context).colorScheme.primary
-                  : Theme.of(context).colorScheme.outline,
-              width: isSelected ? 2.0 : 1.0,
-            ),
-            borderRadius: BorderRadius.circular(4),
-          ),
-        ),
-      ),
-    );
-  }
-
-  @override
-  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
-    super.debugFillProperties(properties);
-    properties.add(StringProperty('label', label));
-    properties.add(ColorProperty('color', color, defaultValue: null));
-    properties.add(FlagProperty('isSelected', value: isSelected, ifTrue: 'selected'));
-    properties.add(ObjectFlagProperty<VoidCallback>.has('onTap', onTap));
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Table resize button — contextual table toolbar
 // ---------------------------------------------------------------------------
@@ -4207,8 +2125,8 @@ class _BorderColorButton extends StatelessWidget {
 /// A toolbar button in the contextual table toolbar that opens an 8×8 grid
 /// picker for choosing the new table dimensions via [ResizeTableRequest].
 ///
-/// Visually identical to [_TableInsertButton] but calls [onResize] instead of
-/// an insert callback.
+/// Uses [_TableSizePickerOverlay] and calls [onResize] with the chosen
+/// (rows, cols) when the user confirms a selection.
 class _TableResizeButton extends StatefulWidget {
   const _TableResizeButton({required this.onResize, this.existingRows, this.existingCols});
 
@@ -4410,19 +2328,19 @@ class _TableContextToolbar extends StatelessWidget {
             ),
             divider(),
             // Column text alignment — applies to all selected columns
-            _FormatToggle(
+            DocumentFormatToggle(
               icon: Icons.format_align_left,
               tooltip: 'Align column left',
               isActive: colAlign == TextAlign.start,
               onPressed: () => _setCellAlign(TextAlign.start),
             ),
-            _FormatToggle(
+            DocumentFormatToggle(
               icon: Icons.format_align_center,
               tooltip: 'Align column center',
               isActive: colAlign == TextAlign.center,
               onPressed: () => _setCellAlign(TextAlign.center),
             ),
-            _FormatToggle(
+            DocumentFormatToggle(
               icon: Icons.format_align_right,
               tooltip: 'Align column right',
               isActive: colAlign == TextAlign.right,
@@ -4430,19 +2348,19 @@ class _TableContextToolbar extends StatelessWidget {
             ),
             divider(),
             // Row vertical alignment — applies to all selected rows
-            _FormatToggle(
+            DocumentFormatToggle(
               icon: Icons.vertical_align_top,
               tooltip: 'Align row top',
               isActive: rowVAlign == TableVerticalAlignment.top,
               onPressed: () => _setCellVAlign(TableVerticalAlignment.top),
             ),
-            _FormatToggle(
+            DocumentFormatToggle(
               icon: Icons.vertical_align_center,
               tooltip: 'Align row middle',
               isActive: rowVAlign == TableVerticalAlignment.middle,
               onPressed: () => _setCellVAlign(TableVerticalAlignment.middle),
             ),
-            _FormatToggle(
+            DocumentFormatToggle(
               icon: Icons.vertical_align_bottom,
               tooltip: 'Align row bottom',
               isActive: rowVAlign == TableVerticalAlignment.bottom,
@@ -4522,85 +2440,8 @@ class _TableContextToolbar extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Table insert button with grid-size picker popup
+// Table size picker overlay (shared by resize button in context toolbar)
 // ---------------------------------------------------------------------------
-
-/// A toolbar button that opens an 8×8 grid picker for choosing table dimensions.
-///
-/// Tapping the button shows an [OverlayEntry] positioned below the button.
-/// Hovering over the grid highlights cells to preview the selected row/column
-/// count. Clicking a cell inserts a table and closes the popup.
-class _TableInsertButton extends StatefulWidget {
-  const _TableInsertButton({
-    required this.enabled,
-    required this.onInsert,
-  });
-
-  /// Whether the button is interactive (false when there is no cursor).
-  final bool enabled;
-
-  /// Called with the chosen (rows, cols) when the user confirms a selection.
-  final void Function(int rows, int cols) onInsert;
-
-  @override
-  State<_TableInsertButton> createState() => _TableInsertButtonState();
-
-  @override
-  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
-    super.debugFillProperties(properties);
-    properties.add(FlagProperty('enabled', value: enabled, ifTrue: 'enabled'));
-    properties.add(
-      ObjectFlagProperty<void Function(int, int)>.has('onInsert', onInsert),
-    );
-  }
-}
-
-class _TableInsertButtonState extends State<_TableInsertButton> {
-  final _layerLink = LayerLink();
-  OverlayEntry? _overlayEntry;
-
-  void _showPicker() {
-    _overlayEntry?.remove();
-    _overlayEntry = OverlayEntry(
-      builder: (context) => _TableSizePickerOverlay(
-        layerLink: _layerLink,
-        onSelect: (rows, cols) {
-          _hideOverlay();
-          widget.onInsert(rows, cols);
-        },
-        onDismiss: _hideOverlay,
-      ),
-    );
-    Overlay.of(context).insert(_overlayEntry!);
-  }
-
-  void _hideOverlay() {
-    _overlayEntry?.remove();
-    _overlayEntry = null;
-  }
-
-  @override
-  void dispose() {
-    _hideOverlay();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return CompositedTransformTarget(
-      link: _layerLink,
-      child: IconButton(
-        icon: const Icon(Icons.table_chart_outlined, size: 18),
-        onPressed: widget.enabled ? _showPicker : null,
-        tooltip: 'Insert table',
-        style: IconButton.styleFrom(
-          minimumSize: const Size(32, 32),
-          padding: const EdgeInsets.all(4),
-        ),
-      ),
-    );
-  }
-}
 
 /// Overlay popup showing an 8×8 grid for picking table dimensions.
 ///
