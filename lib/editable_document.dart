@@ -108,6 +108,7 @@ export 'src/widgets/properties/block_alignment_editor.dart';
 export 'src/widgets/properties/block_border_editor.dart';
 export 'src/widgets/properties/block_dimension_editor.dart';
 export 'src/widgets/properties/document_property_panel.dart';
+export 'src/widgets/properties/document_settings_panel.dart';
 export 'src/widgets/properties/image_properties_editor.dart';
 export 'src/widgets/properties/indent_editor.dart';
 export 'src/widgets/properties/line_height_editor.dart';
