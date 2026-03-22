@@ -6,7 +6,8 @@
 ///
 /// - [DocumentEditingController] — document + selection source of truth.
 /// - [DocumentImeInputClient] — bridges the platform IME to the document.
-/// - [DocumentKeyboardHandler] — maps [KeyEvent]s to [EditRequest]s.
+/// - [DefaultDocumentEditingShortcuts] — maps key combos to document intents.
+/// - [Actions] — handles document intents via [EditableDocumentState] methods.
 /// - [DocumentLayout] — renders the block-level components.
 ///
 /// Focus is managed via the caller-supplied [FocusNode]. When focus is gained
@@ -20,6 +21,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
+import '../model/attribution.dart';
 import '../model/document_editing_controller.dart';
 import '../model/document_position.dart';
 import '../model/document_selection.dart';
@@ -27,14 +29,23 @@ import '../model/edit_request.dart';
 import '../model/editor.dart';
 import '../model/node_position.dart';
 import '../model/text_node.dart';
+import '../model/attributed_text.dart';
+import '../model/blockquote_node.dart';
+import '../model/code_block_node.dart';
+import '../model/document.dart';
+import '../model/document_node.dart';
+import '../model/list_item_node.dart';
+import '../model/paragraph_node.dart';
+import '../model/table_node.dart';
 import '../services/document_autofill_client.dart';
 import '../services/document_clipboard.dart';
 import '../services/document_ime_input_client.dart';
 import '../services/document_ime_serializer.dart';
-import '../services/document_keyboard_handler.dart';
 import '../rendering/render_document_layout.dart';
 import '../rendering/render_text_block.dart';
 import 'component_builder.dart';
+import 'default_document_editing_shortcuts.dart';
+import 'document_editing_actions.dart';
 import 'document_layout.dart';
 import 'document_scrollable.dart';
 import 'document_semantics_scope.dart';
@@ -79,9 +90,8 @@ const double _kMaxLineHeight = 24.0;
 ///
 /// ## readOnly mode
 ///
-/// When [readOnly] is `true`, the IME connection is never opened and keyboard
-/// events are not forwarded to [DocumentKeyboardHandler]. The document remains
-/// renderable but non-editable.
+/// When [readOnly] is `true`, the IME connection is never opened and editing
+/// actions are suppressed. The document remains renderable but non-editable.
 class EditableDocument extends StatefulWidget {
   /// Creates an [EditableDocument].
   ///
@@ -336,18 +346,24 @@ class EditableDocument extends StatefulWidget {
 ///
 /// Manages:
 /// - [DocumentImeInputClient] lifecycle (open/close on focus changes).
-/// - [DocumentKeyboardHandler] wiring via [Focus.onKeyEvent].
+/// - [Actions] and [DefaultDocumentEditingShortcuts] wiring in [build].
 /// - Selection-change listener forwarded to [EditableDocument.onSelectionChanged].
 /// - Auto-scrolling the caret into view on selection change via
 ///   `_scheduleShowCaretOnScreen`.
-class EditableDocumentState extends State<EditableDocument> {
+/// - Public navigation, editing, clipboard, and formatting methods that
+///   [Action] objects call directly.
+class EditableDocumentState extends State<EditableDocument> implements DocumentEditingDelegate {
   late DocumentImeInputClient _imeClient;
-  late DocumentKeyboardHandler _keyboardHandler;
   late DocumentAutofillClient _autofillClient;
   AutofillGroupState? _currentAutofillScope;
 
   /// Stateless clipboard service used by copy/cut/paste handlers.
   final DocumentClipboard _clipboard = const DocumentClipboard();
+
+  /// The actions map wired into the [Actions] widget in [build].
+  ///
+  /// Initialised in [initState] via [createDocumentEditingActions].
+  late Map<Type, Action<Intent>> _actions;
 
   /// Internal [GlobalKey] for [DocumentLayout], used when `widget.layoutKey`
   /// is not provided so that `_scheduleShowCaretOnScreen` can always locate
@@ -378,18 +394,7 @@ class EditableDocumentState extends State<EditableDocument> {
       requestHandler: _handleRequest,
       autofillScopeGetter: () => _currentAutofillScope,
     );
-    _keyboardHandler = DocumentKeyboardHandler(
-      document: widget.controller.document,
-      controller: widget.controller,
-      requestHandler: _handleRequest,
-      pageMoveResolver: _resolvePageMove,
-      verticalMoveResolver: _resolveVerticalMove,
-      lineMoveResolver: _resolveLineMove,
-      onCopy: _handleCopy,
-      onCut: _handleCut,
-      onPaste: _handlePaste,
-      onSelectAll: _handleSelectAll,
-    );
+    _actions = createDocumentEditingActions(() => this);
     widget.focusNode.addListener(_onFocusChanged);
     widget.controller.addListener(_onControllerChanged);
   }
@@ -409,19 +414,6 @@ class EditableDocumentState extends State<EditableDocument> {
     }
     if (!identical(oldWidget.controller, widget.controller)) {
       oldWidget.controller.removeListener(_onControllerChanged);
-      // Rebuild keyboard handler for the new controller/document.
-      _keyboardHandler = DocumentKeyboardHandler(
-        document: widget.controller.document,
-        controller: widget.controller,
-        requestHandler: _handleRequest,
-        pageMoveResolver: _resolvePageMove,
-        verticalMoveResolver: _resolveVerticalMove,
-        lineMoveResolver: _resolveLineMove,
-        onCopy: _handleCopy,
-        onCut: _handleCut,
-        onPaste: _handlePaste,
-        onSelectAll: _handleSelectAll,
-      );
       // Rebuild autofill client and IME client for the new controller.
       _autofillClient = DocumentAutofillClient(
         controller: widget.controller,
@@ -740,7 +732,8 @@ class EditableDocumentState extends State<EditableDocument> {
   /// Copies the selected text to the system clipboard.
   ///
   /// No-op when the selection is `null` or collapsed.
-  void _handleCopy() {
+  @override
+  void copySelection() {
     final selection = widget.controller.selection;
     if (selection == null || selection.isCollapsed) return;
     _clipboard.copy(widget.controller.document, selection);
@@ -750,7 +743,8 @@ class EditableDocumentState extends State<EditableDocument> {
   ///
   /// No-op when [EditableDocument.readOnly] is `true`, or when the selection
   /// is `null` or collapsed.
-  void _handleCut() {
+  @override
+  void cutSelection() {
     if (widget.readOnly) return;
     final selection = widget.controller.selection;
     if (selection == null || selection.isCollapsed) return;
@@ -766,7 +760,8 @@ class EditableDocumentState extends State<EditableDocument> {
   ///
   /// No-op when [EditableDocument.readOnly] is `true`, when the selection is
   /// `null`, or when the target node is not a [TextNode].
-  void _handlePaste() {
+  @override
+  void pasteClipboard() {
     if (widget.readOnly) return;
     final selection = widget.controller.selection;
     if (selection == null) return;
@@ -796,7 +791,8 @@ class EditableDocumentState extends State<EditableDocument> {
   /// to the very last position of the last node.
   ///
   /// No-op when the document is empty.
-  void _handleSelectAll() {
+  @override
+  void selectAll() {
     final doc = widget.controller.document;
     if (doc.nodes.isEmpty) return;
     final firstNode = doc.nodes.first;
@@ -837,17 +833,917 @@ class EditableDocumentState extends State<EditableDocument> {
   }
 
   // -------------------------------------------------------------------------
-  // Keyboard event adapter
+  // Navigation — public (called by Actions)
   // -------------------------------------------------------------------------
 
-  /// Adapts the [Focus.onKeyEvent] callback signature to
-  /// [DocumentKeyboardHandler.onKeyEvent].
+  /// Moves the caret one character forward or backward.
   ///
-  /// In [readOnly] mode, key events are always ignored.
-  KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
-    if (widget.readOnly) return KeyEventResult.ignored;
-    final handled = _keyboardHandler.onKeyEvent(event);
-    return handled ? KeyEventResult.handled : KeyEventResult.ignored;
+  /// When [extend] is `true` the selection base stays fixed and only the
+  /// extent moves. On an expanded selection with [extend] `false` the
+  /// selection collapses to its normalised base (left) when moving backward
+  /// or to its normalised extent (right) when moving forward.
+  void moveByCharacter({required bool forward, required bool extend}) {
+    final selection = widget.controller.selection;
+    if (selection == null) return;
+
+    if (!extend && selection.isExpanded) {
+      final normalised = selection.normalize(widget.controller.document);
+      widget.controller.setSelection(
+        DocumentSelection.collapsed(
+          position: forward ? normalised.extent : normalised.base,
+        ),
+      );
+      return;
+    }
+
+    final extentPos = selection.extent;
+    final node = widget.controller.document.nodeById(extentPos.nodeId);
+    if (node == null) return;
+
+    final newExtent =
+        forward ? _moveCharacterRight(extentPos, node) : _moveCharacterLeft(extentPos, node);
+    _updateSelection(newExtent, extend: extend);
+  }
+
+  /// Moves the caret to the next or previous word boundary.
+  ///
+  /// When [extend] is `true` the selection is extended rather than collapsed.
+  void moveByWord({required bool forward, required bool extend}) {
+    final selection = widget.controller.selection;
+    if (selection == null) return;
+
+    final extentPos = selection.extent;
+    final node = widget.controller.document.nodeById(extentPos.nodeId);
+    if (node == null) return;
+
+    final newExtent = forward ? _moveToWordEnd(extentPos, node) : _moveToWordStart(extentPos, node);
+    _updateSelection(newExtent, extend: extend);
+  }
+
+  /// Moves the caret to the visual line start or end within the current node.
+  ///
+  /// Uses [_resolveLineMove] when available (layout-backed line resolver).
+  /// Falls back to node start/end when the resolver is unavailable or returns
+  /// `null` (e.g. for binary nodes).
+  ///
+  /// When [extend] is `true` the selection is extended.
+  void moveToLineStartOrEnd({required bool forward, required bool extend}) {
+    final selection = widget.controller.selection;
+    if (selection == null) return;
+
+    final extentPos = selection.extent;
+    final node = widget.controller.document.nodeById(extentPos.nodeId);
+    if (node == null) return;
+
+    final resolved = _resolveLineMove(from: extentPos, forward: forward);
+    final newExtent = resolved ?? (forward ? _endOfNode(node) : _startOfNode(node));
+    _updateSelection(newExtent, extend: extend);
+  }
+
+  /// Moves the caret one visual line up or down.
+  ///
+  /// Uses [_resolveVerticalMove] when available. Falls back to block-level
+  /// movement (previous/next node start) when unavailable.
+  ///
+  /// When [extend] is `true` the selection is extended.
+  void moveVertically({required bool forward, required bool extend}) {
+    final selection = widget.controller.selection;
+    if (selection == null) return;
+
+    if (!extend && selection.isExpanded) {
+      final normalised = selection.normalize(widget.controller.document);
+      widget.controller.setSelection(
+        DocumentSelection.collapsed(
+          position: forward ? normalised.extent : normalised.base,
+        ),
+      );
+      return;
+    }
+
+    final extentPos = selection.extent;
+    final node = widget.controller.document.nodeById(extentPos.nodeId);
+    if (node == null) return;
+
+    final DocumentPosition newExtent;
+    final resolved = _resolveVerticalMove(from: extentPos, forward: forward);
+    if (resolved != null) {
+      newExtent = resolved;
+    } else if (forward) {
+      final nextNode = widget.controller.document.nodeAfter(extentPos.nodeId);
+      newExtent = nextNode == null ? _endOfNode(node) : _startOfNode(nextNode);
+    } else {
+      final prevNode = widget.controller.document.nodeBefore(extentPos.nodeId);
+      newExtent = prevNode == null ? _startOfNode(node) : _startOfNode(prevNode);
+    }
+
+    _updateSelection(newExtent, extend: extend);
+  }
+
+  /// Moves the caret to the very start or end of the document.
+  ///
+  /// When [extend] is `true` the selection is extended.
+  void moveToDocumentStartOrEnd({required bool forward, required bool extend}) {
+    final selection = widget.controller.selection;
+    if (selection == null) return;
+
+    final doc = widget.controller.document;
+    if (doc.nodes.isEmpty) return;
+
+    final newExtent = forward ? _endOfNode(doc.nodes.last) : _startOfNode(doc.nodes.first);
+    _updateSelection(newExtent, extend: extend);
+  }
+
+  /// Moves the caret to the start or end of the current node.
+  ///
+  /// When [extend] is `true` the selection is extended.
+  void moveToNodeStartOrEnd({required bool forward, required bool extend}) {
+    final selection = widget.controller.selection;
+    if (selection == null) return;
+
+    final extentPos = selection.extent;
+    final node = widget.controller.document.nodeById(extentPos.nodeId);
+    if (node == null) return;
+
+    final newExtent = forward ? _endOfNode(node) : _startOfNode(node);
+    _updateSelection(newExtent, extend: extend);
+  }
+
+  /// Moves the caret one viewport height up or down.
+  ///
+  /// Uses [_resolvePageMove]. When unavailable this is a no-op.
+  ///
+  /// When [extend] is `true` the selection is extended.
+  void moveByPage({required bool forward, required bool extend}) {
+    final selection = widget.controller.selection;
+    if (selection == null) return;
+
+    final resolved = _resolvePageMove(from: selection.extent, forward: forward);
+    if (resolved == null) return;
+    _updateSelection(resolved, extend: extend);
+  }
+
+  /// Moves the caret to the start of the current node (Home key).
+  ///
+  /// For table cells, moves to the start of the current cell. When
+  /// [extend] is `true` the selection is extended.
+  void moveHome({required bool extend}) {
+    final selection = widget.controller.selection;
+    if (selection == null) return;
+
+    final extentPos = selection.extent;
+    final node = widget.controller.document.nodeById(extentPos.nodeId);
+    if (node == null) return;
+
+    DocumentPosition newExtent;
+    if (node is TableNode && extentPos.nodePosition is TableCellPosition) {
+      final cellPos = extentPos.nodePosition as TableCellPosition;
+      newExtent = DocumentPosition(
+        nodeId: node.id,
+        nodePosition: cellPos.copyWith(offset: 0),
+      );
+    } else {
+      newExtent = _startOfNode(node);
+    }
+
+    _updateSelection(newExtent, extend: extend);
+  }
+
+  /// Moves the caret to the end of the current node (End key).
+  ///
+  /// For table cells, moves to the end of the current cell. When
+  /// [extend] is `true` the selection is extended.
+  void moveEnd({required bool extend}) {
+    final selection = widget.controller.selection;
+    if (selection == null) return;
+
+    final extentPos = selection.extent;
+    final node = widget.controller.document.nodeById(extentPos.nodeId);
+    if (node == null) return;
+
+    DocumentPosition newExtent;
+    if (node is TableNode && extentPos.nodePosition is TableCellPosition) {
+      final cellPos = extentPos.nodePosition as TableCellPosition;
+      newExtent = DocumentPosition(
+        nodeId: node.id,
+        nodePosition: cellPos.copyWith(
+          offset: node.cellAt(cellPos.row, cellPos.col).text.length,
+        ),
+      );
+    } else {
+      newExtent = _endOfNode(node);
+    }
+
+    _updateSelection(newExtent, extend: extend);
+  }
+
+  // -------------------------------------------------------------------------
+  // Editing — public (called by Actions)
+  // -------------------------------------------------------------------------
+
+  /// Collapses the current selection to its extent position.
+  ///
+  /// No-op when [EditableDocument.readOnly] is `true`, when the selection is
+  /// `null`, or when the selection is already collapsed.
+  void collapseSelection() {
+    if (widget.readOnly) return;
+    final selection = widget.controller.selection;
+    if (selection == null || selection.isCollapsed) return;
+    widget.controller.setSelection(
+      DocumentSelection.collapsed(position: selection.extent),
+    );
+  }
+
+  /// Deletes the character at the caret, or the entire selection if expanded.
+  ///
+  /// No-op when [EditableDocument.readOnly] is `true` or when the selection
+  /// is `null`.
+  void deleteForward() {
+    if (widget.readOnly) return;
+    final selection = widget.controller.selection;
+    if (selection == null) return;
+
+    if (selection.isExpanded) {
+      _handleRequest(DeleteContentRequest(selection: selection));
+      return;
+    }
+
+    final extentPos = selection.extent;
+    final node = widget.controller.document.nodeById(extentPos.nodeId);
+    if (node == null) return;
+
+    if (node is TextNode) {
+      final offset = (extentPos.nodePosition as TextNodePosition).offset;
+      if (offset >= node.text.text.length) {
+        final nextNode = widget.controller.document.nodeAfter(extentPos.nodeId);
+        if (nextNode == null) return;
+        _handleRequest(
+          MergeNodeRequest(firstNodeId: node.id, secondNodeId: nextNode.id),
+        );
+      } else {
+        _handleRequest(
+          DeleteContentRequest(
+            selection: DocumentSelection(
+              base: extentPos,
+              extent: DocumentPosition(
+                nodeId: extentPos.nodeId,
+                nodePosition: TextNodePosition(offset: offset + 1),
+              ),
+            ),
+          ),
+        );
+      }
+    } else if (node is TableNode) {
+      final cellPos = extentPos.nodePosition;
+      if (cellPos is! TableCellPosition) return;
+      final cellText = node.cellAt(cellPos.row, cellPos.col).text;
+      if (cellPos.offset >= cellText.length) return;
+      final newText =
+          cellText.substring(0, cellPos.offset) + cellText.substring(cellPos.offset + 1);
+      _handleRequest(
+        UpdateTableCellRequest(
+          nodeId: node.id,
+          row: cellPos.row,
+          col: cellPos.col,
+          newText: AttributedText(newText),
+          newCursorOffset: cellPos.offset,
+        ),
+      );
+    } else {
+      _handleRequest(
+        DeleteContentRequest(
+          selection: DocumentSelection(
+            base: DocumentPosition(
+              nodeId: extentPos.nodeId,
+              nodePosition: const BinaryNodePosition.upstream(),
+            ),
+            extent: DocumentPosition(
+              nodeId: extentPos.nodeId,
+              nodePosition: const BinaryNodePosition.downstream(),
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
+  /// Deletes the character before the caret, or the entire selection if
+  /// expanded.
+  ///
+  /// Has complex block-aware logic: at offset 0 of an empty list item it
+  /// converts the list item to a paragraph; at offset 0 of a text node it
+  /// merges with (or deletes) the preceding node.
+  ///
+  /// No-op when [EditableDocument.readOnly] is `true` or when the selection
+  /// is `null`.
+  void deleteBackward() {
+    if (widget.readOnly) return;
+    final selection = widget.controller.selection;
+    if (selection == null) return;
+
+    if (selection.isExpanded) {
+      _handleRequest(DeleteContentRequest(selection: selection));
+      return;
+    }
+
+    final extentPos = selection.extent;
+    final node = widget.controller.document.nodeById(extentPos.nodeId);
+    if (node == null) return;
+
+    if (node is TextNode) {
+      final offset = (extentPos.nodePosition as TextNodePosition).offset;
+      if (offset == 0) {
+        if (node is ListItemNode && node.text.text.isEmpty) {
+          _handleRequest(ConvertListItemToParagraphRequest(nodeId: node.id));
+        } else if (node is ParagraphNode &&
+            node.blockType == ParagraphBlockType.blockquote &&
+            node.text.text.isEmpty) {
+          _handleRequest(
+            ChangeBlockTypeRequest(
+              nodeId: node.id,
+              newBlockType: ParagraphBlockType.paragraph,
+            ),
+          );
+        } else {
+          final prevNode = widget.controller.document.nodeBefore(extentPos.nodeId);
+          if (prevNode == null) return;
+          if (prevNode is TextNode) {
+            _handleRequest(
+              MergeNodeRequest(firstNodeId: prevNode.id, secondNodeId: node.id),
+            );
+          } else {
+            _handleRequest(
+              DeleteContentRequest(
+                selection: DocumentSelection(
+                  base: DocumentPosition(
+                    nodeId: prevNode.id,
+                    nodePosition: const BinaryNodePosition.upstream(),
+                  ),
+                  extent: DocumentPosition(
+                    nodeId: prevNode.id,
+                    nodePosition: const BinaryNodePosition.downstream(),
+                  ),
+                ),
+              ),
+            );
+          }
+        }
+      } else {
+        _handleRequest(
+          DeleteContentRequest(
+            selection: DocumentSelection(
+              base: DocumentPosition(
+                nodeId: extentPos.nodeId,
+                nodePosition: TextNodePosition(offset: offset - 1),
+              ),
+              extent: extentPos,
+            ),
+          ),
+        );
+      }
+    } else if (node is TableNode) {
+      final cellPos = extentPos.nodePosition;
+      if (cellPos is! TableCellPosition) return;
+      if (cellPos.offset == 0) return;
+      final cellText = node.cellAt(cellPos.row, cellPos.col).text;
+      final newText =
+          cellText.substring(0, cellPos.offset - 1) + cellText.substring(cellPos.offset);
+      _handleRequest(
+        UpdateTableCellRequest(
+          nodeId: node.id,
+          row: cellPos.row,
+          col: cellPos.col,
+          newText: AttributedText(newText),
+          newCursorOffset: cellPos.offset - 1,
+        ),
+      );
+    } else {
+      _handleRequest(
+        DeleteContentRequest(
+          selection: DocumentSelection(
+            base: DocumentPosition(
+              nodeId: extentPos.nodeId,
+              nodePosition: const BinaryNodePosition.upstream(),
+            ),
+            extent: DocumentPosition(
+              nodeId: extentPos.nodeId,
+              nodePosition: const BinaryNodePosition.downstream(),
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
+  /// Handles the Tab key.
+  ///
+  /// In a [TableNode], moves to the next cell. In a [ListItemNode], indents
+  /// the item. Otherwise, inserts a literal tab character into the current
+  /// text node.
+  ///
+  /// No-op when [EditableDocument.readOnly] is `true`.
+  void handleTab() {
+    if (widget.readOnly) return;
+    final selection = widget.controller.selection;
+    if (selection == null) return;
+    final node = widget.controller.document.nodeById(selection.extent.nodeId);
+
+    if (node is TableNode) {
+      final pos = selection.extent.nodePosition;
+      if (pos is! TableCellPosition) return;
+      int nextRow = pos.row;
+      int nextCol = pos.col + 1;
+      if (nextCol >= node.columnCount) {
+        nextCol = 0;
+        nextRow++;
+      }
+      if (nextRow >= node.rowCount) return;
+      widget.controller.setSelection(
+        DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: node.id,
+            nodePosition: TableCellPosition(
+              row: nextRow,
+              col: nextCol,
+              offset: node.cellAt(nextRow, nextCol).text.length,
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (node is ListItemNode) {
+      _handleRequest(IndentListItemRequest(nodeId: node.id));
+      return;
+    }
+
+    if (node is TextNode && selection.isCollapsed) {
+      final offset = (selection.extent.nodePosition as TextNodePosition).offset;
+      _handleRequest(
+        InsertTextRequest(
+          nodeId: node.id,
+          offset: offset,
+          text: AttributedText('\t'),
+        ),
+      );
+    }
+  }
+
+  /// Handles the Shift+Tab key combination.
+  ///
+  /// In a [TableNode], moves to the previous cell. In a [ListItemNode],
+  /// unindents the item.
+  ///
+  /// No-op when [EditableDocument.readOnly] is `true`.
+  void handleShiftTab() {
+    if (widget.readOnly) return;
+    final selection = widget.controller.selection;
+    if (selection == null) return;
+    final node = widget.controller.document.nodeById(selection.extent.nodeId);
+
+    if (node is TableNode) {
+      final pos = selection.extent.nodePosition;
+      if (pos is! TableCellPosition) return;
+      int prevRow = pos.row;
+      int prevCol = pos.col - 1;
+      if (prevCol < 0) {
+        prevCol = node.columnCount - 1;
+        prevRow--;
+      }
+      if (prevRow < 0) return;
+      widget.controller.setSelection(
+        DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: node.id,
+            nodePosition: TableCellPosition(
+              row: prevRow,
+              col: prevCol,
+              offset: node.cellAt(prevRow, prevCol).text.length,
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (node is ListItemNode) {
+      _handleRequest(UnindentListItemRequest(nodeId: node.id));
+    }
+  }
+
+  /// Handles the Enter key.
+  ///
+  /// Context-sensitive:
+  /// - **Table cell** — inserts a newline within the cell.
+  /// - **Empty list item** — converts to paragraph.
+  /// - **Empty ParagraphNode blockquote** — converts to normal paragraph.
+  /// - **BlockquoteNode** — inserts newline, or exits on double-Enter.
+  /// - **CodeBlockNode** — inserts newline, or exits on double-Enter.
+  /// - Other nodes — no-op (IME handles normal paragraph Enter).
+  ///
+  /// No-op when [EditableDocument.readOnly] is `true`.
+  void handleEnter() {
+    if (widget.readOnly) return;
+    final selection = widget.controller.selection;
+    if (selection == null || selection.isExpanded) return;
+    final node = widget.controller.document.nodeById(selection.extent.nodeId);
+
+    if (node is TableNode) {
+      final cellPos = selection.extent.nodePosition;
+      if (cellPos is! TableCellPosition) return;
+      final cellText = node.cellAt(cellPos.row, cellPos.col).text;
+      final newText =
+          cellText.substring(0, cellPos.offset) + '\n' + cellText.substring(cellPos.offset);
+      final newOffset = cellPos.offset + 1;
+      _handleRequest(
+        UpdateTableCellRequest(
+          nodeId: node.id,
+          row: cellPos.row,
+          col: cellPos.col,
+          newText: AttributedText(newText),
+          newCursorOffset: newOffset,
+        ),
+      );
+      widget.controller.setSelection(
+        DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: node.id,
+            nodePosition: TableCellPosition(
+              row: cellPos.row,
+              col: cellPos.col,
+              offset: newOffset,
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (node is ListItemNode && node.text.text.isEmpty) {
+      _handleRequest(ConvertListItemToParagraphRequest(nodeId: node.id));
+      return;
+    }
+
+    if (node is ParagraphNode &&
+        node.blockType == ParagraphBlockType.blockquote &&
+        node.text.text.isEmpty) {
+      _handleRequest(
+        ChangeBlockTypeRequest(
+          nodeId: node.id,
+          newBlockType: ParagraphBlockType.paragraph,
+        ),
+      );
+      return;
+    }
+
+    if (node is BlockquoteNode) {
+      final offset = (selection.extent.nodePosition as TextNodePosition).offset;
+      final text = node.text.text;
+      if (text.isEmpty) {
+        _handleRequest(ExitBlockquoteRequest(nodeId: node.id, splitOffset: 0));
+        return;
+      }
+      if (offset == text.length && text.endsWith('\n')) {
+        _handleRequest(
+          ExitBlockquoteRequest(
+            nodeId: node.id,
+            splitOffset: offset,
+            removeTrailingNewline: true,
+          ),
+        );
+        return;
+      }
+      _handleRequest(
+        InsertTextRequest(
+          nodeId: node.id,
+          offset: offset,
+          text: AttributedText('\n'),
+        ),
+      );
+      return;
+    }
+
+    if (node is CodeBlockNode) {
+      final offset = (selection.extent.nodePosition as TextNodePosition).offset;
+      final text = node.text.text;
+      if (text.isEmpty) {
+        _handleRequest(ExitCodeBlockRequest(nodeId: node.id, splitOffset: 0));
+        return;
+      }
+      if (offset == text.length && text.endsWith('\n')) {
+        _handleRequest(
+          ExitCodeBlockRequest(
+            nodeId: node.id,
+            splitOffset: offset,
+            removeTrailingNewline: true,
+          ),
+        );
+        return;
+      }
+      _handleRequest(
+        InsertTextRequest(
+          nodeId: node.id,
+          offset: offset,
+          text: AttributedText('\n'),
+        ),
+      );
+    }
+  }
+
+  /// Handles Shift+Enter.
+  ///
+  /// Exits a [CodeBlockNode] at the current cursor position. No-op for all
+  /// other node types.
+  ///
+  /// No-op when [EditableDocument.readOnly] is `true`.
+  void handleShiftEnter() {
+    if (widget.readOnly) return;
+    final selection = widget.controller.selection;
+    if (selection == null || selection.isExpanded) return;
+    final node = widget.controller.document.nodeById(selection.extent.nodeId);
+    if (node is! CodeBlockNode) return;
+
+    final offset = (selection.extent.nodePosition as TextNodePosition).offset;
+    _handleRequest(ExitCodeBlockRequest(nodeId: node.id, splitOffset: offset));
+  }
+
+  // -------------------------------------------------------------------------
+  // Formatting — public (called by Actions)
+  // -------------------------------------------------------------------------
+
+  /// Toggles [attribution] on the current selection.
+  ///
+  /// When the selection is collapsed, toggles the [Attribution] on the
+  /// [ComposerPreferences] (so the next typed character inherits it).
+  ///
+  /// When the selection is expanded and the entire selected range already
+  /// carries [attribution], removes it. Otherwise, applies it.
+  ///
+  /// No-op when [EditableDocument.readOnly] is `true` or when the selection
+  /// is `null`.
+  void toggleAttribution(Attribution attribution) {
+    if (widget.readOnly) return;
+    final selection = widget.controller.selection;
+    if (selection == null) return;
+
+    if (selection.isCollapsed) {
+      widget.controller.preferences.toggle(attribution);
+      // DocumentEditingController has no public "notify preferences changed"
+      // method; notifyListeners is @protected/@visibleForTesting on
+      // ChangeNotifier but both classes live in the same package and this is
+      // an intentional internal cross-class call.
+      // ignore: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
+      widget.controller.notifyListeners();
+      return;
+    }
+
+    final fullyApplied =
+        isSelectionFullyAttributed(selection, attribution, widget.controller.document);
+    if (fullyApplied) {
+      _handleRequest(
+        RemoveAttributionRequest(selection: selection, attribution: attribution),
+      );
+    } else {
+      _handleRequest(
+        ApplyAttributionRequest(selection: selection, attribution: attribution),
+      );
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Position helpers — private
+  // -------------------------------------------------------------------------
+
+  /// Returns the position at the start of [node].
+  DocumentPosition _startOfNode(DocumentNode node) {
+    if (node is TextNode) {
+      return DocumentPosition(
+        nodeId: node.id,
+        nodePosition: const TextNodePosition(offset: 0),
+      );
+    }
+    if (node is TableNode) {
+      return DocumentPosition(
+        nodeId: node.id,
+        nodePosition: const TableCellPosition(row: 0, col: 0, offset: 0),
+      );
+    }
+    return DocumentPosition(
+      nodeId: node.id,
+      nodePosition: const BinaryNodePosition.upstream(),
+    );
+  }
+
+  /// Returns the position at the end of [node].
+  DocumentPosition _endOfNode(DocumentNode node) {
+    if (node is TextNode) {
+      return DocumentPosition(
+        nodeId: node.id,
+        nodePosition: TextNodePosition(offset: node.text.text.length),
+      );
+    }
+    if (node is TableNode) {
+      final lastRow = node.rowCount - 1;
+      final lastCol = node.columnCount - 1;
+      return DocumentPosition(
+        nodeId: node.id,
+        nodePosition: TableCellPosition(
+          row: lastRow,
+          col: lastCol,
+          offset: node.cellAt(lastRow, lastCol).text.length,
+        ),
+      );
+    }
+    return DocumentPosition(
+      nodeId: node.id,
+      nodePosition: const BinaryNodePosition.downstream(),
+    );
+  }
+
+  /// Moves one character to the left within [node], or wraps to the previous
+  /// node.
+  DocumentPosition _moveCharacterLeft(DocumentPosition pos, DocumentNode node) {
+    if (node is TextNode) {
+      final offset = (pos.nodePosition as TextNodePosition).offset;
+      if (offset > 0) {
+        return DocumentPosition(
+          nodeId: node.id,
+          nodePosition: TextNodePosition(offset: offset - 1),
+        );
+      }
+      final prev = widget.controller.document.nodeBefore(node.id);
+      if (prev != null) return _endOfNode(prev);
+    } else if (node is TableNode && pos.nodePosition is TableCellPosition) {
+      final cellPos = pos.nodePosition as TableCellPosition;
+      if (cellPos.offset > 0) {
+        return DocumentPosition(
+          nodeId: node.id,
+          nodePosition: cellPos.copyWith(offset: cellPos.offset - 1),
+        );
+      }
+      int prevRow = cellPos.row;
+      int prevCol = cellPos.col - 1;
+      if (prevCol < 0) {
+        prevCol = node.columnCount - 1;
+        prevRow--;
+      }
+      if (prevRow >= 0) {
+        return DocumentPosition(
+          nodeId: node.id,
+          nodePosition: TableCellPosition(
+            row: prevRow,
+            col: prevCol,
+            offset: node.cellAt(prevRow, prevCol).text.length,
+          ),
+        );
+      }
+      final prev = widget.controller.document.nodeBefore(node.id);
+      if (prev != null) return _endOfNode(prev);
+    } else if (pos.nodePosition is BinaryNodePosition) {
+      final binaryPos = pos.nodePosition as BinaryNodePosition;
+      if (binaryPos.type == BinaryNodePositionType.downstream) {
+        return DocumentPosition(
+          nodeId: node.id,
+          nodePosition: const BinaryNodePosition.upstream(),
+        );
+      }
+      final prev = widget.controller.document.nodeBefore(node.id);
+      if (prev != null) return _endOfNode(prev);
+    }
+    return pos;
+  }
+
+  /// Moves one character to the right within [node], or wraps to the next
+  /// node.
+  DocumentPosition _moveCharacterRight(DocumentPosition pos, DocumentNode node) {
+    if (node is TextNode) {
+      final offset = (pos.nodePosition as TextNodePosition).offset;
+      if (offset < node.text.text.length) {
+        return DocumentPosition(
+          nodeId: node.id,
+          nodePosition: TextNodePosition(offset: offset + 1),
+        );
+      }
+      final next = widget.controller.document.nodeAfter(node.id);
+      if (next != null) return _startOfNode(next);
+    } else if (node is TableNode && pos.nodePosition is TableCellPosition) {
+      final cellPos = pos.nodePosition as TableCellPosition;
+      final cellText = node.cellAt(cellPos.row, cellPos.col).text;
+      if (cellPos.offset < cellText.length) {
+        return DocumentPosition(
+          nodeId: node.id,
+          nodePosition: cellPos.copyWith(offset: cellPos.offset + 1),
+        );
+      }
+      int nextRow = cellPos.row;
+      int nextCol = cellPos.col + 1;
+      if (nextCol >= node.columnCount) {
+        nextCol = 0;
+        nextRow++;
+      }
+      if (nextRow < node.rowCount) {
+        return DocumentPosition(
+          nodeId: node.id,
+          nodePosition: TableCellPosition(row: nextRow, col: nextCol, offset: 0),
+        );
+      }
+      final next = widget.controller.document.nodeAfter(node.id);
+      if (next != null) return _startOfNode(next);
+    } else if (pos.nodePosition is BinaryNodePosition) {
+      final binaryPos = pos.nodePosition as BinaryNodePosition;
+      if (binaryPos.type == BinaryNodePositionType.upstream) {
+        return DocumentPosition(
+          nodeId: node.id,
+          nodePosition: const BinaryNodePosition.downstream(),
+        );
+      }
+      final next = widget.controller.document.nodeAfter(node.id);
+      if (next != null) return _startOfNode(next);
+    }
+    return pos;
+  }
+
+  /// Moves to the start of the current word (or node start for non-text).
+  DocumentPosition _moveToWordStart(DocumentPosition pos, DocumentNode node) {
+    if (node is TableNode && pos.nodePosition is TableCellPosition) {
+      final cellPos = pos.nodePosition as TableCellPosition;
+      final text = node.cellAt(cellPos.row, cellPos.col).text;
+      var offset = cellPos.offset;
+      while (offset > 0 && text[offset - 1] == ' ') {
+        offset--;
+      }
+      while (offset > 0 && text[offset - 1] != ' ') {
+        offset--;
+      }
+      return DocumentPosition(
+        nodeId: node.id,
+        nodePosition: cellPos.copyWith(offset: offset),
+      );
+    }
+    if (node is! TextNode) return _startOfNode(node);
+    final text = node.text.text;
+    var offset = (pos.nodePosition as TextNodePosition).offset;
+    while (offset > 0 && text[offset - 1] == ' ') {
+      offset--;
+    }
+    while (offset > 0 && text[offset - 1] != ' ') {
+      offset--;
+    }
+    return DocumentPosition(
+      nodeId: node.id,
+      nodePosition: TextNodePosition(offset: offset),
+    );
+  }
+
+  /// Moves to the end of the current word (or node end for non-text).
+  DocumentPosition _moveToWordEnd(DocumentPosition pos, DocumentNode node) {
+    if (node is TableNode && pos.nodePosition is TableCellPosition) {
+      final cellPos = pos.nodePosition as TableCellPosition;
+      final text = node.cellAt(cellPos.row, cellPos.col).text;
+      var offset = cellPos.offset;
+      while (offset < text.length && text[offset] == ' ') {
+        offset++;
+      }
+      while (offset < text.length && text[offset] != ' ') {
+        offset++;
+      }
+      return DocumentPosition(
+        nodeId: node.id,
+        nodePosition: cellPos.copyWith(offset: offset),
+      );
+    }
+    if (node is! TextNode) return _endOfNode(node);
+    final text = node.text.text;
+    var offset = (pos.nodePosition as TextNodePosition).offset;
+    while (offset < text.length && text[offset] == ' ') {
+      offset++;
+    }
+    while (offset < text.length && text[offset] != ' ') {
+      offset++;
+    }
+    return DocumentPosition(
+      nodeId: node.id,
+      nodePosition: TextNodePosition(offset: offset),
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Selection update helper — private
+  // -------------------------------------------------------------------------
+
+  /// Updates the controller's selection to [newExtent].
+  ///
+  /// When [extend] is `true`, keeps the current base and extends to
+  /// [newExtent]. When `false`, collapses to [newExtent].
+  void _updateSelection(DocumentPosition newExtent, {required bool extend}) {
+    final current = widget.controller.selection;
+    if (extend && current != null) {
+      widget.controller.setSelection(
+        DocumentSelection(base: current.base, extent: newExtent),
+      );
+    } else {
+      widget.controller.setSelection(DocumentSelection.collapsed(position: newExtent));
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -858,26 +1754,30 @@ class EditableDocumentState extends State<EditableDocument> {
   Widget build(BuildContext context) {
     final builders = widget.componentBuilders ?? defaultComponentBuilders;
 
-    return Focus(
-      focusNode: widget.focusNode,
-      autofocus: widget.autofocus,
-      onKeyEvent: _onKeyEvent,
-      child: DocumentSemanticsScope(
-        isFocused: widget.focusNode.hasFocus,
-        isReadOnly: widget.readOnly,
-        child: DocumentLayout(
-          key: _layoutKey,
-          document: widget.controller.document,
-          controller: widget.controller,
-          componentBuilders: builders,
-          blockSpacing: widget.blockSpacing,
-          stylesheet: widget.stylesheet,
-          documentPadding: widget.documentPadding,
-          showLineNumbers: widget.showLineNumbers,
-          lineNumberWidth: widget.lineNumberWidth,
-          lineNumberTextStyle: widget.lineNumberTextStyle,
-          lineNumberBackgroundColor: widget.lineNumberBackgroundColor,
-          lineNumberAlignment: widget.lineNumberAlignment,
+    return DefaultDocumentEditingShortcuts(
+      child: Actions(
+        actions: _actions,
+        child: Focus(
+          focusNode: widget.focusNode,
+          autofocus: widget.autofocus,
+          child: DocumentSemanticsScope(
+            isFocused: widget.focusNode.hasFocus,
+            isReadOnly: widget.readOnly,
+            child: DocumentLayout(
+              key: _layoutKey,
+              document: widget.controller.document,
+              controller: widget.controller,
+              componentBuilders: builders,
+              blockSpacing: widget.blockSpacing,
+              stylesheet: widget.stylesheet,
+              documentPadding: widget.documentPadding,
+              showLineNumbers: widget.showLineNumbers,
+              lineNumberWidth: widget.lineNumberWidth,
+              lineNumberTextStyle: widget.lineNumberTextStyle,
+              lineNumberBackgroundColor: widget.lineNumberBackgroundColor,
+              lineNumberAlignment: widget.lineNumberAlignment,
+            ),
+          ),
         ),
       ),
     );

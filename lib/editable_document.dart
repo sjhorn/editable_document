@@ -57,9 +57,11 @@ export 'src/services/document_autofill_client.dart';
 export 'src/services/document_clipboard.dart';
 export 'src/services/document_ime_serializer.dart';
 export 'src/services/document_ime_input_client.dart';
-export 'src/services/document_keyboard_handler.dart';
 export 'src/widgets/block_drag_overlay.dart';
 export 'src/widgets/block_resize_handles.dart';
+export 'src/widgets/default_document_editing_shortcuts.dart';
+export 'src/widgets/document_editing_actions.dart'
+    show DocumentEditingDelegate, isSelectionFullyAttributed;
 export 'src/widgets/table_divider_resize_handles.dart';
 export 'src/widgets/caret_document_overlay.dart';
 export 'src/widgets/component_builder.dart';

@@ -247,6 +247,46 @@ class CollapseSelectionIntent extends Intent {
 }
 
 // ---------------------------------------------------------------------------
+// Enter / Tab intents
+// ---------------------------------------------------------------------------
+
+/// Handles the Tab key within a document.
+///
+/// In a [TableNode], moves to the next cell. In a [ListItemNode], indents the
+/// item. Otherwise, inserts a literal tab character.
+class DocumentTabIntent extends Intent {
+  /// Creates a [DocumentTabIntent].
+  const DocumentTabIntent();
+}
+
+/// Handles the Shift+Tab key combination within a document.
+///
+/// In a [TableNode], moves to the previous cell. In a [ListItemNode], unindents
+/// the item.
+class DocumentShiftTabIntent extends Intent {
+  /// Creates a [DocumentShiftTabIntent].
+  const DocumentShiftTabIntent();
+}
+
+/// Handles the Enter key within a document.
+///
+/// Context-sensitive: in list items, code blocks, blockquotes, and tables,
+/// performs block-aware Enter handling. Falls through for normal paragraphs
+/// (handled by IME).
+class DocumentEnterIntent extends Intent {
+  /// Creates a [DocumentEnterIntent].
+  const DocumentEnterIntent();
+}
+
+/// Handles Shift+Enter within a document.
+///
+/// Currently exits a code block at the current cursor position.
+class DocumentShiftEnterIntent extends Intent {
+  /// Creates a [DocumentShiftEnterIntent].
+  const DocumentShiftEnterIntent();
+}
+
+// ---------------------------------------------------------------------------
 // Table editing intents
 // ---------------------------------------------------------------------------
 
