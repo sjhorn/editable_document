@@ -445,24 +445,24 @@ The `PageMoveResolver`, `VerticalMoveResolver`, and `LineMoveResolver` typedefs 
 | Phase | What | Status |
 |-------|------|--------|
 | **1a** | Intent classes | Done |
-| **1b** | Actions on EditableDocumentState | |
-| **1c** | DefaultDocumentEditingShortcuts | |
-| **1d** | Wire into EditableDocument, remove DocumentKeyboardHandler | |
-| **2a** | DocumentToolbarTheme | |
-| **2b** | Atomic toolbar widgets | |
-| **2c** | Composed toolbar bars + DocumentToolbar | |
-| **3a** | Individual property editors | |
-| **3b** | DocumentPropertyPanel | |
-| **4a** | DocumentTheme | |
-| **4b** | PropertyPanelTheme | |
-| **4c** | DocumentDecoration | |
-| **4d** | Wire themes into widgets | |
-| **5** | DocumentSettingsPanel | |
-| **6a** | Default context menu builder | |
-| **6b** | Table context toolbar | |
-| **6c** | Status bar | |
-| **6d** | JSON serializer | |
-| **7** | Example app becomes thin shell | |
+| **1b** | Actions on EditableDocumentState | Done |
+| **1c** | DefaultDocumentEditingShortcuts | Done |
+| **1d** | Wire into EditableDocument, remove DocumentKeyboardHandler | Done |
+| **2a** | DocumentToolbarTheme | Done |
+| **2b** | Atomic toolbar widgets | Done |
+| **2c** | Composed toolbar bars + DocumentToolbar | Done |
+| **3a** | Individual property editors | Done |
+| **3b** | DocumentPropertyPanel | Done |
+| **4a** | DocumentTheme | Done |
+| **4b** | PropertyPanelTheme | Done |
+| **4c** | DocumentDecoration | Done |
+| **4d** | Wire themes into widgets | Done |
+| **5** | DocumentSettingsPanel | Done |
+| **6a** | Default context menu builder | Done |
+| **6b** | Table context toolbar | Done |
+| **6c** | Status bar | Done |
+| **6d** | JSON serializer | Done |
+| **7** | Example app becomes thin shell | Done |
 
 Execution order respects layer dependencies: intents/actions first, then toolbar widgets, then property editors, then themes, then everything else. The example app is rewritten last.
 
