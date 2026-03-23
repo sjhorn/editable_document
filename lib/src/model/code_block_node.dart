@@ -22,7 +22,7 @@ import 'text_wrap_mode.dart';
 /// [ParagraphNode] with [ParagraphBlockType.codeBlock], this node type is
 /// explicitly specialised for code and carries language metadata directly.
 ///
-/// The [width] and [height] fields constrain the rendered block to a fixed
+/// The `width` and `height` fields constrain the rendered block to a fixed
 /// size. The [alignment] field positions the block within available layout
 /// width. The [textWrap] field controls how surrounding text interacts with
 /// this code block.
@@ -42,9 +42,9 @@ class CodeBlockNode extends TextNode implements HasBlockLayout {
   ///
   /// [alignment] defaults to [BlockAlignment.stretch].
   /// [textWrap] defaults to [TextWrapMode.none].
-  /// [lineHeight] defaults to `null` (inherit document default).
-  /// [width] and [height] default to `null` (use available / intrinsic size).
-  /// [spaceBefore] and [spaceAfter] default to `null` (use document-level
+  /// `lineHeight` defaults to `null` (inherit document default).
+  /// `width` and `height` default to `null` (use available / intrinsic size).
+  /// `spaceBefore` and `spaceAfter` default to `null` (use document-level
   /// default spacing).
   /// [border] defaults to `null` (no border drawn).
   CodeBlockNode({
@@ -82,7 +82,7 @@ class CodeBlockNode extends TextNode implements HasBlockLayout {
   /// How the code block is horizontally aligned within the available layout width.
   ///
   /// Defaults to [BlockAlignment.stretch], which causes the block to fill the
-  /// entire available width. Use other values when [width] is smaller than the
+  /// entire available width. Use other values when `width` is smaller than the
   /// layout width.
   final BlockAlignment alignment;
 

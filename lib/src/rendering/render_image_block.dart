@@ -269,7 +269,7 @@ class RenderImageBlock extends RenderDocumentBlock with BlockLayoutMixin {
   // ignore: diagnostic_describe_all_properties
   double? get spaceBefore => _spaceBefore;
 
-  /// Sets [spaceBefore] and notifies the parent layout when the value changes.
+  /// Sets `spaceBefore` and notifies the parent layout when the value changes.
   set spaceBefore(double? value) {
     if (_spaceBefore == value) return;
     _spaceBefore = value;
@@ -284,7 +284,7 @@ class RenderImageBlock extends RenderDocumentBlock with BlockLayoutMixin {
   // ignore: diagnostic_describe_all_properties
   double? get spaceAfter => _spaceAfter;
 
-  /// Sets [spaceAfter] and notifies the parent layout when the value changes.
+  /// Sets `spaceAfter` and notifies the parent layout when the value changes.
   set spaceAfter(double? value) {
     if (_spaceAfter == value) return;
     _spaceAfter = value;

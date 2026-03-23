@@ -20,8 +20,8 @@ import 'text_wrap_mode.dart';
 /// A [TextNode] representing a blockquote.
 ///
 /// [BlockquoteNode] holds rich text content like any other [TextNode] but
-/// additionally supports container-level layout properties: explicit [width]
-/// and [height], horizontal [alignment], and [textWrap] for float-like
+/// additionally supports container-level layout properties: explicit `width`
+/// and `height`, horizontal [alignment], and [textWrap] for float-like
 /// behaviour where subsequent blocks wrap around this one.
 ///
 /// While [ParagraphNode] with `ParagraphBlockType.blockquote` can also
@@ -41,9 +41,9 @@ class BlockquoteNode extends TextNode implements HasBlockLayout {
   /// [alignment] defaults to [BlockAlignment.stretch].
   /// [textWrap] defaults to [TextWrapMode.none].
   /// [textAlign] defaults to [TextAlign.start].
-  /// [lineHeight] defaults to `null` (inherit document default).
-  /// [width] and [height] default to `null` (use available / intrinsic size).
-  /// [spaceBefore] and [spaceAfter] default to `null` (use document-level
+  /// `lineHeight` defaults to `null` (inherit document default).
+  /// `width` and `height` default to `null` (use available / intrinsic size).
+  /// `spaceBefore` and `spaceAfter` default to `null` (use document-level
   /// default spacing).
   /// [indentLeft], [indentRight], and [firstLineIndent] default to `null`
   /// (no extra indent applied).

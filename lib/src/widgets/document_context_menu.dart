@@ -28,7 +28,7 @@ import '../services/document_clipboard.dart';
 /// - **Select All** — always present.
 ///
 /// The [requestHandler] callback receives [EditRequest]s produced by Cut and
-/// Paste (e.g. [DeleteContentRequest], [InsertTextRequest]). It may be `null`
+/// Paste (e.g. [DeleteContentRequest], `InsertTextRequest`). It may be `null`
 /// when only Copy and Select All are needed (read-only scenario).
 ///
 /// Example:

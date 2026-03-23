@@ -275,7 +275,7 @@ class DocumentLayoutState extends State<DocumentLayout> {
   // Geometry queries — delegate to RenderDocumentLayout
   // ---------------------------------------------------------------------------
 
-  /// Returns the [RenderDocumentBlock] for [nodeId], or `null` if no rendered
+  /// Returns the [RenderDocumentBlock] for `nodeId`, or `null` if no rendered
   /// block matches.
   RenderDocumentBlock? componentForNode(String nodeId) {
     return _renderObject?.getComponentByNodeId(nodeId);

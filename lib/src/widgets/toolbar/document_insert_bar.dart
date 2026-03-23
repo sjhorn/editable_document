@@ -31,7 +31,7 @@ import 'table_size_picker.dart';
 ///
 /// The bar listens to [controller] and rebuilds whenever the selection changes.
 /// Insert operations are submitted via [requestHandler] as
-/// [InsertNodeAfterRequest].
+/// `InsertNodeAfterRequest`.
 ///
 /// ```dart
 /// DocumentInsertBar(

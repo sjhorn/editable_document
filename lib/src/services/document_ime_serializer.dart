@@ -74,11 +74,11 @@ const String _kSyntheticPlaceholder = '\u200B';
 ///
 /// | Delta type | TextNode target | Produces |
 /// |---|---|---|
-/// | [TextEditingDeltaInsertion] (normal text) | [TextNode] | [InsertTextRequest] |
+/// | [TextEditingDeltaInsertion] (normal text) | [TextNode] | `InsertTextRequest` |
 /// | [TextEditingDeltaInsertion] (`'\n'`) | [TextNode] (not [CodeBlockNode] or [BlockquoteNode]) | [SplitParagraphRequest] |
-/// | [TextEditingDeltaInsertion] (`'\n'`) | [CodeBlockNode] or [BlockquoteNode] | [InsertTextRequest] |
+/// | [TextEditingDeltaInsertion] (`'\n'`) | [CodeBlockNode] or [BlockquoteNode] | `InsertTextRequest` |
 /// | [TextEditingDeltaDeletion] | [TextNode] | [DeleteContentRequest] |
-/// | [TextEditingDeltaReplacement] | [TextNode] | [DeleteContentRequest] + [InsertTextRequest] |
+/// | [TextEditingDeltaReplacement] | [TextNode] | [DeleteContentRequest] + `InsertTextRequest` |
 /// | [TextEditingDeltaNonTextUpdate] | any | *(empty — selection-only update)* |
 /// | any delta | [TableNode] cell | [UpdateTableCellRequest] |
 class DocumentImeSerializer {
@@ -437,8 +437,8 @@ class DocumentImeSerializer {
   /// A newline produces a [SplitParagraphRequest] for most [TextNode] types.
   /// The exceptions are [CodeBlockNode] and [BlockquoteNode]: these node types
   /// embed newlines as text content rather than splitting into two blocks, so a
-  /// newline there produces an [InsertTextRequest] instead.
-  /// Any other text always produces an [InsertTextRequest].
+  /// newline there produces an `InsertTextRequest` instead.
+  /// Any other text always produces an `InsertTextRequest`.
   List<EditRequest> _insertionToRequests(
     TextEditingDeltaInsertion delta,
     String nodeId,
@@ -496,7 +496,7 @@ class DocumentImeSerializer {
   }
 
   /// Maps a [TextEditingDeltaReplacement] to a [DeleteContentRequest] followed
-  /// by an [InsertTextRequest].
+  /// by an `InsertTextRequest`.
   List<EditRequest> _replacementToRequests(
     TextEditingDeltaReplacement delta,
     String nodeId,

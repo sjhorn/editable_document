@@ -67,14 +67,14 @@ enum ParagraphBlockType {
 /// ```
 class ParagraphNode extends TextNode {
   /// Creates a [ParagraphNode] with an optional [blockType], [textAlign],
-  /// [lineHeight], [spaceBefore], [spaceAfter], [indentLeft], [indentRight],
+  /// `lineHeight`, `spaceBefore`, `spaceAfter`, [indentLeft], [indentRight],
   /// [firstLineIndent], and [border].
   ///
   /// [blockType] defaults to [ParagraphBlockType.paragraph].
   /// [textAlign] defaults to [TextAlign.start].
-  /// [lineHeight] defaults to `null`, which means the document default is
+  /// `lineHeight` defaults to `null`, which means the document default is
   /// inherited.
-  /// [spaceBefore] and [spaceAfter] default to `null`, which means the
+  /// `spaceBefore` and `spaceAfter` default to `null`, which means the
   /// document-level default spacing is used.
   /// [indentLeft], [indentRight], and [firstLineIndent] default to `null`,
   /// which means no extra indent is applied.

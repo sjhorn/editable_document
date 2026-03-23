@@ -56,12 +56,12 @@ abstract class EditCommand {
 // InsertTextCommand
 // ---------------------------------------------------------------------------
 
-/// Inserts [text] into the text node [nodeId] at [offset].
+/// Inserts [text] into the text node `nodeId` at [offset].
 ///
 /// After insertion the controller selection is collapsed to the position
 /// immediately after the inserted text.
 ///
-/// Throws [StateError] when [nodeId] does not exist or is not a [TextNode].
+/// Throws [StateError] when `nodeId` does not exist or is not a [TextNode].
 class InsertTextCommand extends EditCommand {
   /// Creates an [InsertTextCommand].
   const InsertTextCommand({
@@ -311,9 +311,9 @@ class DeleteContentCommand extends EditCommand {
 // ReplaceNodeCommand
 // ---------------------------------------------------------------------------
 
-/// Replaces the node identified by [nodeId] with [newNode].
+/// Replaces the node identified by `nodeId` with [newNode].
 ///
-/// Throws [StateError] when [nodeId] does not exist.
+/// Throws [StateError] when `nodeId` does not exist.
 class ReplaceNodeCommand extends EditCommand {
   /// Creates a [ReplaceNodeCommand].
   const ReplaceNodeCommand({required this.nodeId, required this.newNode});
@@ -339,14 +339,14 @@ class ReplaceNodeCommand extends EditCommand {
 // SplitParagraphCommand
 // ---------------------------------------------------------------------------
 
-/// Splits the text node [nodeId] at [splitOffset].
+/// Splits the text node `nodeId` at [splitOffset].
 ///
 /// The original node retains `text[0, splitOffset)`. A new node (with a
 /// fresh id from [generateNodeId]) containing `text[splitOffset, end)` is
 /// inserted immediately after. The controller selection is collapsed to
 /// offset 0 of the new node.
 ///
-/// Throws [StateError] when [nodeId] does not exist or is not a [TextNode].
+/// Throws [StateError] when `nodeId` does not exist or is not a [TextNode].
 class SplitParagraphCommand extends EditCommand {
   /// Creates a [SplitParagraphCommand].
   const SplitParagraphCommand({required this.nodeId, required this.splitOffset});
@@ -471,11 +471,11 @@ class MergeNodeCommand extends EditCommand {
 // MoveNodeCommand
 // ---------------------------------------------------------------------------
 
-/// Moves the node identified by [nodeId] to [newIndex].
+/// Moves the node identified by `nodeId` to [newIndex].
 ///
 /// Delegates to [MutableDocument.moveNode]. Returns a [NodeMoved] event.
 ///
-/// Throws [StateError] when [nodeId] does not exist.
+/// Throws [StateError] when `nodeId` does not exist.
 class MoveNodeCommand extends EditCommand {
   /// Creates a [MoveNodeCommand].
   const MoveNodeCommand({required this.nodeId, required this.newIndex});
@@ -503,9 +503,9 @@ class MoveNodeCommand extends EditCommand {
 // ---------------------------------------------------------------------------
 
 /// Changes the [ParagraphBlockType] of the [ParagraphNode] identified by
-/// [nodeId].
+/// `nodeId`.
 ///
-/// Throws [StateError] when [nodeId] does not exist or is not a
+/// Throws [StateError] when `nodeId` does not exist or is not a
 /// [ParagraphNode].
 class ChangeBlockTypeCommand extends EditCommand {
   /// Creates a [ChangeBlockTypeCommand].
@@ -539,7 +539,7 @@ class ChangeBlockTypeCommand extends EditCommand {
 ///
 /// Supports [ParagraphNode], [ListItemNode], and [BlockquoteNode].
 ///
-/// Throws [StateError] when [nodeId] does not exist, or when the identified
+/// Throws [StateError] when `nodeId` does not exist, or when the identified
 /// node is not one of the supported text block types.
 class ChangeTextAlignCommand extends EditCommand {
   /// Creates a [ChangeTextAlignCommand].
@@ -576,13 +576,13 @@ class ChangeTextAlignCommand extends EditCommand {
 // ChangeLineHeightCommand
 // ---------------------------------------------------------------------------
 
-/// Changes the [lineHeight] multiplier of the text block identified by
-/// [nodeId].
+/// Changes the `lineHeight` multiplier of the text block identified by
+/// `nodeId`.
 ///
 /// Supports [ParagraphNode], [ListItemNode], [BlockquoteNode], and
 /// [CodeBlockNode].
 ///
-/// Throws [StateError] when [nodeId] does not exist, or when the identified
+/// Throws [StateError] when `nodeId` does not exist, or when the identified
 /// node is not one of the supported text block types.
 class ChangeLineHeightCommand extends EditCommand {
   /// Creates a [ChangeLineHeightCommand].
@@ -622,8 +622,8 @@ class ChangeLineHeightCommand extends EditCommand {
 // ChangeSpacingCommand
 // ---------------------------------------------------------------------------
 
-/// Changes the [spaceBefore] and/or [spaceAfter] of the block identified by
-/// [nodeId].
+/// Changes the `spaceBefore` and/or `spaceAfter` of the block identified by
+/// `nodeId`.
 ///
 /// Supports all block node types that carry spacing fields:
 /// [ParagraphNode], [ListItemNode], [BlockquoteNode], [CodeBlockNode],
@@ -632,7 +632,7 @@ class ChangeLineHeightCommand extends EditCommand {
 /// Only non-null values in [newSpaceBefore] and [newSpaceAfter] are applied;
 /// `null` values leave the corresponding spacing field unchanged on the node.
 ///
-/// Throws [StateError] when [nodeId] does not exist.
+/// Throws [StateError] when `nodeId` does not exist.
 class ChangeSpacingCommand extends EditCommand {
   /// Creates a [ChangeSpacingCommand].
   const ChangeSpacingCommand({
@@ -727,7 +727,7 @@ class ChangeSpacingCommand extends EditCommand {
 // ChangeIndentCommand
 // ---------------------------------------------------------------------------
 
-/// Changes the indent properties of the text block identified by [nodeId].
+/// Changes the indent properties of the text block identified by `nodeId`.
 ///
 /// Supports [ParagraphNode], [ListItemNode], and [BlockquoteNode].
 ///
@@ -736,7 +736,7 @@ class ChangeSpacingCommand extends EditCommand {
 /// field unchanged on the node. For [ListItemNode] targets, [newFirstLineIndent]
 /// is always ignored.
 ///
-/// Throws [StateError] when [nodeId] does not exist, or when the identified
+/// Throws [StateError] when `nodeId` does not exist, or when the identified
 /// node is not one of the supported text block types.
 class ChangeIndentCommand extends EditCommand {
   /// Creates a [ChangeIndentCommand].
@@ -946,7 +946,7 @@ class RemoveAttributionCommand extends EditCommand {
 /// This command is used when the user presses Enter or Backspace on an empty
 /// list item, effectively exiting the list.
 ///
-/// Throws [StateError] when [nodeId] does not exist or is not a
+/// Throws [StateError] when `nodeId` does not exist or is not a
 /// [ListItemNode].
 class ConvertListItemToParagraphCommand extends EditCommand {
   /// Creates a [ConvertListItemToParagraphCommand].
@@ -993,7 +993,7 @@ class ConvertListItemToParagraphCommand extends EditCommand {
 // IndentListItemCommand
 // ---------------------------------------------------------------------------
 
-/// Increases the indent level of the [ListItemNode] identified by [nodeId] by
+/// Increases the indent level of the [ListItemNode] identified by `nodeId` by
 /// one step.
 ///
 /// The node's [ListItemNode.indent] is incremented by 1 and the node is
@@ -1001,9 +1001,9 @@ class ConvertListItemToParagraphCommand extends EditCommand {
 /// nesting depth is enforced; callers are responsible for applying any
 /// upper-bound policy before submitting this command.
 ///
-/// Returns a [NodeReplaced] event with identical [oldNodeId] and [newNodeId].
+/// Returns a [NodeReplaced] event with identical `oldNodeId` and `newNodeId`.
 ///
-/// Throws [StateError] when [nodeId] does not exist or is not a
+/// Throws [StateError] when `nodeId` does not exist or is not a
 /// [ListItemNode].
 class IndentListItemCommand extends EditCommand {
   /// Creates an [IndentListItemCommand].
@@ -1031,15 +1031,15 @@ class IndentListItemCommand extends EditCommand {
 // UnindentListItemCommand
 // ---------------------------------------------------------------------------
 
-/// Decreases the indent level of the [ListItemNode] identified by [nodeId] by
+/// Decreases the indent level of the [ListItemNode] identified by `nodeId` by
 /// one step, clamped to a minimum of `0`.
 ///
 /// The node's [ListItemNode.indent] is decremented by 1 (floor `0`) and the
 /// node is replaced in the document via [MutableDocument.replaceNode].
 ///
-/// Returns a [NodeReplaced] event with identical [oldNodeId] and [newNodeId].
+/// Returns a [NodeReplaced] event with identical `oldNodeId` and `newNodeId`.
 ///
-/// Throws [StateError] when [nodeId] does not exist or is not a
+/// Throws [StateError] when `nodeId` does not exist or is not a
 /// [ListItemNode].
 class UnindentListItemCommand extends EditCommand {
   /// Creates an [UnindentListItemCommand].
@@ -1084,7 +1084,7 @@ class UnindentListItemCommand extends EditCommand {
 /// 5. Collapse the selection to offset 0 of the (new or converted)
 ///    paragraph.
 ///
-/// Throws [StateError] when [nodeId] does not exist or is not a
+/// Throws [StateError] when `nodeId` does not exist or is not a
 /// [CodeBlockNode].
 class ExitCodeBlockCommand extends EditCommand {
   /// Creates an [ExitCodeBlockCommand].
@@ -1193,7 +1193,7 @@ class ExitCodeBlockCommand extends EditCommand {
 /// 5. Collapse the selection to offset 0 of the (new or converted)
 ///    paragraph.
 ///
-/// Throws [StateError] when [nodeId] does not exist or is not a
+/// Throws [StateError] when `nodeId` does not exist or is not a
 /// [BlockquoteNode].
 class ExitBlockquoteCommand extends EditCommand {
   /// Creates an [ExitBlockquoteCommand].
@@ -1299,7 +1299,7 @@ class ExitBlockquoteCommand extends EditCommand {
 /// | **Downstream** | No next [TextNode] | Create new [ParagraphNode] after binary node |
 /// | Either, text is `'\n'` | — | Create empty [ParagraphNode] adjacent, move caret there |
 ///
-/// Throws [StateError] when [nodeId] does not exist in the document.
+/// Throws [StateError] when `nodeId` does not exist in the document.
 class InsertTextAtBinaryNodeCommand extends EditCommand {
   /// Creates an [InsertTextAtBinaryNodeCommand].
   const InsertTextAtBinaryNodeCommand({
@@ -1521,14 +1521,14 @@ class InsertTableCommand extends EditCommand {
 /// Updates the text of a single cell in a [TableNode].
 ///
 /// Replaces the [AttributedText] at ([row], [col]) of the [TableNode]
-/// identified by [nodeId] with [newText]. All other cells are unchanged.
+/// identified by `nodeId` with [newText]. All other cells are unchanged.
 ///
 /// When [newCursorOffset] is non-null, the controller selection is collapsed
 /// to that character offset within the updated cell. The offset is clamped to
 /// `[0, newText.length]`. When [newCursorOffset] is `null`, the selection is
 /// left unchanged.
 ///
-/// Throws [StateError] when [nodeId] does not exist or is not a [TableNode].
+/// Throws [StateError] when `nodeId` does not exist or is not a [TableNode].
 class UpdateTableCellCommand extends EditCommand {
   /// Creates an [UpdateTableCellCommand].
   const UpdateTableCellCommand({
@@ -1607,7 +1607,7 @@ class UpdateTableCellCommand extends EditCommand {
 /// surviving node (previous preferred, then next), or cleared when the
 /// document becomes empty.
 ///
-/// Throws [StateError] when [nodeId] does not exist.
+/// Throws [StateError] when `nodeId` does not exist.
 class DeleteTableCommand extends EditCommand {
   /// Creates a [DeleteTableCommand].
   const DeleteTableCommand({required this.nodeId});
@@ -1658,13 +1658,13 @@ class DeleteTableCommand extends EditCommand {
 // MoveNodeToPositionCommand
 // ---------------------------------------------------------------------------
 
-/// Moves the block node identified by [nodeId] to the document location
+/// Moves the block node identified by `nodeId` to the document location
 /// described by [position].
 ///
 /// ### Algorithm
 ///
-/// 1. Validate [nodeId] exists; throw [StateError] otherwise.
-/// 2. Validate [position.nodeId] exists; throw [StateError] otherwise.
+/// 1. Validate `nodeId` exists; throw [StateError] otherwise.
+/// 2. Validate `position.nodeId` exists; throw [StateError] otherwise.
 /// 3. Remove the block from its current position.
 /// 4. Determine the insertion index based on [position]:
 ///    - **[BinaryNodePosition.upstream]** — insert before the target node.
@@ -1677,7 +1677,7 @@ class DeleteTableCommand extends EditCommand {
 ///      A fresh [ParagraphNode] is created for the text after the offset.
 /// 5. The controller selection is set to the block node at its new position.
 ///
-/// Throws [StateError] when [nodeId] or [position.nodeId] does not exist.
+/// Throws [StateError] when `nodeId` or `position.nodeId` does not exist.
 class MoveNodeToPositionCommand extends EditCommand {
   /// Creates a [MoveNodeToPositionCommand].
   const MoveNodeToPositionCommand({required this.nodeId, required this.position});
@@ -1794,7 +1794,7 @@ class MoveNodeToPositionCommand extends EditCommand {
 /// ### Algorithm
 ///
 /// 1. If [position] is `null`, append [node] at the end of the document.
-/// 2. Validate [position.nodeId] exists; throw [StateError] otherwise.
+/// 2. Validate `position.nodeId` exists; throw [StateError] otherwise.
 /// 3. Determine the insertion index based on [position]:
 ///    - **[BinaryNodePosition.upstream]** — insert before the target node.
 ///    - **[BinaryNodePosition.downstream]** — insert after the target node.
@@ -1930,9 +1930,9 @@ class InsertNodeAtPositionCommand extends EditCommand {
 // InsertTableRowCommand
 // ---------------------------------------------------------------------------
 
-/// Inserts an empty row into the [TableNode] identified by [nodeId].
+/// Inserts an empty row into the [TableNode] identified by `nodeId`.
 ///
-/// When [insertBefore] is `true`, the new row is inserted at [rowIndex].
+/// When [insertBefore] is `true`, the new row is inserted at `rowIndex`.
 /// When `false`, it is inserted at `rowIndex + 1`.
 ///
 /// If [TableNode.cellVerticalAligns] is non-null, a new row of
@@ -1958,7 +1958,7 @@ class InsertTableRowCommand extends EditCommand {
   /// The zero-based row index at which to insert.
   final int rowIndex;
 
-  /// Whether to insert before (true) or after (false) [rowIndex].
+  /// Whether to insert before (true) or after (false) `rowIndex`.
   final bool insertBefore;
 
   @override
@@ -2042,9 +2042,9 @@ class InsertTableRowCommand extends EditCommand {
 // InsertTableColumnCommand
 // ---------------------------------------------------------------------------
 
-/// Inserts an empty column into the [TableNode] identified by [nodeId].
+/// Inserts an empty column into the [TableNode] identified by `nodeId`.
 ///
-/// When [insertBefore] is `true`, the new column is inserted at [colIndex].
+/// When [insertBefore] is `true`, the new column is inserted at `colIndex`.
 /// When `false`, it is inserted at `colIndex + 1`.
 ///
 /// If [TableNode.columnWidths] is non-null, a `null` entry (auto-sized) is
@@ -2074,7 +2074,7 @@ class InsertTableColumnCommand extends EditCommand {
   /// The zero-based column index at which to insert.
   final int colIndex;
 
-  /// Whether to insert before (true) or after (false) [colIndex].
+  /// Whether to insert before (true) or after (false) `colIndex`.
   final bool insertBefore;
 
   @override
@@ -2175,7 +2175,7 @@ class InsertTableColumnCommand extends EditCommand {
 // DeleteTableRowCommand
 // ---------------------------------------------------------------------------
 
-/// Deletes a row from the [TableNode] identified by [nodeId].
+/// Deletes a row from the [TableNode] identified by `nodeId`.
 ///
 /// When the table has only one row, the entire [TableNode] is deleted from
 /// the document (same behaviour as [DeleteTableCommand]).
@@ -2303,7 +2303,7 @@ class DeleteTableRowCommand extends EditCommand {
 // DeleteTableColumnCommand
 // ---------------------------------------------------------------------------
 
-/// Deletes a column from the [TableNode] identified by [nodeId].
+/// Deletes a column from the [TableNode] identified by `nodeId`.
 ///
 /// When the table has only one column, the entire [TableNode] is deleted from
 /// the document.
@@ -2594,7 +2594,7 @@ class ResizeTableCommand extends EditCommand {
 // ---------------------------------------------------------------------------
 
 /// Changes the horizontal text alignment of a single cell in the [TableNode]
-/// identified by [nodeId].
+/// identified by `nodeId`.
 ///
 /// If [TableNode.cellTextAligns] is `null`, it is initialised to a full
 /// rowCount × columnCount grid of [TextAlign.start] before applying the
@@ -2654,7 +2654,7 @@ class ChangeTableCellAlignCommand extends EditCommand {
 // ---------------------------------------------------------------------------
 
 /// Changes the vertical alignment of a single cell in the [TableNode]
-/// identified by [nodeId].
+/// identified by `nodeId`.
 ///
 /// If [TableNode.cellVerticalAligns] is `null`, it is initialised to a full
 /// rowCount × columnCount grid of [TableVerticalAlignment.top] before applying
@@ -2718,7 +2718,7 @@ class ChangeTableCellVerticalAlignCommand extends EditCommand {
 ///
 /// When [TableNode.columnWidths] is `null`, a new list of length
 /// [TableNode.columnCount] is created with all entries `null` (auto) before
-/// applying [newWidth] at [colIndex].
+/// applying `newWidth` at `colIndex`.
 ///
 /// Returns a [NodeChangeEvent].
 class ChangeTableColumnWidthCommand extends EditCommand {
@@ -2767,7 +2767,7 @@ class ChangeTableColumnWidthCommand extends EditCommand {
 ///
 /// When [TableNode.rowHeights] is `null`, a new list of length
 /// [TableNode.rowCount] is created with all entries `null` (auto) before
-/// applying [newHeight] at [rowIndex].
+/// applying `newHeight` at `rowIndex`.
 ///
 /// Returns a [NodeChangeEvent].
 class ChangeTableRowHeightCommand extends EditCommand {

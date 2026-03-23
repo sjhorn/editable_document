@@ -46,7 +46,7 @@ class PropertyPanelThemeData with Diagnosticable {
 
   /// Preferred width of the panel.
   ///
-  /// When `null`, [DocumentPropertyPanel] falls back to its own [width]
+  /// When `null`, [DocumentPropertyPanel] falls back to its own `width`
   /// constructor parameter (default `280.0`).
   final double? width;
 

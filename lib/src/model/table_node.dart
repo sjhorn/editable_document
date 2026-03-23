@@ -44,7 +44,7 @@ import 'text_wrap_mode.dart';
 /// [TableVerticalAlignment] values. When `null`, all cells use
 /// [TableVerticalAlignment.top]. Each inner list corresponds to one row.
 ///
-/// The [alignment], [textWrap], [width], and [height] fields implement
+/// The [alignment], [textWrap], `width`, and `height` fields implement
 /// [HasBlockLayout] and follow the same semantics as [ImageNode] and
 /// [CodeBlockNode].
 ///
@@ -94,8 +94,8 @@ class TableNode extends DocumentNode implements HasBlockLayout {
   ///
   /// [alignment] defaults to [BlockAlignment.stretch].
   /// [textWrap] defaults to [TextWrapMode.none].
-  /// [width] and [height] default to `null` (use available / intrinsic size).
-  /// [spaceBefore] and [spaceAfter] default to `null` (use document-level
+  /// `width` and `height` default to `null` (use available / intrinsic size).
+  /// `spaceBefore` and `spaceAfter` default to `null` (use document-level
   /// default spacing).
   /// [border] defaults to `null` (no border drawn).
   TableNode({

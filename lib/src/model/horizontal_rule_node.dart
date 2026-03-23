@@ -21,10 +21,10 @@ import 'text_wrap_mode.dart';
 /// (either before or after the rule).
 ///
 /// The [alignment] field controls how the rule is positioned within the
-/// available layout width when the rule has an explicit [width] smaller than
+/// available layout width when the rule has an explicit `width` smaller than
 /// the full layout (controlled by the rendering layer).
 ///
-/// The optional [width] and [height] fields provide sizing hints to the
+/// The optional `width` and `height` fields provide sizing hints to the
 /// rendering layer. When `null`, the rendering layer applies its default
 /// auto-sizing behaviour (typically full-width, thin line).
 ///
@@ -41,13 +41,13 @@ import 'text_wrap_mode.dart';
 /// ```
 class HorizontalRuleNode extends DocumentNode implements HasBlockLayout {
   /// Creates a [HorizontalRuleNode] with the given [id], optional [metadata],
-  /// optional [alignment], optional [width], optional [height], optional
-  /// [textWrap], optional [spaceBefore], optional [spaceAfter], and optional
+  /// optional [alignment], optional `width`, optional `height`, optional
+  /// [textWrap], optional `spaceBefore`, optional `spaceAfter`, and optional
   /// [border].
   ///
   /// [alignment] defaults to [BlockAlignment.stretch].
   /// [textWrap] defaults to [TextWrapMode.none].
-  /// [spaceBefore] and [spaceAfter] default to `null` (use document-level
+  /// `spaceBefore` and `spaceAfter` default to `null` (use document-level
   /// default spacing).
   /// [border] defaults to `null` (no border drawn).
   HorizontalRuleNode({

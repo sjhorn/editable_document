@@ -16,7 +16,7 @@ import 'text_wrap_mode.dart';
 /// A [DocumentNode] representing a block-level image.
 ///
 /// [ImageNode] stores the image source as a [imageUrl] string together with
-/// optional [altText], [width], and [height] hints for rendering. Because the
+/// optional [altText], `width`, and `height` hints for rendering. Because the
 /// node has no editable text, cursor placement is handled by
 /// [BinaryNodePosition] (either before or after the image).
 ///
@@ -41,7 +41,7 @@ class ImageNode extends DocumentNode implements HasBlockLayout {
   /// [alignment] defaults to [BlockAlignment.stretch] (full-width).
   /// [textWrap] defaults to [TextWrapMode.none] (no text wrapping around the image).
   /// [lockAspect] defaults to `true` (aspect-ratio-preserving resize).
-  /// [spaceBefore] and [spaceAfter] default to `null` (use document-level
+  /// `spaceBefore` and `spaceAfter` default to `null` (use document-level
   /// default spacing).
   /// [border] defaults to `null` (no border drawn).
   ImageNode({
@@ -81,7 +81,7 @@ class ImageNode extends DocumentNode implements HasBlockLayout {
   ///
   /// Defaults to [BlockAlignment.stretch], which causes the image to fill the
   /// entire available width. Use [BlockAlignment.center] or the other values
-  /// when the image has an explicit [width] that is smaller than the layout.
+  /// when the image has an explicit `width` that is smaller than the layout.
   final BlockAlignment alignment;
 
   /// How surrounding text interacts with this image.

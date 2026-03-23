@@ -20,7 +20,7 @@ import 'render_document_layout.dart';
 /// Place this render object as an overlay that covers the same area as the
 /// [RenderDocumentLayout] it references.  During [paint] it resolves the
 /// caret [Rect] from [documentLayout] and draws a rounded rectangle using
-/// the configured [color], [width], and [cornerRadius].
+/// the configured [color], `width`, and [cornerRadius].
 ///
 /// ## Blink
 ///
@@ -59,7 +59,7 @@ class RenderDocumentCaret extends RenderBox {
   /// Creates a [RenderDocumentCaret] with optional initial values.
   ///
   /// All parameters are optional and default to sensible values:
-  /// [color] → opaque black (`0xFF000000`), [width] → `2.0`,
+  /// [color] → opaque black (`0xFF000000`), `width` → `2.0`,
   /// [cornerRadius] → `1.0`, [visible] → `true`.
   RenderDocumentCaret({
     RenderDocumentLayout? documentLayout,
@@ -147,7 +147,7 @@ class RenderDocumentCaret extends RenderBox {
   // ignore: diagnostic_describe_all_properties
   double get width => _width;
 
-  /// Sets [width] and schedules a repaint when the value changes.
+  /// Sets `width` and schedules a repaint when the value changes.
   set width(double value) {
     if (_width == value) return;
     _width = value;

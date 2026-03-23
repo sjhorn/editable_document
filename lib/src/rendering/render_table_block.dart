@@ -95,7 +95,7 @@ class _CellLayout {
 class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
   /// Creates a [RenderTableBlock].
   ///
-  /// [nodeId] must match the corresponding [DocumentNode.id].
+  /// `nodeId` must match the corresponding [DocumentNode.id].
   /// [rowCount] and [columnCount] define the grid dimensions.
   /// [cells] is a [rowCount] × [columnCount] grid of [AttributedText] values.
   /// [textStyle] is the base [TextStyle] applied before attributions.
@@ -240,7 +240,7 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
   // ignore: diagnostic_describe_all_properties
   double? get spaceBefore => _spaceBefore;
 
-  /// Sets [spaceBefore] and notifies the parent layout when the value changes.
+  /// Sets `spaceBefore` and notifies the parent layout when the value changes.
   set spaceBefore(double? value) {
     if (_spaceBefore == value) return;
     _spaceBefore = value;
@@ -255,7 +255,7 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
   // ignore: diagnostic_describe_all_properties
   double? get spaceAfter => _spaceAfter;
 
-  /// Sets [spaceAfter] and notifies the parent layout when the value changes.
+  /// Sets `spaceAfter` and notifies the parent layout when the value changes.
   set spaceAfter(double? value) {
     if (_spaceAfter == value) return;
     _spaceAfter = value;

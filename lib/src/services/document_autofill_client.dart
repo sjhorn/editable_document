@@ -132,7 +132,7 @@ class DocumentAutofillClient implements AutofillClient {
   ///
   /// 1. If the current text differs from `value.text`, issues a
   ///    [DeleteContentRequest] covering the full existing text (when non-empty)
-  ///    followed by an [InsertTextRequest] with `value.text` (when non-empty).
+  ///    followed by an `InsertTextRequest` with `value.text` (when non-empty).
   /// 2. Always updates [DocumentEditingController.selection] to match
   ///    `value.selection`.
   @override

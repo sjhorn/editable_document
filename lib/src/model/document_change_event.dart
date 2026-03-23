@@ -43,7 +43,7 @@ sealed class DocumentChangeEvent {
 // NodeInserted
 // ---------------------------------------------------------------------------
 
-/// A node with [nodeId] was inserted at [index].
+/// A node with `nodeId` was inserted at [index].
 ///
 /// Indices are zero-based and refer to the position in
 /// `MutableDocument.nodes` after the insertion.
@@ -74,7 +74,7 @@ class NodeInserted extends DocumentChangeEvent {
 // NodeDeleted
 // ---------------------------------------------------------------------------
 
-/// A node with [nodeId] was deleted from [index].
+/// A node with `nodeId` was deleted from [index].
 ///
 /// [index] is the zero-based position the node occupied before deletion.
 class NodeDeleted extends DocumentChangeEvent {
@@ -104,7 +104,7 @@ class NodeDeleted extends DocumentChangeEvent {
 // NodeReplaced
 // ---------------------------------------------------------------------------
 
-/// A node with [oldNodeId] was replaced by a node with [newNodeId] at the
+/// A node with `oldNodeId` was replaced by a node with `newNodeId` at the
 /// same index.
 class NodeReplaced extends DocumentChangeEvent {
   /// Creates a [NodeReplaced] event.
@@ -133,7 +133,7 @@ class NodeReplaced extends DocumentChangeEvent {
 // NodeMoved
 // ---------------------------------------------------------------------------
 
-/// A node with [nodeId] was moved from [oldIndex] to [newIndex].
+/// A node with `nodeId` was moved from [oldIndex] to [newIndex].
 ///
 /// Both indices are zero-based positions in `MutableDocument.nodes`.
 class NodeMoved extends DocumentChangeEvent {
@@ -173,7 +173,7 @@ class NodeMoved extends DocumentChangeEvent {
 // TextChanged
 // ---------------------------------------------------------------------------
 
-/// The text content of the node identified by [nodeId] changed.
+/// The text content of the node identified by `nodeId` changed.
 ///
 /// This event is emitted when the [AttributedText] content of a text-bearing
 /// node (e.g. [ParagraphNode]) is updated via `MutableDocument.updateNode`.

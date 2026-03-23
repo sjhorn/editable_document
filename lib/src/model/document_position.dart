@@ -10,13 +10,13 @@ import 'node_position.dart';
 // DocumentPosition
 // ---------------------------------------------------------------------------
 
-/// A position within a [Document], combining a [nodeId] with a
+/// A position within a [Document], combining a `nodeId` with a
 /// [nodePosition] within that node.
 ///
 /// This is the document-level equivalent of Flutter's [TextPosition] —
 /// it addresses a specific location in a structured document.
 ///
-/// [nodeId] identifies the [DocumentNode] and [nodePosition] further
+/// `nodeId` identifies the [DocumentNode] and [nodePosition] further
 /// refines the location within that node (e.g., a character offset for
 /// text nodes, or upstream/downstream for binary nodes).
 ///
@@ -28,7 +28,7 @@ import 'node_position.dart';
 /// );
 /// ```
 class DocumentPosition {
-  /// Creates a [DocumentPosition] with the given [nodeId] and [nodePosition].
+  /// Creates a [DocumentPosition] with the given `nodeId` and [nodePosition].
   const DocumentPosition({
     required this.nodeId,
     required this.nodePosition,
@@ -37,7 +37,7 @@ class DocumentPosition {
   /// The id of the [DocumentNode] this position refers to.
   final String nodeId;
 
-  /// The position within the node identified by [nodeId].
+  /// The position within the node identified by `nodeId`.
   final NodePosition nodePosition;
 
   /// Returns a copy of this position with the given fields replaced.

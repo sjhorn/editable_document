@@ -128,7 +128,7 @@ abstract class RenderDocumentBlock extends RenderBox {
   bool get clearsFloat => false;
 
   /// Whether this block prefers narrowed-width constraints beside a float
-  /// instead of receiving full-width constraints with an [exclusionRect].
+  /// instead of receiving full-width constraints with an `exclusionRect`.
   ///
   /// Blocks with opaque backgrounds (such as [RenderCodeBlock]) should
   /// override this to return `true` so their background does not extend
@@ -158,7 +158,7 @@ abstract class RenderDocumentBlock extends RenderBox {
   ///
   /// When non-null, [RenderDocumentLayout] uses this value instead of
   /// [RenderDocumentLayout.blockSpacing] for the gap above this block.
-  /// When both [spaceBefore] on the current block and [spaceAfter] on the
+  /// When both `spaceBefore` on the current block and `spaceAfter` on the
   /// previous block are set, the maximum of the two is used.
   ///
   /// Defaults to `null`.  Concrete subclasses that support per-block spacing
@@ -169,7 +169,7 @@ abstract class RenderDocumentBlock extends RenderBox {
   ///
   /// When non-null, [RenderDocumentLayout] uses this value instead of
   /// [RenderDocumentLayout.blockSpacing] for the gap below this block.
-  /// When both [spaceAfter] on the current block and [spaceBefore] on the
+  /// When both `spaceAfter` on the current block and `spaceBefore` on the
   /// next block are set, the maximum of the two is used.
   ///
   /// Defaults to `null`.  Concrete subclasses that support per-block spacing

@@ -35,7 +35,7 @@ class DocumentCaretPainter extends CustomPainter {
   ///
   /// [color] defaults to opaque black (`0xFF000000`).
   ///
-  /// [width] overrides the painted rect width; defaults to `2.0` pixels.
+  /// `width` overrides the painted rect width; defaults to `2.0` pixels.
   ///
   /// [cornerRadius] is the radius applied to every corner of the drawn
   /// [RRect]; defaults to `1.0` pixel.

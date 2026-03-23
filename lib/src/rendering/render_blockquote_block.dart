@@ -51,7 +51,7 @@ const double _kBorderInset = _kBorderWidth + _kBorderPadding;
 class RenderBlockquoteBlock extends RenderTextBlock with BlockLayoutMixin {
   /// Creates a [RenderBlockquoteBlock].
   ///
-  /// [nodeId] must match the corresponding [DocumentNode.id].
+  /// `nodeId` must match the corresponding [DocumentNode.id].
   /// [text] is the attributed text content to render.
   /// [textStyle] is the base text style applied before attributions.
   /// [textDirection] defaults to [TextDirection.ltr].

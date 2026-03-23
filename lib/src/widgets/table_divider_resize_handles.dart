@@ -28,15 +28,15 @@ import 'document_layout.dart';
 
 /// Callback invoked when a table column divider is dragged.
 ///
-/// [nodeId] identifies the target [TableNode]. [colIndex] is the zero-based
-/// index of the column whose right edge was dragged. [newWidth] is the new
+/// `nodeId` identifies the target [TableNode]. `colIndex` is the zero-based
+/// index of the column whose right edge was dragged. `newWidth` is the new
 /// outer width (content + 2×cellPadding) in logical pixels.
 typedef TableColumnResizeCallback = void Function(String nodeId, int colIndex, double newWidth);
 
 /// Callback invoked when a table row divider is dragged.
 ///
-/// [nodeId] identifies the target [TableNode]. [rowIndex] is the zero-based
-/// index of the row whose bottom edge was dragged. [newHeight] is the new
+/// `nodeId` identifies the target [TableNode]. `rowIndex` is the zero-based
+/// index of the row whose bottom edge was dragged. `newHeight` is the new
 /// outer height in logical pixels.
 typedef TableRowResizeCallback = void Function(String nodeId, int rowIndex, double newHeight);
 
@@ -138,8 +138,8 @@ class TableDividerResizeHandles extends StatefulWidget {
 
   /// Called during and at the end of a column-divider drag.
   ///
-  /// [nodeId] is the [TableNode.id]. [colIndex] is the zero-based column
-  /// index whose right boundary was dragged. [newWidth] is the new outer
+  /// `nodeId` is the [TableNode.id]. `colIndex` is the zero-based column
+  /// index whose right boundary was dragged. `newWidth` is the new outer
   /// column width (content + 2×cellPadding) in logical pixels.
   ///
   /// When `null`, column dividers are not interactive.
@@ -147,8 +147,8 @@ class TableDividerResizeHandles extends StatefulWidget {
 
   /// Called during and at the end of a row-divider drag.
   ///
-  /// [nodeId] is the [TableNode.id]. [rowIndex] is the zero-based row index
-  /// whose bottom boundary was dragged. [newHeight] is the new outer row
+  /// `nodeId` is the [TableNode.id]. `rowIndex` is the zero-based row index
+  /// whose bottom boundary was dragged. `newHeight` is the new outer row
   /// height in logical pixels.
   ///
   /// When `null`, row dividers are not interactive.

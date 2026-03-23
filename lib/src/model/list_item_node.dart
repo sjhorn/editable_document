@@ -46,8 +46,8 @@ class ListItemNode extends TextNode {
   /// Creates a [ListItemNode].
   ///
   /// [type] defaults to [ListItemType.unordered], [indent] defaults to `0`,
-  /// [textAlign] defaults to [TextAlign.start], [lineHeight] defaults to
-  /// `null` (inherit document default), [spaceBefore] / [spaceAfter]
+  /// [textAlign] defaults to [TextAlign.start], `lineHeight` defaults to
+  /// `null` (inherit document default), `spaceBefore` / `spaceAfter`
   /// default to `null` (use document-level default spacing),
   /// [indentLeft] / [indentRight] default to `null` (no extra indent), and
   /// [border] defaults to `null` (no border drawn).

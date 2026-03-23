@@ -41,11 +41,11 @@ abstract class EditRequest {
 
 /// Request to insert [text] into a text node at [offset].
 ///
-/// The node identified by [nodeId] must exist in the document and must be a
+/// The node identified by `nodeId` must exist in the document and must be a
 /// text-bearing node. The [text] is inserted immediately before the character
 /// currently at [offset] (i.e., offset 0 prepends, `text.length` appends).
 class InsertTextRequest extends EditRequest {
-  /// Creates an [InsertTextRequest].
+  /// Creates an `InsertTextRequest`.
   const InsertTextRequest({
     required this.nodeId,
     required this.offset,
@@ -111,10 +111,10 @@ class DeleteContentRequest extends EditRequest {
 // ReplaceNodeRequest
 // ---------------------------------------------------------------------------
 
-/// Request to replace the node identified by [nodeId] with [newNode].
+/// Request to replace the node identified by `nodeId` with [newNode].
 ///
 /// The replacement is inserted at the same index. The [newNode] may have a
-/// different id than [nodeId].
+/// different id than `nodeId`.
 class ReplaceNodeRequest extends EditRequest {
   /// Creates a [ReplaceNodeRequest].
   const ReplaceNodeRequest({required this.nodeId, required this.newNode});
@@ -142,7 +142,7 @@ class ReplaceNodeRequest extends EditRequest {
 // SplitParagraphRequest
 // ---------------------------------------------------------------------------
 
-/// Request to split the text node [nodeId] at [splitOffset].
+/// Request to split the text node `nodeId` at [splitOffset].
 ///
 /// The original node retains text `[0, splitOffset)` and a freshly generated
 /// node is inserted immediately after with text `[splitOffset, end)`. Both
@@ -212,7 +212,7 @@ class MergeNodeRequest extends EditRequest {
 // MoveNodeRequest
 // ---------------------------------------------------------------------------
 
-/// Request to move the node identified by [nodeId] to [newIndex].
+/// Request to move the node identified by `nodeId` to [newIndex].
 ///
 /// [newIndex] is relative to the list after the node has been removed from its
 /// current position, matching [MutableDocument.moveNode] semantics.
@@ -245,7 +245,7 @@ class MoveNodeRequest extends EditRequest {
 
 /// Request to change the [ParagraphBlockType] of a [ParagraphNode].
 ///
-/// The node identified by [nodeId] must be a [ParagraphNode].
+/// The node identified by `nodeId` must be a [ParagraphNode].
 class ChangeBlockTypeRequest extends EditRequest {
   /// Creates a [ChangeBlockTypeRequest].
   const ChangeBlockTypeRequest({required this.nodeId, required this.newBlockType});
@@ -277,7 +277,7 @@ class ChangeBlockTypeRequest extends EditRequest {
 
 /// Request to change the [TextAlign] of a text block node.
 ///
-/// The node identified by [nodeId] must be a [ParagraphNode],
+/// The node identified by `nodeId` must be a [ParagraphNode],
 /// [ListItemNode], or [BlockquoteNode]. Other node types will cause the
 /// corresponding command to throw a [StateError].
 class ChangeTextAlignRequest extends EditRequest {
@@ -311,7 +311,7 @@ class ChangeTextAlignRequest extends EditRequest {
 
 /// Request to change the line height multiplier of a text block node.
 ///
-/// The node identified by [nodeId] must be a [ParagraphNode],
+/// The node identified by `nodeId` must be a [ParagraphNode],
 /// [ListItemNode], [BlockquoteNode], or [CodeBlockNode]. Other node types
 /// will cause the corresponding command to throw a [StateError].
 ///
@@ -349,7 +349,7 @@ class ChangeLineHeightRequest extends EditRequest {
 
 /// Request to change the indent properties of a text block node.
 ///
-/// The node identified by [nodeId] must be a [ParagraphNode],
+/// The node identified by `nodeId` must be a [ParagraphNode],
 /// [ListItemNode], or [BlockquoteNode]. Only non-null values are applied.
 /// For [ListItemNode], [newFirstLineIndent] is ignored.
 class ChangeIndentRequest extends EditRequest {
@@ -400,7 +400,7 @@ class ChangeIndentRequest extends EditRequest {
 
 /// Request to change the spacing before and/or after a block node.
 ///
-/// The node identified by [nodeId] can be any [DocumentNode] type that
+/// The node identified by `nodeId` can be any [DocumentNode] type that
 /// carries spacing fields: [ParagraphNode], [ListItemNode], [BlockquoteNode],
 /// [CodeBlockNode], [ImageNode], [HorizontalRuleNode], and [TableNode].
 ///
@@ -516,7 +516,7 @@ class RemoveAttributionRequest extends EditRequest {
 // ---------------------------------------------------------------------------
 
 /// Request to increase the indent level of the [ListItemNode] identified by
-/// [nodeId] by one step.
+/// `nodeId` by one step.
 ///
 /// The node must be a [ListItemNode]; an [Editor] that handles this request
 /// should be a no-op (or clamp) when the indent is already at the maximum
@@ -546,7 +546,7 @@ class IndentListItemRequest extends EditRequest {
 // ---------------------------------------------------------------------------
 
 /// Request to decrease the indent level of the [ListItemNode] identified by
-/// [nodeId] by one step.
+/// `nodeId` by one step.
 ///
 /// The node must be a [ListItemNode]; an [Editor] that handles this request
 /// should be a no-op (or clamp) when the indent is already at `0`.
@@ -574,7 +574,7 @@ class UnindentListItemRequest extends EditRequest {
 // ConvertListItemToParagraphRequest
 // ---------------------------------------------------------------------------
 
-/// Request to convert the [ListItemNode] identified by [nodeId] into a plain
+/// Request to convert the [ListItemNode] identified by `nodeId` into a plain
 /// [ParagraphNode].
 ///
 /// This is used when Enter or Backspace is pressed on an empty list item,
@@ -801,7 +801,7 @@ class InsertTableRequest extends EditRequest {
 
 /// Request to update the text content of a specific [TableNode] cell.
 ///
-/// The [TableNode] identified by [nodeId] must exist and the [row] and [col]
+/// The [TableNode] identified by `nodeId` must exist and the [row] and [col]
 /// indices must be within bounds. The cell at ([row], [col]) is replaced with
 /// [newText].
 ///
@@ -858,7 +858,7 @@ class UpdateTableCellRequest extends EditRequest {
 // DeleteTableRequest
 // ---------------------------------------------------------------------------
 
-/// Request to delete the [TableNode] identified by [nodeId] from the document.
+/// Request to delete the [TableNode] identified by `nodeId` from the document.
 ///
 /// The node must exist and must be a [TableNode]. After deletion the controller
 /// selection is collapsed to the nearest surviving node, or cleared when the
@@ -894,8 +894,8 @@ class DeleteTableRequest extends EditRequest {
 /// inserted between the two halves. When [position] is at a block boundary,
 /// the block is simply moved to the appropriate index.
 ///
-/// The node identified by [nodeId] must exist and implement [HasBlockLayout];
-/// the target [position.nodeId] must also exist in the document.
+/// The node identified by `nodeId` must exist and implement [HasBlockLayout];
+/// the target `position.nodeId` must also exist in the document.
 class MoveNodeToPositionRequest extends EditRequest {
   /// Creates a [MoveNodeToPositionRequest].
   const MoveNodeToPositionRequest({required this.nodeId, required this.position});
@@ -980,8 +980,8 @@ class InsertNodeAtPositionRequest extends EditRequest {
 /// Request to insert a row into a [TableNode].
 ///
 /// When [insertBefore] is `true` (the default), the new row is inserted
-/// immediately before [rowIndex]. When `false`, it is inserted immediately
-/// after [rowIndex].
+/// immediately before `rowIndex`. When `false`, it is inserted immediately
+/// after `rowIndex`.
 class InsertTableRowRequest extends EditRequest {
   /// Creates an [InsertTableRowRequest].
   const InsertTableRowRequest({
@@ -996,7 +996,7 @@ class InsertTableRowRequest extends EditRequest {
   /// The zero-based row index at which to insert.
   final int rowIndex;
 
-  /// Whether to insert before (true) or after (false) [rowIndex].
+  /// Whether to insert before (true) or after (false) `rowIndex`.
   final bool insertBefore;
 
   @override
@@ -1023,8 +1023,8 @@ class InsertTableRowRequest extends EditRequest {
 /// Request to insert a column into a [TableNode].
 ///
 /// When [insertBefore] is `true` (the default), the new column is inserted
-/// immediately before [colIndex]. When `false`, it is inserted immediately
-/// after [colIndex].
+/// immediately before `colIndex`. When `false`, it is inserted immediately
+/// after `colIndex`.
 class InsertTableColumnRequest extends EditRequest {
   /// Creates an [InsertTableColumnRequest].
   const InsertTableColumnRequest({
@@ -1039,7 +1039,7 @@ class InsertTableColumnRequest extends EditRequest {
   /// The zero-based column index at which to insert.
   final int colIndex;
 
-  /// Whether to insert before (true) or after (false) [colIndex].
+  /// Whether to insert before (true) or after (false) `colIndex`.
   final bool insertBefore;
 
   @override
@@ -1269,7 +1269,7 @@ class ChangeTableCellVerticalAlignRequest extends EditRequest {
 
 /// Request to change the width of a single table column.
 ///
-/// The [newWidth] specifies the new *outer* width (content + 2×cellPadding)
+/// The `newWidth` specifies the new *outer* width (content + 2×cellPadding)
 /// in logical pixels, or `null` to revert to auto-sizing.
 class ChangeTableColumnWidthRequest extends EditRequest {
   /// Creates a [ChangeTableColumnWidthRequest].
@@ -1312,7 +1312,7 @@ class ChangeTableColumnWidthRequest extends EditRequest {
 
 /// Request to change the minimum height of a single table row.
 ///
-/// The [newHeight] specifies the new *outer* height (content + 2×cellPadding)
+/// The `newHeight` specifies the new *outer* height (content + 2×cellPadding)
 /// in logical pixels, or `null` to revert to auto-sizing.
 class ChangeTableRowHeightRequest extends EditRequest {
   /// Creates a [ChangeTableRowHeightRequest].

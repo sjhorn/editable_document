@@ -26,7 +26,7 @@ import 'document_layout.dart';
 
 /// Callback invoked when the user drops a dragged block at a new position.
 ///
-/// [nodeId] identifies the block that was dragged. [position] is the
+/// `nodeId` identifies the block that was dragged. [position] is the
 /// [DocumentPosition] nearest to the pointer at the time of drop. The
 /// caller is responsible for submitting the appropriate [EditRequest] (e.g.
 /// [MoveNodeToPositionRequest] or [MoveNodeRequest]).
@@ -44,7 +44,7 @@ typedef BlockMoveCallback = void Function(String nodeId, DocumentPosition positi
 /// [GlobalKey<BlockDragOverlayState>] that the hosting gesture handler (e.g.
 /// [DocumentMouseInteractor]) calls to coordinate the drag lifecycle:
 ///
-/// - [BlockDragOverlayState.startBlockDrag] — begins a drag for [nodeId].
+/// - [BlockDragOverlayState.startBlockDrag] — begins a drag for `nodeId`.
 /// - [BlockDragOverlayState.updateBlockDrag] — updates the caret position
 ///   and ghost location from the current pointer offset (in layout-local
 ///   coordinates).
@@ -122,7 +122,7 @@ class BlockDragOverlay extends StatefulWidget {
 
   /// Called when the user drops a dragged block at a new position.
   ///
-  /// Receives the [nodeId] of the dragged block and the [DocumentPosition]
+  /// Receives the `nodeId` of the dragged block and the [DocumentPosition]
   /// nearest to the pointer at drop time. When `null`, no callback is fired.
   final BlockMoveCallback? onBlockMoved;
 
@@ -274,9 +274,9 @@ class BlockDragOverlayState extends State<BlockDragOverlay> {
   // ignore: diagnostic_describe_all_properties
   Offset? get grabOffset => _grabOffset;
 
-  /// Begins a block drag for the block identified by [nodeId].
+  /// Begins a block drag for the block identified by `nodeId`.
   ///
-  /// Sets [BlockDragOverlay.isDragging] to `true` and records [nodeId] as the
+  /// Sets [BlockDragOverlay.isDragging] to `true` and records `nodeId` as the
   /// block being dragged. Saves the current selection to restore on cancel.
   /// The ghost is not shown until [updateBlockDrag] is called.
   ///
@@ -353,7 +353,7 @@ class BlockDragOverlayState extends State<BlockDragOverlay> {
   ///
   /// When a valid [DocumentPosition] was established via [updateBlockDrag],
   /// this method:
-  /// 1. Calls [BlockDragOverlay.onBlockMoved] with the dragged [nodeId] and
+  /// 1. Calls [BlockDragOverlay.onBlockMoved] with the dragged `nodeId` and
   ///    [DocumentPosition].
   /// 2. Resets drag state.
   /// 3. Sets [BlockDragOverlay.isDragging] to `false`.
@@ -403,7 +403,7 @@ class BlockDragOverlayState extends State<BlockDragOverlay> {
   // Private helpers
   // ---------------------------------------------------------------------------
 
-  /// Selects the block identified by [nodeId] with a full-node selection.
+  /// Selects the block identified by `nodeId` with a full-node selection.
   ///
   /// For binary nodes (images, HRs) this is upstream→downstream. For text-
   /// based blocks (code blocks, blockquotes) it selects offset 0 to the end.

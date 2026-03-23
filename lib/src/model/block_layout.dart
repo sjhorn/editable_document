@@ -62,7 +62,7 @@ abstract interface class HasBlockLayout {
   /// [alignment] is [BlockAlignment.stretch] this returns `false`.
   bool get isResizable;
 
-  /// Returns a copy of this node with updated [width], [height], and/or [alignment].
+  /// Returns a copy of this node with updated `width`, `height`, and/or [alignment].
   ///
   /// This eliminates the need for type-dispatching in resize and re-alignment
   /// operations. Pass `null` for any parameter to preserve the current value.

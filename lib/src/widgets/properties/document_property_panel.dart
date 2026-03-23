@@ -75,7 +75,7 @@ class DocumentPropertyPanel extends StatelessWidget {
   final VoidCallback? onPickImageFile;
 
   /// Returns the effective panel width, preferring [PropertyPanelThemeData.width]
-  /// from the ambient [PropertyPanelTheme] when provided, then [width], then
+  /// from the ambient [PropertyPanelTheme] when provided, then `width`, then
   /// the default `280.0`.
   double effectiveWidth(PropertyPanelThemeData? themeData) {
     return themeData?.width ?? width;

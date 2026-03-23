@@ -36,7 +36,7 @@ import 'document_viewport_scope.dart';
 
 /// Callback invoked when the user drags a resize handle on a block node.
 ///
-/// [nodeId] identifies the block being resized. [width] and [height] are the
+/// `nodeId` identifies the block being resized. `width` and `height` are the
 /// new desired dimensions in logical pixels. Either value may be `null`,
 /// meaning "preserve the current value" for that dimension.
 typedef BlockResizeCallback = void Function(
@@ -163,8 +163,8 @@ class BlockResizeHandles extends StatefulWidget {
   ///
   /// Fires on every pointer-move for real-time feedback (the document model
   /// updates as the user drags) and once more on pointer-up for the final
-  /// value. Receives the [nodeId] of the resized block along with the new
-  /// [width] and [height] in logical pixels. A `null` dimension means
+  /// value. Receives the `nodeId` of the resized block along with the new
+  /// `width` and `height` in logical pixels. A `null` dimension means
   /// "preserve the current value".
   ///
   /// When `null`, no handles are drawn.
@@ -173,7 +173,7 @@ class BlockResizeHandles extends StatefulWidget {
   /// Called when the user taps the "1:1" reset button on a selected
   /// [ImageNode].
   ///
-  /// Receives the [nodeId] of the image whose size should be reset to its
+  /// Receives the `nodeId` of the image whose size should be reset to its
   /// intrinsic dimensions (i.e. [ImageNode.width] and [ImageNode.height]
   /// set to `null`). The button only appears when the selected node is an
   /// [ImageNode] and this callback is non-null.
@@ -531,7 +531,7 @@ class _BlockResizeHandlesState extends State<BlockResizeHandles> {
     });
   }
 
-  /// Re-selects [nodeId] with a full-node selection so that the block
+  /// Re-selects `nodeId` with a full-node selection so that the block
   /// remains visually selected after a resize drag completes.
   ///
   /// For binary nodes ([ImageNode], [HorizontalRuleNode]) this sets an
@@ -975,14 +975,14 @@ class _BlockResizeBorderRenderWidget extends LeafRenderObjectWidget {
 // createResizeRequest
 // ---------------------------------------------------------------------------
 
-/// Creates a [ReplaceNodeRequest] that updates [node]'s [width] and/or
-/// [height].
+/// Creates a [ReplaceNodeRequest] that updates [node]'s `width` and/or
+/// `height`.
 ///
 /// Delegates to [HasBlockLayout.copyWithSize] so no type-dispatch is needed.
 /// Returns `null` for node types that do not implement [HasBlockLayout]
 /// (e.g. [ParagraphNode]).
 ///
-/// A `null` [width] or [height] argument preserves the node's current value
+/// A `null` `width` or `height` argument preserves the node's current value
 /// for that dimension. Pass a non-null value to update it.
 ///
 /// When the node's current [HasBlockLayout.alignment] is
@@ -1023,14 +1023,14 @@ EditRequest? createResizeRequest(
 // createResetImageSizeRequest
 // ---------------------------------------------------------------------------
 
-/// Creates a [ReplaceNodeRequest] that resets an [ImageNode]'s [width] and
-/// [height] to `null`, restoring the image to its intrinsic dimensions.
+/// Creates a [ReplaceNodeRequest] that resets an [ImageNode]'s `width` and
+/// `height` to `null`, restoring the image to its intrinsic dimensions.
 ///
 /// Returns `null` if [node] is not an [ImageNode].
 ///
 /// Because [ImageNode.copyWith] cannot set dimensions to `null` (it uses
 /// `??` semantics), this helper constructs a fresh [ImageNode] with all
-/// fields preserved except [width] and [height].
+/// fields preserved except `width` and `height`.
 ///
 /// Example:
 /// ```dart

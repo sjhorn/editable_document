@@ -1,7 +1,7 @@
 /// Border specification for document blocks.
 ///
 /// Defines the visual appearance of a block's outside border, including its
-/// [style], [width], and [color].
+/// [style], `width`, and [color].
 library;
 
 import 'package:flutter/foundation.dart';
@@ -25,7 +25,7 @@ enum BlockBorderStyle {
 /// Immutable specification of a document block's outside border.
 ///
 /// When applied to a [DocumentNode], the document layout draws a border
-/// around the block's bounds using the specified [style], [width], and [color].
+/// around the block's bounds using the specified [style], `width`, and [color].
 ///
 /// The border is paint-only — it does not inset the block's content area.
 ///
@@ -40,7 +40,7 @@ class BlockBorder with Diagnosticable {
   /// Creates a [BlockBorder].
   ///
   /// [style] defaults to [BlockBorderStyle.solid].
-  /// [width] defaults to `1.0` logical pixels.
+  /// `width` defaults to `1.0` logical pixels.
   /// [color] defaults to `null`, which the renderer interprets as black.
   const BlockBorder({
     this.style = BlockBorderStyle.solid,

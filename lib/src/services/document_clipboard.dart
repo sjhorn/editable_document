@@ -164,7 +164,7 @@ class DocumentClipboard {
   // -------------------------------------------------------------------------
 
   /// Reads plain text from the system clipboard and returns an
-  /// [InsertTextRequest] targeting [nodeId] at [offset].
+  /// `InsertTextRequest` targeting `nodeId` at [offset].
   ///
   /// Returns `null` if the clipboard is empty or contains only whitespace-free
   /// text (i.e. an empty string).

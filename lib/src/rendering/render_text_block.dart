@@ -237,7 +237,7 @@ class _LinePair {
 class RenderTextBlock extends RenderDocumentBlock {
   /// Creates a [RenderTextBlock].
   ///
-  /// [nodeId] must match the corresponding [DocumentNode.id].
+  /// `nodeId` must match the corresponding [DocumentNode.id].
   /// [text] is the attributed text to render.
   /// [textStyle] is the base style applied before attributions.
   /// [textDirection] defaults to [TextDirection.ltr].
@@ -478,13 +478,13 @@ class RenderTextBlock extends RenderDocumentBlock {
   ///
   /// When non-null, [RenderDocumentLayout] uses this value instead of
   /// [RenderDocumentLayout.blockSpacing] for the gap above this block.
-  /// When both [spaceBefore] on the current block and [spaceAfter] on the
+  /// When both `spaceBefore` on the current block and `spaceAfter` on the
   /// previous block are set, the maximum of the two is used.
   @override
   // ignore: diagnostic_describe_all_properties
   double? get spaceBefore => _spaceBefore;
 
-  /// Sets [spaceBefore] and notifies the parent layout when the value changes.
+  /// Sets `spaceBefore` and notifies the parent layout when the value changes.
   set spaceBefore(double? value) {
     if (_spaceBefore == value) return;
     _spaceBefore = value;
@@ -495,13 +495,13 @@ class RenderTextBlock extends RenderDocumentBlock {
   ///
   /// When non-null, [RenderDocumentLayout] uses this value instead of
   /// [RenderDocumentLayout.blockSpacing] for the gap below this block.
-  /// When both [spaceAfter] on the current block and [spaceBefore] on the
+  /// When both `spaceAfter` on the current block and `spaceBefore` on the
   /// next block are set, the maximum of the two is used.
   @override
   // ignore: diagnostic_describe_all_properties
   double? get spaceAfter => _spaceAfter;
 
-  /// Sets [spaceAfter] and notifies the parent layout when the value changes.
+  /// Sets `spaceAfter` and notifies the parent layout when the value changes.
   set spaceAfter(double? value) {
     if (_spaceAfter == value) return;
     _spaceAfter = value;
@@ -769,7 +769,7 @@ class RenderTextBlock extends RenderDocumentBlock {
     _layoutText(textWidth);
   }
 
-  /// Performs multi-segment layout when [exclusionRect] is set.
+  /// Performs multi-segment layout when `exclusionRect` is set.
   ///
   /// Splits the text into above/beside/below zones and computes a
   /// [_ExclusionLayout] used for painting and hit testing.
@@ -1078,7 +1078,7 @@ class RenderTextBlock extends RenderDocumentBlock {
   // Protected helpers for subclasses
   // ---------------------------------------------------------------------------
 
-  /// Returns the [exclusionRect] from [DocumentBlockConstraints], adjusted
+  /// Returns the `exclusionRect` from [DocumentBlockConstraints], adjusted
   /// by [horizontalInset] and [verticalInset] for subclasses that indent
   /// their text content (e.g. blockquote border, code-block padding, list
   /// marker gutter).
@@ -1116,7 +1116,7 @@ class RenderTextBlock extends RenderDocumentBlock {
   /// Lays out the internal [TextPainter] with [textMaxWidth] as the maximum
   /// line width.
   ///
-  /// When [exclusionRect] is provided, the text is split into above/beside/
+  /// When `exclusionRect` is provided, the text is split into above/beside/
   /// below zones around the exclusion (center-float dual-column wrapping).
   ///
   /// When [exclusionRects] is provided (exactly two rects for dual side floats),
@@ -1792,7 +1792,7 @@ class RenderTextBlock extends RenderDocumentBlock {
   /// different width, so the visual line boundaries differ from those of the
   /// full-width [_textPainter].  This method consults the active
   /// [_ExclusionLayout] to return the correct visual boundary for the zone
-  /// that contains [position.offset]:
+  /// that contains `position.offset`:
   ///
   /// - **Above zone** — delegates to `abovePainter.getLineBoundary` with a
   ///   local offset, then shifts the result to global indices.

@@ -53,7 +53,7 @@ class DocumentBlockParentData extends ContainerBoxParentData<RenderDocumentBlock
   ///
   /// When both a start (left) and an end (right) float are simultaneously
   /// active, this list contains exactly two rects — one per side — in the
-  /// child's local coordinates.  [exclusionRect] is `null` in this case.
+  /// child's local coordinates.  `exclusionRect` is `null` in this case.
   /// Set by [RenderDocumentLayout.performLayout].
   List<Rect>? exclusionRects;
 }
@@ -65,14 +65,14 @@ class DocumentBlockParentData extends ContainerBoxParentData<RenderDocumentBlock
 /// [BoxConstraints] extended with optional interior exclusion rectangles.
 ///
 /// When a stretch block wraps beside a float, [RenderDocumentLayout] passes
-/// the float's bounds (with gap) as [exclusionRect] (single float) or
+/// the float's bounds (with gap) as `exclusionRect` (single float) or
 /// [exclusionRects] (dual side floats).  The child's [RenderBox.performLayout]
 /// can read these from `constraints` (via a type check) to flow text around
 /// the float(s).
 ///
 /// Using a custom constraints subclass ensures that Flutter automatically
 /// re-runs `performLayout` on the child whenever the exclusion rects change,
-/// because [operator ==] includes [exclusionRect] and [exclusionRects] in its
+/// because [operator ==] includes `exclusionRect` and [exclusionRects] in its
 /// comparison.
 class DocumentBlockConstraints extends BoxConstraints {
   /// Creates document-block constraints with optional exclusion rect(s).
@@ -96,7 +96,7 @@ class DocumentBlockConstraints extends BoxConstraints {
   ///
   /// When both a start (left) and an end (right) float are simultaneously
   /// active, this list contains exactly two rects — one per side — in the
-  /// child's local coordinates.  [exclusionRect] is `null` in this case.
+  /// child's local coordinates.  `exclusionRect` is `null` in this case.
   final List<Rect>? exclusionRects;
 
   @override
@@ -237,7 +237,7 @@ enum LineNumberAlignment {
 /// ## Line Numbers
 ///
 /// When [showLineNumbers] is `true`, a vertical gutter column is inserted
-/// between [documentPadding.left] and the content area.  The gutter width is
+/// between `documentPadding.left` and the content area.  The gutter width is
 /// either [lineNumberWidth] (explicit) or auto-computed from the child count
 /// and [lineNumberTextStyle].  Float blocks are skipped — they do not receive
 /// a line-number label.
@@ -386,7 +386,7 @@ class RenderDocumentLayout extends RenderBox
   /// The viewport height in logical pixels, used to resolve percentage-based
   /// block heights.
   ///
-  /// When `null`, [constraints.maxHeight] is used as the reference size when
+  /// When `null`, `constraints.maxHeight` is used as the reference size when
   /// resolving [PercentDimension] heights.  Supply a fixed value when the
   /// document is inside a viewport with an unbounded maxHeight.
   double? get viewportHeight => _viewportHeight;
@@ -424,7 +424,7 @@ class RenderDocumentLayout extends RenderBox
   /// area.
   ///
   /// When `true`, a vertical gutter column of width [_resolvedGutterWidth] is
-  /// inserted between [documentPadding.left] and the first content pixel.
+  /// inserted between `documentPadding.left` and the first content pixel.
   /// Non-float blocks are numbered sequentially from `1`; float blocks are
   /// skipped (they share the line number of the block they float beside).
   ///
@@ -568,7 +568,7 @@ class RenderDocumentLayout extends RenderBox
   // Intrinsic sizes
   // ---------------------------------------------------------------------------
 
-  /// Computes the minimum intrinsic height for the given [width].
+  /// Computes the minimum intrinsic height for the given `width`.
   ///
   /// Returns the sum of each child's minimum intrinsic height plus the total
   /// spacing between them.
@@ -577,7 +577,7 @@ class RenderDocumentLayout extends RenderBox
     return _computeIntrinsicHeight(width, min: true);
   }
 
-  /// Computes the maximum intrinsic height for the given [width].
+  /// Computes the maximum intrinsic height for the given `width`.
   ///
   /// Returns the sum of each child's maximum intrinsic height plus the total
   /// spacing between them.
@@ -1387,7 +1387,7 @@ class RenderDocumentLayout extends RenderBox
   // ---------------------------------------------------------------------------
 
   /// Returns the [RenderDocumentBlock] whose [RenderDocumentBlock.nodeId]
-  /// equals [nodeId], or `null` if no child matches.
+  /// equals `nodeId`, or `null` if no child matches.
   RenderDocumentBlock? getComponentByNodeId(String nodeId) {
     RenderDocumentBlock? child = firstChild;
     while (child != null) {

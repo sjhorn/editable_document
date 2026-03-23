@@ -60,7 +60,7 @@ import '../rendering/render_table_block.dart';
 ///
 /// Subclasses must implement [==] and [hashCode] so diffing works correctly.
 abstract class ComponentViewModel {
-  /// Creates a [ComponentViewModel] for the node with [nodeId].
+  /// Creates a [ComponentViewModel] for the node with `nodeId`.
   ///
   /// [nodeSelection] is the portion of the document selection that intersects
   /// this block, or `null` when there is no active selection in this block.
@@ -1475,7 +1475,7 @@ class _BlockquoteBlockWidget extends LeafRenderObjectWidget {
 class TableComponentViewModel extends ComponentViewModel implements HasLayoutFields {
   /// Creates a [TableComponentViewModel].
   ///
-  /// [nodeId] uniquely identifies the source [TableNode].
+  /// `nodeId` uniquely identifies the source [TableNode].
   /// [rowCount] and [columnCount] define the grid dimensions.
   /// [cells] is the [rowCount] × [columnCount] grid of [AttributedText] values.
   /// [columnWidths] optionally specifies per-column widths; `null` entries mean
@@ -1491,7 +1491,7 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
   /// [alignment] is the horizontal alignment within the layout.
   /// [textWrap] controls how surrounding text interacts with this block.
   /// [requestedWidth] and [requestedHeight] are optional explicit dimensions.
-  /// [spaceBefore] and [spaceAfter] are optional spacing overrides.
+  /// `spaceBefore` and `spaceAfter` are optional spacing overrides.
   TableComponentViewModel({
     required super.nodeId,
     required this.rowCount,

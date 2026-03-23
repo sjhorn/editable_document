@@ -93,9 +93,9 @@ class DocumentJsonSerializer {
   /// Serializes [border] fields into [map].
   ///
   /// Writes three keys when [border] is non-null:
-  /// - `'borderStyle'` — the [BlockBorderStyle.name] string.
+  /// - `'borderStyle'` — the `BlockBorderStyle.name` string.
   /// - `'borderWidth'` — the stroke width as a [double].
-  /// - `'borderColor'` — the ARGB 32-bit integer (omitted when [border.color]
+  /// - `'borderColor'` — the ARGB 32-bit integer (omitted when `border.color`
   ///   is `null`).
   ///
   /// Does nothing when [border] is `null`.
