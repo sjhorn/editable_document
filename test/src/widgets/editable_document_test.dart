@@ -3260,4 +3260,1586 @@ void main() {
       );
     });
   });
+
+  // -------------------------------------------------------------------------
+  // deleteForward — various node-type paths
+  // -------------------------------------------------------------------------
+
+  group('EditableDocument — deleteForward', () {
+    Future<({DocumentEditingController controller, FocusNode focusNode})> _buildFocusedEditor(
+      WidgetTester tester, {
+      required List<DocumentNode> nodes,
+    }) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final doc = MutableDocument(nodes);
+      final controller = DocumentEditingController(document: doc);
+      final editor = UndoableEditor(
+        editContext: EditContext(document: doc, controller: controller),
+      );
+      final focusNode = FocusNode();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: EditableDocument(
+              controller: controller,
+              focusNode: focusNode,
+              editor: editor,
+            ),
+          ),
+        ),
+      );
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      return (controller: controller, focusNode: focusNode);
+    }
+
+    testWidgets('deleteForward is no-op when readOnly', (tester) async {
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 2),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+            readOnly: true,
+          ),
+        ),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.deleteForward();
+
+      // Text should be unchanged — readOnly blocks delete.
+      final node = controller.document.nodeById('p1')! as ParagraphNode;
+      expect(node.text.text, 'Hello');
+    });
+
+    testWidgets('deleteForward is no-op when selection is null', (tester) async {
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(EditableDocument(controller: controller, focusNode: focusNode)),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.deleteForward();
+
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('deleteForward on expanded selection deletes selection', (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedEditor(
+        tester,
+        nodes: [ParagraphNode(id: 'p1', text: AttributedText('Hello world'))],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      // Select 'Hello' — expanded selection.
+      controller.setSelection(
+        const DocumentSelection(
+          base: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 0)),
+          extent: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 5)),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.deleteForward();
+      await tester.pump();
+
+      final node = controller.document.nodeById('p1')! as ParagraphNode;
+      expect(node.text.text, ' world');
+    });
+
+    testWidgets('deleteForward at end of text merges with next node', (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedEditor(
+        tester,
+        nodes: [
+          ParagraphNode(id: 'p1', text: AttributedText('Hello')),
+          ParagraphNode(id: 'p2', text: AttributedText('World')),
+        ],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      // Place caret at end of p1.
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 5),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.deleteForward();
+      await tester.pump();
+
+      // p1 and p2 should be merged.
+      expect(controller.document.nodes.length, 1);
+      final node = controller.document.nodeById('p1')! as ParagraphNode;
+      expect(node.text.text, 'HelloWorld');
+    });
+
+    testWidgets('deleteForward at end of last text node is no-op', (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedEditor(
+        tester,
+        nodes: [ParagraphNode(id: 'p1', text: AttributedText('Hello'))],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 5),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.deleteForward();
+      await tester.pump();
+
+      final node = controller.document.nodeById('p1')! as ParagraphNode;
+      expect(node.text.text, 'Hello');
+    });
+
+    testWidgets('deleteForward on binary node deletes the node', (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedEditor(
+        tester,
+        nodes: [
+          ImageNode(id: 'img1', imageUrl: 'test.png'),
+          ParagraphNode(id: 'p1', text: AttributedText('After')),
+        ],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'img1',
+            nodePosition: BinaryNodePosition.upstream(),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.deleteForward();
+      await tester.pump();
+
+      // Image node should be deleted.
+      expect(controller.document.nodeById('img1'), isNull);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // deleteBackward — complex paths
+  // -------------------------------------------------------------------------
+
+  group('EditableDocument — deleteBackward', () {
+    Future<({DocumentEditingController controller, FocusNode focusNode})> _buildFocusedEditor(
+      WidgetTester tester, {
+      required List<DocumentNode> nodes,
+    }) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final doc = MutableDocument(nodes);
+      final controller = DocumentEditingController(document: doc);
+      final editor = UndoableEditor(
+        editContext: EditContext(document: doc, controller: controller),
+      );
+      final focusNode = FocusNode();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: EditableDocument(
+              controller: controller,
+              focusNode: focusNode,
+              editor: editor,
+            ),
+          ),
+        ),
+      );
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      return (controller: controller, focusNode: focusNode);
+    }
+
+    testWidgets('deleteBackward is no-op when readOnly', (tester) async {
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 2),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+            readOnly: true,
+          ),
+        ),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.deleteBackward();
+
+      final node = controller.document.nodeById('p1')! as ParagraphNode;
+      expect(node.text.text, 'Hello');
+    });
+
+    testWidgets('deleteBackward is no-op when selection is null', (tester) async {
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(EditableDocument(controller: controller, focusNode: focusNode)),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.deleteBackward();
+
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('deleteBackward on expanded selection deletes selection', (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedEditor(
+        tester,
+        nodes: [ParagraphNode(id: 'p1', text: AttributedText('Hello world'))],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      controller.setSelection(
+        const DocumentSelection(
+          base: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 0)),
+          extent: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 5)),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.deleteBackward();
+      await tester.pump();
+
+      final node = controller.document.nodeById('p1')! as ParagraphNode;
+      expect(node.text.text, ' world');
+    });
+
+    testWidgets('deleteBackward at offset 0 of empty list item converts to paragraph',
+        (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedEditor(
+        tester,
+        nodes: [ListItemNode(id: 'li1', text: AttributedText(''))],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'li1',
+            nodePosition: TextNodePosition(offset: 0),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.deleteBackward();
+      await tester.pump();
+
+      // The list item should be converted to a paragraph node.
+      expect(controller.document.nodeById('li1'), isA<ParagraphNode>());
+    });
+
+    testWidgets('deleteBackward at offset 0 of empty blockquote converts to paragraph',
+        (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedEditor(
+        tester,
+        nodes: [
+          ParagraphNode(
+            id: 'bq1',
+            text: AttributedText(''),
+            blockType: ParagraphBlockType.blockquote,
+          ),
+        ],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'bq1',
+            nodePosition: TextNodePosition(offset: 0),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.deleteBackward();
+      await tester.pump();
+
+      // The blockquote should be converted to a normal paragraph.
+      final node = controller.document.nodeById('bq1')! as ParagraphNode;
+      expect(node.blockType, ParagraphBlockType.paragraph);
+    });
+
+    testWidgets('deleteBackward at offset 0 merges with preceding text node', (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedEditor(
+        tester,
+        nodes: [
+          ParagraphNode(id: 'p1', text: AttributedText('Hello')),
+          ParagraphNode(id: 'p2', text: AttributedText('World')),
+        ],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      // Place caret at start of p2.
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p2',
+            nodePosition: TextNodePosition(offset: 0),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.deleteBackward();
+      await tester.pump();
+
+      // p1 and p2 should be merged.
+      expect(controller.document.nodes.length, 1);
+      final node = controller.document.nodeById('p1')! as ParagraphNode;
+      expect(node.text.text, 'HelloWorld');
+    });
+
+    testWidgets('deleteBackward at offset 0 with preceding binary node deletes binary node',
+        (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedEditor(
+        tester,
+        nodes: [
+          ImageNode(id: 'img1', imageUrl: 'test.png'),
+          ParagraphNode(id: 'p1', text: AttributedText('After')),
+        ],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      // Place caret at start of p1.
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 0),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.deleteBackward();
+      await tester.pump();
+
+      // The preceding image node should be deleted.
+      expect(controller.document.nodeById('img1'), isNull);
+    });
+
+    testWidgets('deleteBackward at offset 0 of first node is no-op', (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedEditor(
+        tester,
+        nodes: [ParagraphNode(id: 'p1', text: AttributedText('Hello'))],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 0),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.deleteBackward();
+      await tester.pump();
+
+      final node = controller.document.nodeById('p1')! as ParagraphNode;
+      expect(node.text.text, 'Hello');
+    });
+
+    testWidgets('deleteBackward on binary node at caret position deletes the node', (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedEditor(
+        tester,
+        nodes: [
+          ParagraphNode(id: 'p1', text: AttributedText('Before')),
+          ImageNode(id: 'img1', imageUrl: 'test.png'),
+        ],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'img1',
+            nodePosition: BinaryNodePosition.downstream(),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.deleteBackward();
+      await tester.pump();
+
+      expect(controller.document.nodeById('img1'), isNull);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // handleEnter — various node-type paths
+  // -------------------------------------------------------------------------
+
+  group('EditableDocument — handleEnter', () {
+    Future<({DocumentEditingController controller, FocusNode focusNode})> _buildFocusedEditor(
+      WidgetTester tester, {
+      required List<DocumentNode> nodes,
+    }) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final doc = MutableDocument(nodes);
+      final controller = DocumentEditingController(document: doc);
+      final editor = UndoableEditor(
+        editContext: EditContext(document: doc, controller: controller),
+      );
+      final focusNode = FocusNode();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: EditableDocument(
+              controller: controller,
+              focusNode: focusNode,
+              editor: editor,
+            ),
+          ),
+        ),
+      );
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      return (controller: controller, focusNode: focusNode);
+    }
+
+    testWidgets('handleEnter is no-op when readOnly', (tester) async {
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 5),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+            readOnly: true,
+          ),
+        ),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.handleEnter();
+
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('handleEnter is no-op when selection is null', (tester) async {
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(EditableDocument(controller: controller, focusNode: focusNode)),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.handleEnter();
+
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('handleEnter on empty list item converts to paragraph', (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedEditor(
+        tester,
+        nodes: [ListItemNode(id: 'li1', text: AttributedText(''))],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'li1',
+            nodePosition: TextNodePosition(offset: 0),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.handleEnter();
+      await tester.pump();
+
+      // Empty list item on Enter should become a paragraph.
+      expect(controller.document.nodeById('li1'), isA<ParagraphNode>());
+    });
+
+    testWidgets('handleEnter on empty blockquote paragraph converts to normal paragraph',
+        (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedEditor(
+        tester,
+        nodes: [
+          ParagraphNode(
+            id: 'bq1',
+            text: AttributedText(''),
+            blockType: ParagraphBlockType.blockquote,
+          ),
+        ],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'bq1',
+            nodePosition: TextNodePosition(offset: 0),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.handleEnter();
+      await tester.pump();
+
+      final node = controller.document.nodeById('bq1')! as ParagraphNode;
+      expect(node.blockType, ParagraphBlockType.paragraph);
+    });
+
+    testWidgets('handleEnter in non-empty code block inserts newline', (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedEditor(
+        tester,
+        nodes: [CodeBlockNode(id: 'cb1', text: AttributedText('code'))],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'cb1',
+            nodePosition: TextNodePosition(offset: 4),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.handleEnter();
+      await tester.pump();
+
+      final node = controller.document.nodeById('cb1')! as CodeBlockNode;
+      expect(node.text.text, 'code\n');
+    });
+
+    testWidgets('handleEnter in empty code block converts it to a paragraph in place',
+        (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedEditor(
+        tester,
+        nodes: [CodeBlockNode(id: 'cb1', text: AttributedText(''))],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'cb1',
+            nodePosition: TextNodePosition(offset: 0),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.handleEnter();
+      await tester.pump();
+
+      // ExitCodeBlockCommand with empty text replaces the node in-place with a
+      // ParagraphNode — the same id is preserved.
+      expect(controller.document.nodeById('cb1'), isA<ParagraphNode>());
+    });
+
+    testWidgets('handleEnter in blockquote with trailing newline exits blockquote', (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedEditor(
+        tester,
+        nodes: [BlockquoteNode(id: 'bq1', text: AttributedText('line\n'))],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'bq1',
+            nodePosition: TextNodePosition(offset: 5), // end of 'line\n'
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.handleEnter();
+      await tester.pump();
+
+      // ExitBlockquoteCommand with removeTrailingNewline truncates 'bq1' to
+      // 'line' and inserts a new ParagraphNode after it — so bq1 still exists
+      // but now contains only 'line', and a new paragraph has been appended.
+      final bq = controller.document.nodeById('bq1')! as BlockquoteNode;
+      expect(bq.text.text, 'line');
+      // A new paragraph should have been inserted after the blockquote.
+      expect(controller.document.nodes.length, 2);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // handleShiftEnter
+  // -------------------------------------------------------------------------
+
+  group('EditableDocument — handleShiftEnter', () {
+    testWidgets('handleShiftEnter is no-op when readOnly', (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final doc = MutableDocument([CodeBlockNode(id: 'cb1', text: AttributedText('code'))]);
+      final controller = DocumentEditingController(document: doc);
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'cb1',
+            nodePosition: TextNodePosition(offset: 4),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+            readOnly: true,
+          ),
+        ),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.handleShiftEnter();
+
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('handleShiftEnter on code block exits code block', (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final doc = MutableDocument([CodeBlockNode(id: 'cb1', text: AttributedText('code'))]);
+      final controller = DocumentEditingController(document: doc);
+      final editor = UndoableEditor(
+        editContext: EditContext(document: doc, controller: controller),
+      );
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+      addTearDown(editor.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'cb1',
+            nodePosition: TextNodePosition(offset: 4),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: EditableDocument(
+              controller: controller,
+              focusNode: focusNode,
+              editor: editor,
+            ),
+          ),
+        ),
+      );
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.handleShiftEnter();
+      await tester.pump();
+
+      // Code block should be exited — it will be split or replaced by a paragraph.
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('handleShiftEnter is no-op for paragraph node', (tester) async {
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 5),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(EditableDocument(controller: controller, focusNode: focusNode)),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.handleShiftEnter();
+
+      // Paragraph node — no-op, no exception.
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // handleTab / handleShiftTab
+  // -------------------------------------------------------------------------
+
+  group('EditableDocument — handleTab', () {
+    testWidgets('handleTab is no-op when readOnly', (tester) async {
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 2),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+            readOnly: true,
+          ),
+        ),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.handleTab();
+
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('handleTab indents list item', (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final doc = MutableDocument([ListItemNode(id: 'li1', text: AttributedText('Item'))]);
+      final controller = DocumentEditingController(document: doc);
+      final editor = UndoableEditor(
+        editContext: EditContext(document: doc, controller: controller),
+      );
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+      addTearDown(editor.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'li1',
+            nodePosition: TextNodePosition(offset: 4),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: EditableDocument(
+              controller: controller,
+              focusNode: focusNode,
+              editor: editor,
+            ),
+          ),
+        ),
+      );
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      final stateBefore = controller.document.nodeById('li1')! as ListItemNode;
+      final indentBefore = stateBefore.indent;
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.handleTab();
+      await tester.pump();
+
+      final stateAfter = controller.document.nodeById('li1')! as ListItemNode;
+      expect(stateAfter.indent, greaterThan(indentBefore));
+    });
+
+    testWidgets('handleShiftTab is no-op when readOnly', (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final doc = MutableDocument([ListItemNode(id: 'li1', text: AttributedText('Item'))]);
+      final controller = DocumentEditingController(document: doc);
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'li1',
+            nodePosition: TextNodePosition(offset: 4),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+            readOnly: true,
+          ),
+        ),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.handleShiftTab();
+
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('handleShiftTab unindents list item', (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final doc =
+          MutableDocument([ListItemNode(id: 'li1', text: AttributedText('Item'), indent: 1)]);
+      final controller = DocumentEditingController(document: doc);
+      final editor = UndoableEditor(
+        editContext: EditContext(document: doc, controller: controller),
+      );
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+      addTearDown(editor.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'li1',
+            nodePosition: TextNodePosition(offset: 4),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: EditableDocument(
+              controller: controller,
+              focusNode: focusNode,
+              editor: editor,
+            ),
+          ),
+        ),
+      );
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.handleShiftTab();
+      await tester.pump();
+
+      final stateAfter = controller.document.nodeById('li1')! as ListItemNode;
+      expect(stateAfter.indent, 0);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // moveHome / moveEnd
+  // -------------------------------------------------------------------------
+
+  group('EditableDocument — moveHome and moveEnd', () {
+    testWidgets('moveHome is no-op when selection is null', (tester) async {
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(EditableDocument(controller: controller, focusNode: focusNode)),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.moveHome(extend: false);
+
+      expect(controller.selection, isNull);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('moveHome moves to start of text node', (tester) async {
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 3),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(EditableDocument(controller: controller, focusNode: focusNode)),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.moveHome(extend: false);
+
+      expect(controller.selection, isNotNull);
+      expect(controller.selection!.isCollapsed, isTrue);
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        0,
+      );
+    });
+
+    testWidgets('moveEnd is no-op when selection is null', (tester) async {
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(EditableDocument(controller: controller, focusNode: focusNode)),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.moveEnd(extend: false);
+
+      expect(controller.selection, isNull);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('moveEnd moves to end of text node', (tester) async {
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 0),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(EditableDocument(controller: controller, focusNode: focusNode)),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.moveEnd(extend: false);
+
+      expect(controller.selection, isNotNull);
+      expect(controller.selection!.isCollapsed, isTrue);
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        5, // 'Hello'.length
+      );
+    });
+
+    testWidgets('moveHome extends selection when extend is true', (tester) async {
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 3),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(EditableDocument(controller: controller, focusNode: focusNode)),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.moveHome(extend: true);
+
+      expect(controller.selection, isNotNull);
+      expect(controller.selection!.isExpanded, isTrue);
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        0,
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // toggleAttribution
+  // -------------------------------------------------------------------------
+
+  group('EditableDocument — toggleAttribution', () {
+    testWidgets('toggleAttribution is no-op when readOnly', (tester) async {
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      controller.setSelection(
+        const DocumentSelection(
+          base: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 0)),
+          extent: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 5)),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+            readOnly: true,
+          ),
+        ),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.toggleAttribution(NamedAttribution.bold);
+
+      // No exception, text unchanged.
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('toggleAttribution is no-op when selection is null', (tester) async {
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(EditableDocument(controller: controller, focusNode: focusNode)),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.toggleAttribution(NamedAttribution.bold);
+
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('toggleAttribution on collapsed selection updates composer preferences',
+        (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 2),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(EditableDocument(controller: controller, focusNode: focusNode)),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+
+      // Before toggle, bold should not be active.
+      expect(controller.preferences.isActive(NamedAttribution.bold), isFalse);
+
+      state.toggleAttribution(NamedAttribution.bold);
+
+      // After toggle, bold should be active in preferences.
+      expect(controller.preferences.isActive(NamedAttribution.bold), isTrue);
+    });
+
+    testWidgets('toggleAttribution on expanded selection applies bold via editor', (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('Hello')),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      final editor = UndoableEditor(
+        editContext: EditContext(document: doc, controller: controller),
+      );
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+      addTearDown(editor.dispose);
+
+      controller.setSelection(
+        const DocumentSelection(
+          base: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 0)),
+          extent: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 5)),
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: EditableDocument(
+              controller: controller,
+              focusNode: focusNode,
+              editor: editor,
+            ),
+          ),
+        ),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.toggleAttribution(NamedAttribution.bold);
+      await tester.pump();
+
+      // Bold should be applied to 'Hello'.
+      final node = controller.document.nodeById('p1')! as ParagraphNode;
+      expect(
+        node.text.hasAttributionAt(0, NamedAttribution.bold),
+        isTrue,
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // copySelection / cutSelection no-op when null or collapsed
+  // -------------------------------------------------------------------------
+
+  group('EditableDocument — copySelection and cutSelection no-ops', () {
+    testWidgets('copySelection is no-op when selection is null', (tester) async {
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(EditableDocument(controller: controller, focusNode: focusNode)),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.copySelection();
+
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('copySelection is no-op when selection is collapsed', (tester) async {
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 2),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(EditableDocument(controller: controller, focusNode: focusNode)),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.copySelection();
+
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('cutSelection is no-op when selection is null', (tester) async {
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(EditableDocument(controller: controller, focusNode: focusNode)),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.cutSelection();
+
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('cutSelection is no-op when selection is collapsed', (tester) async {
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 2),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(EditableDocument(controller: controller, focusNode: focusNode)),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.cutSelection();
+
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('cutSelection is no-op when readOnly', (tester) async {
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      controller.setSelection(
+        const DocumentSelection(
+          base: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 0)),
+          extent: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 5)),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+            readOnly: true,
+          ),
+        ),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.cutSelection();
+
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // moveByPage no-op paths
+  // -------------------------------------------------------------------------
+
+  group('EditableDocument — moveByPage', () {
+    testWidgets('moveByPage is no-op when selection is null', (tester) async {
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(EditableDocument(controller: controller, focusNode: focusNode)),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.moveByPage(forward: true, extend: false);
+
+      expect(controller.selection, isNull);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // moveVertically no-op when selection is null
+  // -------------------------------------------------------------------------
+
+  group('EditableDocument — moveVertically null-selection', () {
+    testWidgets('moveVertically is no-op when selection is null', (tester) async {
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(EditableDocument(controller: controller, focusNode: focusNode)),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.moveVertically(forward: true, extend: false);
+
+      expect(controller.selection, isNull);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // moveToLineStartOrEnd no-op when selection is null
+  // -------------------------------------------------------------------------
+
+  group('EditableDocument — moveToLineStartOrEnd', () {
+    testWidgets('moveToLineStartOrEnd is no-op when selection is null', (tester) async {
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(EditableDocument(controller: controller, focusNode: focusNode)),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.moveToLineStartOrEnd(forward: true, extend: false);
+
+      expect(controller.selection, isNull);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('moveToLineStartOrEnd falls back to node end for binary node', (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final doc = MutableDocument([
+        ImageNode(id: 'img1', imageUrl: 'test.png'),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'img1',
+            nodePosition: BinaryNodePosition.upstream(),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(EditableDocument(controller: controller, focusNode: focusNode)),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.moveToLineStartOrEnd(forward: true, extend: false);
+
+      // For a binary node, should move to downstream position.
+      expect(controller.selection, isNotNull);
+      expect(
+        controller.selection!.extent.nodePosition,
+        const BinaryNodePosition.downstream(),
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // pasteClipboard — no-op paths
+  // -------------------------------------------------------------------------
+
+  group('EditableDocument — pasteClipboard no-ops', () {
+    testWidgets('pasteClipboard is no-op when readOnly', (tester) async {
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 2),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+            readOnly: true,
+          ),
+        ),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.pasteClipboard();
+
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('pasteClipboard is no-op when selection is null', (tester) async {
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(EditableDocument(controller: controller, focusNode: focusNode)),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.pasteClipboard();
+
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // didUpdateWidget — controller swap re-registers with autofill scope
+  // -------------------------------------------------------------------------
+
+  group('EditableDocument — didUpdateWidget with autofill scope', () {
+    testWidgets('controller swap inside AutofillGroup does not crash', (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final controllerA = _makeController(text: 'A');
+      final controllerB = _makeController(text: 'B');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controllerA.dispose);
+      addTearDown(controllerB.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AutofillGroup(
+              child: EditableDocument(
+                controller: controllerA,
+                focusNode: focusNode,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Swap controller inside the same AutofillGroup.
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AutofillGroup(
+              child: EditableDocument(
+                controller: controllerB,
+                focusNode: focusNode,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+    });
+  });
 }
