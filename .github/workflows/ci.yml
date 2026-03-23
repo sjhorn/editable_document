@@ -37,8 +37,8 @@ jobs:
             if [ "$total" -gt 0 ]; then
               pct=$((hit * 100 / total))
               echo "Coverage: $pct% ($hit/$total lines)"
-              if [ "$pct" -lt 82 ]; then
-                echo "::error::Coverage $pct% is below 82% threshold"
+              if [ "$pct" -lt 89 ]; then
+                echo "::error::Coverage $pct% is below 89% threshold"
                 exit 1
               fi
             else

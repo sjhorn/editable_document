@@ -2581,10 +2581,10 @@ void main() {
       block.layout(const BoxConstraints(maxWidth: 300), parentUsesSize: true);
 
       final rectMid = block.getLocalRectForPosition(
-        TextNodePosition(offset: text.length - 5),
+        const TextNodePosition(offset: text.length - 5),
       );
       final rectEnd = block.getLocalRectForPosition(
-        TextNodePosition(offset: text.length),
+        const TextNodePosition(offset: text.length),
       );
 
       expect(rectEnd.height, greaterThan(0));

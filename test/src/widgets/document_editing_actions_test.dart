@@ -16,6 +16,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:editable_document/editable_document.dart';
+import 'package:editable_document/src/widgets/document_editing_actions.dart'
+    show createDocumentEditingActions;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -1101,4 +1103,354 @@ void main() {
       debugDefaultTargetPlatformOverride = null;
     });
   });
+
+  // =========================================================================
+  // moveByPage — Page Up/Down
+  // =========================================================================
+
+  group('moveByPage', () {
+    testWidgets('moveByPage forward moves to document end when no layout', (tester) async {
+      final doc = _twoParagraphs(firstText: 'Hello', secondText: 'World');
+      final controller = DocumentEditingController(
+        document: doc,
+        selection: _collapsed('p1', 0),
+      );
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+
+      final state = await _pumpDocument(tester, controller: controller, focusNode: focusNode);
+      state.moveByPage(forward: true, extend: false);
+      await tester.pump();
+
+      // Falls back to document end without layout.
+      expect(controller.selection!.extent.nodeId, 'p2');
+    });
+
+    testWidgets('moveByPage backward moves to document start when no layout', (tester) async {
+      final doc = _twoParagraphs(firstText: 'Hello', secondText: 'World');
+      final controller = DocumentEditingController(
+        document: doc,
+        selection: _collapsed('p2', 3),
+      );
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+
+      final state = await _pumpDocument(tester, controller: controller, focusNode: focusNode);
+      state.moveByPage(forward: false, extend: false);
+      await tester.pump();
+
+      expect(controller.selection!.extent.nodeId, 'p1');
+    });
+  });
+
+  // =========================================================================
+  // handleShiftEnter
+  // =========================================================================
+
+  group('handleShiftEnter', () {
+    testWidgets('no-op when readOnly — does not throw', (tester) async {
+      final doc = _singleParagraph('Hello');
+      final controller = DocumentEditingController(
+        document: doc,
+        selection: _collapsed('p1', 5),
+      );
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+
+      final state = await _pumpDocument(
+        tester,
+        controller: controller,
+        focusNode: focusNode,
+        readOnly: true,
+      );
+      expect(() => state.handleShiftEnter(), returnsNormally);
+    });
+
+    testWidgets('handleShiftEnter with editor does not throw', (tester) async {
+      final doc = _singleParagraph('Hello');
+      final controller = DocumentEditingController(
+        document: doc,
+        selection: _collapsed('p1', 5),
+      );
+      final editor = UndoableEditor(
+        editContext: EditContext(document: doc, controller: controller),
+      );
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+
+      await _pumpDocument(
+        tester,
+        controller: controller,
+        focusNode: focusNode,
+        editor: editor,
+      );
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      expect(() => state.handleShiftEnter(), returnsNormally);
+    });
+  });
+
+  // =========================================================================
+  // handleShiftTab
+  // =========================================================================
+
+  group('handleShiftTab', () {
+    testWidgets('no-op when readOnly — does not throw', (tester) async {
+      final doc = _singleParagraph('Hello');
+      final controller = DocumentEditingController(
+        document: doc,
+        selection: _collapsed('p1', 5),
+      );
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+
+      final state = await _pumpDocument(
+        tester,
+        controller: controller,
+        focusNode: focusNode,
+        readOnly: true,
+      );
+      expect(() => state.handleShiftTab(), returnsNormally);
+    });
+
+    testWidgets('handleShiftTab with editor does not throw', (tester) async {
+      final doc = _singleParagraph('Hello');
+      final controller = DocumentEditingController(
+        document: doc,
+        selection: _collapsed('p1', 5),
+      );
+      final editor = UndoableEditor(
+        editContext: EditContext(document: doc, controller: controller),
+      );
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+
+      await _pumpDocument(
+        tester,
+        controller: controller,
+        focusNode: focusNode,
+        editor: editor,
+      );
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      expect(() => state.handleShiftTab(), returnsNormally);
+    });
+  });
+
+  // =========================================================================
+  // isSelectionFullyAttributed helper
+  // =========================================================================
+
+  group('isSelectionFullyAttributed', () {
+    test('returns false for collapsed selection', () {
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('Hello')),
+      ]);
+      final sel = _collapsed('p1', 2);
+      expect(isSelectionFullyAttributed(sel, NamedAttribution.bold, doc), isFalse);
+    });
+
+    test('returns false for multi-node selection', () {
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('Hello')),
+        ParagraphNode(id: 'p2', text: AttributedText('World')),
+      ]);
+      final sel = const DocumentSelection(
+        base: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 0)),
+        extent: DocumentPosition(nodeId: 'p2', nodePosition: TextNodePosition(offset: 5)),
+      );
+      expect(isSelectionFullyAttributed(sel, NamedAttribution.bold, doc), isFalse);
+    });
+
+    test('returns false when node does not exist', () {
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('Hello')),
+      ]);
+      final sel = const DocumentSelection(
+        base: DocumentPosition(nodeId: 'missing', nodePosition: TextNodePosition(offset: 0)),
+        extent: DocumentPosition(nodeId: 'missing', nodePosition: TextNodePosition(offset: 3)),
+      );
+      expect(isSelectionFullyAttributed(sel, NamedAttribution.bold, doc), isFalse);
+    });
+
+    test('returns false when selection is not fully attributed', () {
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('Hello')),
+      ]);
+      // No attributions — should return false.
+      final sel = const DocumentSelection(
+        base: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 0)),
+        extent: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 5)),
+      );
+      expect(isSelectionFullyAttributed(sel, NamedAttribution.bold, doc), isFalse);
+    });
+
+    test('returns true when entire selection is attributed', () {
+      final boldText = AttributedText(
+        'Hello',
+        const [
+          SpanMarker(
+            attribution: NamedAttribution.bold,
+            offset: 0,
+            markerType: SpanMarkerType.start,
+          ),
+          SpanMarker(
+            attribution: NamedAttribution.bold,
+            offset: 4,
+            markerType: SpanMarkerType.end,
+          ),
+        ],
+      );
+      final doc = MutableDocument([ParagraphNode(id: 'p1', text: boldText)]);
+      final sel = const DocumentSelection(
+        base: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 0)),
+        extent: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 5)),
+      );
+      expect(isSelectionFullyAttributed(sel, NamedAttribution.bold, doc), isTrue);
+    });
+
+    test('returns true with reversed base/extent', () {
+      final boldText = AttributedText(
+        'Hello',
+        const [
+          SpanMarker(
+            attribution: NamedAttribution.bold,
+            offset: 0,
+            markerType: SpanMarkerType.start,
+          ),
+          SpanMarker(
+            attribution: NamedAttribution.bold,
+            offset: 4,
+            markerType: SpanMarkerType.end,
+          ),
+        ],
+      );
+      final doc = MutableDocument([ParagraphNode(id: 'p1', text: boldText)]);
+      // extent before base (reversed selection).
+      final sel = const DocumentSelection(
+        base: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 5)),
+        extent: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 0)),
+      );
+      expect(isSelectionFullyAttributed(sel, NamedAttribution.bold, doc), isTrue);
+    });
+  });
+
+  // =========================================================================
+  // createDocumentEditingActions — verifies all actions are present
+  // =========================================================================
+
+  group('createDocumentEditingActions', () {
+    test('returns a map containing all expected action types', () {
+      // Minimal stub delegate — we only need the factory to run.
+      final actions = createDocumentEditingActions(() => _NoOpDelegate());
+
+      expect(actions.containsKey(ExtendSelectionByCharacterIntent), isTrue);
+      expect(actions.containsKey(ExtendSelectionToNextWordBoundaryIntent), isTrue);
+      expect(actions.containsKey(ExtendSelectionToLineBreakIntent), isTrue);
+      expect(actions.containsKey(ExtendSelectionVerticallyToAdjacentLineIntent), isTrue);
+      expect(actions.containsKey(ExtendSelectionToDocumentBoundaryIntent), isTrue);
+      expect(actions.containsKey(ExtendSelectionToNextWordBoundaryOrCaretLocationIntent), isTrue);
+      expect(actions.containsKey(DeleteCharacterIntent), isTrue);
+      expect(actions.containsKey(DeleteToNextWordBoundaryIntent), isTrue);
+      expect(actions.containsKey(DeleteToLineBreakIntent), isTrue);
+      expect(actions.containsKey(ExtendSelectionVerticallyToAdjacentPageIntent), isTrue);
+      expect(actions.containsKey(CopySelectionTextIntent), isTrue);
+      expect(actions.containsKey(PasteTextIntent), isTrue);
+      expect(actions.containsKey(SelectAllTextIntent), isTrue);
+      expect(actions.containsKey(CollapseSelectionIntent), isTrue);
+      expect(actions.containsKey(ToggleAttributionIntent), isTrue);
+      expect(actions.containsKey(MoveToNodeBoundaryIntent), isTrue);
+      expect(actions.containsKey(MoveToAdjacentTableCellIntent), isTrue);
+      expect(actions.containsKey(DocumentTabIntent), isTrue);
+      expect(actions.containsKey(DocumentShiftTabIntent), isTrue);
+      expect(actions.containsKey(DocumentEnterIntent), isTrue);
+      expect(actions.containsKey(DocumentShiftEnterIntent), isTrue);
+      expect(actions.containsKey(IndentListItemIntent), isTrue);
+      expect(actions.containsKey(UnindentListItemIntent), isTrue);
+    });
+  });
+
+  // =========================================================================
+  // Document-specific intents via key shortcuts
+  // =========================================================================
+
+  group('DocumentTabIntent via Tab key', () {
+    testWidgets('Tab key fires DocumentTabIntent and calls handleTab', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+
+      final doc = _singleParagraph('Hello');
+      final controller = DocumentEditingController(
+        document: doc,
+        selection: _collapsed('p1', 5),
+      );
+      final editor = UndoableEditor(
+        editContext: EditContext(document: doc, controller: controller),
+      );
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+
+      await _pumpDocument(
+        tester,
+        controller: controller,
+        focusNode: focusNode,
+        editor: editor,
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+
+      // Tab should have inserted a tab character.
+      expect((doc.nodeById('p1') as ParagraphNode).text.text, 'Hello\t');
+      debugDefaultTargetPlatformOverride = null;
+    });
+  });
+
+  group('DocumentEnterIntent via Enter key', () {});
+}
+
+// ---------------------------------------------------------------------------
+// Stub delegate used by createDocumentEditingActions test
+// ---------------------------------------------------------------------------
+
+class _NoOpDelegate implements DocumentEditingDelegate {
+  @override
+  void moveByCharacter({required bool forward, required bool extend}) {}
+  @override
+  void moveByWord({required bool forward, required bool extend}) {}
+  @override
+  void moveToLineStartOrEnd({required bool forward, required bool extend}) {}
+  @override
+  void moveVertically({required bool forward, required bool extend}) {}
+  @override
+  void moveToDocumentStartOrEnd({required bool forward, required bool extend}) {}
+  @override
+  void moveToNodeStartOrEnd({required bool forward, required bool extend}) {}
+  @override
+  void moveByPage({required bool forward, required bool extend}) {}
+  @override
+  void moveHome({required bool extend}) {}
+  @override
+  void moveEnd({required bool extend}) {}
+  @override
+  void collapseSelection() {}
+  @override
+  void deleteForward() {}
+  @override
+  void deleteBackward() {}
+  @override
+  void handleTab() {}
+  @override
+  void handleShiftTab() {}
+  @override
+  void handleEnter() {}
+  @override
+  void handleShiftEnter() {}
+  @override
+  void copySelection() {}
+  @override
+  void cutSelection() {}
+  @override
+  void pasteClipboard() {}
+  @override
+  void selectAll() {}
+  @override
+  void toggleAttribution(Attribution attribution) {}
 }
