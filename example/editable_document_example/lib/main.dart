@@ -4,15 +4,14 @@
 
 /// Example app showcasing EditableDocument — a rich-text block editor.
 ///
-/// Demonstrates DocumentToolbar, DocumentPropertyPanel,
-/// DocumentSettingsPanel, DocumentStatusBar, DocumentTheme, and
-/// DocumentJsonSerializer from the editable_document core library.
+/// Demonstrates DocumentEditor with built-in toolbar, property panel,
+/// settings panel, and status bar from the editable_document core library.
 library;
 
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:re_highlight/languages/all.dart';
 import 'package:re_highlight/re_highlight.dart';
 
@@ -128,47 +127,13 @@ class DocumentDemo extends StatefulWidget {
   State<DocumentDemo> createState() => _DocumentDemoState();
 }
 
-class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMixin {
+class _DocumentDemoState extends State<DocumentDemo> {
   late final MutableDocument _document;
   late final DocumentEditingController _controller;
   late final UndoableEditor _editor;
   late final FocusNode _focusNode;
 
   final _syntaxBuilder = SyntaxHighlightCodeBlockBuilder();
-
-  /// Vertical spacing between document blocks.
-  double _blockSpacing = 0.0;
-
-  /// Document-level default line height multiplier. `null` means inherit.
-  double? _defaultLineHeight;
-
-  /// Horizontal padding (left + right) around the document content area.
-  double _documentPaddingH = 0.0;
-
-  /// Vertical padding (top + bottom) around the document content area.
-  double _documentPaddingV = 0.0;
-
-  /// Whether to show line numbers in a left-side gutter.
-  bool _showLineNumbers = false;
-
-  /// Vertical alignment of each line number label within its block row.
-  LineNumberAlignment _lineNumberAlignment = LineNumberAlignment.top;
-
-  /// Font family for line numbers (`null` = inherit from document).
-  String? _lineNumberFontFamily;
-
-  /// Font size for line numbers (`null` = inherit from document).
-  double? _lineNumberFontSize;
-
-  /// Text color for line numbers (`null` = inherit from document).
-  int? _lineNumberColor;
-
-  /// Background color for the line number gutter (`null` = transparent).
-  int? _lineNumberBgColor;
-
-  bool _showBlockPanel = false;
-  bool _showDocumentPanel = false;
-  TabController? _panelTabController;
 
   @override
   void initState() {
@@ -179,29 +144,13 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
       editContext: EditContext(document: _document, controller: _controller),
     );
     _focusNode = FocusNode(debugLabel: 'DocumentDemo');
-
-    _document.changes.addListener(_onDocumentChanged);
-    _controller.addListener(_onDocumentChanged);
   }
 
   @override
   void dispose() {
-    _controller.removeListener(_onDocumentChanged);
-    _document.changes.removeListener(_onDocumentChanged);
-    _panelTabController?.dispose();
     _focusNode.dispose();
     _controller.dispose();
     super.dispose();
-  }
-
-  void _onDocumentChanged() {
-    final sel = _controller.selection;
-    final node = sel != null ? _document.nodeById(sel.extent.nodeId) : null;
-    if (node == null && _showBlockPanel) {
-      _showBlockPanel = false;
-      _syncPanelTabController();
-    }
-    setState(() {});
   }
 
   // ---------------------------------------------------------------------------
@@ -288,123 +237,8 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
   }
 
   // ---------------------------------------------------------------------------
-  // Build
+  // Image picker — app-specific: shows a path-entry dialog.
   // ---------------------------------------------------------------------------
-
-  @override
-  Widget build(BuildContext context) {
-    return DocumentTheme(
-      data: DocumentThemeData(
-        defaultBlockSpacing: _blockSpacing,
-        caretColor: Colors.blue,
-        selectionColor: Colors.blue.withValues(alpha: 0.3),
-        codeBlockBackgroundColor: const Color(0xFFF5F5F5),
-        propertyPanelTheme: const PropertyPanelThemeData(
-          width: 280,
-        ),
-      ),
-      child: Scaffold(
-        body: Column(
-          children: [
-            _buildToolbar(),
-            Expanded(
-              child: Row(
-                children: [
-                  Expanded(child: _buildEditor()),
-                  _buildPropertyPanel(),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildToolbar() {
-    return ListenableBuilder(
-      listenable: _controller,
-      builder: (context, _) {
-        final selectedNode = _controller.selection != null
-            ? _document.nodeById(_controller.selection!.extent.nodeId)
-            : null;
-        return DocumentToolbar(
-          controller: _controller,
-          requestHandler: _editor.submit,
-          editor: _editor,
-          leading: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.save_outlined, size: 18),
-                onPressed: _showSaveDialog,
-                tooltip: 'Save as JSON',
-                style: IconButton.styleFrom(
-                  minimumSize: const Size(32, 32),
-                  padding: const EdgeInsets.all(4),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.file_open_outlined, size: 18),
-                onPressed: _showLoadDialog,
-                tooltip: 'Load from JSON',
-                style: IconButton.styleFrom(
-                  minimumSize: const Size(32, 32),
-                  padding: const EdgeInsets.all(4),
-                ),
-              ),
-            ],
-          ),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DocumentFormatToggle(
-                icon: Icons.view_sidebar_outlined,
-                tooltip: 'Block Properties',
-                isActive: _showBlockPanel,
-                onPressed: selectedNode != null ? _toggleBlockPanel : null,
-              ),
-              DocumentFormatToggle(
-                icon: Icons.settings_outlined,
-                tooltip: 'Document Settings',
-                isActive: _showDocumentPanel,
-                onPressed: _toggleDocumentPanel,
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // Panel toggle logic
-  // ---------------------------------------------------------------------------
-
-  void _toggleBlockPanel() {
-    setState(() {
-      _showBlockPanel = !_showBlockPanel;
-      _syncPanelTabController();
-    });
-  }
-
-  void _toggleDocumentPanel() {
-    setState(() {
-      _showDocumentPanel = !_showDocumentPanel;
-      _syncPanelTabController();
-    });
-  }
-
-  void _syncPanelTabController() {
-    if (_showBlockPanel && _showDocumentPanel) {
-      if (_panelTabController == null) {
-        _panelTabController = TabController(length: 2, vsync: this);
-      }
-    } else {
-      _panelTabController?.dispose();
-      _panelTabController = null;
-    }
-  }
 
   /// Shows a dialog for choosing an image file path, then submits a
   /// [ReplaceNodeRequest] to update the current image node's URL.
@@ -461,174 +295,67 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
     );
   }
 
-  /// Builds the document-wide settings panel using [DocumentSettingsPanel].
-  Widget _buildDocumentSettingsPanel() {
-    return DocumentSettingsPanel(
-      blockSpacing: _blockSpacing,
-      onBlockSpacingChanged: (v) => setState(() => _blockSpacing = v),
-      defaultLineHeight: _defaultLineHeight,
-      onDefaultLineHeightChanged: (v) => setState(() => _defaultLineHeight = v),
-      documentPadding: EdgeInsets.symmetric(
-        horizontal: _documentPaddingH,
-        vertical: _documentPaddingV,
+  // ---------------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------------
+
+  @override
+  Widget build(BuildContext context) {
+    return DocumentTheme(
+      data: DocumentThemeData(
+        caretColor: Colors.blue,
+        selectionColor: Colors.blue.withValues(alpha: 0.3),
+        codeBlockBackgroundColor: const Color(0xFFF5F5F5),
+        propertyPanelTheme: const PropertyPanelThemeData(width: 280),
       ),
-      onDocumentPaddingChanged: (v) => setState(() {
-        _documentPaddingH = v.left;
-        _documentPaddingV = v.top;
-      }),
-      showLineNumbers: _showLineNumbers,
-      onShowLineNumbersChanged: (v) => setState(() => _showLineNumbers = v),
-      lineNumberAlignment: _lineNumberAlignment,
-      onLineNumberAlignmentChanged: (v) => setState(() => _lineNumberAlignment = v),
-      lineNumberFontFamily: _lineNumberFontFamily,
-      onLineNumberFontFamilyChanged: (v) => setState(() => _lineNumberFontFamily = v),
-      lineNumberFontSize: _lineNumberFontSize,
-      onLineNumberFontSizeChanged: (v) => setState(() => _lineNumberFontSize = v),
-      lineNumberColor: _lineNumberColor,
-      onLineNumberColorChanged: (v) => setState(() => _lineNumberColor = v),
-      lineNumberBackgroundColor: _lineNumberBgColor,
-      onLineNumberBackgroundColorChanged: (v) => setState(() => _lineNumberBgColor = v),
-    );
-  }
-
-  Widget _buildPropertyPanel() {
-    if (!_showBlockPanel && !_showDocumentPanel) return const SizedBox.shrink();
-
-    final colorScheme = Theme.of(context).colorScheme;
-    const panelWidth = 280.0;
-
-    final panelDecoration = BoxDecoration(
-      color: colorScheme.surfaceContainerLow,
-      border: Border(left: BorderSide(color: colorScheme.outlineVariant)),
-    );
-
-    if (_showBlockPanel && _showDocumentPanel && _panelTabController != null) {
-      return SizedBox(
-        width: panelWidth,
-        height: double.infinity,
-        child: DecoratedBox(
-          decoration: panelDecoration,
-          child: Column(
+      child: Scaffold(
+        body: DocumentEditor(
+          controller: _controller,
+          focusNode: _focusNode,
+          editor: _editor,
+          autofocus: true,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          showPropertyPanel: true,
+          showSettingsPanel: true,
+          onPickImageFile: _pickImageFile,
+          toolbarLeading: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              TabBar(
-                controller: _panelTabController,
-                tabs: const [
-                  Tab(text: 'Block'),
-                  Tab(text: 'Document'),
-                ],
-                labelStyle: Theme.of(context).textTheme.labelSmall,
+              IconButton(
+                icon: const Icon(Icons.save_outlined, size: 18),
+                onPressed: _showSaveDialog,
+                tooltip: 'Save as JSON',
+                style: IconButton.styleFrom(
+                  minimumSize: const Size(32, 32),
+                  padding: const EdgeInsets.all(4),
+                ),
               ),
-              Expanded(
-                child: TabBarView(
-                  controller: _panelTabController,
-                  children: [
-                    DocumentPropertyPanel(
-                      controller: _controller,
-                      requestHandler: _editor.submit,
-                      width: panelWidth,
-                      onPickImageFile: _pickImageFile,
-                    ),
-                    _buildDocumentSettingsPanel(),
-                  ],
+              IconButton(
+                icon: const Icon(Icons.file_open_outlined, size: 18),
+                onPressed: _showLoadDialog,
+                tooltip: 'Load from JSON',
+                style: IconButton.styleFrom(
+                  minimumSize: const Size(32, 32),
+                  padding: const EdgeInsets.all(4),
                 ),
               ),
             ],
           ),
+          componentBuilders: [
+            _syntaxBuilder,
+            ...defaultComponentBuilders.where((b) => b is! CodeBlockComponentBuilder),
+          ],
         ),
-      );
-    }
-
-    if (_showBlockPanel) {
-      return SizedBox(
-        width: panelWidth,
-        height: double.infinity,
-        child: DecoratedBox(
-          decoration: panelDecoration,
-          child: DocumentPropertyPanel(
-            controller: _controller,
-            requestHandler: _editor.submit,
-            width: panelWidth,
-            onPickImageFile: _pickImageFile,
-          ),
-        ),
-      );
-    }
-
-    return SizedBox(
-      width: panelWidth,
-      height: double.infinity,
-      child: DecoratedBox(
-        decoration: panelDecoration,
-        child: _buildDocumentSettingsPanel(),
       ),
-    );
-  }
-
-  Widget _buildEditor() {
-    return DocumentEditor(
-      controller: _controller,
-      focusNode: _focusNode,
-      editor: _editor,
-      autofocus: true,
-      blockSpacing: _blockSpacing,
-      style: TextStyle(height: _defaultLineHeight),
-      documentPadding: EdgeInsets.symmetric(
-        horizontal: _documentPaddingH,
-        vertical: _documentPaddingV,
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      showLineNumbers: _showLineNumbers,
-      lineNumberAlignment: _lineNumberAlignment,
-      lineNumberTextStyle:
-          (_lineNumberFontFamily ?? _lineNumberFontSize ?? _lineNumberColor) != null
-              ? TextStyle(
-                  fontFamily: _lineNumberFontFamily,
-                  fontSize: _lineNumberFontSize,
-                  color: _lineNumberColor != null ? Color(_lineNumberColor!) : null,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                )
-              : null,
-      lineNumberBackgroundColor: _lineNumberBgColor != null ? Color(_lineNumberBgColor!) : null,
-      componentBuilders: [
-        _syntaxBuilder,
-        ...defaultComponentBuilders.where((b) => b is! CodeBlockComponentBuilder),
-      ],
     );
   }
 
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
+    properties.add(DiagnosticsProperty<MutableDocument>('document', _document));
     properties.add(
-      DiagnosticsProperty<MutableDocument>('document', _document),
-    );
-    properties.add(
-      DiagnosticsProperty<DocumentEditingController>(
-        'controller',
-        _controller,
-      ),
-    );
-    properties.add(DoubleProperty('blockSpacing', _blockSpacing));
-    properties.add(DoubleProperty('defaultLineHeight', _defaultLineHeight, defaultValue: null));
-    properties.add(DoubleProperty('documentPaddingH', _documentPaddingH));
-    properties.add(DoubleProperty('documentPaddingV', _documentPaddingV));
-    properties.add(
-      FlagProperty('showLineNumbers', value: _showLineNumbers, ifTrue: 'showLineNumbers'),
-    );
-    properties.add(
-      EnumProperty<LineNumberAlignment>('lineNumberAlignment', _lineNumberAlignment,
-          defaultValue: LineNumberAlignment.top),
-    );
-    properties
-        .add(StringProperty('lineNumberFontFamily', _lineNumberFontFamily, defaultValue: null));
-    properties.add(DoubleProperty('lineNumberFontSize', _lineNumberFontSize, defaultValue: null));
-    properties.add(IntProperty('lineNumberColor', _lineNumberColor, defaultValue: null));
-    properties.add(IntProperty('lineNumberBgColor', _lineNumberBgColor, defaultValue: null));
-    properties.add(
-      FlagProperty('showBlockPanel', value: _showBlockPanel, ifTrue: 'showBlockPanel'),
-    );
-    properties.add(
-      FlagProperty('showDocumentPanel', value: _showDocumentPanel, ifTrue: 'showDocumentPanel'),
+      DiagnosticsProperty<DocumentEditingController>('controller', _controller),
     );
   }
 }

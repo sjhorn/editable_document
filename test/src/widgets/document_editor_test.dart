@@ -54,7 +54,9 @@ void main() {
 
     group('zero configuration', () {
       testWidgets('pumps without error and finds the widget', (tester) async {
-        await tester.pumpWidget(_wrap(const DocumentEditor()));
+        await tester.pumpWidget(
+          _wrap(const DocumentEditor(showToolbar: false)),
+        );
         await tester.pumpAndSettle();
 
         expect(find.byType(DocumentEditor), findsOneWidget);
@@ -62,7 +64,9 @@ void main() {
       });
 
       testWidgets('default parameters have expected values', (tester) async {
-        await tester.pumpWidget(_wrap(const DocumentEditor()));
+        await tester.pumpWidget(
+          _wrap(const DocumentEditor(showToolbar: false)),
+        );
         await tester.pumpAndSettle();
 
         final widget = tester.widget<DocumentEditor>(find.byType(DocumentEditor));
@@ -80,14 +84,14 @@ void main() {
       });
 
       testWidgets('contains an EditableDocument in the tree', (tester) async {
-        await tester.pumpWidget(_wrap(const DocumentEditor()));
+        await tester.pumpWidget(_wrap(const DocumentEditor(showToolbar: false)));
         await tester.pumpAndSettle();
 
         expect(find.byType(EditableDocument), findsOneWidget);
       });
 
       testWidgets('contains a CaretDocumentOverlay in the tree', (tester) async {
-        await tester.pumpWidget(_wrap(const DocumentEditor()));
+        await tester.pumpWidget(_wrap(const DocumentEditor(showToolbar: false)));
         await tester.pumpAndSettle();
 
         expect(find.byType(CaretDocumentOverlay), findsOneWidget);
@@ -106,7 +110,7 @@ void main() {
         final controller = _makeController(text: 'Custom content');
         addTearDown(controller.dispose);
 
-        await tester.pumpWidget(_wrap(DocumentEditor(controller: controller)));
+        await tester.pumpWidget(_wrap(DocumentEditor(controller: controller, showToolbar: false)));
         await tester.pumpAndSettle();
 
         expect(find.byType(DocumentEditor), findsOneWidget);
@@ -124,7 +128,7 @@ void main() {
         final controller = _makeController(text: 'Verify me');
         addTearDown(controller.dispose);
 
-        await tester.pumpWidget(_wrap(DocumentEditor(controller: controller)));
+        await tester.pumpWidget(_wrap(DocumentEditor(controller: controller, showToolbar: false)));
         await tester.pumpAndSettle();
 
         final node = controller.document.nodeById('p1')! as ParagraphNode;
@@ -139,7 +143,7 @@ void main() {
     group('internal resource disposal', () {
       testWidgets('replacing widget with another does not throw (implies clean disposal)',
           (tester) async {
-        await tester.pumpWidget(_wrap(const DocumentEditor()));
+        await tester.pumpWidget(_wrap(const DocumentEditor(showToolbar: false)));
         await tester.pumpAndSettle();
 
         // Replace with a plain container — disposal runs during unmount.
@@ -154,14 +158,14 @@ void main() {
         _installTextInputMock(tester, imeLog);
 
         // Start with no external controller (internal one is created).
-        await tester.pumpWidget(_wrap(const DocumentEditor()));
+        await tester.pumpWidget(_wrap(const DocumentEditor(showToolbar: false)));
         await tester.pumpAndSettle();
 
         // Swap to an external controller — internal one must be disposed.
         final controller = _makeController(text: 'New content');
         addTearDown(controller.dispose);
 
-        await tester.pumpWidget(_wrap(DocumentEditor(controller: controller)));
+        await tester.pumpWidget(_wrap(DocumentEditor(controller: controller, showToolbar: false)));
         await tester.pumpAndSettle();
 
         expect(tester.takeException(), isNull);
@@ -178,7 +182,7 @@ void main() {
         _installTextInputMock(tester, imeLog);
 
         await tester.pumpWidget(
-          _wrap(const DocumentEditor(readOnly: true)),
+          _wrap(const DocumentEditor(readOnly: true, showToolbar: false)),
         );
         await tester.pumpAndSettle();
 
@@ -195,7 +199,7 @@ void main() {
 
       testWidgets('CaretDocumentOverlay showCaret is false when readOnly', (tester) async {
         await tester.pumpWidget(
-          _wrap(const DocumentEditor(readOnly: true)),
+          _wrap(const DocumentEditor(readOnly: true, showToolbar: false)),
         );
         await tester.pumpAndSettle();
 
@@ -204,7 +208,7 @@ void main() {
       });
 
       testWidgets('CaretDocumentOverlay showCaret is true when not readOnly', (tester) async {
-        await tester.pumpWidget(_wrap(const DocumentEditor()));
+        await tester.pumpWidget(_wrap(const DocumentEditor(showToolbar: false)));
         await tester.pumpAndSettle();
 
         final overlay = tester.widget<CaretDocumentOverlay>(find.byType(CaretDocumentOverlay));
@@ -230,6 +234,7 @@ void main() {
             DocumentEditor(
               focusNode: focusNode,
               autofocus: true,
+              showToolbar: false,
             ),
           ),
         );
@@ -250,6 +255,7 @@ void main() {
             DocumentEditor(
               focusNode: focusNode,
               autofocus: false,
+              showToolbar: false,
             ),
           ),
         );
@@ -268,6 +274,7 @@ void main() {
         await tester.pumpWidget(
           _wrap(
             DocumentEditor(
+              showToolbar: false,
               overlayBuilder: (context, controller, layoutKey) {
                 return [const Text('overlay_sentinel')];
               },
@@ -283,6 +290,7 @@ void main() {
         await tester.pumpWidget(
           _wrap(
             DocumentEditor(
+              showToolbar: false,
               overlayBuilder: (context, controller, layoutKey) {
                 return [
                   const Text('overlay_a'),
@@ -305,6 +313,7 @@ void main() {
         await tester.pumpWidget(
           _wrap(
             DocumentEditor(
+              showToolbar: false,
               overlayBuilder: (context, controller, layoutKey) {
                 capturedController = controller;
                 capturedLayoutKey = layoutKey;
@@ -332,6 +341,7 @@ void main() {
         await tester.pumpWidget(
           _wrap(
             DocumentEditor(
+              showToolbar: false,
               contextMenuBuilder: (context, position) {
                 return const Material(child: Text('custom_menu'));
               },
@@ -357,7 +367,7 @@ void main() {
         addTearDown(focusNode.dispose);
 
         await tester.pumpWidget(
-          _wrap(DocumentEditor(focusNode: focusNode)),
+          _wrap(DocumentEditor(focusNode: focusNode, showToolbar: false)),
         );
         await tester.pumpAndSettle();
 
@@ -398,7 +408,7 @@ void main() {
             home: Scaffold(
               body: SizedBox(
                 height: 300,
-                child: DocumentEditor(controller: controller),
+                child: DocumentEditor(controller: controller, showToolbar: false),
               ),
             ),
           ),
@@ -410,7 +420,7 @@ void main() {
       });
 
       testWidgets('DocumentScrollable is present for scroll management', (tester) async {
-        await tester.pumpWidget(_wrap(const DocumentEditor()));
+        await tester.pumpWidget(_wrap(const DocumentEditor(showToolbar: false)));
         await tester.pumpAndSettle();
 
         expect(find.byType(DocumentScrollable), findsOneWidget);
@@ -430,7 +440,7 @@ void main() {
         addTearDown(focusNode.dispose);
 
         await tester.pumpWidget(
-          _wrap(DocumentEditor(focusNode: focusNode)),
+          _wrap(DocumentEditor(focusNode: focusNode, showToolbar: false)),
         );
         await tester.pumpAndSettle();
 
@@ -459,6 +469,7 @@ void main() {
           _wrap(
             DocumentEditor(
               controller: controller,
+              showToolbar: false,
               onSelectionChanged: selectionEvents.add,
             ),
           ),
@@ -500,6 +511,7 @@ void main() {
               autofocus: false,
               blockSpacing: 16.0,
               showLineNumbers: true,
+              showToolbar: false,
             ),
           ),
         );
@@ -509,6 +521,115 @@ void main() {
         final diagnostics = element.toDiagnosticsNode().toStringDeep();
         expect(diagnostics, isNotEmpty);
         expect(tester.takeException(), isNull);
+      });
+    });
+
+    // -------------------------------------------------------------------------
+    // showToolbar
+    // -------------------------------------------------------------------------
+
+    group('showToolbar', () {
+      testWidgets('shows DocumentToolbar by default', (tester) async {
+        tester.view.physicalSize = const Size(1400, 800);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        await tester.pumpWidget(_wrap(const DocumentEditor()));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(DocumentToolbar), findsOneWidget);
+      });
+
+      testWidgets('hides DocumentToolbar when showToolbar is false', (tester) async {
+        await tester.pumpWidget(
+          _wrap(const DocumentEditor(showToolbar: false)),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byType(DocumentToolbar), findsNothing);
+      });
+
+      testWidgets('toolbarLeading widget appears in toolbar', (tester) async {
+        tester.view.physicalSize = const Size(1400, 800);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        await tester.pumpWidget(
+          _wrap(const DocumentEditor(toolbarLeading: Text('lead'))),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('lead'), findsOneWidget);
+      });
+    });
+
+    // -------------------------------------------------------------------------
+    // showPropertyPanel
+    // -------------------------------------------------------------------------
+
+    group('showPropertyPanel', () {
+      testWidgets('property panel toggle button appears when showPropertyPanel is true',
+          (tester) async {
+        tester.view.physicalSize = const Size(1400, 800);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        await tester.pumpWidget(
+          _wrap(const DocumentEditor(showPropertyPanel: true)),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byTooltip('Block Properties'), findsOneWidget);
+      });
+
+      testWidgets('no property panel toggle when showPropertyPanel is false', (tester) async {
+        await tester.pumpWidget(
+          _wrap(const DocumentEditor(showToolbar: false)),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byTooltip('Block Properties'), findsNothing);
+      });
+    });
+
+    // -------------------------------------------------------------------------
+    // showSettingsPanel
+    // -------------------------------------------------------------------------
+
+    group('showSettingsPanel', () {
+      testWidgets('settings panel toggle button appears when showSettingsPanel is true',
+          (tester) async {
+        tester.view.physicalSize = const Size(1400, 800);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        await tester.pumpWidget(
+          _wrap(const DocumentEditor(showSettingsPanel: true)),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byTooltip('Document Settings'), findsOneWidget);
+      });
+
+      testWidgets('no settings panel toggle when showSettingsPanel is false', (tester) async {
+        await tester.pumpWidget(
+          _wrap(const DocumentEditor(showToolbar: false)),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byTooltip('Document Settings'), findsNothing);
       });
     });
 
@@ -542,6 +663,7 @@ void main() {
             home: Scaffold(
               body: DocumentEditor(
                 controller: controller,
+                showToolbar: false,
               ),
             ),
           ),
@@ -582,6 +704,7 @@ void main() {
             home: Scaffold(
               body: DocumentEditor(
                 controller: controller,
+                showToolbar: false,
                 showTableToolbar: false,
               ),
             ),
@@ -614,6 +737,7 @@ void main() {
             home: Scaffold(
               body: DocumentEditor(
                 controller: controller,
+                showToolbar: false,
               ),
             ),
           ),
@@ -627,9 +751,7 @@ void main() {
     group('showStatusBar', () {
       testWidgets('shows DocumentStatusBar by default', (tester) async {
         await tester.pumpWidget(
-          const MaterialApp(
-            home: Scaffold(body: DocumentEditor()),
-          ),
+          _wrap(const DocumentEditor(showToolbar: false)),
         );
         await tester.pumpAndSettle();
 
@@ -638,9 +760,7 @@ void main() {
 
       testWidgets('hides DocumentStatusBar when showStatusBar is false', (tester) async {
         await tester.pumpWidget(
-          const MaterialApp(
-            home: Scaffold(body: DocumentEditor(showStatusBar: false)),
-          ),
+          _wrap(const DocumentEditor(showToolbar: false, showStatusBar: false)),
         );
         await tester.pumpAndSettle();
 
@@ -649,12 +769,11 @@ void main() {
 
       testWidgets('forwards count toggles to DocumentStatusBar', (tester) async {
         await tester.pumpWidget(
-          const MaterialApp(
-            home: Scaffold(
-              body: DocumentEditor(
-                showWordCount: false,
-                showCharCount: false,
-              ),
+          _wrap(
+            const DocumentEditor(
+              showToolbar: false,
+              showWordCount: false,
+              showCharCount: false,
             ),
           ),
         );
@@ -669,15 +788,15 @@ void main() {
 
       testWidgets('applies StatusBarThemeData from DocumentTheme', (tester) async {
         await tester.pumpWidget(
-          const MaterialApp(
-            home: DocumentTheme(
+          _wrap(
+            const DocumentTheme(
               data: DocumentThemeData(
                 statusBarTheme: StatusBarThemeData(
                   backgroundColor: Color(0xFFFF0000),
                   padding: EdgeInsets.all(20),
                 ),
               ),
-              child: Scaffold(body: DocumentEditor()),
+              child: DocumentEditor(showToolbar: false),
             ),
           ),
         );

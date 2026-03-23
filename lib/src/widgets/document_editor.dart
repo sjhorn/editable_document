@@ -20,6 +20,7 @@ import '../model/attributed_text.dart';
 import '../model/document_editing_controller.dart';
 import '../model/document_selection.dart';
 import '../model/edit_context.dart';
+import '../model/edit_request.dart';
 import '../model/mutable_document.dart';
 import '../model/node_position.dart';
 import '../model/paragraph_node.dart';
@@ -38,7 +39,11 @@ import 'document_selection_overlay.dart';
 import 'editable_document.dart';
 import 'document_status_bar.dart';
 import 'gestures/document_mouse_interactor.dart';
+import 'properties/document_property_panel.dart';
+import 'properties/document_settings_panel.dart';
 import 'theme/document_theme.dart';
+import 'toolbar/document_format_toggle.dart';
+import 'toolbar/document_toolbar.dart';
 import 'toolbar/table_context_toolbar.dart';
 
 // ---------------------------------------------------------------------------
@@ -110,6 +115,19 @@ typedef DocumentEditorOverlayBuilder = List<Widget> Function(
 ///   },
 /// )
 /// ```
+///
+/// ## Built-in toolbar and panels
+///
+/// Enable the built-in [DocumentToolbar] (on by default) and opt-in to the
+/// block property panel and document settings panel:
+///
+/// ```dart
+/// DocumentEditor(
+///   showToolbar: true,
+///   showPropertyPanel: true,
+///   showSettingsPanel: true,
+/// )
+/// ```
 class DocumentEditor extends StatefulWidget {
   /// Creates a [DocumentEditor].
   ///
@@ -147,6 +165,20 @@ class DocumentEditor extends StatefulWidget {
     this.showCharCount = true,
     this.showCurrentBlockType = true,
     this.statusBarTrailing,
+    this.showToolbar = true,
+    this.showFormatting = true,
+    this.showBlockTypes = true,
+    this.showAlignment = true,
+    this.showInsert = true,
+    this.showFont = true,
+    this.showColor = true,
+    this.showUndoRedo = true,
+    this.showIndent = true,
+    this.toolbarLeading,
+    this.toolbarTrailing,
+    this.showPropertyPanel = false,
+    this.showSettingsPanel = false,
+    this.onPickImageFile,
     this.contextMenuBuilder,
     this.overlayBuilder,
   });
@@ -303,6 +335,91 @@ class DocumentEditor extends StatefulWidget {
   /// Only relevant when [showStatusBar] is `true`.
   final List<Widget>? statusBarTrailing;
 
+  /// Whether a [DocumentToolbar] is shown above the editor.
+  ///
+  /// Defaults to `true`. Set to `false` to hide the built-in toolbar entirely.
+  final bool showToolbar;
+
+  /// Whether the inline formatting bar is shown in the toolbar.
+  ///
+  /// Forwarded to [DocumentToolbar.showFormatting]. Only relevant when
+  /// [showToolbar] is `true`. Defaults to `true`.
+  final bool showFormatting;
+
+  /// Whether the block type bar is shown in the toolbar.
+  ///
+  /// Forwarded to [DocumentToolbar.showBlockTypes]. Only relevant when
+  /// [showToolbar] is `true`. Defaults to `true`.
+  final bool showBlockTypes;
+
+  /// Whether the text alignment bar is shown in the toolbar.
+  ///
+  /// Forwarded to [DocumentToolbar.showAlignment]. Only relevant when
+  /// [showToolbar] is `true`. Defaults to `true`.
+  final bool showAlignment;
+
+  /// Whether the insert bar is shown in the toolbar.
+  ///
+  /// Forwarded to [DocumentToolbar.showInsert]. Only relevant when
+  /// [showToolbar] is `true`. Defaults to `true`.
+  final bool showInsert;
+
+  /// Whether the font bar is shown in the toolbar.
+  ///
+  /// Forwarded to [DocumentToolbar.showFont]. Only relevant when
+  /// [showToolbar] is `true`. Defaults to `true`.
+  final bool showFont;
+
+  /// Whether the color bar is shown in the toolbar.
+  ///
+  /// Forwarded to [DocumentToolbar.showColor]. Only relevant when
+  /// [showToolbar] is `true`. Defaults to `true`.
+  final bool showColor;
+
+  /// Whether the undo/redo bar is shown in the toolbar.
+  ///
+  /// Forwarded to [DocumentToolbar.showUndoRedo]. Only relevant when
+  /// [showToolbar] is `true`. Defaults to `true`.
+  final bool showUndoRedo;
+
+  /// Whether the indent bar is shown in the toolbar.
+  ///
+  /// Forwarded to [DocumentToolbar.showIndent]. Only relevant when
+  /// [showToolbar] is `true`. Defaults to `true`.
+  final bool showIndent;
+
+  /// An optional widget placed at the leading end of the toolbar.
+  ///
+  /// Only relevant when [showToolbar] is `true`.
+  final Widget? toolbarLeading;
+
+  /// An optional widget placed at the trailing end of the toolbar.
+  ///
+  /// Panel toggle buttons (block properties, settings) are appended after
+  /// this widget when [showPropertyPanel] or [showSettingsPanel] is `true`.
+  /// Only relevant when [showToolbar] is `true`.
+  final Widget? toolbarTrailing;
+
+  /// Whether the block property panel toggle is available.
+  ///
+  /// When `true`, a toggle button appears in the toolbar that opens a
+  /// [DocumentPropertyPanel] showing editors for the currently selected block.
+  /// Defaults to `false` (opt-in).
+  final bool showPropertyPanel;
+
+  /// Whether the document settings panel toggle is available.
+  ///
+  /// When `true`, a toggle button appears in the toolbar that opens a
+  /// [DocumentSettingsPanel] for document-wide settings such as block spacing,
+  /// line height, padding, and line numbers. Defaults to `false` (opt-in).
+  final bool showSettingsPanel;
+
+  /// Callback invoked when the user requests to pick an image file.
+  ///
+  /// Used by the [DocumentPropertyPanel] image properties editor. When `null`,
+  /// the image file picker button is disabled.
+  final VoidCallback? onPickImageFile;
+
   /// An optional builder for the context menu shown on right-click.
   ///
   /// When `null`, a default [AdaptiveTextSelectionToolbar] with Cut, Copy,
@@ -403,6 +520,38 @@ class DocumentEditor extends StatefulWidget {
       ),
     );
     properties.add(
+      FlagProperty('showToolbar', value: showToolbar, ifTrue: 'showToolbar'),
+    );
+    properties.add(
+      FlagProperty('showFormatting', value: showFormatting, ifTrue: 'showFormatting'),
+    );
+    properties.add(
+      FlagProperty('showBlockTypes', value: showBlockTypes, ifTrue: 'showBlockTypes'),
+    );
+    properties.add(
+      FlagProperty('showAlignment', value: showAlignment, ifTrue: 'showAlignment'),
+    );
+    properties.add(FlagProperty('showInsert', value: showInsert, ifTrue: 'showInsert'));
+    properties.add(FlagProperty('showFont', value: showFont, ifTrue: 'showFont'));
+    properties.add(FlagProperty('showColor', value: showColor, ifTrue: 'showColor'));
+    properties.add(FlagProperty('showUndoRedo', value: showUndoRedo, ifTrue: 'showUndoRedo'));
+    properties.add(FlagProperty('showIndent', value: showIndent, ifTrue: 'showIndent'));
+    properties.add(
+      DiagnosticsProperty<Widget?>('toolbarLeading', toolbarLeading, defaultValue: null),
+    );
+    properties.add(
+      DiagnosticsProperty<Widget?>('toolbarTrailing', toolbarTrailing, defaultValue: null),
+    );
+    properties.add(
+      FlagProperty('showPropertyPanel', value: showPropertyPanel, ifTrue: 'showPropertyPanel'),
+    );
+    properties.add(
+      FlagProperty('showSettingsPanel', value: showSettingsPanel, ifTrue: 'showSettingsPanel'),
+    );
+    properties.add(
+      ObjectFlagProperty<VoidCallback?>.has('onPickImageFile', onPickImageFile),
+    );
+    properties.add(
       ObjectFlagProperty<DocumentContextMenuBuilder?>.has(
         'contextMenuBuilder',
         contextMenuBuilder,
@@ -429,7 +578,9 @@ class DocumentEditor extends StatefulWidget {
 /// - Focus change listener to dismiss the context menu on blur.
 /// - Controller change listener to drive [setState] for dependent widgets.
 /// - [ContextMenuController] for right-click context menus.
-class DocumentEditorState extends State<DocumentEditor> {
+/// - Panel visibility for the block property panel and document settings panel.
+/// - Mutable settings state when [DocumentEditor.showSettingsPanel] is `true`.
+class DocumentEditorState extends State<DocumentEditor> with TickerProviderStateMixin {
   // -------------------------------------------------------------------------
   // Keys and links
   // -------------------------------------------------------------------------
@@ -485,6 +636,47 @@ class DocumentEditorState extends State<DocumentEditor> {
   final _contextMenuController = ContextMenuController();
 
   // -------------------------------------------------------------------------
+  // Panel state
+  // -------------------------------------------------------------------------
+
+  /// Whether the block property panel is currently open.
+  bool _showBlockPanel = false;
+
+  /// Whether the document settings panel is currently open.
+  bool _showDocumentPanel = false;
+
+  /// Tab controller used when both panels are open simultaneously.
+  TabController? _panelTabController;
+
+  // -------------------------------------------------------------------------
+  // Settings panel mutable state
+  // -------------------------------------------------------------------------
+
+  /// Current block spacing value, mutable when [DocumentEditor.showSettingsPanel] is `true`.
+  late double _blockSpacing;
+
+  /// Current default line height value, mutable when [DocumentEditor.showSettingsPanel] is `true`.
+  late double? _defaultLineHeight;
+
+  /// Current horizontal document padding, mutable when [DocumentEditor.showSettingsPanel] is `true`.
+  late double _documentPaddingH;
+
+  /// Current vertical document padding, mutable when [DocumentEditor.showSettingsPanel] is `true`.
+  late double _documentPaddingV;
+
+  /// Current show-line-numbers flag, mutable when [DocumentEditor.showSettingsPanel] is `true`.
+  late bool _showLineNumbers;
+
+  /// Current line number alignment, mutable when [DocumentEditor.showSettingsPanel] is `true`.
+  late LineNumberAlignment _lineNumberAlignment;
+
+  /// Current line number text style, mutable when [DocumentEditor.showSettingsPanel] is `true`.
+  TextStyle? _lineNumberTextStyle;
+
+  /// Current line number background color, mutable when [DocumentEditor.showSettingsPanel] is `true`.
+  Color? _lineNumberBackgroundColor;
+
+  // -------------------------------------------------------------------------
   // Lifecycle
   // -------------------------------------------------------------------------
 
@@ -515,6 +707,15 @@ class DocumentEditorState extends State<DocumentEditor> {
 
     _effectiveFocusNode.addListener(_onFocusChanged);
     _effectiveController.addListener(_onControllerChanged);
+
+    _blockSpacing = widget.blockSpacing;
+    _defaultLineHeight = widget.style?.height;
+    _documentPaddingH = widget.documentPadding.left;
+    _documentPaddingV = widget.documentPadding.top;
+    _showLineNumbers = widget.showLineNumbers;
+    _lineNumberAlignment = widget.lineNumberAlignment;
+    _lineNumberTextStyle = widget.lineNumberTextStyle;
+    _lineNumberBackgroundColor = widget.lineNumberBackgroundColor;
   }
 
   @override
@@ -599,6 +800,7 @@ class DocumentEditorState extends State<DocumentEditor> {
     _internalController?.dispose();
     _internalFocusNode?.dispose();
     _internalEditor = null; // UndoableEditor has no dispose method.
+    _panelTabController?.dispose();
     super.dispose();
   }
 
@@ -613,9 +815,50 @@ class DocumentEditorState extends State<DocumentEditor> {
   }
 
   void _onControllerChanged() {
+    // Auto-hide block panel when selection leaves a node.
+    if (widget.showPropertyPanel) {
+      final sel = _effectiveController.selection;
+      final node = sel != null ? _effectiveController.document.nodeById(sel.extent.nodeId) : null;
+      if (node == null && _showBlockPanel) {
+        _showBlockPanel = false;
+        _syncPanelTabController();
+      }
+    }
     setState(() {
       // Rebuild so overlay builders reflect the latest controller state.
     });
+  }
+
+  // -------------------------------------------------------------------------
+  // Panel toggle methods
+  // -------------------------------------------------------------------------
+
+  /// Toggles the block property panel open or closed.
+  void _toggleBlockPanel() {
+    setState(() {
+      _showBlockPanel = !_showBlockPanel;
+      _syncPanelTabController();
+    });
+  }
+
+  /// Toggles the document settings panel open or closed.
+  void _toggleDocumentPanel() {
+    setState(() {
+      _showDocumentPanel = !_showDocumentPanel;
+      _syncPanelTabController();
+    });
+  }
+
+  /// Creates or disposes the [TabController] based on current panel visibility.
+  ///
+  /// A tab controller is only needed when both panels are open simultaneously.
+  void _syncPanelTabController() {
+    if (_showBlockPanel && _showDocumentPanel) {
+      _panelTabController ??= TabController(length: 2, vsync: this);
+    } else {
+      _panelTabController?.dispose();
+      _panelTabController = null;
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -717,12 +960,175 @@ class DocumentEditorState extends State<DocumentEditor> {
   }
 
   // -------------------------------------------------------------------------
+  // Toolbar builder
+  // -------------------------------------------------------------------------
+
+  /// Builds the [DocumentToolbar] with optional panel toggle buttons appended
+  /// to the trailing end.
+  Widget _buildToolbar() {
+    final panelToggles = <Widget>[];
+
+    if (widget.showPropertyPanel) {
+      final sel = _effectiveController.selection;
+      final hasSelection =
+          sel != null && _effectiveController.document.nodeById(sel.extent.nodeId) != null;
+      panelToggles.add(
+        DocumentFormatToggle(
+          icon: Icons.view_sidebar_outlined,
+          tooltip: 'Block Properties',
+          isActive: _showBlockPanel,
+          onPressed: hasSelection ? _toggleBlockPanel : null,
+        ),
+      );
+    }
+
+    if (widget.showSettingsPanel) {
+      panelToggles.add(
+        DocumentFormatToggle(
+          icon: Icons.settings_outlined,
+          tooltip: 'Document Settings',
+          isActive: _showDocumentPanel,
+          onPressed: _toggleDocumentPanel,
+        ),
+      );
+    }
+
+    Widget? effectiveTrailing;
+    if (widget.toolbarTrailing != null || panelToggles.isNotEmpty) {
+      effectiveTrailing = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (widget.toolbarTrailing != null) widget.toolbarTrailing!,
+          ...panelToggles,
+        ],
+      );
+    }
+
+    return DocumentToolbar(
+      controller: _effectiveController,
+      requestHandler: _effectiveEditor.submit,
+      editor: _effectiveEditor,
+      showFormatting: widget.showFormatting,
+      showBlockTypes: widget.showBlockTypes,
+      showAlignment: widget.showAlignment,
+      showInsert: widget.showInsert,
+      showFont: widget.showFont,
+      showColor: widget.showColor,
+      showUndoRedo: widget.showUndoRedo,
+      showIndent: widget.showIndent,
+      leading: widget.toolbarLeading,
+      trailing: effectiveTrailing,
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Property panel builder
+  // -------------------------------------------------------------------------
+
+  /// Builds the side panel that shows either the block property panel, the
+  /// document settings panel, or both in a [TabBarView].
+  Widget _buildPropertyPanel() {
+    final themeData = DocumentTheme.maybeOf(context);
+    final panelWidth = themeData?.propertyPanelTheme?.width ?? 280.0;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    final panelDecoration = BoxDecoration(
+      color: colorScheme.surfaceContainerLow,
+      border: Border(left: BorderSide(color: colorScheme.outlineVariant)),
+    );
+
+    if (_showBlockPanel && _showDocumentPanel && _panelTabController != null) {
+      return SizedBox(
+        width: panelWidth,
+        height: double.infinity,
+        child: DecoratedBox(
+          decoration: panelDecoration,
+          child: Column(
+            children: [
+              TabBar(
+                controller: _panelTabController,
+                tabs: const [Tab(text: 'Block'), Tab(text: 'Document')],
+                labelStyle: Theme.of(context).textTheme.labelSmall,
+              ),
+              Expanded(
+                child: TabBarView(
+                  controller: _panelTabController,
+                  children: [
+                    DocumentPropertyPanel(
+                      controller: _effectiveController,
+                      requestHandler: _effectiveEditor.submit,
+                      width: panelWidth,
+                      onPickImageFile: widget.onPickImageFile,
+                    ),
+                    _buildSettingsPanel(),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_showBlockPanel) {
+      return SizedBox(
+        width: panelWidth,
+        height: double.infinity,
+        child: DecoratedBox(
+          decoration: panelDecoration,
+          child: DocumentPropertyPanel(
+            controller: _effectiveController,
+            requestHandler: _effectiveEditor.submit,
+            width: panelWidth,
+            onPickImageFile: widget.onPickImageFile,
+          ),
+        ),
+      );
+    }
+
+    return SizedBox(
+      width: panelWidth,
+      height: double.infinity,
+      child: DecoratedBox(
+        decoration: panelDecoration,
+        child: _buildSettingsPanel(),
+      ),
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Settings panel builder
+  // -------------------------------------------------------------------------
+
+  /// Builds the [DocumentSettingsPanel] wired to local mutable state.
+  Widget _buildSettingsPanel() {
+    return DocumentSettingsPanel(
+      blockSpacing: _blockSpacing,
+      onBlockSpacingChanged: (v) => setState(() => _blockSpacing = v),
+      defaultLineHeight: _defaultLineHeight,
+      onDefaultLineHeightChanged: (v) => setState(() => _defaultLineHeight = v),
+      documentPadding: EdgeInsets.symmetric(
+        horizontal: _documentPaddingH,
+        vertical: _documentPaddingV,
+      ),
+      onDocumentPaddingChanged: (v) => setState(() {
+        _documentPaddingH = v.left;
+        _documentPaddingV = v.top;
+      }),
+      showLineNumbers: _showLineNumbers,
+      onShowLineNumbersChanged: (v) => setState(() => _showLineNumbers = v),
+      lineNumberAlignment: _lineNumberAlignment,
+      onLineNumberAlignmentChanged: (v) => setState(() => _lineNumberAlignment = v),
+    );
+  }
+
+  // -------------------------------------------------------------------------
   // Build
   // -------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
-    Widget editor = DocumentScrollable(
+    final scrollableEditor = DocumentScrollable(
       controller: _effectiveController,
       layoutKey: _layoutKey,
       contentPadding: widget.contentPadding,
@@ -748,7 +1154,10 @@ class DocumentEditorState extends State<DocumentEditor> {
                 controller: _effectiveController,
                 focusNode: _effectiveFocusNode,
                 layoutKey: _layoutKey,
-                style: widget.style,
+                style: widget.showSettingsPanel
+                    ? widget.style?.copyWith(height: _defaultLineHeight) ??
+                        TextStyle(height: _defaultLineHeight)
+                    : widget.style,
                 textDirection: widget.textDirection,
                 textAlign: widget.textAlign,
                 readOnly: widget.readOnly,
@@ -757,15 +1166,25 @@ class DocumentEditorState extends State<DocumentEditor> {
                 keyboardType: widget.keyboardType,
                 onSelectionChanged: widget.onSelectionChanged,
                 componentBuilders: widget.componentBuilders,
-                blockSpacing: widget.blockSpacing,
+                blockSpacing: widget.showSettingsPanel ? _blockSpacing : widget.blockSpacing,
                 stylesheet: widget.stylesheet,
                 editor: _effectiveEditor,
                 scrollPadding: widget.scrollPadding,
-                documentPadding: widget.documentPadding,
-                showLineNumbers: widget.showLineNumbers,
-                lineNumberAlignment: widget.lineNumberAlignment,
-                lineNumberTextStyle: widget.lineNumberTextStyle,
-                lineNumberBackgroundColor: widget.lineNumberBackgroundColor,
+                documentPadding: widget.showSettingsPanel
+                    ? EdgeInsets.symmetric(
+                        horizontal: _documentPaddingH,
+                        vertical: _documentPaddingV,
+                      )
+                    : widget.documentPadding,
+                showLineNumbers:
+                    widget.showSettingsPanel ? _showLineNumbers : widget.showLineNumbers,
+                lineNumberAlignment:
+                    widget.showSettingsPanel ? _lineNumberAlignment : widget.lineNumberAlignment,
+                lineNumberTextStyle:
+                    widget.showSettingsPanel ? _lineNumberTextStyle : widget.lineNumberTextStyle,
+                lineNumberBackgroundColor: widget.showSettingsPanel
+                    ? _lineNumberBackgroundColor
+                    : widget.lineNumberBackgroundColor,
               ),
             ),
             Positioned.fill(
@@ -783,13 +1202,26 @@ class DocumentEditorState extends State<DocumentEditor> {
       ),
     );
 
-    if (widget.showStatusBar) {
-      final statusTheme = DocumentTheme.maybeOf(context)?.statusBarTheme;
-      final colorScheme = Theme.of(context).colorScheme;
+    final panelVisible = _showBlockPanel || _showDocumentPanel;
 
-      editor = Column(
-        children: [
-          Expanded(child: editor),
+    Widget editorRow = panelVisible
+        ? Row(
+            children: [
+              Expanded(child: scrollableEditor),
+              _buildPropertyPanel(),
+            ],
+          )
+        : scrollableEditor;
+
+    final statusTheme =
+        widget.showStatusBar ? DocumentTheme.maybeOf(context)?.statusBarTheme : null;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Column(
+      children: [
+        if (widget.showToolbar) _buildToolbar(),
+        Expanded(child: editorRow),
+        if (widget.showStatusBar)
           Container(
             padding:
                 statusTheme?.padding ?? const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -811,11 +1243,8 @@ class DocumentEditorState extends State<DocumentEditor> {
               ),
             ),
           ),
-        ],
-      );
-    }
-
-    return editor;
+      ],
+    );
   }
 
   @override
@@ -853,6 +1282,21 @@ class DocumentEditorState extends State<DocumentEditor> {
         value: _internalEditor != null,
         ifTrue: 'internalEditor',
       ),
+    );
+    properties.add(
+      FlagProperty('showBlockPanel', value: _showBlockPanel, ifTrue: 'showBlockPanel'),
+    );
+    properties.add(
+      FlagProperty('showDocumentPanel', value: _showDocumentPanel, ifTrue: 'showDocumentPanel'),
+    );
+    properties.add(DoubleProperty('blockSpacing', _blockSpacing));
+    properties.add(DoubleProperty('documentPaddingH', _documentPaddingH));
+    properties.add(DoubleProperty('documentPaddingV', _documentPaddingV));
+    properties.add(
+      FlagProperty('showLineNumbers', value: _showLineNumbers, ifTrue: 'showLineNumbers'),
+    );
+    properties.add(
+      EnumProperty<LineNumberAlignment>('lineNumberAlignment', _lineNumberAlignment),
     );
   }
 }
