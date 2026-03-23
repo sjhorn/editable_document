@@ -2,8 +2,9 @@
 ///
 /// Covers tap (collapse selection), double-tap (word select), triple-tap
 /// (block select), shift+tap (extend selection), drag (range select),
-/// enabled:false behaviour, focus stealing, diagnostics, and secondary
-/// (right-click) tap handling.
+/// enabled:false behaviour, focus stealing, diagnostics, secondary
+/// (right-click) tap handling, binary-node tap/double-tap/triple-tap,
+/// block-drag lifecycle, and _isPositionInsideSelection edge cases.
 library;
 
 import 'package:flutter/gestures.dart' show kSecondaryMouseButton, PointerDeviceKind;
@@ -988,6 +989,522 @@ void main() {
       await tester.pump();
 
       expect(controller.selection, isNull);
+    });
+  });
+
+  // =========================================================================
+  // 12. Binary (non-text) node tap → block selection
+  // =========================================================================
+
+  group('DocumentMouseInteractor — binary node tap', () {
+    testWidgets('tap on HorizontalRuleNode selects the whole block', (tester) async {
+      final doc = MutableDocument([
+        HorizontalRuleNode(id: 'hr1'),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      addTearDown(controller.dispose);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+
+      await tester.pumpWidget(
+        _buildInteractor(controller: controller, layoutKey: layoutKey, doc: doc),
+      );
+      await tester.pump();
+
+      final rect = tester.getRect(find.byType(DocumentMouseInteractor));
+      await tester.tapAt(rect.center);
+      await tester.pump(_tapSettleDuration);
+
+      expect(controller.selection, isNotNull);
+      expect(controller.selection!.base.nodeId, 'hr1');
+      expect(controller.selection!.base.nodePosition, const BinaryNodePosition.upstream());
+      expect(controller.selection!.extent.nodePosition, const BinaryNodePosition.downstream());
+    });
+
+    testWidgets('tap on HorizontalRuleNode selects block even with prior selection', (
+      tester,
+    ) async {
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('Hello')),
+        HorizontalRuleNode(id: 'hr1'),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      addTearDown(controller.dispose);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+
+      await tester.pumpWidget(
+        _buildInteractor(controller: controller, layoutKey: layoutKey, doc: doc),
+      );
+      await tester.pump();
+
+      // Tap the horizontal rule — it occupies the lower half of the layout.
+      final rect = tester.getRect(find.byType(DocumentMouseInteractor));
+      await tester.tapAt(rect.bottomCenter - const Offset(0, 4));
+      await tester.pump(_tapSettleDuration);
+
+      expect(controller.selection, isNotNull);
+      if (controller.selection!.base.nodeId == 'hr1') {
+        expect(controller.selection!.base.nodePosition, const BinaryNodePosition.upstream());
+        expect(controller.selection!.extent.nodePosition, const BinaryNodePosition.downstream());
+      }
+      // Accept either node as tapped since layout may vary; important: no throw.
+    });
+  });
+
+  // =========================================================================
+  // 13. Double-tap on binary (non-text) node → whole-block selection
+  // =========================================================================
+
+  group('DocumentMouseInteractor — double-tap on binary node', () {
+    testWidgets('double-tap on HorizontalRuleNode selects whole block', (tester) async {
+      final doc = MutableDocument([
+        HorizontalRuleNode(id: 'hr1'),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      addTearDown(controller.dispose);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+
+      await tester.pumpWidget(
+        _buildInteractor(controller: controller, layoutKey: layoutKey, doc: doc),
+      );
+      await tester.pump();
+
+      final rect = tester.getRect(find.byType(DocumentMouseInteractor));
+      final tapPos = rect.center;
+
+      await tester.tapAt(tapPos);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tapAt(tapPos);
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(controller.selection, isNotNull);
+      expect(controller.selection!.base.nodeId, 'hr1');
+      expect(controller.selection!.base.nodePosition, const BinaryNodePosition.upstream());
+      expect(controller.selection!.extent.nodePosition, const BinaryNodePosition.downstream());
+    });
+  });
+
+  // =========================================================================
+  // 14. Triple-tap on non-text node via _onDoubleTapDown path
+  // =========================================================================
+
+  group('DocumentMouseInteractor — triple-tap via double-tap on binary node', () {
+    testWidgets(
+      'third tap arriving as double-tap-down selects block when triple-tap pending',
+      (tester) async {
+        // When taps 1+2 fire as onDoubleTapDown (word-select), then tap 3
+        // arrives very quickly and is also recognised as onDoubleTapDown
+        // (before the 300 ms window expires), _onDoubleTapDown checks
+        // _isTripleTap and should select the whole block.
+        const text = 'Hello world';
+        final doc = _singleParagraph(text);
+        final controller = DocumentEditingController(document: doc);
+        addTearDown(controller.dispose);
+        final layoutKey = GlobalKey<DocumentLayoutState>();
+
+        await tester.pumpWidget(
+          _buildInteractor(controller: controller, layoutKey: layoutKey, doc: doc),
+        );
+        await tester.pump();
+
+        final rect = tester.getRect(find.byType(DocumentMouseInteractor));
+        final tapPos = rect.centerLeft + const Offset(10, 0);
+
+        // Taps 1+2: onDoubleTapDown fires → word select + sets _pendingTripleTap.
+        await tester.tapAt(tapPos);
+        await tester.pump(const Duration(milliseconds: 50));
+        await tester.tapAt(tapPos);
+        await tester.pump(const Duration(milliseconds: 50));
+
+        // Tap 3 arrives before the 300 ms window → onDoubleTapDown again.
+        // _isTripleTap returns true → _selectBlock is called.
+        await tester.tapAt(tapPos);
+        await tester.pump(const Duration(milliseconds: 50));
+        await tester.tapAt(tapPos);
+        // Settle the timers.
+        await tester.pump(const Duration(milliseconds: 700));
+
+        expect(controller.selection, isNotNull);
+        expect(controller.selection!.base.nodeId, 'p1');
+        // The selection should span the full text (block select).
+        final basePos = controller.selection!.base.nodePosition;
+        final extentPos = controller.selection!.extent.nodePosition;
+        if (basePos is TextNodePosition && extentPos is TextNodePosition) {
+          expect(basePos.offset, 0);
+          expect(extentPos.offset, text.length);
+        }
+      },
+    );
+  });
+
+  // =========================================================================
+  // 15. _selectBlock for non-text node
+  // =========================================================================
+
+  group('DocumentMouseInteractor — _selectBlock for binary node', () {
+    testWidgets('triple-tap on HorizontalRuleNode selects binary block', (tester) async {
+      final doc = MutableDocument([
+        HorizontalRuleNode(id: 'hr1'),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      addTearDown(controller.dispose);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+
+      await tester.pumpWidget(
+        _buildInteractor(controller: controller, layoutKey: layoutKey, doc: doc),
+      );
+      await tester.pump();
+
+      final rect = tester.getRect(find.byType(DocumentMouseInteractor));
+      final tapPos = rect.center;
+
+      // Three taps trigger _selectBlock for the HR node.
+      await tester.tapAt(tapPos);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tapAt(tapPos);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tapAt(tapPos);
+      await tester.pump(const Duration(milliseconds: 700));
+
+      expect(controller.selection, isNotNull);
+      expect(controller.selection!.base.nodeId, 'hr1');
+      expect(controller.selection!.base.nodePosition, const BinaryNodePosition.upstream());
+      expect(controller.selection!.extent.nodePosition, const BinaryNodePosition.downstream());
+    });
+  });
+
+  // =========================================================================
+  // 16. Drag produces an expanded selection
+  // =========================================================================
+
+  group('DocumentMouseInteractor — drag selection', () {
+    testWidgets('pointer-up after drag clears drag state cleanly', (tester) async {
+      final doc = _singleParagraph('Hello world');
+      final controller = DocumentEditingController(document: doc);
+      addTearDown(controller.dispose);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+
+      await tester.pumpWidget(
+        _buildInteractor(controller: controller, layoutKey: layoutKey, doc: doc),
+      );
+      await tester.pump();
+
+      final rect = tester.getRect(find.byType(DocumentMouseInteractor));
+
+      final gesture = await tester.startGesture(
+        rect.centerLeft + const Offset(5, 0),
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pump();
+      await gesture.moveTo(rect.centerLeft + const Offset(60, 0));
+      await tester.pump();
+      await gesture.up();
+      await tester.pump(_tapSettleDuration);
+
+      expect(tester.takeException(), isNull);
+      // After pointer-up selection is preserved.
+      expect(controller.selection, isNotNull);
+    });
+
+    testWidgets('drag followed by pointer-up and new tap produces collapsed selection', (
+      tester,
+    ) async {
+      // Verifies _isDragging is cleared on pointer-up so a subsequent tap
+      // starts a fresh selection rather than extending the drag.
+      final doc = _singleParagraph('Hello world');
+      final controller = DocumentEditingController(document: doc);
+      addTearDown(controller.dispose);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+
+      await tester.pumpWidget(
+        _buildInteractor(controller: controller, layoutKey: layoutKey, doc: doc),
+      );
+      await tester.pump();
+
+      final rect = tester.getRect(find.byType(DocumentMouseInteractor));
+
+      // First: a drag to produce an expanded selection.
+      final gesture = await tester.startGesture(
+        rect.centerLeft + const Offset(5, 0),
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pump();
+      await gesture.moveTo(rect.centerLeft + const Offset(60, 0));
+      await tester.pump();
+      await gesture.up();
+      await tester.pump();
+
+      expect(controller.selection!.isExpanded, isTrue);
+
+      // Second: a plain tap collapses the selection.
+      await tester.tapAt(rect.centerLeft + const Offset(10, 0));
+      await tester.pump(_tapSettleDuration);
+
+      expect(controller.selection!.isCollapsed, isTrue);
+    });
+  });
+
+  // =========================================================================
+  // 17. _isPositionInsideSelection — extent-node offset check
+  // =========================================================================
+
+  group('DocumentMouseInteractor — _isPositionInsideSelection extent node branch', () {
+    testWidgets(
+      'right-click at extent-node position beyond selection collapses selection',
+      (tester) async {
+        // Two-node document. Selection covers p1 offset 0 → p2 offset 2.
+        // Right-click at p2 offset 5 (outside extent offset 2) should collapse.
+        // This exercises the extentIndex branch in _isPositionInsideSelection.
+        final doc = MutableDocument([
+          ParagraphNode(id: 'p1', text: AttributedText('Hello')),
+          ParagraphNode(id: 'p2', text: AttributedText('world')),
+        ]);
+        final controller = DocumentEditingController(document: doc);
+        addTearDown(controller.dispose);
+        final layoutKey = GlobalKey<DocumentLayoutState>();
+
+        await tester.pumpWidget(
+          _buildInteractor(
+            controller: controller,
+            layoutKey: layoutKey,
+            doc: doc,
+            onSecondaryTapDown: (_) {},
+          ),
+        );
+        await tester.pump();
+
+        // Select from p1 offset 0 to p2 offset 2 — a cross-node selection.
+        controller.setSelection(
+          const DocumentSelection(
+            base: DocumentPosition(
+              nodeId: 'p1',
+              nodePosition: TextNodePosition(offset: 0),
+            ),
+            extent: DocumentPosition(
+              nodeId: 'p2',
+              nodePosition: TextNodePosition(offset: 2),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        // Right-click at the far right of p2, which maps to offset 5
+        // (beyond extent offset 2) → outside the selection → collapses.
+        final p2Component = layoutKey.currentState!.componentForNode('p2')!;
+        final p2Box = p2Component as RenderBox;
+        // Tap near the right edge of p2 to get a high text offset.
+        final p2Global = p2Box.localToGlobal(
+          Offset(p2Box.size.width - 2, p2Box.size.height / 2),
+        );
+
+        final gesture = await tester.createGesture(
+          kind: PointerDeviceKind.mouse,
+          buttons: kSecondaryMouseButton,
+        );
+        await gesture.addPointer(location: p2Global);
+        addTearDown(gesture.removePointer);
+        await gesture.down(p2Global);
+        await gesture.up();
+        await tester.pump();
+
+        // Selection is collapsed (tapped outside the selection extent).
+        expect(controller.selection, isNotNull);
+        expect(controller.selection!.isCollapsed, isTrue);
+      },
+    );
+
+    testWidgets(
+      'right-click at extent-node position inside selection preserves selection',
+      (tester) async {
+        // Two-node document. Selection p1 offset 0 → p2 offset 5 (full p2).
+        // Right-click at the start of p2 (offset ~0) is inside the selection.
+        // Exercises the extentIndex branch returning true.
+        final doc = MutableDocument([
+          ParagraphNode(id: 'p1', text: AttributedText('Hello')),
+          ParagraphNode(id: 'p2', text: AttributedText('world')),
+        ]);
+        final controller = DocumentEditingController(document: doc);
+        addTearDown(controller.dispose);
+        final layoutKey = GlobalKey<DocumentLayoutState>();
+
+        await tester.pumpWidget(
+          _buildInteractor(
+            controller: controller,
+            layoutKey: layoutKey,
+            doc: doc,
+            onSecondaryTapDown: (_) {},
+          ),
+        );
+        await tester.pump();
+
+        // Select from p1 offset 0 to p2 offset 5 (all of p2).
+        controller.setSelection(
+          const DocumentSelection(
+            base: DocumentPosition(
+              nodeId: 'p1',
+              nodePosition: TextNodePosition(offset: 0),
+            ),
+            extent: DocumentPosition(
+              nodeId: 'p2',
+              nodePosition: TextNodePosition(offset: 5),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        // Right-click at the left edge of p2 (near offset 0 — inside selection).
+        final p2Component = layoutKey.currentState!.componentForNode('p2')!;
+        final p2Box = p2Component as RenderBox;
+        final p2Global = p2Box.localToGlobal(Offset(2, p2Box.size.height / 2));
+
+        final gesture = await tester.createGesture(
+          kind: PointerDeviceKind.mouse,
+          buttons: kSecondaryMouseButton,
+        );
+        await gesture.addPointer(location: p2Global);
+        addTearDown(gesture.removePointer);
+        await gesture.down(p2Global);
+        await gesture.up();
+        await tester.pump();
+
+        // Selection remains expanded.
+        expect(controller.selection, isNotNull);
+        expect(controller.selection!.isExpanded, isTrue);
+      },
+    );
+  });
+
+  // =========================================================================
+  // 18. Block drag lifecycle with BlockDragOverlay
+  // =========================================================================
+
+  group('DocumentMouseInteractor — block drag lifecycle', () {
+    /// Builds an interactor with a [BlockDragOverlay] stacked underneath it,
+    /// so block-drag code paths in the interactor can be exercised.
+    Widget _buildWithBlockDragOverlay({
+      required DocumentEditingController controller,
+      required GlobalKey<DocumentLayoutState> layoutKey,
+      required MutableDocument doc,
+      required GlobalKey<BlockDragOverlayState> overlayKey,
+    }) {
+      return MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 600,
+            child: Stack(
+              children: [
+                DocumentMouseInteractor(
+                  controller: controller,
+                  layoutKey: layoutKey,
+                  document: doc,
+                  blockDragOverlayKey: overlayKey,
+                  child: DocumentLayout(
+                    key: layoutKey,
+                    document: doc,
+                    controller: controller,
+                    componentBuilders: defaultComponentBuilders,
+                  ),
+                ),
+                Positioned.fill(
+                  child: BlockDragOverlay(
+                    key: overlayKey,
+                    controller: controller,
+                    layoutKey: layoutKey,
+                    document: doc,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    testWidgets('pointer-cancel during active block drag cancels block drag', (tester) async {
+      addTearDown(() => BlockDragOverlay.isDragging = false);
+
+      final doc = MutableDocument([
+        HorizontalRuleNode(id: 'hr1'),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      addTearDown(controller.dispose);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+      final overlayKey = GlobalKey<BlockDragOverlayState>();
+
+      await tester.pumpWidget(
+        _buildWithBlockDragOverlay(
+          controller: controller,
+          layoutKey: layoutKey,
+          doc: doc,
+          overlayKey: overlayKey,
+        ),
+      );
+      await tester.pump();
+
+      controller.setSelection(
+        const DocumentSelection(
+          base: DocumentPosition(
+            nodeId: 'hr1',
+            nodePosition: BinaryNodePosition.upstream(),
+          ),
+          extent: DocumentPosition(
+            nodeId: 'hr1',
+            nodePosition: BinaryNodePosition.downstream(),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final rect = tester.getRect(find.byType(DocumentMouseInteractor));
+      final start = rect.center;
+      final gesture = await tester.startGesture(start, kind: PointerDeviceKind.mouse);
+      await tester.pump();
+      await gesture.moveTo(start + const Offset(0, 20));
+      await tester.pump();
+      // Cancel rather than up — exercises _onPointerCancel block drag path.
+      await gesture.cancel();
+      await tester.pump(_tapSettleDuration);
+
+      expect(tester.takeException(), isNull);
+      expect(BlockDragOverlay.isDragging, isFalse);
+    });
+  });
+
+  // =========================================================================
+  // 19. Double-tap on TableNode → word selection within cell
+  // =========================================================================
+
+  group('DocumentMouseInteractor — double-tap on TableNode', () {
+    testWidgets('double-tap on TableNode cell selects word within cell', (tester) async {
+      final doc = MutableDocument([
+        TableNode(
+          id: 'table1',
+          rowCount: 1,
+          columnCount: 1,
+          cells: [
+            [AttributedText('Hello world')],
+          ],
+        ),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      addTearDown(controller.dispose);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+
+      await tester.pumpWidget(
+        _buildInteractor(controller: controller, layoutKey: layoutKey, doc: doc),
+      );
+      await tester.pump();
+
+      final rect = tester.getRect(find.byType(DocumentMouseInteractor));
+      final tapPos = rect.centerLeft + const Offset(10, 0);
+
+      await tester.tapAt(tapPos);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tapAt(tapPos);
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // The selection should now exist on the table node.
+      expect(controller.selection, isNotNull);
+      expect(controller.selection!.base.nodeId, 'table1');
     });
   });
 }

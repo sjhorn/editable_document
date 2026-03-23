@@ -1040,14 +1040,14 @@ void main() {
       // without throwing.
       final block = _layoutBlock(_makeTable(rowCount: 2, columnCount: 2));
       // DocumentSelection with non-TableCellPosition base/extent.
-      block.nodeSelection = DocumentSelection(
+      block.nodeSelection = const DocumentSelection(
         base: DocumentPosition(
           nodeId: 'table1',
-          nodePosition: const BinaryNodePosition.upstream(),
+          nodePosition: BinaryNodePosition.upstream(),
         ),
         extent: DocumentPosition(
           nodeId: 'table1',
-          nodePosition: const BinaryNodePosition.downstream(),
+          nodePosition: BinaryNodePosition.downstream(),
         ),
       );
       expect(block.nodeSelection, isNotNull);
@@ -1061,14 +1061,14 @@ void main() {
 
     test('nodeSelection setter no-op when same value is set', () {
       final block = _layoutBlock(_makeTable(rowCount: 1, columnCount: 1));
-      final sel = DocumentSelection(
+      final sel = const DocumentSelection(
         base: DocumentPosition(
           nodeId: 'table1',
-          nodePosition: const TableCellPosition(row: 0, col: 0, offset: 0),
+          nodePosition: TableCellPosition(row: 0, col: 0, offset: 0),
         ),
         extent: DocumentPosition(
           nodeId: 'table1',
-          nodePosition: const TableCellPosition(row: 0, col: 0, offset: 1),
+          nodePosition: TableCellPosition(row: 0, col: 0, offset: 1),
         ),
       );
       block.nodeSelection = sel;
