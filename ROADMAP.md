@@ -416,6 +416,23 @@ Concurrent float layout (left+right images with text flowing between) and basic 
 
 ---
 
+## Phase 10.7 — DocumentEditor convenience widget
+
+> **Commit message:** `feat(widgets): add DocumentEditor convenience widget, simplify example`
+
+`DocumentEditor` eliminates full-page editor boilerplate by internally composing `DocumentScrollable`, `DocumentMouseInteractor`, `DocumentSelectionOverlay`, `EditableDocument`, and `CaretDocumentOverlay`. All parameters optional with sensible defaults, matching `DocumentField`'s convention-over-configuration pattern.
+
+### 10.7.1 Widget layer
+- [x] `DocumentEditor` — all-optional params; internally manages GlobalKeys, LayerLinks, ContextMenuController, DocumentClipboard; optional controller/focusNode/editor with internal fallbacks.
+- [x] `DocumentEditorOverlayBuilder` typedef — inject custom overlay widgets (e.g. table toolbar) into the editor's Stack.
+- [x] Built-in context menu via `defaultDocumentContextMenuButtonItems`; custom override via `contextMenuBuilder`.
+- [x] Tests: zero-config rendering, external controller, disposal, readOnly, autofocus, overlayBuilder, contextMenuBuilder, scrolling (23 tests).
+
+### 10.7.2 Example app
+- [x] `example/main.dart` simplified: replaced 70-line widget tree and 6 infrastructure declarations with single `DocumentEditor(...)` call. Example shrinks from 789 to 711 lines.
+
+---
+
 ## Phase 11 — Flutter framework contribution prep
 
 > **Commit message:** `chore: flutter contribution readiness — design doc, analysis alignment`
@@ -459,5 +476,6 @@ Concurrent float layout (left+right images with text flowing between) and basic 
 | `0.8.0-dev` | 9–10 | Benchmarks + docs |
 | `0.8.1-dev` | 10.5 | Block layout properties |
 | `0.8.2-dev` | 10.6 | Dual floats + tables |
+| `0.8.3-dev` | 10.7 | DocumentEditor convenience widget |
 | `0.9.0-dev` | 11 | Flutter contribution prep |
 | `1.0.0` | 12 | Stable |

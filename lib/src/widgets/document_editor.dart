@@ -13,6 +13,7 @@ library;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../model/attributed_text.dart';
@@ -20,7 +21,9 @@ import '../model/document_editing_controller.dart';
 import '../model/document_selection.dart';
 import '../model/edit_context.dart';
 import '../model/mutable_document.dart';
+import '../model/node_position.dart';
 import '../model/paragraph_node.dart';
+import '../model/table_node.dart';
 import '../model/undoable_editor.dart';
 import '../rendering/render_document_layout.dart';
 import '../services/document_clipboard.dart';
@@ -34,6 +37,7 @@ import 'document_scrollable.dart';
 import 'document_selection_overlay.dart';
 import 'editable_document.dart';
 import 'gestures/document_mouse_interactor.dart';
+import 'toolbar/table_context_toolbar.dart';
 
 // ---------------------------------------------------------------------------
 // DocumentEditorOverlayBuilder typedef
@@ -134,6 +138,7 @@ class DocumentEditor extends StatefulWidget {
     this.lineNumberTextStyle,
     this.lineNumberBackgroundColor,
     this.contentPadding = EdgeInsets.zero,
+    this.showTableToolbar = true,
     this.contextMenuBuilder,
     this.overlayBuilder,
   });
@@ -251,6 +256,13 @@ class DocumentEditor extends StatefulWidget {
   /// layout (e.g. horizontal margins on desktop). Defaults to [EdgeInsets.zero].
   final EdgeInsets contentPadding;
 
+  /// Whether a [TableContextToolbar] is shown above the table when the
+  /// selection is inside a [TableNode].
+  ///
+  /// The toolbar provides cell alignment, row/column insert/delete, resize,
+  /// and table deletion controls. Defaults to `true`.
+  final bool showTableToolbar;
+
   /// An optional builder for the context menu shown on right-click.
   ///
   /// When `null`, a default [AdaptiveTextSelectionToolbar] with Cut, Copy,
@@ -328,6 +340,9 @@ class DocumentEditor extends StatefulWidget {
       ColorProperty('lineNumberBackgroundColor', lineNumberBackgroundColor, defaultValue: null),
     );
     properties.add(DiagnosticsProperty<EdgeInsets>('contentPadding', contentPadding));
+    properties.add(
+      FlagProperty('showTableToolbar', value: showTableToolbar, ifTrue: 'showTableToolbar'),
+    );
     properties.add(
       ObjectFlagProperty<DocumentContextMenuBuilder?>.has(
         'contextMenuBuilder',
@@ -584,6 +599,65 @@ class DocumentEditorState extends State<DocumentEditor> {
   }
 
   // -------------------------------------------------------------------------
+  // Table toolbar
+  // -------------------------------------------------------------------------
+
+  /// Builds a [TableContextToolbar] positioned above the table when the
+  /// selection is inside a [TableNode], or [SizedBox.shrink] otherwise.
+  Widget _buildTableToolbar() {
+    final sel = _effectiveController.selection;
+    if (sel == null) return const SizedBox.shrink();
+    final node = _effectiveController.document.nodeById(sel.extent.nodeId);
+    if (node is! TableNode) return const SizedBox.shrink();
+    final extentPos = sel.extent.nodePosition;
+    if (extentPos is! TableCellPosition) return const SizedBox.shrink();
+
+    // Determine the selected cell range (base may differ from extent).
+    final basePos = sel.base.nodePosition;
+    final int baseRow;
+    final int baseCol;
+    if (basePos is TableCellPosition && sel.base.nodeId == node.id) {
+      baseRow = basePos.row;
+      baseCol = basePos.col;
+    } else {
+      baseRow = extentPos.row;
+      baseCol = extentPos.col;
+    }
+
+    // Normalize so minRow <= maxRow, minCol <= maxCol.
+    final minRow = baseRow < extentPos.row ? baseRow : extentPos.row;
+    final maxRow = baseRow > extentPos.row ? baseRow : extentPos.row;
+    final minCol = baseCol < extentPos.col ? baseCol : extentPos.col;
+    final maxCol = baseCol > extentPos.col ? baseCol : extentPos.col;
+
+    // Get the table block's position in document-layout coordinates.
+    final component = _layoutKey.currentState?.componentForNode(node.id);
+    if (component == null || !component.hasSize) return const SizedBox.shrink();
+
+    final parentData = component.parentData;
+    if (parentData is! BoxParentData) return const SizedBox.shrink();
+    final tableOffset = parentData.offset;
+
+    return Positioned(
+      left: tableOffset.dx,
+      top: tableOffset.dy - 36,
+      child: TableContextToolbar(
+        controller: _effectiveController,
+        requestHandler: _effectiveEditor.submit,
+        nodeId: node.id,
+        minRow: minRow,
+        maxRow: maxRow,
+        minCol: minCol,
+        maxCol: maxCol,
+        cellTextAligns: node.cellTextAligns,
+        cellVerticalAligns: node.cellVerticalAligns,
+        rowCount: node.rowCount,
+        columnCount: node.columnCount,
+      ),
+    );
+  }
+
+  // -------------------------------------------------------------------------
   // Build
   // -------------------------------------------------------------------------
 
@@ -642,6 +716,7 @@ class DocumentEditorState extends State<DocumentEditor> {
                 showCaret: !widget.readOnly,
               ),
             ),
+            if (widget.showTableToolbar) _buildTableToolbar(),
             if (widget.overlayBuilder != null)
               ...widget.overlayBuilder!(context, _effectiveController, _layoutKey),
           ],

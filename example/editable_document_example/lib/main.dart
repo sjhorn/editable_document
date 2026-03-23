@@ -565,65 +565,6 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
     );
   }
 
-  /// Builds the contextual table toolbar as a [Positioned] widget inside
-  /// the document's scrollable [Stack].
-  ///
-  /// Because it lives inside the scrollable content, it scrolls naturally
-  /// with the table — no coordinate conversion or scroll listeners needed.
-  /// Returns [SizedBox.shrink] when the cursor is not in a table cell.
-  Widget _buildInlineTableToolbar(GlobalKey<DocumentLayoutState> layoutKey) {
-    final sel = _controller.selection;
-    if (sel == null) return const SizedBox.shrink();
-    final node = _document.nodeById(sel.extent.nodeId);
-    if (node is! TableNode) return const SizedBox.shrink();
-    final extentPos = sel.extent.nodePosition;
-    if (extentPos is! TableCellPosition) return const SizedBox.shrink();
-
-    // Determine the selected cell range (base may differ from extent).
-    final basePos = sel.base.nodePosition;
-    final int baseRow;
-    final int baseCol;
-    if (basePos is TableCellPosition && sel.base.nodeId == node.id) {
-      baseRow = basePos.row;
-      baseCol = basePos.col;
-    } else {
-      baseRow = extentPos.row;
-      baseCol = extentPos.col;
-    }
-
-    // Normalize so minRow <= maxRow, minCol <= maxCol.
-    final minRow = baseRow < extentPos.row ? baseRow : extentPos.row;
-    final maxRow = baseRow > extentPos.row ? baseRow : extentPos.row;
-    final minCol = baseCol < extentPos.col ? baseCol : extentPos.col;
-    final maxCol = baseCol > extentPos.col ? baseCol : extentPos.col;
-
-    // Get the table block's position in document-layout coordinates.
-    final component = layoutKey.currentState?.componentForNode(node.id);
-    if (component == null || !component.hasSize) return const SizedBox.shrink();
-
-    final parentData = component.parentData;
-    if (parentData is! BoxParentData) return const SizedBox.shrink();
-    final tableOffset = parentData.offset;
-
-    return Positioned(
-      left: tableOffset.dx,
-      top: tableOffset.dy - 36,
-      child: TableContextToolbar(
-        controller: _controller,
-        requestHandler: _editor.submit,
-        nodeId: node.id,
-        minRow: minRow,
-        maxRow: maxRow,
-        minCol: minCol,
-        maxCol: maxCol,
-        cellTextAligns: node.cellTextAligns,
-        cellVerticalAligns: node.cellVerticalAligns,
-        rowCount: node.rowCount,
-        columnCount: node.columnCount,
-      ),
-    );
-  }
-
   Widget _buildEditor() {
     return DocumentEditor(
       controller: _controller,
@@ -652,9 +593,6 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
       componentBuilders: [
         _syntaxBuilder,
         ...defaultComponentBuilders.where((b) => b is! CodeBlockComponentBuilder),
-      ],
-      overlayBuilder: (context, controller, layoutKey) => [
-        _buildInlineTableToolbar(layoutKey),
       ],
     );
   }

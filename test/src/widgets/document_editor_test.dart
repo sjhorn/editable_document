@@ -511,5 +511,117 @@ void main() {
         expect(tester.takeException(), isNull);
       });
     });
+
+    group('showTableToolbar', () {
+      testWidgets('does not crash with table selection and showTableToolbar true', (tester) async {
+        final table = TableNode(
+          id: 't1',
+          rowCount: 2,
+          columnCount: 2,
+          cells: [
+            [AttributedText('A1'), AttributedText('B1')],
+            [AttributedText('A2'), AttributedText('B2')],
+          ],
+        );
+        final controller = DocumentEditingController(
+          document: MutableDocument([table]),
+        );
+        addTearDown(controller.dispose);
+
+        controller.setSelection(
+          const DocumentSelection.collapsed(
+            position: DocumentPosition(
+              nodeId: 't1',
+              nodePosition: TableCellPosition(row: 0, col: 0, offset: 0),
+            ),
+          ),
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: DocumentEditor(
+                controller: controller,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // No crash — toolbar builds (may render as SizedBox.shrink if layout
+        // hasn't positioned the table component yet in the test environment).
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('no TableContextToolbar when showTableToolbar is false', (tester) async {
+        final table = TableNode(
+          id: 't1',
+          rowCount: 2,
+          columnCount: 2,
+          cells: [
+            [AttributedText('A1'), AttributedText('B1')],
+            [AttributedText('A2'), AttributedText('B2')],
+          ],
+        );
+        final controller = DocumentEditingController(
+          document: MutableDocument([table]),
+        );
+        addTearDown(controller.dispose);
+
+        controller.setSelection(
+          const DocumentSelection.collapsed(
+            position: DocumentPosition(
+              nodeId: 't1',
+              nodePosition: TableCellPosition(row: 0, col: 0, offset: 0),
+            ),
+          ),
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: DocumentEditor(
+                controller: controller,
+                showTableToolbar: false,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byType(TableContextToolbar), findsNothing);
+      });
+
+      testWidgets('no TableContextToolbar when selection is not in a table', (tester) async {
+        final controller = DocumentEditingController(
+          document: MutableDocument([
+            ParagraphNode(id: 'p1', text: AttributedText('Hello')),
+          ]),
+        );
+        addTearDown(controller.dispose);
+
+        controller.setSelection(
+          const DocumentSelection.collapsed(
+            position: DocumentPosition(
+              nodeId: 'p1',
+              nodePosition: TextNodePosition(offset: 0),
+            ),
+          ),
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: DocumentEditor(
+                controller: controller,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byType(TableContextToolbar), findsNothing);
+      });
+    });
   });
 }
