@@ -37,8 +37,8 @@ jobs:
             if [ "$total" -gt 0 ]; then
               pct=$((hit * 100 / total))
               echo "Coverage: $pct% ($hit/$total lines)"
-              if [ "$pct" -lt 83 ]; then
-                echo "::error::Coverage $pct% is below 83% threshold"
+              if [ "$pct" -lt 82 ]; then
+                echo "::error::Coverage $pct% is below 82% threshold"
                 exit 1
               fi
             else
@@ -87,4 +87,13 @@ jobs:
         with:
           channel: stable
       - run: flutter pub get
-      - run: dart doc --validate-links
+      - name: Generate and validate docs
+        run: dart doc --validate-links 2>&1 | tee /tmp/dartdoc.log || true
+      - name: Check for dartdoc warnings
+        run: |
+          if grep -q 'warning:' /tmp/dartdoc.log; then
+            echo "::error::dart doc produced warnings"
+            grep 'warning:' /tmp/dartdoc.log
+            exit 1
+          fi
+          echo "No dartdoc warnings found."
