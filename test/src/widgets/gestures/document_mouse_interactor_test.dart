@@ -6,9 +6,9 @@
 /// (right-click) tap handling.
 library;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart' show kSecondaryMouseButton, PointerDeviceKind;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:editable_document/editable_document.dart';
@@ -607,6 +607,387 @@ void main() {
       await rightClickAt(tester, rect.center);
 
       expect(focusNode.hasFocus, isTrue);
+    });
+
+    testWidgets('right-click inside multi-node selection preserves expanded selection', (
+      tester,
+    ) async {
+      // Two nodes; selection spans both.  Right-clicking inside the selection
+      // should keep it expanded (exercises the multi-node branch of
+      // _isPositionInsideSelection).
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('Hello')),
+        ParagraphNode(id: 'p2', text: AttributedText('world')),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      addTearDown(controller.dispose);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+
+      await tester.pumpWidget(
+        _buildInteractor(
+          controller: controller,
+          layoutKey: layoutKey,
+          doc: doc,
+          onSecondaryTapDown: (_) {},
+        ),
+      );
+      await tester.pump();
+
+      // Select p1 offset 0 → p2 offset 5 (entire two-node range).
+      controller.setSelection(
+        const DocumentSelection(
+          base: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 0),
+          ),
+          extent: DocumentPosition(
+            nodeId: 'p2',
+            nodePosition: TextNodePosition(offset: 5),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Right-click inside p1 (which is inside the selection).
+      final p1Component = layoutKey.currentState!.componentForNode('p1')!;
+      final p1Box = p1Component as RenderBox;
+      final p1Global = p1Box.localToGlobal(Offset(p1Box.size.width / 2, p1Box.size.height / 2));
+      await rightClickAt(tester, p1Global);
+
+      // Selection must stay expanded.
+      expect(controller.selection, isNotNull);
+      expect(controller.selection!.isExpanded, isTrue);
+    });
+  });
+
+  // =========================================================================
+  // 7. Triple-tap selects entire block
+  // =========================================================================
+
+  group('DocumentMouseInteractor — triple-tap', () {
+    testWidgets('triple-tap selects the entire text block', (tester) async {
+      const text = 'Hello world';
+      final doc = _singleParagraph(text);
+      final controller = DocumentEditingController(document: doc);
+      addTearDown(controller.dispose);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+
+      await tester.pumpWidget(
+        _buildInteractor(controller: controller, layoutKey: layoutKey, doc: doc),
+      );
+      await tester.pump();
+
+      final rect = tester.getRect(find.byType(DocumentMouseInteractor));
+      final tapPos = rect.centerLeft + const Offset(10, 0);
+
+      // Three taps in quick succession.  Taps 1+2 fire onDoubleTapDown (word
+      // selection + sets triple-tap flag).  Tap 3 arrives as onTapDown after
+      // the DoubleTapGestureRecognizer's ~300 ms window expires.
+      await tester.tapAt(tapPos);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tapAt(tapPos);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tapAt(tapPos);
+      // Pump past the double-tap timeout (300 ms) so tap 3's onTapDown fires,
+      // and past the triple-tap flag timer (600 ms) so no pending timers remain.
+      await tester.pump(const Duration(milliseconds: 700));
+
+      expect(controller.selection, isNotNull);
+      expect(controller.selection!.base.nodeId, 'p1');
+      expect(controller.selection!.extent.nodeId, 'p1');
+
+      final basePos = controller.selection!.base.nodePosition as TextNodePosition;
+      final extentPos = controller.selection!.extent.nodePosition as TextNodePosition;
+      expect(basePos.offset, 0);
+      expect(extentPos.offset, text.length);
+    });
+
+    testWidgets('triple-tap timer expiry resets triple-tap state', (tester) async {
+      // After two taps, wait longer than the triple-tap window (600 ms) before
+      // the third tap so the flag is cleared.  The third tap should then just
+      // collapse the selection rather than selecting the block.
+      const text = 'Hello world';
+      final doc = _singleParagraph(text);
+      final controller = DocumentEditingController(document: doc);
+      addTearDown(controller.dispose);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+
+      await tester.pumpWidget(
+        _buildInteractor(controller: controller, layoutKey: layoutKey, doc: doc),
+      );
+      await tester.pump();
+
+      final rect = tester.getRect(find.byType(DocumentMouseInteractor));
+      final tapPos = rect.centerLeft + const Offset(10, 0);
+
+      // Taps 1 + 2 — double-tap.
+      await tester.tapAt(tapPos);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tapAt(tapPos);
+      // Pump past the triple-tap window so the flag is cleared.
+      await tester.pump(const Duration(milliseconds: 700));
+
+      // Tap 3 — should NOT produce full-block selection.
+      await tester.tapAt(tapPos);
+      await tester.pump(_tapSettleDuration);
+
+      // After the flag expired, the third tap is just a plain tap → collapsed.
+      expect(controller.selection, isNotNull);
+      expect(controller.selection!.isCollapsed, isTrue);
+    });
+  });
+
+  // =========================================================================
+  // 8. Shift+tap extends selection
+  // =========================================================================
+
+  group('DocumentMouseInteractor — shift+tap', () {
+    testWidgets('shift+tap extends existing selection base to new extent', (tester) async {
+      final doc = _singleParagraph('Hello world');
+      final controller = DocumentEditingController(document: doc);
+      addTearDown(controller.dispose);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+
+      // Pre-set a collapsed selection at offset 0.
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 0),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _buildInteractor(controller: controller, layoutKey: layoutKey, doc: doc),
+      );
+      await tester.pump();
+
+      final rect = tester.getRect(find.byType(DocumentMouseInteractor));
+
+      // Hold Shift, tap somewhere to the right to extend the selection.
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
+      await tester.tapAt(rect.centerLeft + const Offset(60, 0));
+      await tester.pump(_tapSettleDuration);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);
+      await tester.pump();
+
+      expect(controller.selection, isNotNull);
+      // Base should remain at offset 0 (the original anchor).
+      expect(controller.selection!.base.nodeId, 'p1');
+      expect(
+        (controller.selection!.base.nodePosition as TextNodePosition).offset,
+        0,
+      );
+      // Extent must be beyond the original position (selection is expanded).
+      expect(controller.selection!.isExpanded, isTrue);
+    });
+
+    testWidgets('shift+tap with no prior selection creates collapsed selection', (tester) async {
+      final doc = _singleParagraph('Hello world');
+      final controller = DocumentEditingController(document: doc);
+      addTearDown(controller.dispose);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+
+      await tester.pumpWidget(
+        _buildInteractor(controller: controller, layoutKey: layoutKey, doc: doc),
+      );
+      await tester.pump();
+
+      final rect = tester.getRect(find.byType(DocumentMouseInteractor));
+
+      // No prior selection — shift+tap should produce a collapsed selection
+      // (the _isShiftPressed branch falls back to collapsed when selection is null).
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
+      await tester.tapAt(rect.centerLeft + const Offset(10, 0));
+      await tester.pump(_tapSettleDuration);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);
+      await tester.pump();
+
+      expect(controller.selection, isNotNull);
+      expect(controller.selection!.isCollapsed, isTrue);
+    });
+  });
+
+  // =========================================================================
+  // 9. Mouse cursor
+  // =========================================================================
+
+  group('DocumentMouseInteractor — mouse cursor', () {
+    testWidgets('MouseRegion cursor is SystemMouseCursors.text when enabled', (tester) async {
+      final doc = _singleParagraph('Hello');
+      final controller = DocumentEditingController(document: doc);
+      addTearDown(controller.dispose);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+
+      await tester.pumpWidget(
+        _buildInteractor(controller: controller, layoutKey: layoutKey, doc: doc),
+      );
+      await tester.pump();
+
+      final interactorFinder = find.byType(DocumentMouseInteractor);
+      final mouseRegion = tester.widget<MouseRegion>(
+        find.descendant(of: interactorFinder, matching: find.byType(MouseRegion)).first,
+      );
+      expect(mouseRegion.cursor, SystemMouseCursors.text);
+    });
+
+    testWidgets('MouseRegion cursor is SystemMouseCursors.basic when disabled', (tester) async {
+      final doc = _singleParagraph('Hello');
+      final controller = DocumentEditingController(document: doc);
+      addTearDown(controller.dispose);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+
+      await tester.pumpWidget(
+        _buildInteractor(
+          controller: controller,
+          layoutKey: layoutKey,
+          doc: doc,
+          enabled: false,
+        ),
+      );
+      await tester.pump();
+
+      final interactorFinder = find.byType(DocumentMouseInteractor);
+      final mouseRegion = tester.widget<MouseRegion>(
+        find.descendant(of: interactorFinder, matching: find.byType(MouseRegion)).first,
+      );
+      expect(mouseRegion.cursor, SystemMouseCursors.basic);
+    });
+
+    testWidgets('custom cursor parameter is applied', (tester) async {
+      final doc = _singleParagraph('Hello');
+      final controller = DocumentEditingController(document: doc);
+      addTearDown(controller.dispose);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 600,
+              child: DocumentMouseInteractor(
+                controller: controller,
+                layoutKey: layoutKey,
+                document: doc,
+                cursor: SystemMouseCursors.click,
+                child: DocumentLayout(
+                  key: layoutKey,
+                  document: doc,
+                  controller: controller,
+                  componentBuilders: defaultComponentBuilders,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final interactorFinder = find.byType(DocumentMouseInteractor);
+      final mouseRegion = tester.widget<MouseRegion>(
+        find.descendant(of: interactorFinder, matching: find.byType(MouseRegion)).first,
+      );
+      expect(mouseRegion.cursor, SystemMouseCursors.click);
+    });
+  });
+
+  // =========================================================================
+  // 10. Pointer cancel clears drag state
+  // =========================================================================
+
+  group('DocumentMouseInteractor — pointer cancel', () {
+    testWidgets('pointer cancel clears isDragging flag', (tester) async {
+      final doc = _singleParagraph('Hello world');
+      final controller = DocumentEditingController(document: doc);
+      addTearDown(controller.dispose);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+
+      await tester.pumpWidget(
+        _buildInteractor(controller: controller, layoutKey: layoutKey, doc: doc),
+      );
+      await tester.pump();
+
+      final rect = tester.getRect(find.byType(DocumentMouseInteractor));
+
+      // Start a drag gesture.
+      final gesture = await tester.startGesture(
+        rect.centerLeft + const Offset(5, 0),
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pump();
+
+      // Move to establish a selection.
+      await gesture.moveTo(rect.centerLeft + const Offset(50, 0));
+      await tester.pump();
+
+      expect(controller.selection, isNotNull);
+
+      // Cancel rather than up — should not throw and should leave the widget
+      // in a clean state (no pending drag).
+      await gesture.cancel();
+      await tester.pump(_tapSettleDuration);
+
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('pointer cancel after no drag does not throw', (tester) async {
+      final doc = _singleParagraph('Hello');
+      final controller = DocumentEditingController(document: doc);
+      addTearDown(controller.dispose);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+
+      await tester.pumpWidget(
+        _buildInteractor(controller: controller, layoutKey: layoutKey, doc: doc),
+      );
+      await tester.pump();
+
+      final rect = tester.getRect(find.byType(DocumentMouseInteractor));
+
+      // Touch-down then immediately cancel without moving.
+      final gesture = await tester.startGesture(
+        rect.center,
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pump();
+      await gesture.cancel();
+      await tester.pump(_tapSettleDuration);
+
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  // =========================================================================
+  // 11. Drag selection during disabled state
+  // =========================================================================
+
+  group('DocumentMouseInteractor — drag while disabled', () {
+    testWidgets('drag when enabled:false produces no selection', (tester) async {
+      final doc = _singleParagraph('Hello world');
+      final controller = DocumentEditingController(document: doc);
+      addTearDown(controller.dispose);
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+
+      await tester.pumpWidget(
+        _buildInteractor(
+          controller: controller,
+          layoutKey: layoutKey,
+          doc: doc,
+          enabled: false,
+        ),
+      );
+      await tester.pump();
+
+      final rect = tester.getRect(find.byType(DocumentMouseInteractor));
+      final gesture = await tester.startGesture(
+        rect.centerLeft + const Offset(5, 0),
+        kind: PointerDeviceKind.mouse,
+      );
+      await gesture.moveTo(rect.center + const Offset(40, 0));
+      await gesture.up();
+      await tester.pump();
+
+      expect(controller.selection, isNull);
     });
   });
 }

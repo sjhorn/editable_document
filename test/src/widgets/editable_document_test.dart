@@ -2232,4 +2232,1032 @@ void main() {
       expect(ro.lineNumberAlignment, LineNumberAlignment.bottom);
     });
   });
+
+  // -------------------------------------------------------------------------
+  // didUpdateWidget — controller swap
+  // -------------------------------------------------------------------------
+
+  group('EditableDocument — didUpdateWidget controller swap', () {
+    testWidgets('swapping controller does not crash', (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final controllerA = _makeController(text: 'Controller A');
+      final controllerB = _makeController(text: 'Controller B');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controllerA.dispose);
+      addTearDown(controllerB.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controllerA,
+            focusNode: focusNode,
+          ),
+        ),
+      );
+
+      // Rebuild with a different controller instance.
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controllerB,
+            focusNode: focusNode,
+          ),
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('onSelectionChanged fires from new controller after swap', (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final controllerA = _makeController(text: 'Controller A');
+      final controllerB = _makeController(text: 'Controller B');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controllerA.dispose);
+      addTearDown(controllerB.dispose);
+
+      final events = <DocumentSelection?>[];
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controllerA,
+            focusNode: focusNode,
+            onSelectionChanged: events.add,
+          ),
+        ),
+      );
+
+      // Rebuild with controllerB.
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controllerB,
+            focusNode: focusNode,
+            onSelectionChanged: events.add,
+          ),
+        ),
+      );
+
+      // A selection change on the OLD controller should NOT fire the callback.
+      final countBefore = events.length;
+      controllerA.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 1),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(events.length, countBefore, reason: 'Old controller should not fire callback');
+
+      // A selection change on the NEW controller should fire the callback.
+      controllerB.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 2),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(events.length, countBefore + 1, reason: 'New controller should fire callback');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // didUpdateWidget — focus node swap
+  // -------------------------------------------------------------------------
+
+  group('EditableDocument — didUpdateWidget focus node swap', () {
+    testWidgets('swapping focus node does not crash', (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final controller = _makeController();
+      final focusNodeA = FocusNode();
+      final focusNodeB = FocusNode();
+      addTearDown(focusNodeA.dispose);
+      addTearDown(focusNodeB.dispose);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNodeA,
+          ),
+        ),
+      );
+
+      // Rebuild with a different focus node.
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNodeB,
+          ),
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('new focus node opens IME after swap', (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final controller = _makeController();
+      final focusNodeA = FocusNode();
+      final focusNodeB = FocusNode();
+      addTearDown(focusNodeA.dispose);
+      addTearDown(focusNodeB.dispose);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNodeA,
+          ),
+        ),
+      );
+
+      // Swap to the new focus node.
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNodeB,
+          ),
+        ),
+      );
+
+      log.clear();
+
+      // The NEW focus node should trigger IME open.
+      focusNodeB.requestFocus();
+      await tester.pump();
+
+      expect(log.map((c) => c.method), contains('TextInput.setClient'));
+    });
+
+    testWidgets('old focus node no longer triggers IME after swap', (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final controller = _makeController();
+      final focusNodeA = FocusNode();
+      final focusNodeB = FocusNode();
+      addTearDown(focusNodeA.dispose);
+      addTearDown(focusNodeB.dispose);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNodeA,
+          ),
+        ),
+      );
+
+      // Focus the old node while it is still connected.
+      focusNodeA.requestFocus();
+      await tester.pump();
+      log.clear();
+
+      // Swap to new focus node — old node loses its listener.
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNodeB,
+          ),
+        ),
+      );
+
+      // focusNodeA retains focus from before the swap; losing it now should
+      // not trigger IME open through the widget's _onFocusChanged.
+      log.clear();
+      focusNodeB.requestFocus(); // shifts focus away from A without touching widget
+      await tester.pump();
+
+      // Only the new node's focus event should appear, not a duplicate open
+      // triggered by the old node.
+      final setClientCount = log.where((c) => c.method == 'TextInput.setClient').length;
+      expect(setClientCount, lessThanOrEqualTo(1));
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // collapseSelection edge cases
+  // -------------------------------------------------------------------------
+
+  group('EditableDocument — collapseSelection', () {
+    testWidgets('collapseSelection is no-op when readOnly', (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      controller.setSelection(
+        const DocumentSelection(
+          base: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 0)),
+          extent: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 5)),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+            readOnly: true,
+          ),
+        ),
+      );
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      // Drive collapseSelection directly via the state.
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.collapseSelection();
+
+      // Selection must remain expanded.
+      expect(controller.selection!.isCollapsed, isFalse);
+    });
+
+    testWidgets('collapseSelection is no-op when selection is already collapsed', (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 2),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+          ),
+        ),
+      );
+
+      final selectionBefore = controller.selection;
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.collapseSelection();
+
+      // Selection reference should be unchanged.
+      expect(controller.selection, equals(selectionBefore));
+    });
+
+    testWidgets('collapseSelection is no-op when selection is null', (tester) async {
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+          ),
+        ),
+      );
+
+      // No selection set — should not crash.
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.collapseSelection();
+
+      expect(controller.selection, isNull);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // selectAll with binary nodes
+  // -------------------------------------------------------------------------
+
+  group('EditableDocument — selectAll with non-text nodes', () {
+    testWidgets('selectAll spans from image to paragraph', (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final doc = MutableDocument([
+        ImageNode(id: 'img1', imageUrl: 'test.png'),
+        ParagraphNode(id: 'p1', text: AttributedText('Hello')),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      // Set a minimal selection so selectAll has somewhere to start.
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 0),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+          ),
+        ),
+      );
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.selectAll();
+
+      expect(controller.selection, isNotNull);
+      expect(controller.selection!.base.nodeId, 'img1');
+      expect(controller.selection!.extent.nodeId, 'p1');
+      // First node is binary — base should be upstream.
+      expect(
+        controller.selection!.base.nodePosition,
+        const BinaryNodePosition.upstream(),
+      );
+      // Last node is text — extent should be at end of text.
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        5, // 'Hello'.length
+      );
+    });
+
+    testWidgets('selectAll is no-op on empty document', (tester) async {
+      final doc = MutableDocument([]);
+      final controller = DocumentEditingController(document: doc);
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+          ),
+        ),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.selectAll();
+
+      expect(controller.selection, isNull);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // moveVertically — collapse expanded selection before moving
+  // -------------------------------------------------------------------------
+
+  group('EditableDocument — moveVertically collapses before moving', () {
+    testWidgets('Down collapses expanded selection to extent before moving', (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('First')),
+        ParagraphNode(id: 'p2', text: AttributedText('Second')),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      // Expanded selection: base=p1:0, extent=p1:5.
+      controller.setSelection(
+        const DocumentSelection(
+          base: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 0)),
+          extent: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 5)),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+          ),
+        ),
+      );
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+
+      // After Down on an expanded selection, the selection should be
+      // collapsed (no longer expanded).
+      expect(controller.selection, isNotNull);
+      expect(controller.selection!.isCollapsed, isTrue);
+    });
+
+    testWidgets('Up collapses expanded selection to base before moving', (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('First')),
+        ParagraphNode(id: 'p2', text: AttributedText('Second')),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      // Expanded selection: base=p1:0, extent=p1:5.
+      controller.setSelection(
+        const DocumentSelection(
+          base: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 0)),
+          extent: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 5)),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+          ),
+        ),
+      );
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pump();
+
+      // After Up on an expanded selection, the selection should be collapsed.
+      expect(controller.selection, isNotNull);
+      expect(controller.selection!.isCollapsed, isTrue);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // moveByCharacter — collapse expanded selection before moving
+  // -------------------------------------------------------------------------
+
+  group('EditableDocument — moveByCharacter collapses expanded selection', () {
+    testWidgets('Right on expanded selection collapses to normalised extent', (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      // Expanded forward selection: base=0, extent=3.
+      controller.setSelection(
+        const DocumentSelection(
+          base: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 0)),
+          extent: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 3)),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+          ),
+        ),
+      );
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+
+      // Right on expanded selection should collapse to the extent (offset 3).
+      expect(controller.selection, isNotNull);
+      expect(controller.selection!.isCollapsed, isTrue);
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        3,
+      );
+    });
+
+    testWidgets('Left on expanded selection collapses to normalised base', (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      // Expanded forward selection: base=0, extent=3.
+      controller.setSelection(
+        const DocumentSelection(
+          base: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 0)),
+          extent: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 3)),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+          ),
+        ),
+      );
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pump();
+
+      // Left on expanded selection should collapse to the base (offset 0).
+      expect(controller.selection, isNotNull);
+      expect(controller.selection!.isCollapsed, isTrue);
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        0,
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // autofillId getter
+  // -------------------------------------------------------------------------
+
+  group('EditableDocument — autofillId', () {
+    testWidgets('autofillId is a non-empty string', (tester) async {
+      final controller = _makeController();
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+          ),
+        ),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      expect(state.autofillId, isNotEmpty);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // moveToDocumentStartOrEnd
+  // -------------------------------------------------------------------------
+
+  group('EditableDocument — moveToDocumentStartOrEnd', () {
+    testWidgets('Cmd+Up moves to document start on macOS', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('First')),
+        ParagraphNode(id: 'p2', text: AttributedText('Second')),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      // Start at the end of the document.
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p2',
+            nodePosition: TextNodePosition(offset: 6),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+          ),
+        ),
+      );
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      // Cmd+Up on macOS maps to ExtendSelectionToDocumentBoundaryIntent(forward:false).
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowUp);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowUp);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pump();
+
+      expect(controller.selection, isNotNull);
+      expect(controller.selection!.extent.nodeId, 'p1');
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        0,
+      );
+
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Cmd+Down moves to document end on macOS', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('First')),
+        ParagraphNode(id: 'p2', text: AttributedText('Second')),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      // Start at the beginning of the document.
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 0),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+          ),
+        ),
+      );
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      // Cmd+Down on macOS maps to ExtendSelectionToDocumentBoundaryIntent(forward:true).
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pump();
+
+      expect(controller.selection, isNotNull);
+      expect(controller.selection!.extent.nodeId, 'p2');
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        6, // 'Second'.length
+      );
+
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('moveToDocumentStartOrEnd is no-op when selection is null', (tester) async {
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('Hello')),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+          ),
+        ),
+      );
+
+      // No selection.
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.moveToDocumentStartOrEnd(forward: true, extend: false);
+
+      expect(controller.selection, isNull);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // moveToNodeStartOrEnd (called directly on state)
+  // -------------------------------------------------------------------------
+
+  group('EditableDocument — moveToNodeStartOrEnd', () {
+    testWidgets('moveToNodeStartOrEnd(backward) moves to node start', (tester) async {
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 3),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+          ),
+        ),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.moveToNodeStartOrEnd(forward: false, extend: false);
+
+      expect(controller.selection, isNotNull);
+      expect(controller.selection!.isCollapsed, isTrue);
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        0,
+      );
+    });
+
+    testWidgets('moveToNodeStartOrEnd(forward) moves to node end', (tester) async {
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 0),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+          ),
+        ),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.moveToNodeStartOrEnd(forward: true, extend: false);
+
+      expect(controller.selection, isNotNull);
+      expect(controller.selection!.isCollapsed, isTrue);
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        5, // 'Hello'.length
+      );
+    });
+
+    testWidgets('moveToNodeStartOrEnd extends selection when extend is true', (tester) async {
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 2),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+          ),
+        ),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.moveToNodeStartOrEnd(forward: true, extend: true);
+
+      expect(controller.selection, isNotNull);
+      // Should be expanded since we extended.
+      expect(controller.selection!.isExpanded, isTrue);
+      expect(controller.selection!.base.nodePosition, const TextNodePosition(offset: 2));
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        5, // 'Hello'.length
+      );
+    });
+
+    testWidgets('moveToNodeStartOrEnd is no-op when selection is null', (tester) async {
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+          ),
+        ),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.moveToNodeStartOrEnd(forward: true, extend: false);
+
+      expect(controller.selection, isNull);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // moveByWord
+  // -------------------------------------------------------------------------
+
+  group('EditableDocument — moveByWord', () {
+    testWidgets('Alt+Right moves forward to next word boundary on macOS', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final controller = _makeController(text: 'Hello world');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 0),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+          ),
+        ),
+      );
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+      await tester.pump();
+
+      expect(controller.selection, isNotNull);
+      final offset = (controller.selection!.extent.nodePosition as TextNodePosition).offset;
+      // Moving right from 0 should jump past 'Hello' to offset 5 or 6.
+      expect(offset, greaterThan(0));
+
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('moveByWord is no-op when selection is null', (tester) async {
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+          ),
+        ),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.moveByWord(forward: true, extend: false);
+
+      expect(controller.selection, isNull);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // moveByCharacter edge cases
+  // -------------------------------------------------------------------------
+
+  group('EditableDocument — moveByCharacter edge cases', () {
+    testWidgets('moveByCharacter is no-op when selection is null', (tester) async {
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+          ),
+        ),
+      );
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.moveByCharacter(forward: true, extend: false);
+
+      expect(controller.selection, isNull);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('Shift+Right extends selection by one character', (tester) async {
+      final log = <MethodCall>[];
+      _installTextInputMock(tester, log);
+
+      final controller = _makeController(text: 'Hello');
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'p1',
+            nodePosition: TextNodePosition(offset: 0),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+          ),
+        ),
+      );
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pump();
+
+      expect(controller.selection, isNotNull);
+      expect(controller.selection!.isExpanded, isTrue);
+      expect(
+        (controller.selection!.extent.nodePosition as TextNodePosition).offset,
+        1,
+      );
+    });
+  });
 }
