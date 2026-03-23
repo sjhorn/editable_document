@@ -4,6 +4,7 @@ library;
 import 'package:editable_document/src/rendering/render_document_layout.dart';
 import 'package:editable_document/src/widgets/properties/document_settings_panel.dart';
 import 'package:editable_document/src/widgets/theme/property_panel_theme.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -537,6 +538,164 @@ void main() {
 
       // Both color pickers (number + gutter bg) should be present.
       expect(find.text('Color'), findsOneWidget);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Block spacing — 1.5 lines option
+  // ---------------------------------------------------------------------------
+
+  group('DocumentSettingsPanel — block spacing 1.5 lines', () {
+    testWidgets('block spacing dropdown fires callback with 12.0 for 1.5 lines', (tester) async {
+      double? result;
+      await tester.pumpWidget(
+        _wrap(
+          DocumentSettingsPanel(
+            blockSpacing: 0.0,
+            onBlockSpacingChanged: (v) => result = v,
+            defaultLineHeight: null,
+            onDefaultLineHeightChanged: (_) {},
+            documentPadding: EdgeInsets.zero,
+            onDocumentPaddingChanged: (_) {},
+          ),
+        ),
+      );
+
+      await tester.tap(find.byType(DropdownButton<double>).first);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('1.5 lines').last);
+      await tester.pumpAndSettle();
+
+      expect(result, 12.0);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Default line height — 1.15 and 1.5 options
+  // ---------------------------------------------------------------------------
+
+  group('DocumentSettingsPanel — default line height options', () {
+    testWidgets('line height dropdown fires callback with 1.15', (tester) async {
+      double? result;
+      await tester.pumpWidget(
+        _wrap(
+          DocumentSettingsPanel(
+            blockSpacing: 0.0,
+            onBlockSpacingChanged: (_) {},
+            defaultLineHeight: null,
+            onDefaultLineHeightChanged: (v) => result = v,
+            documentPadding: EdgeInsets.zero,
+            onDocumentPaddingChanged: (_) {},
+          ),
+        ),
+      );
+
+      await tester.tap(find.byType(DropdownButton<double?>).first);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('1.15').last);
+      await tester.pumpAndSettle();
+
+      expect(result, 1.15);
+    });
+
+    testWidgets('line height dropdown fires callback with null (Single)', (tester) async {
+      double? result = 2.0;
+      await tester.pumpWidget(
+        _wrap(
+          DocumentSettingsPanel(
+            blockSpacing: 0.0,
+            onBlockSpacingChanged: (_) {},
+            defaultLineHeight: 2.0,
+            onDefaultLineHeightChanged: (v) => result = v,
+            documentPadding: EdgeInsets.zero,
+            onDocumentPaddingChanged: (_) {},
+          ),
+        ),
+      );
+
+      await tester.tap(find.byType(DropdownButton<double?>).first);
+      await tester.pumpAndSettle();
+
+      // Select "Single" (null value).
+      await tester.tap(find.text('Single').last);
+      await tester.pumpAndSettle();
+
+      expect(result, isNull);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Alignment buttons with null callback (disabled state)
+  // ---------------------------------------------------------------------------
+
+  group('DocumentSettingsPanel — alignment buttons disabled', () {
+    testWidgets('alignment buttons render when onLineNumberAlignmentChanged is null',
+        (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          DocumentSettingsPanel(
+            blockSpacing: 0.0,
+            onBlockSpacingChanged: (_) {},
+            defaultLineHeight: null,
+            onDefaultLineHeightChanged: (_) {},
+            documentPadding: EdgeInsets.zero,
+            onDocumentPaddingChanged: (_) {},
+            showLineNumbers: true,
+            onShowLineNumbersChanged: (_) {},
+            lineNumberAlignment: LineNumberAlignment.bottom,
+            // onLineNumberAlignmentChanged intentionally omitted (null).
+          ),
+        ),
+      );
+
+      // Buttons are present but onPressed is null — tapping should not throw.
+      await tester.tap(find.byIcon(Icons.vertical_align_top), warnIfMissed: false);
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // debugFillProperties
+  // ---------------------------------------------------------------------------
+
+  group('DocumentSettingsPanel — debugFillProperties', () {
+    testWidgets('debugFillProperties does not throw', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          DocumentSettingsPanel(
+            blockSpacing: 12.0,
+            onBlockSpacingChanged: (_) {},
+            defaultLineHeight: 1.5,
+            onDefaultLineHeightChanged: (_) {},
+            documentPadding: const EdgeInsets.all(16),
+            onDocumentPaddingChanged: (_) {},
+            showLineNumbers: true,
+            onShowLineNumbersChanged: (_) {},
+            lineNumberAlignment: LineNumberAlignment.middle,
+            onLineNumberAlignmentChanged: (_) {},
+            lineNumberFontFamily: 'Georgia',
+            onLineNumberFontFamilyChanged: (_) {},
+            lineNumberFontSize: 14.0,
+            onLineNumberFontSizeChanged: (_) {},
+            lineNumberColor: 0xFF000000,
+            onLineNumberColorChanged: (_) {},
+            lineNumberBackgroundColor: 0xFFFFFFFF,
+            onLineNumberBackgroundColorChanged: (_) {},
+            width: 300.0,
+          ),
+        ),
+      );
+
+      final element = tester.element(find.byType(DocumentSettingsPanel));
+      final builder = DiagnosticPropertiesBuilder();
+      element.widget.debugFillProperties(builder);
+
+      expect(builder.properties, isNotEmpty);
+      expect(tester.takeException(), isNull);
     });
   });
 }

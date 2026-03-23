@@ -4842,4 +4842,964 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   });
+
+  // -------------------------------------------------------------------------
+  // TableNode operations — moveHome/moveEnd, deleteForward/Backward,
+  // handleTab/handleShiftTab, moveByCharacter, moveByWord
+  // -------------------------------------------------------------------------
+
+  /// Creates a focused [EditableDocument] with an [UndoableEditor] wired to a
+  /// [MutableDocument] that contains [nodes]. Returns the controller and focus
+  /// node via a record.
+  Future<({DocumentEditingController controller, FocusNode focusNode})> _buildFocusedWithNodes(
+    WidgetTester tester, {
+    required List<DocumentNode> nodes,
+  }) async {
+    final log = <MethodCall>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.textInput,
+      (MethodCall call) async {
+        log.add(call);
+        return null;
+      },
+    );
+
+    final doc = MutableDocument(nodes);
+    final controller = DocumentEditingController(document: doc);
+    final editor = UndoableEditor(
+      editContext: EditContext(document: doc, controller: controller),
+    );
+    final focusNode = FocusNode();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: EditableDocument(
+            controller: controller,
+            focusNode: focusNode,
+            editor: editor,
+          ),
+        ),
+      ),
+    );
+
+    focusNode.requestFocus();
+    await tester.pump();
+
+    return (controller: controller, focusNode: focusNode);
+  }
+
+  /// Builds a minimal [TableNode] with [rowCount] × [colCount] cells.
+  ///
+  /// Cell text is generated as `r{row}c{col}` (e.g., `r0c0`, `r0c1`).
+  TableNode _makeTable({
+    String id = 't1',
+    required int rowCount,
+    required int colCount,
+  }) {
+    final cells = List.generate(
+      rowCount,
+      (r) => List.generate(colCount, (c) => AttributedText('r${r}c$c')),
+    );
+    return TableNode(
+      id: id,
+      rowCount: rowCount,
+      columnCount: colCount,
+      cells: cells,
+    );
+  }
+
+  group('EditableDocument — TableNode moveHome/moveEnd', () {
+    testWidgets('moveHome in a table cell moves to offset 0 of that cell', (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedWithNodes(
+        tester,
+        nodes: [_makeTable(rowCount: 2, colCount: 2)],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      // Place caret at end of cell (0,0) — text is 'r0c0' (4 chars).
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 't1',
+            nodePosition: TableCellPosition(row: 0, col: 0, offset: 4),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.moveHome(extend: false);
+      await tester.pump();
+
+      expect(controller.selection, isNotNull);
+      final pos = controller.selection!.extent.nodePosition as TableCellPosition;
+      expect(pos.row, 0);
+      expect(pos.col, 0);
+      expect(pos.offset, 0);
+    });
+
+    testWidgets('moveEnd in a table cell moves to end offset of that cell', (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedWithNodes(
+        tester,
+        nodes: [_makeTable(rowCount: 2, colCount: 2)],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      // Place caret at offset 0 of cell (1,1) — text is 'r1c1' (4 chars).
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 't1',
+            nodePosition: TableCellPosition(row: 1, col: 1, offset: 0),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.moveEnd(extend: false);
+      await tester.pump();
+
+      expect(controller.selection, isNotNull);
+      final pos = controller.selection!.extent.nodePosition as TableCellPosition;
+      expect(pos.row, 1);
+      expect(pos.col, 1);
+      expect(pos.offset, 4); // 'r1c1'.length
+    });
+  });
+
+  group('EditableDocument — TableNode deleteForward', () {
+    testWidgets('deleteForward in table cell removes character at offset', (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedWithNodes(
+        tester,
+        nodes: [_makeTable(rowCount: 2, colCount: 2)],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      // Caret at offset 1 of cell (0,0) ('r0c0' → deletes '0').
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 't1',
+            nodePosition: TableCellPosition(row: 0, col: 0, offset: 1),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.deleteForward();
+      await tester.pump();
+
+      final node = controller.document.nodeById('t1')! as TableNode;
+      expect(node.cellAt(0, 0).text, 'rc0'); // 'r0c0' with '0' at index 1 removed
+    });
+
+    testWidgets('deleteForward at end of table cell is no-op', (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedWithNodes(
+        tester,
+        nodes: [_makeTable(rowCount: 2, colCount: 2)],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      // Caret at end of cell (0,0) ('r0c0' is 4 chars).
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 't1',
+            nodePosition: TableCellPosition(row: 0, col: 0, offset: 4),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.deleteForward();
+      await tester.pump();
+
+      final node = controller.document.nodeById('t1')! as TableNode;
+      expect(node.cellAt(0, 0).text, 'r0c0'); // unchanged
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('EditableDocument — TableNode deleteBackward', () {
+    testWidgets('deleteBackward in table cell removes character before offset', (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedWithNodes(
+        tester,
+        nodes: [_makeTable(rowCount: 2, colCount: 2)],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      // Caret at offset 2 of cell (0,0) ('r0c0' → deletes '0' at index 1).
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 't1',
+            nodePosition: TableCellPosition(row: 0, col: 0, offset: 2),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.deleteBackward();
+      await tester.pump();
+
+      final node = controller.document.nodeById('t1')! as TableNode;
+      expect(node.cellAt(0, 0).text, 'rc0'); // 'r0c0' with '0' at index 1 removed
+    });
+
+    testWidgets('deleteBackward at offset 0 of table cell is no-op', (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedWithNodes(
+        tester,
+        nodes: [_makeTable(rowCount: 2, colCount: 2)],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      // Caret at offset 0 of cell (0,0).
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 't1',
+            nodePosition: TableCellPosition(row: 0, col: 0, offset: 0),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.deleteBackward();
+      await tester.pump();
+
+      final node = controller.document.nodeById('t1')! as TableNode;
+      expect(node.cellAt(0, 0).text, 'r0c0'); // unchanged
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('EditableDocument — TableNode handleTab/handleShiftTab', () {
+    testWidgets('Tab in last column of a row advances to next row first column', (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedWithNodes(
+        tester,
+        nodes: [_makeTable(rowCount: 2, colCount: 2)],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      // Caret at last column of first row.
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 't1',
+            nodePosition: TableCellPosition(row: 0, col: 1, offset: 0),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.handleTab();
+      await tester.pump();
+
+      expect(controller.selection, isNotNull);
+      final pos = controller.selection!.extent.nodePosition as TableCellPosition;
+      expect(pos.row, 1);
+      expect(pos.col, 0);
+    });
+
+    testWidgets('Tab in last row last column is no-op (no next row)', (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedWithNodes(
+        tester,
+        nodes: [_makeTable(rowCount: 2, colCount: 2)],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      // Caret at last cell of table.
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 't1',
+            nodePosition: TableCellPosition(row: 1, col: 1, offset: 0),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final selectionBefore = controller.selection;
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.handleTab();
+      await tester.pump();
+
+      // Selection should be unchanged — no cell beyond the last.
+      expect(controller.selection, equals(selectionBefore));
+    });
+
+    testWidgets('Shift+Tab in first column of a row goes to previous row last column',
+        (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedWithNodes(
+        tester,
+        nodes: [_makeTable(rowCount: 2, colCount: 2)],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      // Caret at first column of second row.
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 't1',
+            nodePosition: TableCellPosition(row: 1, col: 0, offset: 0),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.handleShiftTab();
+      await tester.pump();
+
+      expect(controller.selection, isNotNull);
+      final pos = controller.selection!.extent.nodePosition as TableCellPosition;
+      expect(pos.row, 0);
+      expect(pos.col, 1); // last column
+    });
+
+    testWidgets('Shift+Tab at row 0 col 0 is no-op', (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedWithNodes(
+        tester,
+        nodes: [_makeTable(rowCount: 2, colCount: 2)],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      // Caret at first cell.
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 't1',
+            nodePosition: TableCellPosition(row: 0, col: 0, offset: 0),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final selectionBefore = controller.selection;
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.handleShiftTab();
+      await tester.pump();
+
+      expect(controller.selection, equals(selectionBefore));
+    });
+  });
+
+  group('EditableDocument — TableNode moveByCharacter', () {
+    testWidgets('arrowRight in table cell advances offset by one', (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedWithNodes(
+        tester,
+        nodes: [_makeTable(rowCount: 2, colCount: 2)],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      // Caret at offset 1 in cell (0,0).
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 't1',
+            nodePosition: TableCellPosition(row: 0, col: 0, offset: 1),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.moveByCharacter(forward: true, extend: false);
+      await tester.pump();
+
+      final pos = controller.selection!.extent.nodePosition as TableCellPosition;
+      expect(pos.offset, 2);
+    });
+
+    testWidgets('arrowRight at end of table cell wraps to next cell', (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedWithNodes(
+        tester,
+        nodes: [_makeTable(rowCount: 2, colCount: 2)],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      // Caret at end of cell (0,0) — 'r0c0' has length 4.
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 't1',
+            nodePosition: TableCellPosition(row: 0, col: 0, offset: 4),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.moveByCharacter(forward: true, extend: false);
+      await tester.pump();
+
+      final pos = controller.selection!.extent.nodePosition as TableCellPosition;
+      // Should have moved to cell (0,1) offset 0.
+      expect(pos.row, 0);
+      expect(pos.col, 1);
+      expect(pos.offset, 0);
+    });
+
+    testWidgets('arrowRight from last cell of last row wraps to next node', (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedWithNodes(
+        tester,
+        nodes: [
+          _makeTable(rowCount: 1, colCount: 1),
+          ParagraphNode(id: 'p1', text: AttributedText('Next')),
+        ],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      // Caret at end of only cell — 'r0c0' has length 4.
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 't1',
+            nodePosition: TableCellPosition(row: 0, col: 0, offset: 4),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.moveByCharacter(forward: true, extend: false);
+      await tester.pump();
+
+      // Should have moved to the paragraph node.
+      expect(controller.selection!.extent.nodeId, 'p1');
+    });
+
+    testWidgets('arrowLeft in table cell decrements offset by one', (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedWithNodes(
+        tester,
+        nodes: [_makeTable(rowCount: 2, colCount: 2)],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      // Caret at offset 3 in cell (0,0).
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 't1',
+            nodePosition: TableCellPosition(row: 0, col: 0, offset: 3),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.moveByCharacter(forward: false, extend: false);
+      await tester.pump();
+
+      final pos = controller.selection!.extent.nodePosition as TableCellPosition;
+      expect(pos.offset, 2);
+    });
+
+    testWidgets('arrowLeft at offset 0 of cell wraps to end of previous cell', (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedWithNodes(
+        tester,
+        nodes: [_makeTable(rowCount: 2, colCount: 2)],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      // Caret at offset 0 of cell (0,1).
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 't1',
+            nodePosition: TableCellPosition(row: 0, col: 1, offset: 0),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.moveByCharacter(forward: false, extend: false);
+      await tester.pump();
+
+      final pos = controller.selection!.extent.nodePosition as TableCellPosition;
+      expect(pos.row, 0);
+      expect(pos.col, 0);
+      expect(pos.offset, 4); // end of 'r0c0'
+    });
+
+    testWidgets('arrowLeft at offset 0 of first table cell wraps to prev node', (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedWithNodes(
+        tester,
+        nodes: [
+          ParagraphNode(id: 'p1', text: AttributedText('Before')),
+          _makeTable(rowCount: 1, colCount: 1),
+        ],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      // Caret at offset 0 of first (and only) cell.
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 't1',
+            nodePosition: TableCellPosition(row: 0, col: 0, offset: 0),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.moveByCharacter(forward: false, extend: false);
+      await tester.pump();
+
+      expect(controller.selection!.extent.nodeId, 'p1');
+    });
+
+    testWidgets('arrowLeft at col 0 of non-first row wraps to last col of prev row',
+        (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedWithNodes(
+        tester,
+        nodes: [_makeTable(rowCount: 2, colCount: 2)],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      // Caret at offset 0 of cell (1,0).
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 't1',
+            nodePosition: TableCellPosition(row: 1, col: 0, offset: 0),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.moveByCharacter(forward: false, extend: false);
+      await tester.pump();
+
+      final pos = controller.selection!.extent.nodePosition as TableCellPosition;
+      expect(pos.row, 0);
+      expect(pos.col, 1); // last column
+      expect(pos.offset, 4); // end of 'r0c1'
+    });
+
+    testWidgets('arrowRight at end of last row last col wraps to next node', (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedWithNodes(
+        tester,
+        nodes: [
+          _makeTable(rowCount: 2, colCount: 2),
+          ParagraphNode(id: 'p1', text: AttributedText('After')),
+        ],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      // Caret at end of cell (1,1) — 'r1c1' has length 4.
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 't1',
+            nodePosition: TableCellPosition(row: 1, col: 1, offset: 4),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.moveByCharacter(forward: true, extend: false);
+      await tester.pump();
+
+      expect(controller.selection!.extent.nodeId, 'p1');
+    });
+  });
+
+  group('EditableDocument — BinaryNodePosition character movement', () {
+    testWidgets('arrowRight from upstream binary position moves to downstream', (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedWithNodes(
+        tester,
+        nodes: [
+          HorizontalRuleNode(id: 'hr1'),
+          ParagraphNode(id: 'p1', text: AttributedText('After')),
+        ],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'hr1',
+            nodePosition: BinaryNodePosition.upstream(),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.moveByCharacter(forward: true, extend: false);
+      await tester.pump();
+
+      final pos = controller.selection!.extent.nodePosition as BinaryNodePosition;
+      expect(pos.type, BinaryNodePositionType.downstream);
+    });
+
+    testWidgets('arrowRight from downstream binary position wraps to next node', (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedWithNodes(
+        tester,
+        nodes: [
+          HorizontalRuleNode(id: 'hr1'),
+          ParagraphNode(id: 'p1', text: AttributedText('After')),
+        ],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'hr1',
+            nodePosition: BinaryNodePosition.downstream(),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.moveByCharacter(forward: true, extend: false);
+      await tester.pump();
+
+      expect(controller.selection!.extent.nodeId, 'p1');
+    });
+
+    testWidgets('arrowLeft from downstream binary position moves to upstream', (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedWithNodes(
+        tester,
+        nodes: [
+          ParagraphNode(id: 'p1', text: AttributedText('Before')),
+          HorizontalRuleNode(id: 'hr1'),
+        ],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'hr1',
+            nodePosition: BinaryNodePosition.downstream(),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.moveByCharacter(forward: false, extend: false);
+      await tester.pump();
+
+      final pos = controller.selection!.extent.nodePosition as BinaryNodePosition;
+      expect(pos.type, BinaryNodePositionType.upstream);
+    });
+
+    testWidgets('arrowLeft from upstream binary position wraps to previous node', (tester) async {
+      final (:controller, :focusNode) = await _buildFocusedWithNodes(
+        tester,
+        nodes: [
+          ParagraphNode(id: 'p1', text: AttributedText('Before')),
+          HorizontalRuleNode(id: 'hr1'),
+        ],
+      );
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'hr1',
+            nodePosition: BinaryNodePosition.upstream(),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.moveByCharacter(forward: false, extend: false);
+      await tester.pump();
+
+      expect(controller.selection!.extent.nodeId, 'p1');
+    });
+  });
+
+  group('EditableDocument — TableNode moveByWord', () {
+    testWidgets('moveByWord forward in table cell moves to end of word', (tester) async {
+      // Use a table with multi-word text so word navigation is meaningful.
+      final cells = [
+        [AttributedText('hello world')],
+      ];
+      final doc = MutableDocument([
+        TableNode(id: 't1', rowCount: 1, columnCount: 1, cells: cells),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      final editor = UndoableEditor(
+        editContext: EditContext(document: doc, controller: controller),
+      );
+      final focusNode = FocusNode();
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.textInput,
+        (MethodCall call) async => null,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: EditableDocument(
+              controller: controller,
+              focusNode: focusNode,
+              editor: editor,
+            ),
+          ),
+        ),
+      );
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      // Caret at offset 0 — word end of 'hello' should be at offset 5.
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 't1',
+            nodePosition: TableCellPosition(row: 0, col: 0, offset: 0),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.moveByWord(forward: true, extend: false);
+      await tester.pump();
+
+      final pos = controller.selection!.extent.nodePosition as TableCellPosition;
+      expect(pos.offset, 5); // end of 'hello'
+    });
+
+    testWidgets('moveByWord backward in table cell moves to start of word', (tester) async {
+      final cells = [
+        [AttributedText('hello world')],
+      ];
+      final doc = MutableDocument([
+        TableNode(id: 't1', rowCount: 1, columnCount: 1, cells: cells),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      final editor = UndoableEditor(
+        editContext: EditContext(document: doc, controller: controller),
+      );
+      final focusNode = FocusNode();
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.textInput,
+        (MethodCall call) async => null,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: EditableDocument(
+              controller: controller,
+              focusNode: focusNode,
+              editor: editor,
+            ),
+          ),
+        ),
+      );
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      // Caret at offset 11 (end of 'hello world'); backward should stop at
+      // start of 'world' (offset 6).
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 't1',
+            nodePosition: TableCellPosition(row: 0, col: 0, offset: 11),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final state = tester.state<EditableDocumentState>(find.byType(EditableDocument));
+      state.moveByWord(forward: false, extend: false);
+      await tester.pump();
+
+      final pos = controller.selection!.extent.nodePosition as TableCellPosition;
+      expect(pos.offset, 6); // start of 'world'
+    });
+  });
+
+  group('EditableDocument — pasteClipboard with expanded selection', () {
+    testWidgets('paste over expanded selection deletes selection then inserts clipboard',
+        (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      String? clipboardData;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (MethodCall call) async {
+          if (call.method == 'Clipboard.setData') {
+            clipboardData = (call.arguments as Map<String, dynamic>)['text'] as String?;
+            return null;
+          }
+          if (call.method == 'Clipboard.getData') {
+            if (clipboardData == null) return null;
+            return <String, dynamic>{'text': clipboardData};
+          }
+          return null;
+        },
+      );
+
+      // Pre-fill clipboard.
+      clipboardData = 'REPLACED';
+
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.textInput,
+        (MethodCall call) async => null,
+      );
+
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('Hello world')),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      final editor = UndoableEditor(
+        editContext: EditContext(document: doc, controller: controller),
+      );
+      final focusNode = FocusNode();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: EditableDocument(
+              controller: controller,
+              focusNode: focusNode,
+              editor: editor,
+            ),
+          ),
+        ),
+      );
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      // Expanded selection over 'Hello' (0..5).
+      controller.setSelection(
+        const DocumentSelection(
+          base: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 0)),
+          extent: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 5)),
+        ),
+      );
+      await tester.pump();
+
+      // Trigger paste via Cmd+V.
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pumpAndSettle();
+
+      // The expanded selection 'Hello' should have been replaced by 'REPLACED'.
+      final node = controller.document.nodeById('p1')! as ParagraphNode;
+      expect(node.text.text, 'REPLACED world');
+
+      controller.dispose();
+      focusNode.dispose();
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+  });
+
+  group('EditableDocument — moveToLineStartOrEnd fallback for binary node', () {
+    testWidgets('Cmd+Left on an image node moves to upstream position', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.textInput,
+        (MethodCall call) async => null,
+      );
+
+      final doc = MutableDocument([
+        ImageNode(id: 'img1', imageUrl: 'test.png'),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      final focusNode = FocusNode();
+
+      controller.setSelection(
+        const DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: 'img1',
+            nodePosition: BinaryNodePosition.downstream(),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: EditableDocument(
+              controller: controller,
+              focusNode: focusNode,
+            ),
+          ),
+        ),
+      );
+
+      focusNode.requestFocus();
+      await tester.pump();
+
+      // Cmd+Left on an image — resolver returns null (not a text block),
+      // so fallback _startOfNode produces upstream BinaryNodePosition.
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pump();
+
+      expect(controller.selection, isNotNull);
+      final pos = controller.selection!.extent.nodePosition as BinaryNodePosition;
+      expect(pos.type, BinaryNodePositionType.upstream);
+
+      controller.dispose();
+      focusNode.dispose();
+      debugDefaultTargetPlatformOverride = null;
+    });
+  });
 }

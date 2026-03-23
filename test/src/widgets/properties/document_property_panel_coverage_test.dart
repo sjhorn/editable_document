@@ -746,6 +746,360 @@ void main() {
       expect((captured! as ReplaceNodeRequest).newNode, isA<TableNode>());
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Additional border-change coverage for node types not yet exercised
+  // ---------------------------------------------------------------------------
+
+  group('DocumentPropertyPanel — border change for remaining node types', () {
+    testWidgets('border change fires ReplaceNodeRequest for ListItemNode', (tester) async {
+      final node = ListItemNode(
+        id: 'li1',
+        text: AttributedText('Item'),
+        type: ListItemType.unordered,
+      );
+      final controller = _controllerFor(node);
+      addTearDown(controller.dispose);
+
+      EditRequest? captured;
+      await tester.pumpWidget(_wrap(_panel(controller, onRequest: (r) => captured = r)));
+      await tester.pumpAndSettle();
+
+      final editor = tester.widget<BlockBorderEditor>(find.byType(BlockBorderEditor));
+      editor.onChanged(null);
+      await tester.pump();
+
+      expect(captured, isA<ReplaceNodeRequest>());
+      expect((captured! as ReplaceNodeRequest).newNode, isA<ListItemNode>());
+    });
+
+    testWidgets('border change fires ReplaceNodeRequest for BlockquoteNode', (tester) async {
+      final node = BlockquoteNode(id: 'bq1', text: AttributedText('Quote'));
+      final controller = _controllerFor(node);
+      addTearDown(controller.dispose);
+
+      EditRequest? captured;
+      await tester.pumpWidget(_wrap(_panel(controller, onRequest: (r) => captured = r)));
+      await tester.pumpAndSettle();
+
+      final editor = tester.widget<BlockBorderEditor>(find.byType(BlockBorderEditor));
+      editor.onChanged(null);
+      await tester.pump();
+
+      expect(captured, isA<ReplaceNodeRequest>());
+      expect((captured! as ReplaceNodeRequest).newNode, isA<BlockquoteNode>());
+    });
+
+    testWidgets('border change fires ReplaceNodeRequest for CodeBlockNode', (tester) async {
+      final node = CodeBlockNode(id: 'cb1', text: AttributedText('code'));
+      final controller = _controllerFor(node);
+      addTearDown(controller.dispose);
+
+      EditRequest? captured;
+      await tester.pumpWidget(_wrap(_panel(controller, onRequest: (r) => captured = r)));
+      await tester.pumpAndSettle();
+
+      final editor = tester.widget<BlockBorderEditor>(find.byType(BlockBorderEditor));
+      editor.onChanged(null);
+      await tester.pump();
+
+      expect(captured, isA<ReplaceNodeRequest>());
+      expect((captured! as ReplaceNodeRequest).newNode, isA<CodeBlockNode>());
+    });
+
+    testWidgets('border change fires ReplaceNodeRequest for HorizontalRuleNode', (tester) async {
+      final node = HorizontalRuleNode(id: 'hr1');
+      final controller = _controllerFor(node, position: const BinaryNodePosition.upstream());
+      addTearDown(controller.dispose);
+
+      EditRequest? captured;
+      await tester.pumpWidget(_wrap(_panel(controller, onRequest: (r) => captured = r)));
+      await tester.pumpAndSettle();
+
+      final editor = tester.widget<BlockBorderEditor>(find.byType(BlockBorderEditor));
+      editor.onChanged(null);
+      await tester.pump();
+
+      expect(captured, isA<ReplaceNodeRequest>());
+      expect((captured! as ReplaceNodeRequest).newNode, isA<HorizontalRuleNode>());
+    });
+
+    testWidgets('border change fires ReplaceNodeRequest for ImageNode', (tester) async {
+      final node = ImageNode(id: 'img1', imageUrl: 'https://example.com/x.png');
+      final controller = _controllerFor(node, position: const BinaryNodePosition.upstream());
+      addTearDown(controller.dispose);
+
+      EditRequest? captured;
+      await tester.pumpWidget(_wrap(_panel(controller, onRequest: (r) => captured = r)));
+      await tester.pumpAndSettle();
+
+      final editor = tester.widget<BlockBorderEditor>(find.byType(BlockBorderEditor));
+      editor.onChanged(null);
+      await tester.pump();
+
+      expect(captured, isA<ReplaceNodeRequest>());
+      expect((captured! as ReplaceNodeRequest).newNode, isA<ImageNode>());
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Non-stretch block-alignment changes (copyWith path)
+  // ---------------------------------------------------------------------------
+
+  group('DocumentPropertyPanel — non-stretch block-alignment changes', () {
+    testWidgets('block-alignment center (non-stretch) fires copyWith for HorizontalRuleNode',
+        (tester) async {
+      final node = HorizontalRuleNode(id: 'hr1');
+      final controller = _controllerFor(node, position: const BinaryNodePosition.upstream());
+      addTearDown(controller.dispose);
+
+      EditRequest? captured;
+      await tester.pumpWidget(_wrap(_panel(controller, onRequest: (r) => captured = r)));
+      await tester.pumpAndSettle();
+
+      final editor = tester.widget<BlockAlignmentEditor>(find.byType(BlockAlignmentEditor));
+      editor.onChanged(BlockAlignment.center);
+      await tester.pump();
+
+      expect(captured, isA<ReplaceNodeRequest>());
+      final updated = (captured! as ReplaceNodeRequest).newNode as HorizontalRuleNode;
+      expect(updated.alignment, BlockAlignment.center);
+    });
+
+    testWidgets('block-alignment end (non-stretch) fires copyWith for BlockquoteNode',
+        (tester) async {
+      final node = BlockquoteNode(id: 'bq1', text: AttributedText('Quote'));
+      final controller = _controllerFor(node);
+      addTearDown(controller.dispose);
+
+      EditRequest? captured;
+      await tester.pumpWidget(_wrap(_panel(controller, onRequest: (r) => captured = r)));
+      await tester.pumpAndSettle();
+
+      final editor = tester.widget<BlockAlignmentEditor>(find.byType(BlockAlignmentEditor));
+      editor.onChanged(BlockAlignment.end);
+      await tester.pump();
+
+      expect(captured, isA<ReplaceNodeRequest>());
+      final updated = (captured! as ReplaceNodeRequest).newNode as BlockquoteNode;
+      expect(updated.alignment, BlockAlignment.end);
+    });
+
+    testWidgets('block-alignment center (non-stretch) fires copyWith for CodeBlockNode',
+        (tester) async {
+      final node = CodeBlockNode(id: 'cb1', text: AttributedText('code'));
+      final controller = _controllerFor(node);
+      addTearDown(controller.dispose);
+
+      EditRequest? captured;
+      await tester.pumpWidget(_wrap(_panel(controller, onRequest: (r) => captured = r)));
+      await tester.pumpAndSettle();
+
+      final editor = tester.widget<BlockAlignmentEditor>(find.byType(BlockAlignmentEditor));
+      editor.onChanged(BlockAlignment.center);
+      await tester.pump();
+
+      expect(captured, isA<ReplaceNodeRequest>());
+      final updated = (captured! as ReplaceNodeRequest).newNode as CodeBlockNode;
+      expect(updated.alignment, BlockAlignment.center);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // text-wrap for HorizontalRuleNode
+  // ---------------------------------------------------------------------------
+
+  group('DocumentPropertyPanel — text-wrap via horizontal rule', () {
+    testWidgets('text-wrap change fires ReplaceNodeRequest for HorizontalRuleNode', (tester) async {
+      final node = HorizontalRuleNode(id: 'hr1');
+      final controller = _controllerFor(node, position: const BinaryNodePosition.upstream());
+      addTearDown(controller.dispose);
+
+      EditRequest? captured;
+      await tester.pumpWidget(_wrap(_panel(controller, onRequest: (r) => captured = r)));
+      await tester.pumpAndSettle();
+
+      final editor = tester.widget<TextWrapEditor>(find.byType(TextWrapEditor));
+      editor.onChanged(TextWrapMode.wrap);
+      await tester.pump();
+
+      expect(captured, isA<ReplaceNodeRequest>());
+      final updated = (captured! as ReplaceNodeRequest).newNode as HorizontalRuleNode;
+      expect(updated.textWrap, TextWrapMode.wrap);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Width/height change with alignment promotion for remaining node types
+  // ---------------------------------------------------------------------------
+
+  group('DocumentPropertyPanel — width/height alignment promotion', () {
+    testWidgets('width change on HorizontalRuleNode promotes stretch to start', (tester) async {
+      final node = HorizontalRuleNode(id: 'hr1');
+      final controller = _controllerFor(node, position: const BinaryNodePosition.upstream());
+      addTearDown(controller.dispose);
+
+      EditRequest? captured;
+      await tester.pumpWidget(_wrap(_panel(controller, onRequest: (r) => captured = r)));
+      await tester.pumpAndSettle();
+
+      final editor = tester.widget<BlockDimensionEditor>(find.byType(BlockDimensionEditor));
+      editor.onWidthChanged(const BlockDimension.pixels(200));
+      await tester.pump();
+
+      expect(captured, isA<ReplaceNodeRequest>());
+      final updated = (captured! as ReplaceNodeRequest).newNode as HorizontalRuleNode;
+      expect(updated.width, const BlockDimension.pixels(200));
+      expect(updated.alignment, BlockAlignment.start);
+    });
+
+    testWidgets('height change on CodeBlockNode promotes stretch to start', (tester) async {
+      final node = CodeBlockNode(id: 'cb1', text: AttributedText('code'));
+      final controller = _controllerFor(node);
+      addTearDown(controller.dispose);
+
+      EditRequest? captured;
+      await tester.pumpWidget(_wrap(_panel(controller, onRequest: (r) => captured = r)));
+      await tester.pumpAndSettle();
+
+      final editor = tester.widget<BlockDimensionEditor>(find.byType(BlockDimensionEditor));
+      editor.onHeightChanged(const BlockDimension.pixels(300));
+      await tester.pump();
+
+      expect(captured, isA<ReplaceNodeRequest>());
+      final updated = (captured! as ReplaceNodeRequest).newNode as CodeBlockNode;
+      expect(updated.height, const BlockDimension.pixels(300));
+      expect(updated.alignment, BlockAlignment.start);
+    });
+
+    testWidgets('height change on BlockquoteNode promotes stretch to start', (tester) async {
+      final node = BlockquoteNode(id: 'bq1', text: AttributedText('Quote'));
+      final controller = _controllerFor(node);
+      addTearDown(controller.dispose);
+
+      EditRequest? captured;
+      await tester.pumpWidget(_wrap(_panel(controller, onRequest: (r) => captured = r)));
+      await tester.pumpAndSettle();
+
+      final editor = tester.widget<BlockDimensionEditor>(find.byType(BlockDimensionEditor));
+      editor.onHeightChanged(const BlockDimension.pixels(250));
+      await tester.pump();
+
+      expect(captured, isA<ReplaceNodeRequest>());
+      final updated = (captured! as ReplaceNodeRequest).newNode as BlockquoteNode;
+      expect(updated.height, const BlockDimension.pixels(250));
+      expect(updated.alignment, BlockAlignment.start);
+    });
+
+    testWidgets('height change on HorizontalRuleNode promotes stretch to start', (tester) async {
+      final node = HorizontalRuleNode(id: 'hr1');
+      final controller = _controllerFor(node, position: const BinaryNodePosition.upstream());
+      addTearDown(controller.dispose);
+
+      EditRequest? captured;
+      await tester.pumpWidget(_wrap(_panel(controller, onRequest: (r) => captured = r)));
+      await tester.pumpAndSettle();
+
+      final editor = tester.widget<BlockDimensionEditor>(find.byType(BlockDimensionEditor));
+      editor.onHeightChanged(const BlockDimension.pixels(100));
+      await tester.pump();
+
+      expect(captured, isA<ReplaceNodeRequest>());
+      final updated = (captured! as ReplaceNodeRequest).newNode as HorizontalRuleNode;
+      expect(updated.height, const BlockDimension.pixels(100));
+      expect(updated.alignment, BlockAlignment.start);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Indent — firstLine and right-indent for remaining types
+  // ---------------------------------------------------------------------------
+
+  group('DocumentPropertyPanel — indent right and firstLine variants', () {
+    testWidgets('first-line indent change fires ReplaceNodeRequest for ParagraphNode',
+        (tester) async {
+      final node = ParagraphNode(id: 'p1', text: AttributedText('Text'));
+      final controller = _controllerFor(node);
+      addTearDown(controller.dispose);
+
+      EditRequest? captured;
+      await tester.pumpWidget(_wrap(_panel(controller, onRequest: (r) => captured = r)));
+      await tester.pumpAndSettle();
+
+      final editor = tester.widget<IndentEditor>(find.byType(IndentEditor));
+      editor.onFirstLineIndentChanged!(20.0);
+      await tester.pump();
+
+      expect(captured, isA<ReplaceNodeRequest>());
+      final req = captured! as ReplaceNodeRequest;
+      expect((req.newNode as ParagraphNode).firstLineIndent, 20.0);
+    });
+
+    testWidgets('indent-left change fires ReplaceNodeRequest for ListItemNode', (tester) async {
+      final node = ListItemNode(
+        id: 'li1',
+        text: AttributedText('Item'),
+        type: ListItemType.unordered,
+      );
+      final controller = _controllerFor(node);
+      addTearDown(controller.dispose);
+
+      EditRequest? captured;
+      await tester.pumpWidget(_wrap(_panel(controller, onRequest: (r) => captured = r)));
+      await tester.pumpAndSettle();
+
+      final editor = tester.widget<IndentEditor>(find.byType(IndentEditor));
+      editor.onIndentLeftChanged(8.0);
+      await tester.pump();
+
+      expect(captured, isA<ReplaceNodeRequest>());
+      final req = captured! as ReplaceNodeRequest;
+      expect((req.newNode as ListItemNode).indentLeft, 8.0);
+    });
+
+    testWidgets('indent-right change fires ReplaceNodeRequest for ParagraphNode', (tester) async {
+      final node = ParagraphNode(id: 'p1', text: AttributedText('Text'));
+      final controller = _controllerFor(node);
+      addTearDown(controller.dispose);
+
+      EditRequest? captured;
+      await tester.pumpWidget(_wrap(_panel(controller, onRequest: (r) => captured = r)));
+      await tester.pumpAndSettle();
+
+      final editor = tester.widget<IndentEditor>(find.byType(IndentEditor));
+      editor.onIndentRightChanged(12.0);
+      await tester.pump();
+
+      expect(captured, isA<ReplaceNodeRequest>());
+      final req = captured! as ReplaceNodeRequest;
+      expect((req.newNode as ParagraphNode).indentRight, 12.0);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Line-height change via LineHeightEditor
+  // ---------------------------------------------------------------------------
+
+  group('DocumentPropertyPanel — line-height change', () {
+    testWidgets('line-height change fires ChangeLineHeightRequest for ParagraphNode',
+        (tester) async {
+      final node = ParagraphNode(id: 'p1', text: AttributedText('Text'));
+      final controller = _controllerFor(node);
+      addTearDown(controller.dispose);
+
+      EditRequest? captured;
+      await tester.pumpWidget(_wrap(_panel(controller, onRequest: (r) => captured = r)));
+      await tester.pumpAndSettle();
+
+      final editor = tester.widget<LineHeightEditor>(find.byType(LineHeightEditor));
+      editor.onChanged(1.5);
+      await tester.pump();
+
+      expect(captured, isA<ChangeLineHeightRequest>());
+      expect((captured! as ChangeLineHeightRequest).nodeId, 'p1');
+      expect((captured! as ChangeLineHeightRequest).newLineHeight, 1.5);
+    });
+  });
 }
 
 // ---------------------------------------------------------------------------

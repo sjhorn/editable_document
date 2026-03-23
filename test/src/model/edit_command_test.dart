@@ -2531,4 +2531,470 @@ void main() {
       expect(ctx.controller.selection, selBefore);
     });
   });
+
+  // =========================================================================
+  // DeleteContentCommand — table cell deletion
+  // =========================================================================
+
+  group('DeleteContentCommand table cell deletion', () {
+    test('1. deletes text within a single TableNode cell', () {
+      final doc = MutableDocument([
+        TableNode(
+          id: 'tbl1',
+          rowCount: 1,
+          columnCount: 1,
+          cells: [
+            [AttributedText('Hello world')],
+          ],
+        ),
+      ]);
+      final ctx = _ctx(doc);
+      // Select offsets 0..5 within cell (0, 0).
+      final sel = const DocumentSelection(
+        base: DocumentPosition(
+          nodeId: 'tbl1',
+          nodePosition: TableCellPosition(row: 0, col: 0, offset: 0),
+        ),
+        extent: DocumentPosition(
+          nodeId: 'tbl1',
+          nodePosition: TableCellPosition(row: 0, col: 0, offset: 5),
+        ),
+      );
+      final cmd = DeleteContentCommand(selection: sel);
+
+      final events = cmd.execute(ctx);
+
+      final node = doc.nodeById('tbl1') as TableNode;
+      expect(node.cellAt(0, 0).text, ' world');
+      expect(events.any((e) => e is NodeReplaced), isTrue);
+    });
+
+    test('2. collapses selection to start offset after table cell deletion', () {
+      final doc = MutableDocument([
+        TableNode(
+          id: 'tbl1',
+          rowCount: 1,
+          columnCount: 1,
+          cells: [
+            [AttributedText('ABCDE')],
+          ],
+        ),
+      ]);
+      final ctx = _ctx(doc);
+      final sel = const DocumentSelection(
+        base: DocumentPosition(
+          nodeId: 'tbl1',
+          nodePosition: TableCellPosition(row: 0, col: 0, offset: 1),
+        ),
+        extent: DocumentPosition(
+          nodeId: 'tbl1',
+          nodePosition: TableCellPosition(row: 0, col: 0, offset: 4),
+        ),
+      );
+      final cmd = DeleteContentCommand(selection: sel);
+
+      cmd.execute(ctx);
+
+      final sel2 = ctx.controller.selection;
+      expect(sel2, isNotNull);
+      expect(sel2!.isCollapsed, isTrue);
+      final pos = sel2.extent.nodePosition as TableCellPosition;
+      expect(pos.row, 0);
+      expect(pos.col, 0);
+      expect(pos.offset, 1);
+    });
+  });
+
+  // =========================================================================
+  // DeleteContentCommand — multi-node: non-text first node
+  // =========================================================================
+
+  group('DeleteContentCommand multi-node with non-text first node', () {
+    test('1. first node is non-text: uses collapseOffset=0 and deletes last text node', () {
+      // Document: [hr1, p1:"World"]
+      // Select from hr1/upstream to p1/offset=3.
+      // hr1 is non-text so firstNodeTrimOffset stays null → collapseOffset=0.
+      // The merge branch (lastNode is TextNode && firstNode is TextNode) is false,
+      // so the else-if branch deletes p1 without merging.
+      // hr1 remains; selection collapses to hr1 at offset 0.
+      final doc = MutableDocument([
+        HorizontalRuleNode(id: 'hr1'),
+        ParagraphNode(id: 'p1', text: AttributedText('World')),
+      ]);
+      final ctx = _ctx(doc);
+      final sel = const DocumentSelection(
+        base: DocumentPosition(
+          nodeId: 'hr1',
+          nodePosition: BinaryNodePosition.upstream(),
+        ),
+        extent: DocumentPosition(
+          nodeId: 'p1',
+          nodePosition: TextNodePosition(offset: 3),
+        ),
+      );
+      final cmd = DeleteContentCommand(selection: sel);
+
+      final events = cmd.execute(ctx);
+
+      // p1 should be deleted; hr1 remains as the non-text first node.
+      expect(doc.nodeById('p1'), isNull);
+      expect(doc.nodeById('hr1'), isNotNull);
+      expect(events.any((e) => e is NodeDeleted), isTrue);
+
+      // Selection collapses to firstNodeId at offset 0 (firstNodeTrimOffset == null → 0).
+      final finalSel = ctx.controller.selection;
+      expect(finalSel, isNotNull);
+      expect(finalSel!.isCollapsed, isTrue);
+      expect(finalSel.extent.nodeId, 'hr1');
+      expect((finalSel.extent.nodePosition as TextNodePosition).offset, 0);
+    });
+
+    test('2. last node is non-text (ImageNode): deleted without merge', () {
+      // Document: [p1:"AAAA", img]
+      // Select p1[2..end] through img — last node is ImageNode (non-text).
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('AAAA')),
+        ImageNode(id: 'img', imageUrl: 'https://example.com/img.png'),
+      ]);
+      final ctx = _ctx(doc);
+      final sel = const DocumentSelection(
+        base: DocumentPosition(
+          nodeId: 'p1',
+          nodePosition: TextNodePosition(offset: 2),
+        ),
+        extent: DocumentPosition(
+          nodeId: 'img',
+          nodePosition: BinaryNodePosition.downstream(),
+        ),
+      );
+      final cmd = DeleteContentCommand(selection: sel);
+
+      final events = cmd.execute(ctx);
+
+      // p1 is trimmed to "AA", img is deleted.
+      expect((doc.nodeById('p1') as TextNode).text.text, 'AA');
+      expect(doc.nodeById('img'), isNull);
+      expect(events.any((e) => e is NodeDeleted), isTrue);
+    });
+  });
+
+  // =========================================================================
+  // SplitParagraphCommand — missing node StateError
+  // =========================================================================
+
+  group('SplitParagraphCommand missing node', () {
+    test('1. throws StateError when nodeId does not exist', () {
+      final doc = _twoParaDoc();
+      final ctx = _ctx(doc);
+      expect(
+        () => const SplitParagraphCommand(nodeId: 'nope', splitOffset: 0).execute(ctx),
+        throwsStateError,
+      );
+    });
+  });
+
+  // =========================================================================
+  // MergeNodeCommand — extra error paths
+  // =========================================================================
+
+  group('MergeNodeCommand extra error paths', () {
+    test('1. throws StateError when first node is not a TextNode', () {
+      final doc = MutableDocument([
+        ImageNode(id: 'img', imageUrl: 'https://example.com/img.png'),
+        ParagraphNode(id: 'p1', text: AttributedText('Hello')),
+      ]);
+      final ctx = _ctx(doc);
+      expect(
+        () => const MergeNodeCommand(firstNodeId: 'img', secondNodeId: 'p1').execute(ctx),
+        throwsStateError,
+      );
+    });
+
+    test('2. throws StateError when second node does not exist', () {
+      final doc = _twoParaDoc();
+      final ctx = _ctx(doc);
+      expect(
+        () => const MergeNodeCommand(firstNodeId: 'p1', secondNodeId: 'nope').execute(ctx),
+        throwsStateError,
+      );
+    });
+  });
+
+  // =========================================================================
+  // ChangeBlockTypeCommand — missing node StateError
+  // =========================================================================
+
+  group('ChangeBlockTypeCommand missing node', () {
+    test('1. throws StateError when nodeId does not exist', () {
+      final doc = _twoParaDoc();
+      final ctx = _ctx(doc);
+      expect(
+        () => const ChangeBlockTypeCommand(
+          nodeId: 'nope',
+          newBlockType: ParagraphBlockType.paragraph,
+        ).execute(ctx),
+        throwsStateError,
+      );
+    });
+  });
+
+  // =========================================================================
+  // ApplyAttributionCommand — three-node selection (middle node branch)
+  // =========================================================================
+
+  group('ApplyAttributionCommand three nodes', () {
+    test('1. applies attribution across three nodes: middle node fully attributed', () {
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('AAAA')),
+        ParagraphNode(id: 'p2', text: AttributedText('BBBB')),
+        ParagraphNode(id: 'p3', text: AttributedText('CCCC')),
+      ]);
+      final ctx = _ctx(doc);
+      // Apply bold from p1[2..end] through p3[0..2].
+      final sel = const DocumentSelection(
+        base: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 2)),
+        extent: DocumentPosition(nodeId: 'p3', nodePosition: TextNodePosition(offset: 3)),
+      );
+      final cmd = ApplyAttributionCommand(selection: sel, attribution: NamedAttribution.bold);
+
+      final events = cmd.execute(ctx);
+
+      final p2 = doc.nodeById('p2') as TextNode;
+      // Middle node (p2) must be fully bolded (0..3).
+      for (var i = 0; i < 4; i++) {
+        expect(p2.text.hasAttributionAt(i, NamedAttribution.bold), isTrue);
+      }
+      expect(events.whereType<TextChanged>().length, 3);
+    });
+  });
+
+  // =========================================================================
+  // RemoveAttributionCommand — multi-node selection
+  // =========================================================================
+
+  group('RemoveAttributionCommand multi-node', () {
+    test('1. removes attribution across two nodes: start and end boundaries', () {
+      // Both nodes fully bolded.
+      final boldP1 = AttributedText('Hello').applyAttribution(NamedAttribution.bold, 0, 4);
+      final boldP2 = AttributedText('World').applyAttribution(NamedAttribution.bold, 0, 4);
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: boldP1),
+        ParagraphNode(id: 'p2', text: boldP2),
+      ]);
+      final ctx = _ctx(doc);
+      // Remove bold from p1[2..end] through p2[0..3].
+      final sel = const DocumentSelection(
+        base: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 2)),
+        extent: DocumentPosition(nodeId: 'p2', nodePosition: TextNodePosition(offset: 4)),
+      );
+      final cmd = RemoveAttributionCommand(selection: sel, attribution: NamedAttribution.bold);
+
+      final events = cmd.execute(ctx);
+
+      final p1 = doc.nodeById('p1') as TextNode;
+      final p2 = doc.nodeById('p2') as TextNode;
+      // p1 chars 0..1 retain bold; 2..4 lose it.
+      expect(p1.text.hasAttributionAt(0, NamedAttribution.bold), isTrue);
+      expect(p1.text.hasAttributionAt(2, NamedAttribution.bold), isFalse);
+      // p2 chars 0..3 lose bold (extent at 4 is exclusive).
+      expect(p2.text.hasAttributionAt(0, NamedAttribution.bold), isFalse);
+      expect(p2.text.hasAttributionAt(3, NamedAttribution.bold), isFalse);
+      expect(events.whereType<TextChanged>().length, 2);
+    });
+
+    test('2. removes attribution across three nodes: middle node fully stripped', () {
+      final bold = NamedAttribution.bold;
+      final makeText = (String s) => AttributedText(s).applyAttribution(bold, 0, s.length - 1);
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: makeText('AAAA')),
+        ParagraphNode(id: 'p2', text: makeText('BBBB')),
+        ParagraphNode(id: 'p3', text: makeText('CCCC')),
+      ]);
+      final ctx = _ctx(doc);
+      // Remove bold from p1[2..end] through p3[0..2].
+      final sel = const DocumentSelection(
+        base: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 2)),
+        extent: DocumentPosition(nodeId: 'p3', nodePosition: TextNodePosition(offset: 3)),
+      );
+      final cmd = RemoveAttributionCommand(selection: sel, attribution: bold);
+
+      final events = cmd.execute(ctx);
+
+      final p2 = doc.nodeById('p2') as TextNode;
+      // Middle node (p2) must be fully de-bolded.
+      for (var i = 0; i < 4; i++) {
+        expect(p2.text.hasAttributionAt(i, bold), isFalse);
+      }
+      expect(events.whereType<TextChanged>().length, 3);
+    });
+  });
+
+  // =========================================================================
+  // DeleteTableCommand
+  // =========================================================================
+
+  group('DeleteTableCommand', () {
+    test('1. deletes table and collapses selection to end of preceding TextNode', () {
+      final doc = MutableDocument([
+        ParagraphNode(id: 'p1', text: AttributedText('Before')),
+        TableNode(
+          id: 'tbl1',
+          rowCount: 1,
+          columnCount: 1,
+          cells: [
+            [AttributedText('cell')],
+          ],
+        ),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = const DeleteTableCommand(nodeId: 'tbl1');
+
+      final events = cmd.execute(ctx);
+
+      expect(doc.nodeById('tbl1'), isNull);
+      expect(doc.nodeCount, 1);
+      expect(events.any((e) => e is NodeDeleted), isTrue);
+
+      // Selection collapses to end of preceding TextNode ('Before' = 6 chars).
+      final sel = ctx.controller.selection;
+      expect(sel, isNotNull);
+      expect(sel!.isCollapsed, isTrue);
+      expect(sel.extent.nodeId, 'p1');
+      expect((sel.extent.nodePosition as TextNodePosition).offset, 6);
+    });
+
+    test('2. deletes table with no preceding text node — collapses to start of next node', () {
+      final doc = MutableDocument([
+        TableNode(
+          id: 'tbl1',
+          rowCount: 1,
+          columnCount: 1,
+          cells: [
+            [AttributedText('cell')],
+          ],
+        ),
+        ParagraphNode(id: 'p1', text: AttributedText('After')),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = const DeleteTableCommand(nodeId: 'tbl1');
+
+      cmd.execute(ctx);
+
+      expect(doc.nodeById('tbl1'), isNull);
+
+      final sel = ctx.controller.selection;
+      expect(sel, isNotNull);
+      expect(sel!.isCollapsed, isTrue);
+      expect(sel.extent.nodeId, 'p1');
+      expect((sel.extent.nodePosition as TextNodePosition).offset, 0);
+    });
+
+    test('3. deletes the only node — clears selection', () {
+      final doc = MutableDocument([
+        TableNode(
+          id: 'tbl1',
+          rowCount: 1,
+          columnCount: 1,
+          cells: [
+            [AttributedText('cell')],
+          ],
+        ),
+      ]);
+      final ctx = _ctx(doc);
+      final cmd = const DeleteTableCommand(nodeId: 'tbl1');
+
+      cmd.execute(ctx);
+
+      expect(doc.nodeCount, 0);
+      expect(ctx.controller.selection, isNull);
+    });
+
+    test('4. throws StateError for unknown nodeId', () {
+      final doc = _twoParaDoc();
+      final ctx = _ctx(doc);
+      expect(() => const DeleteTableCommand(nodeId: 'nope').execute(ctx), throwsStateError);
+    });
+  });
+
+  // =========================================================================
+  // MoveNodeToPositionCommand — non-text target with TextNodePosition
+  // =========================================================================
+
+  group('MoveNodeToPositionCommand non-text target', () {
+    test('1. TextNodePosition targeting a non-text node inserts after it', () {
+      // [img1, hr, img2] — move img2 to hr/TextNodePosition(offset:0).
+      // hr is not a TextNode so falls into the "treat as inserting after" branch.
+      final doc = MutableDocument([
+        ImageNode(id: 'img1', imageUrl: 'https://example.com/a.png'),
+        HorizontalRuleNode(id: 'hr'),
+        ImageNode(id: 'img2', imageUrl: 'https://example.com/b.png'),
+      ]);
+      final ctx = _ctx(doc);
+      const cmd = MoveNodeToPositionCommand(
+        nodeId: 'img2',
+        position: DocumentPosition(
+          nodeId: 'hr',
+          nodePosition: TextNodePosition(offset: 0),
+        ),
+      );
+
+      final events = cmd.execute(ctx);
+
+      // img2 should be inserted after hr (index 2), so order: [img1, hr, img2].
+      // But since img2 was removed first, then inserted after hr, the order is img1 hr img2.
+      expect(doc.nodeCount, 3);
+      expect(doc.nodeAt(0).id, 'img1');
+      expect(doc.nodeAt(1).id, 'hr');
+      expect(doc.nodeAt(2).id, 'img2');
+      expect(events.any((e) => e is NodeDeleted), isTrue);
+      expect(events.any((e) => e is NodeInserted), isTrue);
+    });
+  });
+
+  // =========================================================================
+  // InsertNodeAtPositionCommand — non-text target with TextNodePosition
+  // =========================================================================
+
+  group('InsertNodeAtPositionCommand non-text target', () {
+    test('1. TextNodePosition targeting a non-text node inserts after it', () {
+      final doc = MutableDocument([
+        HorizontalRuleNode(id: 'hr1'),
+        ParagraphNode(id: 'p1', text: AttributedText('After')),
+      ]);
+      final ctx = _ctx(doc);
+      final newNode = ImageNode(id: 'img1', imageUrl: 'https://example.com/img.png');
+      final cmd = InsertNodeAtPositionCommand(
+        node: newNode,
+        position: const DocumentPosition(
+          nodeId: 'hr1',
+          nodePosition: TextNodePosition(offset: 0),
+        ),
+      );
+
+      final events = cmd.execute(ctx);
+
+      // img1 should be inserted after hr1 (index 1).
+      expect(doc.nodeCount, 3);
+      expect(doc.nodeAt(0).id, 'hr1');
+      expect(doc.nodeAt(1), isA<ImageNode>());
+      expect(doc.nodeAt(1).id, 'img1');
+      expect(doc.nodeAt(2).id, 'p1');
+      expect(events, contains(isA<NodeInserted>()));
+    });
+  });
+
+  // =========================================================================
+  // InsertTableRowCommand — missing node StateError
+  // =========================================================================
+
+  group('InsertTableRowCommand error paths', () {
+    test('1. throws StateError when nodeId does not exist', () {
+      final doc = _twoParaDoc();
+      final ctx = _ctx(doc);
+      expect(
+        () => const InsertTableRowCommand(nodeId: 'nope', rowIndex: 0).execute(ctx),
+        throwsStateError,
+      );
+    });
+  });
 }

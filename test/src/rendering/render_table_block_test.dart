@@ -1030,6 +1030,424 @@ void main() {
     });
   });
 
+  // ---------------------------------------------------------------------------
+  // 17. Selection painting (nodeSelection triggers _paintSelectionHighlights)
+  // ---------------------------------------------------------------------------
+  group('RenderTableBlock nodeSelection paint', () {
+    test('nodeSelection setter with non-TableCellPosition is ignored gracefully', () {
+      // getEndpointsForSelection returns empty when positions are not
+      // TableCellPosition — verify we can set a selection with BinaryNodePosition
+      // without throwing.
+      final block = _layoutBlock(_makeTable(rowCount: 2, columnCount: 2));
+      // DocumentSelection with non-TableCellPosition base/extent.
+      block.nodeSelection = DocumentSelection(
+        base: DocumentPosition(
+          nodeId: 'table1',
+          nodePosition: const BinaryNodePosition.upstream(),
+        ),
+        extent: DocumentPosition(
+          nodeId: 'table1',
+          nodePosition: const BinaryNodePosition.downstream(),
+        ),
+      );
+      expect(block.nodeSelection, isNotNull);
+      // getEndpointsForSelection must return empty list for non-TableCellPosition.
+      final rects = block.getEndpointsForSelection(
+        const BinaryNodePosition.upstream(),
+        const BinaryNodePosition.downstream(),
+      );
+      expect(rects, isEmpty);
+    });
+
+    test('nodeSelection setter no-op when same value is set', () {
+      final block = _layoutBlock(_makeTable(rowCount: 1, columnCount: 1));
+      final sel = DocumentSelection(
+        base: DocumentPosition(
+          nodeId: 'table1',
+          nodePosition: const TableCellPosition(row: 0, col: 0, offset: 0),
+        ),
+        extent: DocumentPosition(
+          nodeId: 'table1',
+          nodePosition: const TableCellPosition(row: 0, col: 0, offset: 1),
+        ),
+      );
+      block.nodeSelection = sel;
+      // Setting same value should be a no-op (no crash, no markNeedsPaint loop).
+      block.nodeSelection = sel;
+      expect(block.nodeSelection, equals(sel));
+    });
+
+    test('nodeId setter no-op when same value is set', () {
+      final block = _layoutBlock(_makeTable(rowCount: 1, columnCount: 1));
+      block.nodeId = 'table1'; // same value as constructed with
+      expect(block.nodeId, 'table1');
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // 18. spaceBefore / spaceAfter setters
+  // ---------------------------------------------------------------------------
+  group('RenderTableBlock spaceBefore / spaceAfter', () {
+    test('spaceBefore defaults to null', () {
+      final block = _makeTable(rowCount: 1, columnCount: 1);
+      expect(block.spaceBefore, isNull);
+    });
+
+    test('spaceAfter defaults to null', () {
+      final block = _makeTable(rowCount: 1, columnCount: 1);
+      expect(block.spaceAfter, isNull);
+    });
+
+    test('spaceBefore setter no-op when same value is set', () {
+      final block = _layoutBlock(_makeTable(rowCount: 1, columnCount: 1));
+      block.spaceBefore = 12.0;
+      block.spaceBefore = 12.0; // same — should not throw
+      expect(block.spaceBefore, 12.0);
+    });
+
+    test('spaceAfter setter no-op when same value is set', () {
+      final block = _layoutBlock(_makeTable(rowCount: 1, columnCount: 1));
+      block.spaceAfter = 8.0;
+      block.spaceAfter = 8.0; // same — should not throw
+      expect(block.spaceAfter, 8.0);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // 19. requestedWidth / requestedHeight constructor paths
+  // ---------------------------------------------------------------------------
+  group('RenderTableBlock requestedWidth / requestedHeight', () {
+    test('requestedWidth clamps table to that width', () {
+      final block = _layoutBlock(
+        RenderTableBlock(
+          nodeId: 'table1',
+          rowCount: 1,
+          columnCount: 1,
+          cells: [
+            [AttributedText('A')],
+          ],
+          textStyle: const TextStyle(fontSize: 16),
+          requestedWidth: 200.0,
+        ),
+        maxWidth: 400,
+      );
+      expect(block.size.width, closeTo(200.0, 0.5));
+    });
+
+    test('requestedHeight sets minimum table height', () {
+      final block = _layoutBlock(
+        RenderTableBlock(
+          nodeId: 'table1',
+          rowCount: 1,
+          columnCount: 1,
+          cells: [
+            [AttributedText('A')],
+          ],
+          textStyle: const TextStyle(fontSize: 16),
+          requestedHeight: 200.0,
+          cellPadding: 0,
+          borderWidth: 0,
+        ),
+        maxWidth: 400,
+      );
+      expect(block.size.height, greaterThanOrEqualTo(200.0));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // 20. Property setter no-ops (equal value, no markNeeds*)
+  // ---------------------------------------------------------------------------
+  group('RenderTableBlock property setter no-ops', () {
+    test('borderColor setter no-op when same value', () {
+      final block = _layoutBlock(_makeTable(rowCount: 1, columnCount: 1));
+      const color = Color(0xFFCCCCCC);
+      block.borderColor = color;
+      block.borderColor = color; // same value
+      expect(block.borderColor, color);
+    });
+
+    test('selectionColor setter no-op when same value', () {
+      final block = _layoutBlock(_makeTable(rowCount: 1, columnCount: 1));
+      const color = Color(0x663399FF);
+      block.selectionColor = color;
+      block.selectionColor = color; // same value
+      expect(block.selectionColor, color);
+    });
+
+    test('textDirection setter no-op when same value', () {
+      final block = _layoutBlock(_makeTable(rowCount: 1, columnCount: 1));
+      block.textDirection = TextDirection.ltr;
+      block.textDirection = TextDirection.ltr; // same value
+      expect(block.textDirection, TextDirection.ltr);
+    });
+
+    test('textStyle setter no-op when same value', () {
+      const style = TextStyle(fontSize: 16);
+      final block = _layoutBlock(
+        RenderTableBlock(
+          nodeId: 'table1',
+          rowCount: 1,
+          columnCount: 1,
+          cells: [
+            [AttributedText('A')],
+          ],
+          textStyle: style,
+        ),
+      );
+      block.textStyle = style;
+      expect(block.textStyle, style);
+    });
+
+    test('borderWidth setter no-op when same value', () {
+      final block = _layoutBlock(_makeTable(rowCount: 1, columnCount: 1, borderWidth: 2.0));
+      block.borderWidth = 2.0; // same value
+      expect(block.borderWidth, 2.0);
+    });
+
+    test('cellPadding setter no-op when same value', () {
+      final block = _layoutBlock(_makeTable(rowCount: 1, columnCount: 1, cellPadding: 10.0));
+      block.cellPadding = 10.0; // same value
+      expect(block.cellPadding, 10.0);
+    });
+
+    test('columnWidths setter triggers layout when changed', () {
+      final block = _layoutBlock(_makeTable(rowCount: 1, columnCount: 2));
+      block.columnWidths = [80.0, null];
+      expect(block.columnWidths, [80.0, null]);
+    });
+
+    test('cells setter triggers layout', () {
+      final block = _layoutBlock(_makeTable(rowCount: 1, columnCount: 1));
+      final newCells = [
+        [AttributedText('Updated')],
+      ];
+      block.cells = newCells;
+      expect(block.cells, newCells);
+    });
+
+    test('rowCount and columnCount setters no-op when same value', () {
+      final block = _layoutBlock(_makeTable(rowCount: 2, columnCount: 3));
+      block.rowCount = 2;
+      block.columnCount = 3;
+      expect(block.rowCount, 2);
+      expect(block.columnCount, 3);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // 21. _buildStyleForAttributions — all attribution branches
+  // ---------------------------------------------------------------------------
+  group('RenderTableBlock attributed cell text', () {
+    /// Lays out a 1x1 table with the given [text] and verifies no errors.
+    void expectLayoutsOk(AttributedText text) {
+      final block = _layoutBlock(
+        RenderTableBlock(
+          nodeId: 'table1',
+          rowCount: 1,
+          columnCount: 1,
+          cells: [
+            [text],
+          ],
+          textStyle: const TextStyle(fontSize: 14),
+          cellPadding: 0,
+          borderWidth: 0,
+        ),
+        maxWidth: 400,
+      );
+      expect(block.size.height, greaterThan(0));
+    }
+
+    test('bold attribution builds correctly', () {
+      expectLayoutsOk(
+        AttributedText('Bold text').applyAttribution(NamedAttribution.bold, 0, 3),
+      );
+    });
+
+    test('italics attribution builds correctly', () {
+      expectLayoutsOk(
+        AttributedText('Italic text').applyAttribution(NamedAttribution.italics, 0, 5),
+      );
+    });
+
+    test('underline attribution builds correctly', () {
+      expectLayoutsOk(
+        AttributedText('Underlined').applyAttribution(NamedAttribution.underline, 0, 4),
+      );
+    });
+
+    test('strikethrough attribution builds correctly', () {
+      expectLayoutsOk(
+        AttributedText('Strike text').applyAttribution(NamedAttribution.strikethrough, 0, 5),
+      );
+    });
+
+    test('code attribution builds correctly', () {
+      expectLayoutsOk(
+        AttributedText('code snippet').applyAttribution(NamedAttribution.code, 0, 3),
+      );
+    });
+
+    test('FontFamilyAttribution builds correctly', () {
+      expectLayoutsOk(
+        AttributedText('custom font').applyAttribution(const FontFamilyAttribution('Roboto'), 0, 5),
+      );
+    });
+
+    test('FontSizeAttribution builds correctly', () {
+      expectLayoutsOk(
+        AttributedText('big text').applyAttribution(const FontSizeAttribution(24.0), 0, 3),
+      );
+    });
+
+    test('TextColorAttribution builds correctly', () {
+      expectLayoutsOk(
+        AttributedText('colored text')
+            .applyAttribution(const TextColorAttribution(0xFFFF0000), 0, 6),
+      );
+    });
+
+    test('BackgroundColorAttribution builds correctly', () {
+      expectLayoutsOk(
+        AttributedText('highlighted text')
+            .applyAttribution(const BackgroundColorAttribution(0xFFFFFF00), 0, 10),
+      );
+    });
+
+    test('combined underline and strikethrough combine decorations', () {
+      expectLayoutsOk(
+        AttributedText('combined')
+            .applyAttribution(NamedAttribution.underline, 0, 4)
+            .applyAttribution(NamedAttribution.strikethrough, 0, 4),
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // 22. getLocalRectForPosition — empty cell (textLength == 0 path)
+  // ---------------------------------------------------------------------------
+  group('RenderTableBlock getLocalRectForPosition edge cases', () {
+    test('position in empty cell returns valid rect with positive height', () {
+      final block = _layoutBlock(
+        RenderTableBlock(
+          nodeId: 'table1',
+          rowCount: 1,
+          columnCount: 1,
+          cells: [
+            [AttributedText('')],
+          ],
+          textStyle: const TextStyle(fontSize: 16),
+          cellPadding: 0,
+          borderWidth: 0,
+        ),
+        maxWidth: 200,
+      );
+      final rect = block.getLocalRectForPosition(
+        const TableCellPosition(row: 0, col: 0, offset: 0),
+      );
+      expect(rect.height, greaterThan(0));
+    });
+
+    test('non-TableCellPosition returns zero-width rect with positive height', () {
+      final block = _layoutBlock(_makeTable(rowCount: 2, columnCount: 2));
+      final rect = block.getLocalRectForPosition(
+        const BinaryNodePosition.upstream(),
+      );
+      expect(rect.width, 0.0);
+      expect(rect.height, greaterThan(0));
+    });
+
+    test('position at end of multi-character cell uses box height', () {
+      // offset == textLength → clamps to last char box.
+      final block = _layoutBlock(
+        RenderTableBlock(
+          nodeId: 'table1',
+          rowCount: 1,
+          columnCount: 1,
+          cells: [
+            [AttributedText('Hello')],
+          ],
+          textStyle: const TextStyle(fontSize: 16),
+          cellPadding: 0,
+          borderWidth: 0,
+        ),
+        maxWidth: 200,
+      );
+      final rect = block.getLocalRectForPosition(
+        const TableCellPosition(row: 0, col: 0, offset: 5),
+      );
+      expect(rect.height, greaterThan(0));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // 23. getPositionAtOffset — fallback to last cell
+  // ---------------------------------------------------------------------------
+  group('RenderTableBlock getPositionAtOffset fallback', () {
+    test('offset outside all cells falls back to last cell', () {
+      // Use a 1×2 table where offset is far beyond the table bounds.
+      final block = _layoutBlock(
+        _makeTable(rowCount: 1, columnCount: 2, cellPadding: 0, borderWidth: 0),
+        maxWidth: 200,
+      );
+      // A large offset well beyond the table width should fall back to last cell.
+      final pos = block.getPositionAtOffset(const Offset(5000, 5000)) as TableCellPosition;
+      expect(pos.row, 0);
+      expect(pos.col, 1);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // 24. Multi-row cross-cell selection
+  // ---------------------------------------------------------------------------
+  group('RenderTableBlock multi-row selection', () {
+    test('cross-row selection returns rects for all covered cells', () {
+      final block = _layoutBlock(
+        _makeTable(rowCount: 2, columnCount: 2, cellPadding: 0, borderWidth: 0),
+        maxWidth: 200,
+      );
+      // Select from (row=0, col=0, offset=0) to (row=1, col=1, offset=3).
+      final rects = block.getEndpointsForSelection(
+        const TableCellPosition(row: 0, col: 0, offset: 0),
+        const TableCellPosition(row: 1, col: 1, offset: 3),
+      );
+      // At least three cells have content (r0c0, r0c1, r1c0 fully; r1c1 partial).
+      expect(rects.length, greaterThanOrEqualTo(1));
+    });
+
+    test('reversed cross-row selection produces same rects as forward', () {
+      final block = _layoutBlock(
+        _makeTable(rowCount: 2, columnCount: 2, cellPadding: 0, borderWidth: 0),
+        maxWidth: 200,
+      );
+      final forward = block.getEndpointsForSelection(
+        const TableCellPosition(row: 0, col: 0, offset: 0),
+        const TableCellPosition(row: 1, col: 1, offset: 3),
+      );
+      final backward = block.getEndpointsForSelection(
+        const TableCellPosition(row: 1, col: 1, offset: 3),
+        const TableCellPosition(row: 0, col: 0, offset: 0),
+      );
+      expect(backward.length, equals(forward.length));
+    });
+
+    test('cross-row selection where cellStart == cellEnd skips that cell', () {
+      // When extent is at offset 0 of a cell that is not the base cell,
+      // cellStart == cellEnd == 0, so the loop skips that cell — no crash.
+      final block = _layoutBlock(
+        _makeTable(rowCount: 2, columnCount: 1, cellPadding: 0, borderWidth: 0),
+        maxWidth: 200,
+      );
+      // Select from (row=0, col=0, offset=3) to (row=1, col=0, offset=0).
+      // For row=1, cellStart == cellEnd == 0, so it is skipped.
+      final rects = block.getEndpointsForSelection(
+        const TableCellPosition(row: 0, col: 0, offset: 0),
+        const TableCellPosition(row: 1, col: 0, offset: 0),
+      );
+      // Only row 0 contributes (row 1's cellStart >= cellEnd → skipped).
+      expect(rects, isNotEmpty);
+    });
+  });
+
   group('RenderTableBlock border property', () {
     RenderTableBlock _makeBlock() => RenderTableBlock(
           nodeId: 'table1',

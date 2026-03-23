@@ -1974,4 +1974,533 @@ void main() {
       expect(block.border, isNull);
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // selectionColor setter
+  // ---------------------------------------------------------------------------
+
+  group('RenderTextBlock selectionColor', () {
+    test('selectionColor defaults to a semi-transparent color', () {
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      // The default is a semi-transparent blue; opacity must be < 1.
+      expect(block.selectionColor.a, lessThan(1.0));
+    });
+
+    test('setting selectionColor updates the value', () {
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      const newColor = Color(0xFF123456);
+      block.selectionColor = newColor;
+      expect(block.selectionColor, equals(newColor));
+    });
+
+    test('setting same selectionColor is a no-op (idempotent)', () {
+      const color = Color(0xAA0000FF);
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        textStyle: const TextStyle(fontSize: 16),
+        selectionColor: color,
+      );
+      block.selectionColor = color;
+      expect(block.selectionColor, equals(color));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // textStyle setter
+  // ---------------------------------------------------------------------------
+
+  group('RenderTextBlock textStyle setter', () {
+    test('setting textStyle updates the value', () {
+      const initialStyle = TextStyle(fontSize: 16);
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        textStyle: initialStyle,
+      );
+      const newStyle = TextStyle(fontSize: 24, fontStyle: FontStyle.italic);
+      block.textStyle = newStyle;
+      expect(block.textStyle, equals(newStyle));
+    });
+
+    test('changing textStyle changes layout height (larger font → taller block)', () {
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      final smallHeight = block.size.height;
+
+      block.textStyle = const TextStyle(fontSize: 48);
+      block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+
+      expect(block.size.height, greaterThan(smallHeight));
+    });
+
+    test('setting same textStyle is a no-op (idempotent)', () {
+      const style = TextStyle(fontSize: 16);
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        textStyle: style,
+      );
+      block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      final heightBefore = block.size.height;
+
+      block.textStyle = style; // same value — must not re-layout
+      expect(block.size.height, heightBefore);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // nodeSelection setter
+  // ---------------------------------------------------------------------------
+
+  group('RenderTextBlock nodeSelection', () {
+    test('nodeSelection is null by default', () {
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      expect(block.nodeSelection, isNull);
+    });
+
+    test('setting nodeSelection stores the value', () {
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      const sel = DocumentSelection(
+        base: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 0)),
+        extent: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 3)),
+      );
+      block.nodeSelection = sel;
+      expect(block.nodeSelection, equals(sel));
+    });
+
+    test('setting nodeSelection to null clears the value', () {
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      block.nodeSelection = const DocumentSelection(
+        base: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 0)),
+        extent: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 3)),
+      );
+      block.nodeSelection = null;
+      expect(block.nodeSelection, isNull);
+    });
+
+    test('setting same nodeSelection is a no-op (idempotent)', () {
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      const sel = DocumentSelection(
+        base: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 1)),
+        extent: DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: 4)),
+      );
+      block.nodeSelection = sel;
+      // Assign same value — must not throw or change state.
+      block.nodeSelection = sel;
+      expect(block.nodeSelection, equals(sel));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // computeDistanceToActualBaseline
+  // ---------------------------------------------------------------------------
+
+  group('RenderTextBlock computeDistanceToActualBaseline', () {
+    test('returns a positive value for alphabetic baseline', () {
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      final dist = block.computeDistanceToActualBaseline(TextBaseline.alphabetic);
+      expect(dist, greaterThan(0));
+    });
+
+    test('alphabetic baseline is less than block height', () {
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      final dist = block.computeDistanceToActualBaseline(TextBaseline.alphabetic);
+      expect(dist, lessThan(block.size.height));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // visualLineYOffsets
+  // ---------------------------------------------------------------------------
+
+  group('RenderTextBlock visualLineYOffsets', () {
+    test('single-line text returns a list with one entry', () {
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      final offsets = block.visualLineYOffsets;
+      expect(offsets, isNotEmpty);
+      // The first (and only) entry must be a finite, non-negative y offset.
+      expect(offsets.first, greaterThanOrEqualTo(0));
+    });
+
+    test('multi-line text returns multiple entries in ascending order', () {
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Line one\nLine two\nLine three'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+      final offsets = block.visualLineYOffsets;
+      expect(offsets.length, greaterThan(1));
+      // Y offsets must be strictly increasing.
+      for (var i = 1; i < offsets.length; i++) {
+        expect(offsets[i], greaterThan(offsets[i - 1]),
+            reason: 'visualLineYOffsets must be strictly ascending');
+      }
+    });
+
+    test('exclusion layout produces offsets for all zones', () {
+      // Build a layout with a center float to trigger exclusion layout.
+      final image = RenderImageBlock(
+        nodeId: 'img1',
+        imageWidth: 100.0,
+        imageHeight: 60.0,
+        blockAlignment: BlockAlignment.center,
+        requestedWidth: 100.0,
+        requestedHeight: 60.0,
+        textWrap: TextWrapMode.wrap,
+      );
+      final textBlock = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText(
+          'Alpha Beta Gamma Delta Epsilon Zeta Eta Theta Iota Kappa '
+          'Lambda Mu Nu Xi Omicron Pi Rho Sigma Tau Upsilon end.',
+        ),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      final layout = RenderDocumentLayout(blockSpacing: 0.0);
+      layout.add(image);
+      layout.add(textBlock);
+      layout.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+
+      final offsets = textBlock.visualLineYOffsets;
+      expect(offsets, isNotEmpty);
+      // All offsets must be finite and non-negative.
+      for (final y in offsets) {
+        expect(y.isFinite, isTrue);
+        expect(y, greaterThanOrEqualTo(0));
+      }
+    });
+
+    test('first-line-indent layout produces offsets for both zones', () {
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText(
+          'The quick brown fox jumps over the lazy dog and keeps going further.',
+        ),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      block.firstLineIndent = 30.0;
+      block.layout(const BoxConstraints(maxWidth: 200), parentUsesSize: true);
+
+      final offsets = block.visualLineYOffsets;
+      expect(offsets, isNotEmpty);
+      for (final y in offsets) {
+        expect(y.isFinite, isTrue);
+        expect(y, greaterThanOrEqualTo(0));
+      }
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // debugFillProperties
+  // ---------------------------------------------------------------------------
+
+  group('RenderTextBlock debugFillProperties', () {
+    test('contains nodeId in properties', () {
+      final block = RenderTextBlock(
+        nodeId: 'myNode',
+        text: AttributedText('Hello'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      final builder = DiagnosticPropertiesBuilder();
+      block.debugFillProperties(builder);
+
+      final prop = builder.properties.whereType<StringProperty>().firstWhere(
+            (p) => p.name == 'nodeId',
+            orElse: () => throw StateError('nodeId property not found'),
+          );
+      expect(prop.value, 'myNode');
+    });
+
+    test('contains textAlign in properties', () {
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        textStyle: const TextStyle(fontSize: 16),
+        textAlign: TextAlign.center,
+      );
+      final builder = DiagnosticPropertiesBuilder();
+      block.debugFillProperties(builder);
+
+      final prop = builder.properties.whereType<EnumProperty<TextAlign>>().firstWhere(
+            (p) => p.name == 'textAlign',
+            orElse: () => throw StateError('textAlign property not found'),
+          );
+      expect(prop.value, TextAlign.center);
+    });
+
+    test('lineHeightMultiplier appears when non-null', () {
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      block.lineHeightMultiplier = 1.5;
+      final builder = DiagnosticPropertiesBuilder();
+      block.debugFillProperties(builder);
+
+      final prop = builder.properties.whereType<DoubleProperty>().firstWhere(
+            (p) => p.name == 'lineHeightMultiplier',
+            orElse: () => throw StateError('lineHeightMultiplier property not found'),
+          );
+      expect(prop.value, 1.5);
+    });
+
+    test('spaceBefore and spaceAfter appear when set', () {
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      block.spaceBefore = 8.0;
+      block.spaceAfter = 12.0;
+      final builder = DiagnosticPropertiesBuilder();
+      block.debugFillProperties(builder);
+
+      final sbProp = builder.properties.whereType<DoubleProperty>().firstWhere(
+            (p) => p.name == 'spaceBefore',
+            orElse: () => throw StateError('spaceBefore property not found'),
+          );
+      expect(sbProp.value, 8.0);
+
+      final saProp = builder.properties.whereType<DoubleProperty>().firstWhere(
+            (p) => p.name == 'spaceAfter',
+            orElse: () => throw StateError('spaceAfter property not found'),
+          );
+      expect(saProp.value, 12.0);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // spaceBefore / spaceAfter getters
+  // ---------------------------------------------------------------------------
+
+  group('RenderTextBlock spaceBefore / spaceAfter', () {
+    test('spaceBefore is null by default', () {
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      expect(block.spaceBefore, isNull);
+    });
+
+    test('spaceAfter is null by default', () {
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      expect(block.spaceAfter, isNull);
+    });
+
+    test('setting spaceBefore stores the value', () {
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      block.spaceBefore = 16.0;
+      expect(block.spaceBefore, 16.0);
+    });
+
+    test('setting spaceAfter stores the value', () {
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      block.spaceAfter = 24.0;
+      expect(block.spaceAfter, 24.0);
+    });
+
+    test('setting same spaceBefore is a no-op', () {
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hello'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      block.spaceBefore = 10.0;
+      block.spaceBefore = 10.0; // same value — no parent to notify anyway
+      expect(block.spaceBefore, 10.0);
+    });
+
+    test('spaceBefore is used by RenderDocumentLayout as extra space', () {
+      // Build two layouts and compare heights: when spaceBefore is set on the
+      // second block, the total layout height should be greater.
+      RenderDocumentLayout buildLayout({double? spaceBefore}) {
+        final b1 = RenderTextBlock(
+          nodeId: 'a',
+          text: AttributedText('Block 1'),
+          textStyle: const TextStyle(fontSize: 16),
+        );
+        final b2 = RenderTextBlock(
+          nodeId: 'b',
+          text: AttributedText('Block 2'),
+          textStyle: const TextStyle(fontSize: 16),
+        );
+        if (spaceBefore != null) b2.spaceBefore = spaceBefore;
+        final layout = RenderDocumentLayout(blockSpacing: 0.0);
+        layout.add(b1);
+        layout.add(b2);
+        layout.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+        return layout;
+      }
+
+      final noSpacing = buildLayout();
+      final withSpacing = buildLayout(spaceBefore: 40.0);
+
+      expect(withSpacing.size.height, greaterThan(noSpacing.size.height));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // getPositionAtOffset — first-line-indent path
+  // ---------------------------------------------------------------------------
+
+  group('RenderTextBlock getPositionAtOffset with firstLineIndent', () {
+    test('hit in first-line zone returns offset within first line', () {
+      // "The quick…" with 200px width and 40px indent, fontSize 16.
+      // The first line is ~160px wide, fitting ~9–10 chars.
+      const text = 'The quick brown fox jumps over the lazy dog';
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText(text),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      block.firstLineIndent = 40.0;
+      block.layout(const BoxConstraints(maxWidth: 300), parentUsesSize: true);
+
+      // Hit in the first-line zone (y=0, x well inside the indented area).
+      final pos = block.getPositionAtOffset(const Offset(60.0, 0.0)) as TextNodePosition;
+      expect(pos.offset, greaterThanOrEqualTo(0));
+    });
+
+    test('hit in rest zone returns offset beyond first-line boundary', () {
+      const text = 'The quick brown fox jumps over the lazy dog and runs away';
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText(text),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      block.firstLineIndent = 40.0;
+      block.layout(const BoxConstraints(maxWidth: 200), parentUsesSize: true);
+
+      // Find where the first line ends.
+      final firstRange = block.getLineBoundary(const TextNodePosition(offset: 0));
+      expect(firstRange.end, lessThan(text.length),
+          reason: 'text must wrap for the rest-zone path to exist');
+
+      // Hit well below the first-line height, at x=0 (start of rest zone).
+      final firstLineRect = block.getLocalRectForPosition(const TextNodePosition(offset: 0));
+      final restY = firstLineRect.height + 1.0;
+      final pos = block.getPositionAtOffset(Offset(0.0, restY)) as TextNodePosition;
+      expect(pos.offset, greaterThanOrEqualTo(firstRange.end));
+    });
+
+    test('hit fallback when all text fits on first line returns firstLineEndIndex', () {
+      // Very short text that fits entirely on the first line — no rest painter.
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hi'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      block.firstLineIndent = 20.0;
+      block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+
+      // Hit beyond the first-line height — should not crash and returns a valid offset.
+      final pos = block.getPositionAtOffset(const Offset(300.0, 200.0)) as TextNodePosition;
+      expect(pos.offset, greaterThanOrEqualTo(0));
+      expect(pos.offset, lessThanOrEqualTo('Hi'.length));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // getLineBoundary — first-line-indent rest zone
+  // ---------------------------------------------------------------------------
+
+  group('RenderTextBlock getLineBoundary firstLineIndent rest zone', () {
+    test('offset in rest zone returns range within rest zone', () {
+      const text = 'The quick brown fox jumps over the lazy dog and keeps running';
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText(text),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      block.firstLineIndent = 40.0;
+      block.layout(const BoxConstraints(maxWidth: 200), parentUsesSize: true);
+
+      final firstRange = block.getLineBoundary(const TextNodePosition(offset: 0));
+      expect(firstRange.end, lessThan(text.length), reason: 'need wrapping for the rest-zone path');
+
+      // Query an offset clearly in the rest zone.
+      final restOffset = firstRange.end + 1;
+      final restRange = block.getLineBoundary(TextNodePosition(offset: restOffset));
+
+      expect(restRange.isValid, isTrue);
+      expect(restRange.start, greaterThanOrEqualTo(firstRange.end));
+      expect(restRange.end, greaterThan(restRange.start));
+    });
+
+    test('all-text-on-first-line FLI path returns range [0, firstLineEndIndex]', () {
+      // Short text fits on one line — restPainter is null.
+      final block = RenderTextBlock(
+        nodeId: 'p1',
+        text: AttributedText('Hi'),
+        textStyle: const TextStyle(fontSize: 16),
+      );
+      block.firstLineIndent = 20.0;
+      block.layout(const BoxConstraints(maxWidth: 400), parentUsesSize: true);
+
+      // With only two characters, offset 1 is within the first line.
+      final range = block.getLineBoundary(const TextNodePosition(offset: 1));
+      expect(range.isValid, isTrue);
+      expect(range.start, 0);
+      expect(range.end, greaterThan(0));
+    });
+  });
 }

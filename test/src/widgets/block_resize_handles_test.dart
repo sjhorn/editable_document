@@ -1798,6 +1798,277 @@ void main() {
   // createResetImageSizeRequest — lockAspect preservation
   // -------------------------------------------------------------------------
 
+  // -------------------------------------------------------------------------
+  // BlockResizeHandles — additional drag handle positions
+  // -------------------------------------------------------------------------
+
+  group('BlockResizeHandles — additional drag handles', () {
+    Future<List<(String, double?, double?)>> _pumpDrags(
+      WidgetTester tester, {
+      double imageWidth = 200.0,
+      double imageHeight = 100.0,
+    }) async {
+      final results = <(String, double?, double?)>[];
+      final doc = MutableDocument([
+        ImageNode(
+          id: 'img-1',
+          imageUrl: 'test.png',
+          width: BlockDimension.pixels(imageWidth),
+          height: BlockDimension.pixels(imageHeight),
+          alignment: BlockAlignment.center,
+          lockAspect: false,
+        ),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      addTearDown(controller.dispose);
+      _selectFully(controller, 'img-1');
+      await tester.pumpWidget(
+        _buildWithOverlay(
+          controller: controller,
+          document: doc,
+          onBlockResize: (id, w, h) => results.add((id, w, h)),
+        ),
+      );
+      await tester.pumpAndSettle();
+      return results;
+    }
+
+    testWidgets('topLeft handle reduces width and height', (tester) async {
+      // Image 200×100, lockAspect=false.  Drag topLeft by (-30, -20) →
+      // rawW = 200 + (-30)*(-1) = 230, rawH = 100 + (-20)*(-1) = 120.
+      final results = await _pumpDrags(tester);
+      final listeners = find.descendant(
+        of: find.byType(BlockResizeHandles),
+        matching: find.byType(Listener),
+      );
+      // topLeft is index 0 in ResizeHandlePosition.values.
+      await tester.drag(listeners.at(0), const Offset(-30.0, -20.0));
+      await tester.pumpAndSettle();
+      expect(results, isNotEmpty);
+      final (_, width, height) = results.last;
+      expect(width, closeTo(230.0, 1.0));
+      expect(height, closeTo(120.0, 1.0));
+    });
+
+    testWidgets('topRight handle increases width and decreases height', (tester) async {
+      // Image 200×100, lockAspect=false.  Drag topRight by (40, -15) →
+      // rawW = 200 + 40 = 240, rawH = 100 + (-15)*(-1) = 115.
+      final results = await _pumpDrags(tester);
+      final listeners = find.descendant(
+        of: find.byType(BlockResizeHandles),
+        matching: find.byType(Listener),
+      );
+      // topRight is index 2.
+      await tester.drag(listeners.at(2), const Offset(40.0, -15.0));
+      await tester.pumpAndSettle();
+      expect(results, isNotEmpty);
+      final (_, width, height) = results.last;
+      expect(width, closeTo(240.0, 1.0));
+      expect(height, closeTo(115.0, 1.0));
+    });
+
+    testWidgets('bottomLeft handle reduces width and increases height', (tester) async {
+      // Image 200×100, lockAspect=false.  Drag bottomLeft by (-25, 30) →
+      // rawW = 200 + (-25)*(-1) = 225, rawH = 100 + 30 = 130.
+      final results = await _pumpDrags(tester);
+      final listeners = find.descendant(
+        of: find.byType(BlockResizeHandles),
+        matching: find.byType(Listener),
+      );
+      // bottomLeft is index 5.
+      await tester.drag(listeners.at(5), const Offset(-25.0, 30.0));
+      await tester.pumpAndSettle();
+      expect(results, isNotEmpty);
+      final (_, width, height) = results.last;
+      expect(width, closeTo(225.0, 1.0));
+      expect(height, closeTo(130.0, 1.0));
+    });
+
+    testWidgets('middleLeft handle reduces width only (lockAspect=false)', (tester) async {
+      // Image 200×100, lockAspect=false.  Drag middleLeft by (-40, 0) →
+      // newWidth = 200 - (-40) = 240 (middleLeft uses: newWidth = original - delta.dx).
+      final results = await _pumpDrags(tester);
+      final listeners = find.descendant(
+        of: find.byType(BlockResizeHandles),
+        matching: find.byType(Listener),
+      );
+      // middleLeft is index 3.
+      await tester.drag(listeners.at(3), const Offset(-40.0, 0.0));
+      await tester.pumpAndSettle();
+      expect(results, isNotEmpty);
+      final (_, width, height) = results.last;
+      expect(width, closeTo(240.0, 1.0));
+      expect(height, isNull);
+    });
+
+    testWidgets('topCenter handle reduces height only (lockAspect=false)', (tester) async {
+      // Image 200×100, lockAspect=false.  Drag topCenter by (0, -20) →
+      // newHeight = 100 - (-20) = 120.
+      final results = await _pumpDrags(tester);
+      final listeners = find.descendant(
+        of: find.byType(BlockResizeHandles),
+        matching: find.byType(Listener),
+      );
+      // topCenter is index 1.
+      await tester.drag(listeners.at(1), const Offset(0.0, -20.0));
+      await tester.pumpAndSettle();
+      expect(results, isNotEmpty);
+      final (_, width, height) = results.last;
+      expect(width, isNull);
+      expect(height, closeTo(120.0, 1.0));
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // BlockResizeHandles — pointer cancel
+  // -------------------------------------------------------------------------
+
+  group('BlockResizeHandles — pointer cancel', () {
+    testWidgets('pointer cancel ends drag and resets isDragging', (tester) async {
+      final doc = MutableDocument([
+        ImageNode(
+          id: 'img-1',
+          imageUrl: 'test.png',
+          width: const BlockDimension.pixels(200.0),
+          height: const BlockDimension.pixels(100.0),
+          alignment: BlockAlignment.center,
+        ),
+      ]);
+      final controller = DocumentEditingController(document: doc);
+      addTearDown(controller.dispose);
+      _selectFully(controller, 'img-1');
+
+      await tester.pumpWidget(
+        _buildWithOverlay(
+          controller: controller,
+          document: doc,
+          onBlockResize: (id, w, h) {},
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final listeners = find.descendant(
+        of: find.byType(BlockResizeHandles),
+        matching: find.byType(Listener),
+      );
+      // Send a pointer down on the middleRight handle (index 4), then cancel.
+      final TestGesture gesture = await tester.startGesture(
+        tester.getCenter(listeners.at(4)),
+        pointer: 1,
+      );
+      await tester.pump();
+      expect(BlockResizeHandles.isDragging, isTrue);
+
+      await gesture.cancel();
+      await tester.pumpAndSettle();
+
+      expect(BlockResizeHandles.isDragging, isFalse);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // BlockResizeHandles — didUpdateWidget controller change
+  // -------------------------------------------------------------------------
+
+  group('BlockResizeHandles — didUpdateWidget', () {
+    testWidgets('replacing the controller re-subscribes correctly', (tester) async {
+      final doc1 = MutableDocument([
+        ImageNode(
+          id: 'img-1',
+          imageUrl: 'test.png',
+          width: const BlockDimension.pixels(200.0),
+          height: const BlockDimension.pixels(100.0),
+          alignment: BlockAlignment.center,
+        ),
+      ]);
+      final doc2 = MutableDocument([
+        ImageNode(
+          id: 'img-2',
+          imageUrl: 'test2.png',
+          width: const BlockDimension.pixels(150.0),
+          height: const BlockDimension.pixels(80.0),
+          alignment: BlockAlignment.center,
+        ),
+      ]);
+      final controller1 = DocumentEditingController(document: doc1);
+      final controller2 = DocumentEditingController(document: doc2);
+      addTearDown(controller1.dispose);
+      addTearDown(controller2.dispose);
+
+      _selectFully(controller1, 'img-1');
+
+      final layoutKey = GlobalKey<DocumentLayoutState>();
+
+      // Build with controller1.
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 600,
+              height: 800,
+              child: Stack(
+                children: [
+                  DocumentLayout(
+                    key: layoutKey,
+                    document: doc1,
+                    controller: controller1,
+                    componentBuilders: defaultComponentBuilders,
+                  ),
+                  BlockResizeHandles(
+                    controller: controller1,
+                    layoutKey: layoutKey,
+                    document: doc1,
+                    onResize: (id, w, h) {},
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Swap to controller2.
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 600,
+              height: 800,
+              child: Stack(
+                children: [
+                  DocumentLayout(
+                    key: layoutKey,
+                    document: doc2,
+                    controller: controller2,
+                    componentBuilders: defaultComponentBuilders,
+                  ),
+                  BlockResizeHandles(
+                    controller: controller2,
+                    layoutKey: layoutKey,
+                    document: doc2,
+                    onResize: (id, w, h) {},
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // The widget should still exist and use controller2.
+      final widget = tester.widget<BlockResizeHandles>(find.byType(BlockResizeHandles));
+      expect(widget.controller, controller2);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // BlockResizeHandles — _reselectBlock for TextNode
+  // -------------------------------------------------------------------------
+
+  group('BlockResizeHandles — reselectBlock for TextNode', () {});
+
   group('createResetImageSizeRequest — lockAspect', () {
     test('preserves lockAspect=true through reset', () {
       final node = ImageNode(
