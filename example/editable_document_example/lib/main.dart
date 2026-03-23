@@ -134,12 +134,6 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
   late final UndoableEditor _editor;
   late final FocusNode _focusNode;
 
-  final _layoutKey = GlobalKey<DocumentLayoutState>();
-  final _startHandleLayerLink = LayerLink();
-  final _endHandleLayerLink = LayerLink();
-  final _blockDragOverlayKey = GlobalKey<BlockDragOverlayState>();
-  final _contextMenuController = ContextMenuController();
-  final _clipboard = const DocumentClipboard();
   final _syntaxBuilder = SyntaxHighlightCodeBlockBuilder();
 
   /// Vertical spacing between document blocks.
@@ -192,7 +186,6 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
 
   @override
   void dispose() {
-    _contextMenuController.remove();
     _controller.removeListener(_onDocumentChanged);
     _document.changes.removeListener(_onDocumentChanged);
     _panelTabController?.dispose();
@@ -202,7 +195,6 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
   }
 
   void _onDocumentChanged() {
-    _contextMenuController.remove();
     final sel = _controller.selection;
     final node = sel != null ? _document.nodeById(sel.extent.nodeId) : null;
     if (node == null && _showBlockPanel) {
@@ -210,37 +202,6 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
       _syncPanelTabController();
     }
     setState(() {});
-  }
-
-  // -----------------------------------------------------------------------
-  // Context menu
-  // -----------------------------------------------------------------------
-
-  void _showContextMenu(Offset globalPosition) {
-    _contextMenuController.show(
-      context: context,
-      contextMenuBuilder: (BuildContext menuContext) {
-        return AdaptiveTextSelectionToolbar.buttonItems(
-          anchors: TextSelectionToolbarAnchors(primaryAnchor: globalPosition),
-          buttonItems: defaultDocumentContextMenuButtonItems(
-            controller: _controller,
-            clipboard: _clipboard,
-            requestHandler: _editor.submit,
-          ).map((item) {
-            final originalPressed = item.onPressed;
-            return ContextMenuButtonItem(
-              label: item.label,
-              onPressed: originalPressed == null
-                  ? null
-                  : () {
-                      _contextMenuController.remove();
-                      originalPressed();
-                    },
-            );
-          }).toList(),
-        );
-      },
-    );
   }
 
   // ---------------------------------------------------------------------------
@@ -610,7 +571,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
   /// Because it lives inside the scrollable content, it scrolls naturally
   /// with the table — no coordinate conversion or scroll listeners needed.
   /// Returns [SizedBox.shrink] when the cursor is not in a table cell.
-  Widget _buildInlineTableToolbar() {
+  Widget _buildInlineTableToolbar(GlobalKey<DocumentLayoutState> layoutKey) {
     final sel = _controller.selection;
     if (sel == null) return const SizedBox.shrink();
     final node = _document.nodeById(sel.extent.nodeId);
@@ -637,7 +598,7 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
     final maxCol = baseCol > extentPos.col ? baseCol : extentPos.col;
 
     // Get the table block's position in document-layout coordinates.
-    final component = _layoutKey.currentState?.componentForNode(node.id);
+    final component = layoutKey.currentState?.componentForNode(node.id);
     if (component == null || !component.hasSize) return const SizedBox.shrink();
 
     final parentData = component.parentData;
@@ -664,77 +625,37 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
   }
 
   Widget _buildEditor() {
-    return DocumentScrollable(
+    return DocumentEditor(
       controller: _controller,
-      layoutKey: _layoutKey,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: DocumentMouseInteractor(
-        controller: _controller,
-        layoutKey: _layoutKey,
-        document: _document,
-        focusNode: _focusNode,
-        onSecondaryTapDown: _showContextMenu,
-        blockDragOverlayKey: _blockDragOverlayKey,
-        child: Stack(
-          children: [
-            // Passing editor: _editor auto-wires block resize, image reset,
-            // and drag-to-move — no manual onBlockResize, onResetImageSize,
-            // or onBlockMoved callbacks are required. BlockDragOverlay is
-            // mounted internally by DocumentSelectionOverlay; the shared
-            // _blockDragOverlayKey lets DocumentMouseInteractor coordinate
-            // drag gestures with the overlay.
-            DocumentSelectionOverlay(
-              controller: _controller,
-              layoutKey: _layoutKey,
-              startHandleLayerLink: _startHandleLayerLink,
-              endHandleLayerLink: _endHandleLayerLink,
-              showCaret: false,
-              document: _document,
-              editor: _editor,
-              blockDragOverlayKey: _blockDragOverlayKey,
-              child: EditableDocument(
-                controller: _controller,
-                focusNode: _focusNode,
-                layoutKey: _layoutKey,
-                autofocus: true,
-                editor: _editor,
-                blockSpacing: _blockSpacing,
-                style: TextStyle(height: _defaultLineHeight),
-                documentPadding: EdgeInsets.symmetric(
-                  horizontal: _documentPaddingH,
-                  vertical: _documentPaddingV,
-                ),
-                showLineNumbers: _showLineNumbers,
-                lineNumberAlignment: _lineNumberAlignment,
-                lineNumberTextStyle:
-                    (_lineNumberFontFamily ?? _lineNumberFontSize ?? _lineNumberColor) != null
-                        ? TextStyle(
-                            fontFamily: _lineNumberFontFamily,
-                            fontSize: _lineNumberFontSize,
-                            color: _lineNumberColor != null ? Color(_lineNumberColor!) : null,
-                            fontFeatures: const [FontFeature.tabularFigures()],
-                          )
-                        : null,
-                lineNumberBackgroundColor:
-                    _lineNumberBgColor != null ? Color(_lineNumberBgColor!) : null,
-                componentBuilders: [
-                  _syntaxBuilder,
-                  ...defaultComponentBuilders.where((b) => b is! CodeBlockComponentBuilder),
-                ],
-              ),
-            ),
-            Positioned.fill(
-              child: CaretDocumentOverlay(
-                controller: _controller,
-                layoutKey: _layoutKey,
-              ),
-            ),
-            // Table context toolbar — positioned inside the scrollable
-            // content so it scrolls naturally with the document.
-            _buildInlineTableToolbar(),
-          ],
-        ),
+      focusNode: _focusNode,
+      editor: _editor,
+      autofocus: true,
+      blockSpacing: _blockSpacing,
+      style: TextStyle(height: _defaultLineHeight),
+      documentPadding: EdgeInsets.symmetric(
+        horizontal: _documentPaddingH,
+        vertical: _documentPaddingV,
       ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      showLineNumbers: _showLineNumbers,
+      lineNumberAlignment: _lineNumberAlignment,
+      lineNumberTextStyle:
+          (_lineNumberFontFamily ?? _lineNumberFontSize ?? _lineNumberColor) != null
+              ? TextStyle(
+                  fontFamily: _lineNumberFontFamily,
+                  fontSize: _lineNumberFontSize,
+                  color: _lineNumberColor != null ? Color(_lineNumberColor!) : null,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                )
+              : null,
+      lineNumberBackgroundColor: _lineNumberBgColor != null ? Color(_lineNumberBgColor!) : null,
+      componentBuilders: [
+        _syntaxBuilder,
+        ...defaultComponentBuilders.where((b) => b is! CodeBlockComponentBuilder),
+      ],
+      overlayBuilder: (context, controller, layoutKey) => [
+        _buildInlineTableToolbar(layoutKey),
+      ],
     );
   }
 
