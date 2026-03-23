@@ -36,7 +36,9 @@ import 'document_layout.dart';
 import 'document_scrollable.dart';
 import 'document_selection_overlay.dart';
 import 'editable_document.dart';
+import 'document_status_bar.dart';
 import 'gestures/document_mouse_interactor.dart';
+import 'theme/document_theme.dart';
 import 'toolbar/table_context_toolbar.dart';
 
 // ---------------------------------------------------------------------------
@@ -139,6 +141,12 @@ class DocumentEditor extends StatefulWidget {
     this.lineNumberBackgroundColor,
     this.contentPadding = EdgeInsets.zero,
     this.showTableToolbar = true,
+    this.showStatusBar = true,
+    this.showBlockCount = true,
+    this.showWordCount = true,
+    this.showCharCount = true,
+    this.showCurrentBlockType = true,
+    this.statusBarTrailing,
     this.contextMenuBuilder,
     this.overlayBuilder,
   });
@@ -263,6 +271,38 @@ class DocumentEditor extends StatefulWidget {
   /// and table deletion controls. Defaults to `true`.
   final bool showTableToolbar;
 
+  /// Whether a [DocumentStatusBar] is shown at the bottom of the editor.
+  ///
+  /// The status bar displays block count, word count, character count, and
+  /// the current block type label. Style it via [StatusBarThemeData] in
+  /// [DocumentTheme]. Defaults to `true`.
+  final bool showStatusBar;
+
+  /// Whether the status bar shows the block count.
+  ///
+  /// Only relevant when [showStatusBar] is `true`. Defaults to `true`.
+  final bool showBlockCount;
+
+  /// Whether the status bar shows the word count.
+  ///
+  /// Only relevant when [showStatusBar] is `true`. Defaults to `true`.
+  final bool showWordCount;
+
+  /// Whether the status bar shows the character count.
+  ///
+  /// Only relevant when [showStatusBar] is `true`. Defaults to `true`.
+  final bool showCharCount;
+
+  /// Whether the status bar shows the current block type label.
+  ///
+  /// Only relevant when [showStatusBar] is `true`. Defaults to `true`.
+  final bool showCurrentBlockType;
+
+  /// Optional widgets appended at the trailing end of the status bar.
+  ///
+  /// Only relevant when [showStatusBar] is `true`.
+  final List<Widget>? statusBarTrailing;
+
   /// An optional builder for the context menu shown on right-click.
   ///
   /// When `null`, a default [AdaptiveTextSelectionToolbar] with Cut, Copy,
@@ -342,6 +382,25 @@ class DocumentEditor extends StatefulWidget {
     properties.add(DiagnosticsProperty<EdgeInsets>('contentPadding', contentPadding));
     properties.add(
       FlagProperty('showTableToolbar', value: showTableToolbar, ifTrue: 'showTableToolbar'),
+    );
+    properties.add(
+      FlagProperty('showStatusBar', value: showStatusBar, ifTrue: 'showStatusBar'),
+    );
+    properties.add(
+      FlagProperty('showBlockCount', value: showBlockCount, ifTrue: 'showBlockCount'),
+    );
+    properties.add(
+      FlagProperty('showWordCount', value: showWordCount, ifTrue: 'showWordCount'),
+    );
+    properties.add(
+      FlagProperty('showCharCount', value: showCharCount, ifTrue: 'showCharCount'),
+    );
+    properties.add(
+      FlagProperty(
+        'showCurrentBlockType',
+        value: showCurrentBlockType,
+        ifTrue: 'showCurrentBlockType',
+      ),
     );
     properties.add(
       ObjectFlagProperty<DocumentContextMenuBuilder?>.has(
@@ -663,7 +722,7 @@ class DocumentEditorState extends State<DocumentEditor> {
 
   @override
   Widget build(BuildContext context) {
-    return DocumentScrollable(
+    Widget editor = DocumentScrollable(
       controller: _effectiveController,
       layoutKey: _layoutKey,
       contentPadding: widget.contentPadding,
@@ -723,6 +782,40 @@ class DocumentEditorState extends State<DocumentEditor> {
         ),
       ),
     );
+
+    if (widget.showStatusBar) {
+      final statusTheme = DocumentTheme.maybeOf(context)?.statusBarTheme;
+      final colorScheme = Theme.of(context).colorScheme;
+
+      editor = Column(
+        children: [
+          Expanded(child: editor),
+          Container(
+            padding:
+                statusTheme?.padding ?? const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            decoration: BoxDecoration(
+              color: statusTheme?.backgroundColor ?? colorScheme.surfaceContainerHighest,
+              border: Border(
+                top: statusTheme?.borderSide ?? BorderSide(color: Theme.of(context).dividerColor),
+              ),
+            ),
+            child: DefaultTextStyle.merge(
+              style: statusTheme?.textStyle ?? const TextStyle(),
+              child: DocumentStatusBar(
+                controller: _effectiveController,
+                showBlockCount: widget.showBlockCount,
+                showWordCount: widget.showWordCount,
+                showCharCount: widget.showCharCount,
+                showCurrentBlockType: widget.showCurrentBlockType,
+                trailing: widget.statusBarTrailing,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return editor;
   }
 
   @override

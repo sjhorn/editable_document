@@ -315,7 +315,6 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
                 ],
               ),
             ),
-            _buildStatusBar(),
           ],
         ),
       ),
@@ -594,19 +593,6 @@ class _DocumentDemoState extends State<DocumentDemo> with TickerProviderStateMix
         _syntaxBuilder,
         ...defaultComponentBuilders.where((b) => b is! CodeBlockComponentBuilder),
       ],
-    );
-  }
-
-  Widget _buildStatusBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        border: Border(
-          top: BorderSide(color: Theme.of(context).dividerColor),
-        ),
-      ),
-      child: DocumentStatusBar(controller: _controller),
     );
   }
 

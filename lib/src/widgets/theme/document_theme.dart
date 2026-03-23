@@ -11,6 +11,72 @@ import 'document_toolbar_theme.dart';
 import 'property_panel_theme.dart';
 
 // ---------------------------------------------------------------------------
+// StatusBarThemeData
+// ---------------------------------------------------------------------------
+
+/// Theme data for the status bar displayed at the bottom of a [DocumentEditor].
+///
+/// All fields are optional. When `null`, [DocumentEditor] falls back to
+/// Material 3 defaults: `colorScheme.surfaceContainerHighest` for background,
+/// `dividerColor` for the top border, and inherited text style.
+@immutable
+class StatusBarThemeData with Diagnosticable {
+  /// Creates a [StatusBarThemeData].
+  const StatusBarThemeData({
+    this.backgroundColor,
+    this.borderSide,
+    this.padding = const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+    this.textStyle,
+  });
+
+  /// Background color of the status bar.
+  ///
+  /// When `null`, defaults to `colorScheme.surfaceContainerHighest`.
+  final Color? backgroundColor;
+
+  /// The top border drawn above the status bar.
+  ///
+  /// When `null`, defaults to `BorderSide(color: dividerColor)`.
+  final BorderSide? borderSide;
+
+  /// Padding inside the status bar container.
+  ///
+  /// Defaults to `EdgeInsets.symmetric(horizontal: 16, vertical: 6)`.
+  final EdgeInsets padding;
+
+  /// Text style applied to status bar labels.
+  ///
+  /// When `null`, the Material theme's `bodySmall` is used.
+  final TextStyle? textStyle;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is StatusBarThemeData &&
+        other.backgroundColor == backgroundColor &&
+        other.borderSide == borderSide &&
+        other.padding == padding &&
+        other.textStyle == textStyle;
+  }
+
+  @override
+  int get hashCode => Object.hash(backgroundColor, borderSide, padding, textStyle);
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties.add(ColorProperty('backgroundColor', backgroundColor, defaultValue: null));
+    properties.add(
+      DiagnosticsProperty<BorderSide?>('borderSide', borderSide, defaultValue: null),
+    );
+    properties.add(DiagnosticsProperty<EdgeInsets>('padding', padding));
+    properties.add(
+      DiagnosticsProperty<TextStyle?>('textStyle', textStyle, defaultValue: null),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // DocumentThemeData
 // ---------------------------------------------------------------------------
 
@@ -51,6 +117,7 @@ class DocumentThemeData with Diagnosticable {
     this.caretWidth,
     this.toolbarTheme,
     this.propertyPanelTheme,
+    this.statusBarTheme,
   });
 
   // ---------------------------------------------------------------------------
@@ -126,6 +193,10 @@ class DocumentThemeData with Diagnosticable {
   /// Theme data for property panel widgets embedded beside the document.
   final PropertyPanelThemeData? propertyPanelTheme;
 
+  /// Theme data for the status bar displayed at the bottom of a
+  /// [DocumentEditor].
+  final StatusBarThemeData? statusBarTheme;
+
   // ---------------------------------------------------------------------------
   // copyWith
   // ---------------------------------------------------------------------------
@@ -153,6 +224,7 @@ class DocumentThemeData with Diagnosticable {
     double? caretWidth,
     DocumentToolbarThemeData? toolbarTheme,
     PropertyPanelThemeData? propertyPanelTheme,
+    StatusBarThemeData? statusBarTheme,
   }) {
     return DocumentThemeData(
       defaultTextStyle: defaultTextStyle ?? this.defaultTextStyle,
@@ -174,6 +246,7 @@ class DocumentThemeData with Diagnosticable {
       caretWidth: caretWidth ?? this.caretWidth,
       toolbarTheme: toolbarTheme ?? this.toolbarTheme,
       propertyPanelTheme: propertyPanelTheme ?? this.propertyPanelTheme,
+      statusBarTheme: statusBarTheme ?? this.statusBarTheme,
     );
   }
 
@@ -208,6 +281,7 @@ class DocumentThemeData with Diagnosticable {
       caretWidth: caretWidth ?? other.caretWidth,
       toolbarTheme: toolbarTheme ?? other.toolbarTheme,
       propertyPanelTheme: propertyPanelTheme ?? other.propertyPanelTheme,
+      statusBarTheme: statusBarTheme ?? other.statusBarTheme,
     );
   }
 
@@ -233,7 +307,8 @@ class DocumentThemeData with Diagnosticable {
         other.caretColor == caretColor &&
         other.caretWidth == caretWidth &&
         other.toolbarTheme == toolbarTheme &&
-        other.propertyPanelTheme == propertyPanelTheme;
+        other.propertyPanelTheme == propertyPanelTheme &&
+        other.statusBarTheme == statusBarTheme;
   }
 
   @override
@@ -257,6 +332,7 @@ class DocumentThemeData with Diagnosticable {
         caretWidth,
         toolbarTheme,
         propertyPanelTheme,
+        statusBarTheme,
       ]);
 
   @override
@@ -309,6 +385,13 @@ class DocumentThemeData with Diagnosticable {
       DiagnosticsProperty<PropertyPanelThemeData>(
         'propertyPanelTheme',
         propertyPanelTheme,
+        defaultValue: null,
+      ),
+    );
+    properties.add(
+      DiagnosticsProperty<StatusBarThemeData>(
+        'statusBarTheme',
+        statusBarTheme,
         defaultValue: null,
       ),
     );

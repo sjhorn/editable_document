@@ -341,7 +341,7 @@ void main() {
         await tester.pumpAndSettle();
 
         await tester.tap(
-          find.byType(DocumentEditor),
+          find.byType(EditableDocument),
           buttons: kSecondaryMouseButton,
         );
         await tester.pumpAndSettle();
@@ -366,7 +366,7 @@ void main() {
         await tester.pump();
 
         await tester.tap(
-          find.byType(DocumentEditor),
+          find.byType(EditableDocument),
           buttons: kSecondaryMouseButton,
         );
         await tester.pumpAndSettle();
@@ -621,6 +621,79 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byType(TableContextToolbar), findsNothing);
+      });
+    });
+
+    group('showStatusBar', () {
+      testWidgets('shows DocumentStatusBar by default', (tester) async {
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: Scaffold(body: DocumentEditor()),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byType(DocumentStatusBar), findsOneWidget);
+      });
+
+      testWidgets('hides DocumentStatusBar when showStatusBar is false', (tester) async {
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: Scaffold(body: DocumentEditor(showStatusBar: false)),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byType(DocumentStatusBar), findsNothing);
+      });
+
+      testWidgets('forwards count toggles to DocumentStatusBar', (tester) async {
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: Scaffold(
+              body: DocumentEditor(
+                showWordCount: false,
+                showCharCount: false,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Word and char counts should not be displayed.
+        expect(find.textContaining('words'), findsNothing);
+        expect(find.textContaining('chars'), findsNothing);
+        // Block count should still be there.
+        expect(find.textContaining('blocks'), findsOneWidget);
+      });
+
+      testWidgets('applies StatusBarThemeData from DocumentTheme', (tester) async {
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: DocumentTheme(
+              data: DocumentThemeData(
+                statusBarTheme: StatusBarThemeData(
+                  backgroundColor: Color(0xFFFF0000),
+                  padding: EdgeInsets.all(20),
+                ),
+              ),
+              child: Scaffold(body: DocumentEditor()),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Find the Container wrapping the status bar. It should have the
+        // custom background color from the theme.
+        final statusBar = find.byType(DocumentStatusBar);
+        expect(statusBar, findsOneWidget);
+
+        // Verify the Container ancestor has the themed decoration.
+        final container = find.ancestor(
+          of: statusBar,
+          matching: find.byType(Container),
+        );
+        expect(container, findsWidgets);
       });
     });
   });
