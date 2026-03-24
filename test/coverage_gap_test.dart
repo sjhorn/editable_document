@@ -806,6 +806,84 @@ void main() {
     expect(block.gridBorderStyle, BlockBorderStyle.none);
   });
 
+  // TableBorderOption enum values
+  test('TableBorderOption has all 4 values', () {
+    expect(TableBorderOption.values.length, 4);
+    expect(TableBorderOption.noBorder, isNotNull);
+    expect(TableBorderOption.allBorders, isNotNull);
+    expect(TableBorderOption.outsideBorders, isNotNull);
+    expect(TableBorderOption.insideBorders, isNotNull);
+  });
+
+  // _TableBorderDropdown renders in TableContextToolbar
+  testWidgets('TableContextToolbar border dropdown renders', (tester) async {
+    final doc = MutableDocument([
+      TableNode(
+        id: 't1',
+        rowCount: 2,
+        columnCount: 2,
+        cells: [
+          [AttributedText('A'), AttributedText('B')],
+          [AttributedText('C'), AttributedText('D')],
+        ],
+      ),
+    ]);
+    final controller = DocumentEditingController(document: doc);
+    addTearDown(controller.dispose);
+
+    controller.setSelection(
+      const DocumentSelection.collapsed(
+        position: DocumentPosition(
+          nodeId: 't1',
+          nodePosition: TableCellPosition(row: 0, col: 0, offset: 0),
+        ),
+      ),
+    );
+
+    TableBorderOption? selected;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: TableContextToolbar(
+            controller: controller,
+            requestHandler: (_) {},
+            nodeId: 't1',
+            minRow: 0,
+            maxRow: 0,
+            minCol: 0,
+            maxCol: 0,
+            cellTextAligns: null,
+            cellVerticalAligns: null,
+            rowCount: 2,
+            columnCount: 2,
+            onBorderOptionSelected: (opt) => selected = opt,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // The border dropdown should be present (look for Borders tooltip)
+    expect(find.byTooltip('Borders'), findsOneWidget);
+
+    // Tap to open dropdown
+    await tester.tap(find.byTooltip('Borders'));
+    await tester.pumpAndSettle();
+
+    // Should see menu items
+    expect(find.text('No Border'), findsOneWidget);
+    expect(find.text('All Borders'), findsOneWidget);
+    expect(find.text('Outside Borders'), findsOneWidget);
+    expect(find.text('Inside Borders'), findsOneWidget);
+
+    // Tap "All Borders"
+    await tester.tap(find.text('All Borders'));
+    await tester.pumpAndSettle();
+
+    expect(selected, TableBorderOption.allBorders);
+  });
+
   // TableComponentViewModel gridBorderStyle
   test('TableComponentViewModel includes gridBorderStyle in equality', () {
     final a = TableComponentViewModel(

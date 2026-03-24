@@ -978,26 +978,30 @@ class DocumentEditorState extends State<DocumentEditor> with TickerProviderState
         rowCount: node.rowCount,
         columnCount: node.columnCount,
         border: node.border,
-        onBorderToggle: () {
-          _effectiveEditor.submit(
-            ReplaceNodeRequest(
-              nodeId: node.id,
-              newNode: node.copyWith(
-                border:
-                    node.border != null ? null : const BlockBorder(style: BlockBorderStyle.solid),
-              ),
-            ),
-          );
-        },
         gridBorderStyle: node.gridBorderStyle,
-        onGridToggle: () {
+        onBorderOptionSelected: (option) {
+          final BlockBorder? newBorder;
+          final BlockBorderStyle newGridStyle;
+          switch (option) {
+            case TableBorderOption.noBorder:
+              newBorder = null;
+              newGridStyle = BlockBorderStyle.none;
+            case TableBorderOption.allBorders:
+              newBorder = const BlockBorder(style: BlockBorderStyle.solid);
+              newGridStyle = BlockBorderStyle.solid;
+            case TableBorderOption.outsideBorders:
+              newBorder = const BlockBorder(style: BlockBorderStyle.solid);
+              newGridStyle = BlockBorderStyle.none;
+            case TableBorderOption.insideBorders:
+              newBorder = null;
+              newGridStyle = BlockBorderStyle.solid;
+          }
           _effectiveEditor.submit(
             ReplaceNodeRequest(
               nodeId: node.id,
               newNode: node.copyWith(
-                gridBorderStyle: node.gridBorderStyle == BlockBorderStyle.none
-                    ? BlockBorderStyle.solid
-                    : BlockBorderStyle.none,
+                border: newBorder,
+                gridBorderStyle: newGridStyle,
               ),
             ),
           );

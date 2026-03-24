@@ -70,9 +70,8 @@ class TableContextToolbar extends StatelessWidget {
     required this.rowCount,
     required this.columnCount,
     this.border,
-    this.onBorderToggle,
     this.gridBorderStyle = BlockBorderStyle.solid,
-    this.onGridToggle,
+    this.onBorderOptionSelected,
   });
 
   /// The document editing controller; used to read selection state.
@@ -111,17 +110,16 @@ class TableContextToolbar extends StatelessWidget {
   /// The current outer border of the table, or `null` for no border.
   final BlockBorder? border;
 
-  /// Called when the user toggles the outer border on or off.
-  final VoidCallback? onBorderToggle;
-
   /// The current visual style of the internal grid lines.
   ///
   /// Defaults to [BlockBorderStyle.solid]. Set to [BlockBorderStyle.none] to
   /// indicate that grid lines are hidden.
   final BlockBorderStyle gridBorderStyle;
 
-  /// Called when the user toggles the internal grid lines on or off.
-  final VoidCallback? onGridToggle;
+  /// Called when the user selects a border option from the dropdown.
+  ///
+  /// The [TableBorderOption] identifies which borders to change.
+  final ValueChanged<TableBorderOption>? onBorderOptionSelected;
 
   // -------------------------------------------------------------------------
   // Shared alignment helpers
@@ -310,19 +308,11 @@ class TableContextToolbar extends StatelessWidget {
               ),
             ),
             divider(),
-            // Outer border toggle
-            DocumentFormatToggle(
-              icon: Icons.border_outer,
-              tooltip: border != null ? 'Remove outer border' : 'Add outer border',
-              isActive: border != null,
-              onPressed: onBorderToggle,
-            ),
-            // Inner grid toggle
-            DocumentFormatToggle(
-              icon: gridBorderStyle != BlockBorderStyle.none ? Icons.grid_on : Icons.grid_off,
-              tooltip: gridBorderStyle != BlockBorderStyle.none ? 'Hide grid' : 'Show grid',
-              isActive: gridBorderStyle != BlockBorderStyle.none,
-              onPressed: onGridToggle,
+            // Border dropdown
+            _TableBorderDropdown(
+              border: border,
+              gridBorderStyle: gridBorderStyle,
+              onSelected: onBorderOptionSelected,
             ),
             divider(),
             // Delete row / column / table
@@ -378,8 +368,147 @@ class TableContextToolbar extends StatelessWidget {
     properties.add(
         IterableProperty<List<TableVerticalAlignment>>('cellVerticalAligns', cellVerticalAligns));
     properties.add(DiagnosticsProperty<BlockBorder?>('border', border, defaultValue: null));
-    properties.add(ObjectFlagProperty<VoidCallback?>.has('onBorderToggle', onBorderToggle));
     properties.add(EnumProperty<BlockBorderStyle>('gridBorderStyle', gridBorderStyle));
-    properties.add(ObjectFlagProperty<VoidCallback?>.has('onGridToggle', onGridToggle));
+    properties.add(
+      ObjectFlagProperty<ValueChanged<TableBorderOption>?>.has(
+        'onBorderOptionSelected',
+        onBorderOptionSelected,
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// TableBorderOption — identifies which borders to change
+// ---------------------------------------------------------------------------
+
+/// Options for the table border dropdown menu.
+enum TableBorderOption {
+  /// Remove all borders (outer and inner).
+  noBorder,
+
+  /// Apply borders everywhere (outer and inner).
+  allBorders,
+
+  /// Apply only the outside border (keep inner as-is).
+  outsideBorders,
+
+  /// Apply only the inside grid lines (keep outer as-is).
+  insideBorders,
+}
+
+// ---------------------------------------------------------------------------
+// _TableBorderDropdown — border option picker
+// ---------------------------------------------------------------------------
+
+class _TableBorderDropdown extends StatelessWidget {
+  const _TableBorderDropdown({
+    required this.border,
+    required this.gridBorderStyle,
+    required this.onSelected,
+  });
+
+  final BlockBorder? border;
+  final BlockBorderStyle gridBorderStyle;
+  final ValueChanged<TableBorderOption>? onSelected;
+
+  bool get _hasOutside => border != null;
+  bool get _hasInside => gridBorderStyle != BlockBorderStyle.none;
+  bool get _hasAll => _hasOutside && _hasInside;
+
+  /// Returns the icon that best represents the current state.
+  IconData get _currentIcon {
+    if (_hasAll) return Icons.border_all;
+    if (_hasOutside) return Icons.border_outer;
+    if (_hasInside) return Icons.border_inner;
+    return Icons.border_clear;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return PopupMenuButton<TableBorderOption>(
+      tooltip: 'Borders',
+      enabled: onSelected != null,
+      onSelected: onSelected,
+      position: PopupMenuPosition.under,
+      itemBuilder: (context) => [
+        _item(
+          TableBorderOption.noBorder,
+          Icons.border_clear,
+          'No Border',
+          !_hasOutside && !_hasInside,
+          colorScheme,
+        ),
+        _item(
+          TableBorderOption.allBorders,
+          Icons.border_all,
+          'All Borders',
+          _hasAll,
+          colorScheme,
+        ),
+        _item(
+          TableBorderOption.outsideBorders,
+          Icons.border_outer,
+          'Outside Borders',
+          _hasOutside && !_hasInside,
+          colorScheme,
+        ),
+        _item(
+          TableBorderOption.insideBorders,
+          Icons.border_inner,
+          'Inside Borders',
+          !_hasOutside && _hasInside,
+          colorScheme,
+        ),
+      ],
+      child: Container(
+        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Icon(
+          _currentIcon,
+          size: 18,
+          color: onSelected != null
+              ? colorScheme.onSurface
+              : colorScheme.onSurface.withValues(alpha: 0.38),
+        ),
+      ),
+    );
+  }
+
+  PopupMenuItem<TableBorderOption> _item(
+    TableBorderOption value,
+    IconData icon,
+    String label,
+    bool isActive,
+    ColorScheme colorScheme,
+  ) {
+    return PopupMenuItem<TableBorderOption>(
+      value: value,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isActive)
+            Icon(Icons.check, size: 16, color: colorScheme.primary)
+          else
+            const SizedBox(width: 16),
+          const SizedBox(width: 8),
+          Icon(icon, size: 18),
+          const SizedBox(width: 8),
+          Text(label),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties.add(DiagnosticsProperty<BlockBorder?>('border', border, defaultValue: null));
+    properties.add(EnumProperty<BlockBorderStyle>('gridBorderStyle', gridBorderStyle));
+    properties.add(
+      ObjectFlagProperty<ValueChanged<TableBorderOption>?>.has('onSelected', onSelected),
+    );
   }
 }
