@@ -129,6 +129,7 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
     double cellPadding = 8.0,
     double borderWidth = 1.0,
     Color borderColor = const Color(0xFFCCCCCC),
+    BlockBorderStyle gridBorderStyle = BlockBorderStyle.solid,
     Color selectionColor = const Color(0x663399FF),
     TextDirection textDirection = TextDirection.ltr,
     BlockAlignment blockAlignment = BlockAlignment.stretch,
@@ -149,6 +150,7 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
         _cellPadding = cellPadding,
         _borderWidth = borderWidth,
         _borderColor = borderColor,
+        _gridBorderStyle = gridBorderStyle,
         _selectionColor = selectionColor,
         _textDirection = textDirection,
         _cellTextAligns = cellTextAligns,
@@ -177,6 +179,7 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
   double _cellPadding;
   double _borderWidth;
   Color _borderColor;
+  BlockBorderStyle _gridBorderStyle;
   Color _selectionColor;
   TextDirection _textDirection;
   List<List<TextAlign>>? _cellTextAligns;
@@ -378,6 +381,19 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
   set borderColor(Color value) {
     if (_borderColor == value) return;
     _borderColor = value;
+    markNeedsPaint();
+  }
+
+  /// The visual style of the internal grid lines.
+  ///
+  /// Set to [BlockBorderStyle.none] to hide all internal grid lines.
+  // ignore: diagnostic_describe_all_properties
+  BlockBorderStyle get gridBorderStyle => _gridBorderStyle;
+
+  /// Sets the grid border style and schedules a repaint.
+  set gridBorderStyle(BlockBorderStyle value) {
+    if (_gridBorderStyle == value) return;
+    _gridBorderStyle = value;
     markNeedsPaint();
   }
 
@@ -789,7 +805,7 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
     }
 
     // --- Paint internal grid lines only (outer border is drawn by BlockBorder) ---
-    if (_borderWidth > 0) {
+    if (_borderWidth > 0 && _gridBorderStyle != BlockBorderStyle.none) {
       final gridPaint = Paint()
         ..color = _borderColor
         ..strokeWidth = _borderWidth
@@ -1005,6 +1021,7 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
     properties.add(DoubleProperty('cellPadding', _cellPadding));
     properties.add(DoubleProperty('borderWidth', _borderWidth));
     properties.add(ColorProperty('borderColor', _borderColor));
+    properties.add(EnumProperty<BlockBorderStyle>('gridBorderStyle', _gridBorderStyle));
     properties.add(ColorProperty('selectionColor', _selectionColor));
     properties.add(
       EnumProperty<TextDirection>('textDirection', _textDirection),

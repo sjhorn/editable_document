@@ -71,6 +71,8 @@ class TableContextToolbar extends StatelessWidget {
     required this.columnCount,
     this.border,
     this.onBorderToggle,
+    this.gridBorderStyle = BlockBorderStyle.solid,
+    this.onGridToggle,
   });
 
   /// The document editing controller; used to read selection state.
@@ -111,6 +113,15 @@ class TableContextToolbar extends StatelessWidget {
 
   /// Called when the user toggles the outer border on or off.
   final VoidCallback? onBorderToggle;
+
+  /// The current visual style of the internal grid lines.
+  ///
+  /// Defaults to [BlockBorderStyle.solid]. Set to [BlockBorderStyle.none] to
+  /// indicate that grid lines are hidden.
+  final BlockBorderStyle gridBorderStyle;
+
+  /// Called when the user toggles the internal grid lines on or off.
+  final VoidCallback? onGridToggle;
 
   // -------------------------------------------------------------------------
   // Shared alignment helpers
@@ -301,10 +312,17 @@ class TableContextToolbar extends StatelessWidget {
             divider(),
             // Outer border toggle
             DocumentFormatToggle(
-              icon: Icons.border_all,
-              tooltip: border != null ? 'Remove border' : 'Add border',
+              icon: Icons.border_outer,
+              tooltip: border != null ? 'Remove outer border' : 'Add outer border',
               isActive: border != null,
               onPressed: onBorderToggle,
+            ),
+            // Inner grid toggle
+            DocumentFormatToggle(
+              icon: gridBorderStyle != BlockBorderStyle.none ? Icons.grid_on : Icons.grid_off,
+              tooltip: gridBorderStyle != BlockBorderStyle.none ? 'Hide grid' : 'Show grid',
+              isActive: gridBorderStyle != BlockBorderStyle.none,
+              onPressed: onGridToggle,
             ),
             divider(),
             // Delete row / column / table
@@ -361,5 +379,7 @@ class TableContextToolbar extends StatelessWidget {
         IterableProperty<List<TableVerticalAlignment>>('cellVerticalAligns', cellVerticalAligns));
     properties.add(DiagnosticsProperty<BlockBorder?>('border', border, defaultValue: null));
     properties.add(ObjectFlagProperty<VoidCallback?>.has('onBorderToggle', onBorderToggle));
+    properties.add(EnumProperty<BlockBorderStyle>('gridBorderStyle', gridBorderStyle));
+    properties.add(ObjectFlagProperty<VoidCallback?>.has('onGridToggle', onGridToggle));
   }
 }

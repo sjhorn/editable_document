@@ -1489,6 +1489,7 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
   /// [cellPadding] is the horizontal and vertical padding inside each cell.
   /// [borderWidth] is the stroke width of the grid lines.
   /// [borderColor] is the color of the grid lines.
+  /// [gridBorderStyle] controls the visual style of the internal grid lines.
   /// [alignment] is the horizontal alignment within the layout.
   /// [textWrap] controls how surrounding text interacts with this block.
   /// [requestedWidth] and [requestedHeight] are optional explicit dimensions.
@@ -1506,6 +1507,7 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
     this.cellPadding = 8.0,
     this.borderWidth = 1.0,
     this.borderColor = const Color(0xFFCCCCCC),
+    this.gridBorderStyle = BlockBorderStyle.solid,
     this.alignment = BlockAlignment.stretch,
     this.textWrap = TextWrapMode.none,
     this.requestedWidth,
@@ -1575,6 +1577,12 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
   /// Defaults to `Color(0xFFCCCCCC)` (light grey).
   final Color borderColor;
 
+  /// The visual style of the internal grid lines.
+  ///
+  /// Use [BlockBorderStyle.none] to hide all internal grid lines.
+  /// Defaults to [BlockBorderStyle.solid].
+  final BlockBorderStyle gridBorderStyle;
+
   /// The horizontal alignment of this table within the layout.
   ///
   /// Defaults to [BlockAlignment.stretch].
@@ -1627,6 +1635,7 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
         other.cellPadding != cellPadding ||
         other.borderWidth != borderWidth ||
         other.borderColor != borderColor ||
+        other.gridBorderStyle != gridBorderStyle ||
         other.alignment != alignment ||
         other.textWrap != textWrap ||
         other.requestedWidth != requestedWidth ||
@@ -1682,6 +1691,7 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
       cellPadding,
       borderWidth,
       borderColor,
+      gridBorderStyle,
       alignment,
       textWrap,
       requestedWidth,
@@ -1732,6 +1742,9 @@ class TableComponentBuilder extends ComponentBuilder {
       rowHeights: node.rowHeights,
       cellTextAligns: node.cellTextAligns,
       cellVerticalAligns: node.cellVerticalAligns,
+      borderWidth: node.gridBorderWidth,
+      borderColor: node.gridBorderColor ?? const Color(0xFFCCCCCC),
+      gridBorderStyle: node.gridBorderStyle,
       alignment: node.alignment,
       textWrap: node.textWrap,
       requestedWidth: node.width,
@@ -1771,6 +1784,7 @@ class _TableBlockWidget extends LeafRenderObjectWidget {
       cellPadding: viewModel.cellPadding,
       borderWidth: viewModel.borderWidth,
       borderColor: viewModel.borderColor,
+      gridBorderStyle: viewModel.gridBorderStyle,
       blockAlignment: viewModel.alignment,
       widthDimension: viewModel.requestedWidth,
       heightDimension: viewModel.requestedHeight,
@@ -1797,6 +1811,7 @@ class _TableBlockWidget extends LeafRenderObjectWidget {
       ..cellPadding = viewModel.cellPadding
       ..borderWidth = viewModel.borderWidth
       ..borderColor = viewModel.borderColor
+      ..gridBorderStyle = viewModel.gridBorderStyle
       ..spaceBefore = viewModel.spaceBefore
       ..spaceAfter = viewModel.spaceAfter
       ..border = viewModel.border

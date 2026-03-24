@@ -5,9 +5,10 @@
 /// [TableCellPosition].
 library;
 
-import 'dart:ui' show TextAlign;
+import 'dart:ui' show Color, TextAlign;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart' show ColorProperty;
 
 import 'attributed_text.dart';
 import 'block_alignment.dart';
@@ -114,6 +115,9 @@ class TableNode extends DocumentNode implements HasBlockLayout {
     this.spaceBefore,
     this.spaceAfter,
     this.border,
+    this.gridBorderWidth = 1.0,
+    this.gridBorderColor,
+    this.gridBorderStyle = BlockBorderStyle.solid,
     super.metadata,
   })  : _cells = List<List<AttributedText>>.unmodifiable(
           cells.map((row) => List<AttributedText>.unmodifiable(row)),
@@ -210,6 +214,18 @@ class TableNode extends DocumentNode implements HasBlockLayout {
   /// The outside border drawn around this block, or `null` for no border.
   final BlockBorder? border;
 
+  /// Stroke width of the internal cell grid lines in logical pixels.
+  /// Defaults to `1.0`.
+  final double gridBorderWidth;
+
+  /// Color of the internal cell grid lines.
+  /// When `null`, defaults to grey (`0xFFCCCCCC`) at render time.
+  final Color? gridBorderColor;
+
+  /// Style of the internal cell grid lines.
+  /// Defaults to [BlockBorderStyle.solid].
+  final BlockBorderStyle gridBorderStyle;
+
   /// Internal unmodifiable storage of the 2D cell grid.
   final List<List<AttributedText>> _cells;
 
@@ -254,6 +270,9 @@ class TableNode extends DocumentNode implements HasBlockLayout {
     double? spaceBefore,
     double? spaceAfter,
     Object? border = _sentinel,
+    double? gridBorderWidth,
+    Object? gridBorderColor = _sentinel,
+    BlockBorderStyle? gridBorderStyle,
     Map<String, dynamic>? metadata,
   }) {
     return TableNode(
@@ -277,6 +296,10 @@ class TableNode extends DocumentNode implements HasBlockLayout {
       spaceBefore: spaceBefore ?? this.spaceBefore,
       spaceAfter: spaceAfter ?? this.spaceAfter,
       border: identical(border, _sentinel) ? this.border : border as BlockBorder?,
+      gridBorderWidth: gridBorderWidth ?? this.gridBorderWidth,
+      gridBorderColor:
+          identical(gridBorderColor, _sentinel) ? this.gridBorderColor : gridBorderColor as Color?,
+      gridBorderStyle: gridBorderStyle ?? this.gridBorderStyle,
       metadata: metadata ?? this.metadata,
     );
   }
@@ -296,6 +319,9 @@ class TableNode extends DocumentNode implements HasBlockLayout {
         other.spaceBefore != spaceBefore ||
         other.spaceAfter != spaceAfter ||
         other.border != border ||
+        other.gridBorderWidth != gridBorderWidth ||
+        other.gridBorderColor != gridBorderColor ||
+        other.gridBorderStyle != gridBorderStyle ||
         !mapEquals(other.metadata, metadata)) {
       return false;
     }
@@ -369,6 +395,9 @@ class TableNode extends DocumentNode implements HasBlockLayout {
       spaceBefore,
       spaceAfter,
       border,
+      gridBorderWidth,
+      gridBorderColor,
+      gridBorderStyle,
       Object.hashAll(metadata.entries.map((e) => e)),
     );
   }
@@ -405,6 +434,15 @@ class TableNode extends DocumentNode implements HasBlockLayout {
     properties.add(DoubleProperty('spaceBefore', spaceBefore, defaultValue: null));
     properties.add(DoubleProperty('spaceAfter', spaceAfter, defaultValue: null));
     properties.add(DiagnosticsProperty<BlockBorder?>('border', border, defaultValue: null));
+    properties.add(DoubleProperty('gridBorderWidth', gridBorderWidth, defaultValue: 1.0));
+    properties.add(ColorProperty('gridBorderColor', gridBorderColor, defaultValue: null));
+    properties.add(
+      EnumProperty<BlockBorderStyle>(
+        'gridBorderStyle',
+        gridBorderStyle,
+        defaultValue: BlockBorderStyle.solid,
+      ),
+    );
   }
 
   @override
@@ -422,8 +460,10 @@ class TableNode extends DocumentNode implements HasBlockLayout {
 // ---------------------------------------------------------------------------
 
 /// Sentinel object used by [TableNode.copyWith] to distinguish "not provided"
-/// from an explicit `null` for [TableNode.columnWidths], [TableNode.rowHeights],
-/// [TableNode.cellTextAligns], and [TableNode.cellVerticalAligns].
+/// from an explicit `null` for nullable fields: [TableNode.columnWidths],
+/// [TableNode.rowHeights], [TableNode.cellTextAligns],
+/// [TableNode.cellVerticalAligns], [TableNode.border], and
+/// [TableNode.gridBorderColor].
 const Object _sentinel = Object();
 
 /// Null-safe shallow equality for nullable lists.

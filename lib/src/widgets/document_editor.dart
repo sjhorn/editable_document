@@ -989,6 +989,19 @@ class DocumentEditorState extends State<DocumentEditor> with TickerProviderState
             ),
           );
         },
+        gridBorderStyle: node.gridBorderStyle,
+        onGridToggle: () {
+          _effectiveEditor.submit(
+            ReplaceNodeRequest(
+              nodeId: node.id,
+              newNode: node.copyWith(
+                gridBorderStyle: node.gridBorderStyle == BlockBorderStyle.none
+                    ? BlockBorderStyle.solid
+                    : BlockBorderStyle.none,
+              ),
+            ),
+          );
+        },
       ),
     );
   }

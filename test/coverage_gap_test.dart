@@ -745,6 +745,89 @@ void main() {
     expect(painter.caretRect, caretRect);
     expect(painter.width, 2.0);
   });
+
+  // TableNode grid border fields
+  test('TableNode gridBorderWidth/Color/Style defaults', () {
+    final node = TableNode(
+      id: 't1',
+      rowCount: 1,
+      columnCount: 1,
+      cells: [
+        [AttributedText('x')],
+      ],
+    );
+    expect(node.gridBorderWidth, 1.0);
+    expect(node.gridBorderColor, isNull);
+    expect(node.gridBorderStyle, BlockBorderStyle.solid);
+  });
+
+  test('TableNode copyWith gridBorderStyle to none', () {
+    final node = TableNode(
+      id: 't1',
+      rowCount: 1,
+      columnCount: 1,
+      cells: [
+        [AttributedText('x')],
+      ],
+    );
+    final updated = node.copyWith(gridBorderStyle: BlockBorderStyle.none);
+    expect(updated.gridBorderStyle, BlockBorderStyle.none);
+    expect(updated.gridBorderWidth, 1.0);
+  });
+
+  test('TableNode copyWith gridBorderColor clears with null', () {
+    final node = TableNode(
+      id: 't1',
+      rowCount: 1,
+      columnCount: 1,
+      cells: [
+        [AttributedText('x')],
+      ],
+      gridBorderColor: const Color(0xFFFF0000),
+    );
+    expect(node.gridBorderColor, const Color(0xFFFF0000));
+    final cleared = node.copyWith(gridBorderColor: null);
+    expect(cleared.gridBorderColor, isNull);
+  });
+
+  // RenderTableBlock gridBorderStyle setter
+  test('RenderTableBlock gridBorderStyle getter/setter', () {
+    final block = RenderTableBlock(
+      nodeId: 't1',
+      rowCount: 1,
+      columnCount: 1,
+      cells: [
+        [AttributedText('x')],
+      ],
+      textStyle: const TextStyle(fontSize: 14),
+    );
+    expect(block.gridBorderStyle, BlockBorderStyle.solid);
+    block.gridBorderStyle = BlockBorderStyle.none;
+    expect(block.gridBorderStyle, BlockBorderStyle.none);
+  });
+
+  // TableComponentViewModel gridBorderStyle
+  test('TableComponentViewModel includes gridBorderStyle in equality', () {
+    final a = TableComponentViewModel(
+      nodeId: 't1',
+      rowCount: 1,
+      columnCount: 1,
+      cells: [
+        [AttributedText('x')],
+      ],
+      gridBorderStyle: BlockBorderStyle.solid,
+    );
+    final b = TableComponentViewModel(
+      nodeId: 't1',
+      rowCount: 1,
+      columnCount: 1,
+      cells: [
+        [AttributedText('x')],
+      ],
+      gridBorderStyle: BlockBorderStyle.none,
+    );
+    expect(a == b, isFalse);
+  });
 }
 
 /// A test-only [EditRequest] subclass that no command handler knows about.
