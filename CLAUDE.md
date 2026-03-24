@@ -95,7 +95,7 @@ Each agent owns its directory exclusively. **No agent may write files outside it
 | `integration` | `integration_test/` | `lib/` (read only) |
 | `benchmark` | `benchmark/` | `lib/` (read only) |
 | `docs` | `doc/`, `example/`, `README.md`, `CHANGELOG.md` | `lib/`, `test/` |
-| `qa` | runs MCP tools (`mcp__dart__*`, `mcp__server-git__*`), `scripts/ci/coverage.sh`, `scripts/ci/benchmark.sh` | `lib/`, `test/` (read only) |
+| `qa` | runs MCP tools (`mcp__dart__*`, `mcp__server-git__*`), `scripts/ci/coverage_check.sh 90`, `scripts/ci/benchmark.sh` | `lib/`, `test/` (read only) |
 
 ---
 

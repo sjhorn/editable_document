@@ -41,7 +41,7 @@ mcp__dart__dart_fix                                # apply dart fix
 mcp__dart__run_tests                               # all tests
 mcp__dart__run_tests (path: "test/src/model/")     # scoped tests
 mcp__dart__run_tests (path: "test/src/model/", failFast: true) # stop on first failure
-scripts/ci/coverage.sh                             # all tests + coverage ≥90%
+scripts/ci/coverage_check 90                       # all tests + coverage ≥90%
 scripts/ci/coverage.sh test/src/services/ 100      # services must be 100%
 scripts/ci/flutter_test.sh --update-goldens test/src/rendering/  # update goldens (Linux only)
 ```
