@@ -360,13 +360,13 @@ class ParagraphComponentBuilder extends ComponentBuilder {
   @override
   Widget? createComponent(ComponentViewModel viewModel, ComponentContext context) {
     if (viewModel is! ParagraphComponentViewModel) return null;
-    return _ParagraphBlockWidget(viewModel: viewModel);
+    return _ParagraphBlockWidget(key: ValueKey<String>(viewModel.nodeId), viewModel: viewModel);
   }
 }
 
 /// [LeafRenderObjectWidget] that wraps [RenderParagraphBlock].
 class _ParagraphBlockWidget extends LeafRenderObjectWidget {
-  const _ParagraphBlockWidget({required this.viewModel});
+  const _ParagraphBlockWidget({super.key, required this.viewModel});
 
   final ParagraphComponentViewModel viewModel;
 
@@ -579,13 +579,13 @@ class ListItemComponentBuilder extends ComponentBuilder {
   @override
   Widget? createComponent(ComponentViewModel viewModel, ComponentContext context) {
     if (viewModel is! ListItemComponentViewModel) return null;
-    return _ListItemBlockWidget(viewModel: viewModel);
+    return _ListItemBlockWidget(key: ValueKey<String>(viewModel.nodeId), viewModel: viewModel);
   }
 }
 
 /// [LeafRenderObjectWidget] that wraps [RenderListItemBlock].
 class _ListItemBlockWidget extends LeafRenderObjectWidget {
-  const _ListItemBlockWidget({required this.viewModel});
+  const _ListItemBlockWidget({super.key, required this.viewModel});
 
   final ListItemComponentViewModel viewModel;
 
@@ -761,7 +761,7 @@ class ImageComponentBuilder extends ComponentBuilder {
   @override
   Widget? createComponent(ComponentViewModel viewModel, ComponentContext context) {
     if (viewModel is! ImageComponentViewModel) return null;
-    return _ImageBlockWidget(viewModel: viewModel);
+    return _ImageBlockWidget(key: ValueKey<String>(viewModel.nodeId), viewModel: viewModel);
   }
 }
 
@@ -774,7 +774,7 @@ class ImageComponentBuilder extends ComponentBuilder {
 /// in a post-frame callback to avoid disposing an image still in use during
 /// the current frame.
 class _ImageBlockWidget extends StatefulWidget {
-  const _ImageBlockWidget({required this.viewModel});
+  const _ImageBlockWidget({super.key, required this.viewModel});
 
   final ImageComponentViewModel viewModel;
 
@@ -1051,13 +1051,13 @@ class CodeBlockComponentBuilder extends ComponentBuilder {
   @override
   Widget? createComponent(ComponentViewModel viewModel, ComponentContext context) {
     if (viewModel is! CodeBlockComponentViewModel) return null;
-    return _CodeBlockWidget(viewModel: viewModel);
+    return _CodeBlockWidget(key: ValueKey<String>(viewModel.nodeId), viewModel: viewModel);
   }
 }
 
 /// [LeafRenderObjectWidget] that wraps [RenderCodeBlock].
 class _CodeBlockWidget extends LeafRenderObjectWidget {
-  const _CodeBlockWidget({required this.viewModel});
+  const _CodeBlockWidget({super.key, required this.viewModel});
 
   final CodeBlockComponentViewModel viewModel;
 
@@ -1207,13 +1207,14 @@ class HorizontalRuleComponentBuilder extends ComponentBuilder {
   @override
   Widget? createComponent(ComponentViewModel viewModel, ComponentContext context) {
     if (viewModel is! HorizontalRuleComponentViewModel) return null;
-    return _HorizontalRuleBlockWidget(viewModel: viewModel);
+    return _HorizontalRuleBlockWidget(
+        key: ValueKey<String>(viewModel.nodeId), viewModel: viewModel);
   }
 }
 
 /// [LeafRenderObjectWidget] that wraps [RenderHorizontalRuleBlock].
 class _HorizontalRuleBlockWidget extends LeafRenderObjectWidget {
-  const _HorizontalRuleBlockWidget({required this.viewModel});
+  const _HorizontalRuleBlockWidget({super.key, required this.viewModel});
 
   final HorizontalRuleComponentViewModel viewModel;
 
@@ -1407,13 +1408,13 @@ class BlockquoteComponentBuilder extends ComponentBuilder {
   @override
   Widget? createComponent(ComponentViewModel viewModel, ComponentContext context) {
     if (viewModel is! BlockquoteComponentViewModel) return null;
-    return _BlockquoteBlockWidget(viewModel: viewModel);
+    return _BlockquoteBlockWidget(key: ValueKey<String>(viewModel.nodeId), viewModel: viewModel);
   }
 }
 
 /// [LeafRenderObjectWidget] that wraps [RenderBlockquoteBlock].
 class _BlockquoteBlockWidget extends LeafRenderObjectWidget {
-  const _BlockquoteBlockWidget({required this.viewModel});
+  const _BlockquoteBlockWidget({super.key, required this.viewModel});
 
   final BlockquoteComponentViewModel viewModel;
 
@@ -1744,13 +1745,13 @@ class TableComponentBuilder extends ComponentBuilder {
   @override
   Widget? createComponent(ComponentViewModel viewModel, ComponentContext context) {
     if (viewModel is! TableComponentViewModel) return null;
-    return _TableBlockWidget(viewModel: viewModel);
+    return _TableBlockWidget(key: ValueKey<String>(viewModel.nodeId), viewModel: viewModel);
   }
 }
 
 /// [LeafRenderObjectWidget] that wraps [RenderTableBlock].
 class _TableBlockWidget extends LeafRenderObjectWidget {
-  const _TableBlockWidget({required this.viewModel});
+  const _TableBlockWidget({super.key, required this.viewModel});
 
   final TableComponentViewModel viewModel;
 
