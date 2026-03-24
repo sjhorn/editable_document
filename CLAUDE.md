@@ -106,10 +106,11 @@ Each agent owns its directory exclusively. **No agent may write files outside it
 3. **Every public symbol has `///` dartdoc.** `dart doc` must produce zero warnings.
 4. **Zero external dependencies.** Flutter SDK only.
 5. **100 % branch coverage on `lib/src/services/`.** ≥ 90 % overall.
-6. **Golden tests** for all pixel-drawing code. Update only via the `qa` agent on Linux (`scripts/ci/flutter_test.sh --update-goldens` — this is the one case where the script is still needed, as MCP has no `--update-goldens` flag).
-7. **Commit messages:** `type(scope): description` — one ROADMAP checkbox per commit maximum.
-8. **No `$()` in Bash tool calls.** Claude Code blocks command substitution `$()` in Bash tool arguments. Never use `$()` in any Bash tool call — write intermediate values to temp files instead. (`$()` inside `.sh` script files is fine — the restriction only applies to Bash tool call arguments.)
-9. **Use `scripts/ci/sed.sh` instead of raw `sed`.** Never call `sed` directly in Bash tool calls — use `scripts/ci/sed.sh <args>` instead. The wrapper is in the permission allowlist so it runs without interactive prompts.
+6. **Coverage gate before every commit.** Run `flutter test --coverage` and verify coverage ≥ 89.9% (899 per-mille) before committing. If new code drops coverage below the threshold, add tests for the new code paths in the same commit. Never commit code that lowers coverage below the gate — the CI will reject it.
+7. **Golden tests** for all pixel-drawing code. Update only via the `qa` agent on Linux (`scripts/ci/flutter_test.sh --update-goldens` — this is the one case where the script is still needed, as MCP has no `--update-goldens` flag).
+8. **Commit messages:** `type(scope): description` — one ROADMAP checkbox per commit maximum.
+9. **No `$()` in Bash tool calls.** Claude Code blocks command substitution `$()` in Bash tool arguments. Never use `$()` in any Bash tool call — write intermediate values to temp files instead. (`$()` inside `.sh` script files is fine — the restriction only applies to Bash tool call arguments.)
+10. **Use `scripts/ci/sed.sh` instead of raw `sed`.** Never call `sed` directly in Bash tool calls — use `scripts/ci/sed.sh <args>` instead. The wrapper is in the permission allowlist so it runs without interactive prompts.
 
 ---
 
@@ -140,6 +141,10 @@ model  ←  rendering  ←  services  ←  widgets
    e.g. "use the qa agent to run the full gate"
    The qa agent runs: mcp__dart__analyze_files → mcp__dart__dart_format → mcp__dart__run_tests
 4. The qa agent reports PASS/FAIL with diagnosis — no log files to inspect
+5. Before committing, verify coverage ≥ 89.9%:
+   flutter test --coverage
+   Then check: total=$(grep -c 'DA:' coverage/lcov.info); hit=$(grep 'DA:' coverage/lcov.info | grep -cv ',0$'); echo "$((hit * 1000 / total)) per-mille (need ≥ 899)"
+   If below threshold, add tests for new/changed code before committing.
 ```
 
 **Never type `flutter test`, `flutter analyze`, or `dart format` directly. Always go through the `qa` agent.**
