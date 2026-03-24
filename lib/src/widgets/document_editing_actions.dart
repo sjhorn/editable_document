@@ -191,10 +191,12 @@ class _MoveToDocumentStartOrEndAction
 
 /// Action for [ExtendSelectionToNextWordBoundaryOrCaretLocationIntent].
 ///
-/// Used on some platforms for node-boundary jumps (word-modifier + Up/Down).
-class _MoveToNodeBoundaryAction
+/// On macOS this intent fires for Shift+Alt+Arrow (word selection with
+/// extension). Delegates to [moveByWord] with `extend` derived from
+/// [collapseSelection].
+class _MoveToWordBoundaryOrCaretAction
     extends ContextAction<ExtendSelectionToNextWordBoundaryOrCaretLocationIntent> {
-  _MoveToNodeBoundaryAction(this._getDelegate);
+  _MoveToWordBoundaryOrCaretAction(this._getDelegate);
 
   final DocumentEditingDelegate Function() _getDelegate;
 
@@ -203,7 +205,7 @@ class _MoveToNodeBoundaryAction
     ExtendSelectionToNextWordBoundaryOrCaretLocationIntent intent, [
     BuildContext? context,
   ]) {
-    _getDelegate().moveToNodeStartOrEnd(
+    _getDelegate().moveByWord(
       forward: intent.forward,
       extend: !intent.collapseSelection,
     );
@@ -481,7 +483,8 @@ Map<Type, Action<Intent>> createDocumentEditingActions(
     ExtendSelectionToLineBreakIntent: _MoveToLineStartOrEndAction(getDelegate),
     ExtendSelectionVerticallyToAdjacentLineIntent: _MoveVerticallyAction(getDelegate),
     ExtendSelectionToDocumentBoundaryIntent: _MoveToDocumentStartOrEndAction(getDelegate),
-    ExtendSelectionToNextWordBoundaryOrCaretLocationIntent: _MoveToNodeBoundaryAction(getDelegate),
+    ExtendSelectionToNextWordBoundaryOrCaretLocationIntent:
+        _MoveToWordBoundaryOrCaretAction(getDelegate),
     DeleteCharacterIntent: _DeleteCharacterAction(getDelegate),
     DeleteToNextWordBoundaryIntent: _DeleteToWordBoundaryAction(getDelegate),
     DeleteToLineBreakIntent: _DeleteToLineBreakAction(getDelegate),
