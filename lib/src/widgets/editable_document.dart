@@ -941,10 +941,26 @@ class EditableDocumentState extends State<EditableDocument> implements DocumentE
 
   /// Moves the caret to the very start or end of the document.
   ///
+  /// When the caret is inside a [TableNode] cell, navigates to the start or
+  /// end of that cell instead of the document boundary.
+  ///
   /// When [extend] is `true` the selection is extended.
   void moveToDocumentStartOrEnd({required bool forward, required bool extend}) {
     final selection = widget.controller.selection;
     if (selection == null) return;
+
+    // When inside a table cell, Cmd+Home/End navigates within the cell.
+    final node = widget.controller.document.nodeById(selection.extent.nodeId);
+    if (node is TableNode && selection.extent.nodePosition is TableCellPosition) {
+      final cellPos = selection.extent.nodePosition as TableCellPosition;
+      final newOffset = forward ? node.cellAt(cellPos.row, cellPos.col).text.length : 0;
+      final newExtent = DocumentPosition(
+        nodeId: node.id,
+        nodePosition: TableCellPosition(row: cellPos.row, col: cellPos.col, offset: newOffset),
+      );
+      _updateSelection(newExtent, extend: extend);
+      return;
+    }
 
     final doc = widget.controller.document;
     if (doc.nodes.isEmpty) return;
@@ -1499,6 +1515,32 @@ class EditableDocumentState extends State<EditableDocument> implements DocumentE
 
     final fullyApplied =
         isSelectionFullyAttributed(selection, attribution, widget.controller.document);
+
+    // Table cell: apply or remove attribution directly on the cell's AttributedText.
+    final node = widget.controller.document.nodeById(selection.extent.nodeId);
+    if (node is TableNode) {
+      final basePos = selection.base.nodePosition;
+      final extentPos = selection.extent.nodePosition;
+      if (basePos is TableCellPosition &&
+          extentPos is TableCellPosition &&
+          basePos.row == extentPos.row &&
+          basePos.col == extentPos.col) {
+        final row = basePos.row;
+        final col = basePos.col;
+        final cellText = node.cellAt(row, col);
+        final start = basePos.offset < extentPos.offset ? basePos.offset : extentPos.offset;
+        final end = (basePos.offset < extentPos.offset ? extentPos.offset : basePos.offset) - 1;
+        if (start > end) return;
+        final newText = fullyApplied
+            ? cellText.removeAttribution(attribution, start, end)
+            : cellText.applyAttribution(attribution, start, end);
+        _handleRequest(
+          UpdateTableCellRequest(nodeId: node.id, row: row, col: col, newText: newText),
+        );
+        return;
+      }
+    }
+
     if (fullyApplied) {
       _handleRequest(
         RemoveAttributionRequest(selection: selection, attribution: attribution),

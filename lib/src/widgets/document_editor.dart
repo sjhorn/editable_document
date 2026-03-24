@@ -14,6 +14,7 @@ library;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import '../model/attributed_text.dart';
@@ -839,6 +840,7 @@ class DocumentEditorState extends State<DocumentEditor> with TickerProviderState
       _showBlockPanel = !_showBlockPanel;
       _syncPanelTabController();
     });
+    _scheduleTableToolbarRebuild();
   }
 
   /// Toggles the document settings panel open or closed.
@@ -846,6 +848,25 @@ class DocumentEditorState extends State<DocumentEditor> with TickerProviderState
     setState(() {
       _showDocumentPanel = !_showDocumentPanel;
       _syncPanelTabController();
+    });
+    _scheduleTableToolbarRebuild();
+  }
+
+  /// Schedules a post-frame [setState] when the table toolbar is visible so
+  /// that its position is recalculated after the layout has re-flowed.
+  ///
+  /// After a panel toggle the layout changes size in the same frame that
+  /// [build] runs, but [_buildTableToolbar] reads [BoxParentData.offset] from
+  /// the previous frame. A second build after layout completes picks up the
+  /// correct offsets.
+  void _scheduleTableToolbarRebuild() {
+    if (!widget.showTableToolbar) return;
+    final sel = _effectiveController.selection;
+    if (sel == null) return;
+    final node = _effectiveController.document.nodeById(sel.extent.nodeId);
+    if (node is! TableNode) return;
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() {});
     });
   }
 

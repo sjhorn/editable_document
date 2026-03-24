@@ -21,6 +21,7 @@ import '../model/attribution.dart';
 import '../model/document.dart';
 import '../model/document_selection.dart';
 import '../model/node_position.dart';
+import '../model/table_node.dart';
 import '../model/text_node.dart';
 import 'document_editing_intents.dart';
 
@@ -530,6 +531,21 @@ bool isSelectionFullyAttributed(
   if (base.nodeId != extent.nodeId) return false;
 
   final node = document.nodeById(base.nodeId);
+
+  if (node is TableNode) {
+    final basePos = base.nodePosition;
+    final extentPos = extent.nodePosition;
+    if (basePos is! TableCellPosition || extentPos is! TableCellPosition) return false;
+    if (basePos.row != extentPos.row || basePos.col != extentPos.col) return false;
+    final cellText = node.cellAt(basePos.row, basePos.col);
+    final start = basePos.offset < extentPos.offset ? basePos.offset : extentPos.offset;
+    final end = basePos.offset < extentPos.offset ? extentPos.offset : basePos.offset;
+    for (var i = start; i < end; i++) {
+      if (!cellText.hasAttributionAt(i, attribution)) return false;
+    }
+    return true;
+  }
+
   if (node is! TextNode) return false;
 
   final baseOffset = (base.nodePosition as TextNodePosition).offset;
