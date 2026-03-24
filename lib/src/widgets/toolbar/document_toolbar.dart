@@ -161,9 +161,12 @@ class DocumentToolbar extends StatelessWidget {
         ),
       ),
       padding: padding,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: groups,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: groups,
+        ),
       ),
     );
   }

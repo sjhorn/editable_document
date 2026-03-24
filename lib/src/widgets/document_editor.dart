@@ -1218,6 +1218,7 @@ class DocumentEditorState extends State<DocumentEditor> with TickerProviderState
     final colorScheme = Theme.of(context).colorScheme;
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (widget.showToolbar) _buildToolbar(),
         Expanded(child: editorRow),
