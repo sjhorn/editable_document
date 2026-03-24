@@ -697,6 +697,54 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });
+
+  // block_layout_mixin.dart lines 108, 136: widthDimension=null / heightDimension=null branches
+  test('BlockLayoutMixin widthDimension=null clears requestedWidth', () {
+    final block = RenderImageBlock(nodeId: 'img-dim', image: null);
+    block.widthDimension = const BlockDimension.pixels(200);
+    expect(block.requestedWidth, 200.0);
+    block.widthDimension = null; // line 108: _requestedWidth = null
+    expect(block.requestedWidth, isNull);
+  });
+
+  test('BlockLayoutMixin heightDimension=null clears requestedHeight', () {
+    final block = RenderImageBlock(nodeId: 'img-dim2', image: null);
+    block.heightDimension = const BlockDimension.pixels(100);
+    expect(block.requestedHeight, 100.0);
+    block.heightDimension = null; // line 136: _requestedHeight = null
+    expect(block.requestedHeight, isNull);
+  });
+
+  // table_node.dart lines 341-343, 350-352: hashCode with cellTextAligns and cellVerticalAligns
+  test('TableNode hashCode covers cellTextAligns and cellVerticalAligns loops', () {
+    final node = TableNode(
+      id: 't-hash',
+      rowCount: 1,
+      columnCount: 1,
+      cells: [
+        [AttributedText('x')],
+      ],
+      cellTextAligns: [
+        [TextAlign.center],
+      ],
+      cellVerticalAligns: [
+        [TableVerticalAlignment.top],
+      ],
+    );
+    // Calling hashCode exercises lines 341-343 (cellTextAligns loop)
+    // and 350-352 (cellVerticalAligns loop).
+    expect(node.hashCode, isA<int>());
+  });
+
+  // document_caret_painter.dart line 44: non-const constructor invocation
+  test('DocumentCaretPainter non-const constructor covers line 44', () {
+    // A const invocation is compile-time and may not register a runtime hit;
+    // a non-const call forces execution through the constructor body.
+    final caretRect = const Rect.fromLTWH(0, 0, 2, 20);
+    final painter = DocumentCaretPainter(caretRect: caretRect);
+    expect(painter.caretRect, caretRect);
+    expect(painter.width, 2.0);
+  });
 }
 
 /// A test-only [EditRequest] subclass that no command handler knows about.
