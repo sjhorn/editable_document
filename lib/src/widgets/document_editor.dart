@@ -21,6 +21,7 @@ import '../model/attributed_text.dart';
 import '../model/document_editing_controller.dart';
 import '../model/document_selection.dart';
 import '../model/edit_context.dart';
+import '../model/block_border.dart';
 import '../model/edit_request.dart';
 import '../model/mutable_document.dart';
 import '../model/node_position.dart';
@@ -976,6 +977,18 @@ class DocumentEditorState extends State<DocumentEditor> with TickerProviderState
         cellVerticalAligns: node.cellVerticalAligns,
         rowCount: node.rowCount,
         columnCount: node.columnCount,
+        border: node.border,
+        onBorderToggle: () {
+          _effectiveEditor.submit(
+            ReplaceNodeRequest(
+              nodeId: node.id,
+              newNode: node.copyWith(
+                border:
+                    node.border != null ? null : const BlockBorder(style: BlockBorderStyle.solid),
+              ),
+            ),
+          );
+        },
       ),
     );
   }

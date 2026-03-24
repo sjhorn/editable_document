@@ -253,7 +253,7 @@ class TableNode extends DocumentNode implements HasBlockLayout {
     BlockDimension? height,
     double? spaceBefore,
     double? spaceAfter,
-    BlockBorder? border,
+    Object? border = _sentinel,
     Map<String, dynamic>? metadata,
   }) {
     return TableNode(
@@ -276,7 +276,7 @@ class TableNode extends DocumentNode implements HasBlockLayout {
       height: height ?? this.height,
       spaceBefore: spaceBefore ?? this.spaceBefore,
       spaceAfter: spaceAfter ?? this.spaceAfter,
-      border: border ?? this.border,
+      border: identical(border, _sentinel) ? this.border : border as BlockBorder?,
       metadata: metadata ?? this.metadata,
     );
   }

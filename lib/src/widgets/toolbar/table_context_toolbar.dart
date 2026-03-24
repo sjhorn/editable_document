@@ -8,6 +8,7 @@ library;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../model/block_border.dart';
 import '../../model/document_editing_controller.dart';
 import '../../model/edit_request.dart';
 import '../../model/table_vertical_alignment.dart';
@@ -68,6 +69,8 @@ class TableContextToolbar extends StatelessWidget {
     required this.cellVerticalAligns,
     required this.rowCount,
     required this.columnCount,
+    this.border,
+    this.onBorderToggle,
   });
 
   /// The document editing controller; used to read selection state.
@@ -102,6 +105,12 @@ class TableContextToolbar extends StatelessWidget {
 
   /// Total number of columns in the table.
   final int columnCount;
+
+  /// The current outer border of the table, or `null` for no border.
+  final BlockBorder? border;
+
+  /// Called when the user toggles the outer border on or off.
+  final VoidCallback? onBorderToggle;
 
   // -------------------------------------------------------------------------
   // Shared alignment helpers
@@ -290,6 +299,14 @@ class TableContextToolbar extends StatelessWidget {
               ),
             ),
             divider(),
+            // Outer border toggle
+            DocumentFormatToggle(
+              icon: Icons.border_all,
+              tooltip: border != null ? 'Remove border' : 'Add border',
+              isActive: border != null,
+              onPressed: onBorderToggle,
+            ),
+            divider(),
             // Delete row / column / table
             IconButton(
               icon: Icon(Icons.table_rows_outlined, size: iconSize, color: deleteColor),
@@ -342,5 +359,7 @@ class TableContextToolbar extends StatelessWidget {
     properties.add(IterableProperty<List<TextAlign>>('cellTextAligns', cellTextAligns));
     properties.add(
         IterableProperty<List<TableVerticalAlignment>>('cellVerticalAligns', cellVerticalAligns));
+    properties.add(DiagnosticsProperty<BlockBorder?>('border', border, defaultValue: null));
+    properties.add(ObjectFlagProperty<VoidCallback?>.has('onBorderToggle', onBorderToggle));
   }
 }
