@@ -358,20 +358,17 @@ class DocumentScrollableState extends State<DocumentScrollable> {
             child: SingleChildScrollView(
               controller: effectiveScrollController,
               scrollDirection: widget.scrollDirection,
-              physics: widget.physics,
+              physics: widget.physics ?? const ClampingScrollPhysics(),
               child: Scrollbar(
                 controller: _horizontalScrollController,
                 notificationPredicate: (notification) => notification.depth == 0,
                 child: SingleChildScrollView(
                   controller: _horizontalScrollController,
                   scrollDirection: Axis.horizontal,
-                  child: Align(
-                    alignment: Alignment.topLeft,
-                    child: DocumentViewportScope(
-                      viewportWidth: contentWidth,
-                      viewportHeight: constraints.maxHeight,
-                      child: innerChild,
-                    ),
+                  child: DocumentViewportScope(
+                    viewportWidth: contentWidth,
+                    viewportHeight: constraints.maxHeight,
+                    child: innerChild,
                   ),
                 ),
               ),
