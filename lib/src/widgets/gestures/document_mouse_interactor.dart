@@ -379,8 +379,6 @@ class DocumentMouseInteractorState extends State<DocumentMouseInteractor> {
       }
     }
 
-    // Request focus so clicking the document steals focus from other widgets.
-    widget.focusNode?.requestFocus();
     _dragBasePosition = _positionForOffset(event.localPosition);
     _isDragging = true;
   }
@@ -566,6 +564,9 @@ class DocumentMouseInteractorState extends State<DocumentMouseInteractor> {
   void _onTapDown(TapDownDetails details) {
     if (!widget.enabled) return;
 
+    // Request focus so clicking the document steals focus from other widgets.
+    widget.focusNode?.requestFocus();
+
     // Triple-tap: the 3rd tap arrives as a plain single-tap because the
     // DoubleTapGestureRecognizer already consumed taps 1 and 2 and has since
     // reset.  If the triple-tap window is still open, promote to block select.
@@ -618,6 +619,8 @@ class DocumentMouseInteractorState extends State<DocumentMouseInteractor> {
   /// it is treated as a triple-tap that selects the entire block.
   void _onDoubleTapDown(TapDownDetails details) {
     if (!widget.enabled) return;
+
+    widget.focusNode?.requestFocus();
 
     if (_isTripleTap(details.localPosition)) {
       // This is actually the third tap — do block selection.
