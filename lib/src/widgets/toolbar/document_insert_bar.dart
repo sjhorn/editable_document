@@ -62,7 +62,7 @@ class DocumentInsertBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: controller,
+      listenable: Listenable.merge([controller, controller.document.changes]),
       builder: (context, _) {
         final hasCursor = controller.selection != null;
 

@@ -51,7 +51,7 @@ class DocumentListIndentBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: controller,
+      listenable: Listenable.merge([controller, controller.document.changes]),
       builder: (context, _) {
         final sel = controller.selection;
         final node = sel != null ? controller.document.nodeById(sel.extent.nodeId) : null;

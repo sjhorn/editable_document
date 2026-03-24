@@ -76,7 +76,7 @@ class DocumentFontBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: controller,
+      listenable: Listenable.merge([controller, controller.document.changes]),
       builder: (context, _) {
         final sel = controller.selection;
         final hasExpanded = sel != null && !sel.isCollapsed;
