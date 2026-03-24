@@ -365,13 +365,10 @@ class DocumentScrollableState extends State<DocumentScrollable> {
                 child: SingleChildScrollView(
                   controller: _horizontalScrollController,
                   scrollDirection: Axis.horizontal,
-                  child: Align(
-                    alignment: Alignment.topLeft,
-                    child: DocumentViewportScope(
-                      viewportWidth: contentWidth,
-                      viewportHeight: constraints.maxHeight,
-                      child: innerChild,
-                    ),
+                  child: DocumentViewportScope(
+                    viewportWidth: contentWidth,
+                    viewportHeight: constraints.maxHeight,
+                    child: innerChild,
                   ),
                 ),
               ),
