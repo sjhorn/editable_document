@@ -1240,6 +1240,7 @@ class DocumentEditorState extends State<DocumentEditor> with TickerProviderState
 
     Widget editorRow = panelVisible
         ? Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(child: scrollableEditor),
               _buildPropertyPanel(),
