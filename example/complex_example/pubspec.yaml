@@ -1,5 +1,5 @@
-name: editable_document_example
-description: Example app for editable_document package.
+name: complex_example
+description: Full-featured example app for editable_document package.
 publish_to: none
 
 environment:
