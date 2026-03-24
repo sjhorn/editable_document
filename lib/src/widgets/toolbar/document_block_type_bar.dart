@@ -267,10 +267,16 @@ class _HeadingDropdown extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final label = _activeLabel;
 
+    final buttonLabel = label ?? 'H';
+    final textColor = enabled
+        ? (isActive ? colorScheme.onPrimaryContainer : colorScheme.onSurface)
+        : colorScheme.onSurface.withValues(alpha: 0.38);
+
     return PopupMenuButton<ParagraphBlockType>(
       tooltip: 'Heading',
       enabled: enabled,
       onSelected: onSelected,
+      position: PopupMenuPosition.under,
       constraints: const BoxConstraints(minWidth: 48),
       itemBuilder: (context) => [
         for (final (type, text) in _levels)
@@ -299,28 +305,15 @@ class _HeadingDropdown extends StatelessWidget {
           color: isActive ? colorScheme.primaryContainer : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.title,
-              size: 18,
-              color: enabled
-                  ? (isActive ? colorScheme.onPrimaryContainer : colorScheme.onSurface)
-                  : colorScheme.onSurface.withValues(alpha: 0.38),
+        child: Center(
+          child: Text(
+            buttonLabel,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: textColor,
             ),
-            if (label != null) ...[
-              const SizedBox(width: 2),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: isActive ? colorScheme.onPrimaryContainer : colorScheme.onSurface,
-                ),
-              ),
-            ],
-          ],
+          ),
         ),
       ),
     );
