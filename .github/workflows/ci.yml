@@ -35,10 +35,9 @@ jobs:
             total=$(grep -c 'DA:' coverage/lcov.info || echo 0)
             hit=$(grep 'DA:' coverage/lcov.info | grep -cv ',0$' || echo 0)
             if [ "$total" -gt 0 ]; then
-              pct=$((hit * 100 / total))
-              # Use tenths for finer-grained check: 899 = 89.9%
-              pct10=$((hit * 1000 / total))
-              echo "Coverage: $pct% ($hit/$total lines, ${pct10} per-mille)"
+              # Use rounding instead of truncation: add half-denominator before dividing
+              pct10=$(( (hit * 10000 / total + 5) / 10 ))
+              echo "Coverage: $hit/$total lines = ${pct10} per-mille (rounded)"
               if [ "$pct10" -lt 900 ]; then
                 echo "::error::Coverage ${pct10}/1000 is below 90.0% threshold"
                 exit 1
