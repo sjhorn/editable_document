@@ -419,8 +419,7 @@ void main() {
         nodePosition: TableCellPosition(row: 0, col: 0, offset: 5),
       ),
     );
-    expect(
-        isSelectionFullyAttributed(sel, NamedAttribution.bold, doc), isFalse);
+    expect(isSelectionFullyAttributed(sel, NamedAttribution.bold, doc), isFalse);
   });
 
   // TableNode.copyWith with sentinel border
@@ -481,6 +480,222 @@ void main() {
     expect(caret.devicePixelRatio, 1.0);
     caret.devicePixelRatio = 2.0;
     expect(caret.devicePixelRatio, 2.0);
+  });
+
+  // text_wrap_editor.dart lines 73-80: debugFillProperties
+  testWidgets('TextWrapEditor debugFillProperties includes value and enabled', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: TextWrapEditor(
+            value: TextWrapMode.wrap,
+            onChanged: (_) {},
+            enabled: false,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final element = tester.element(find.byType(TextWrapEditor));
+    final props = element.toDiagnosticsNode().getProperties();
+    expect(props.any((p) => p.name == 'value'), isTrue);
+    expect(props.any((p) => p.name == 'onChanged'), isTrue);
+    expect(props.any((p) => p.name == 'enabled'), isTrue);
+  });
+
+  // border_color_button.dart lines 78-84: debugFillProperties
+  testWidgets('BorderColorButton debugFillProperties includes color and label', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: BorderColorButton(
+            color: const Color(0xFFFF0000),
+            isSelected: true,
+            onTap: () {},
+            label: 'Red',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final element = tester.element(find.byType(BorderColorButton));
+    final props = element.toDiagnosticsNode().getProperties();
+    expect(props.any((p) => p.name == 'color'), isTrue);
+    expect(props.any((p) => p.name == 'isSelected'), isTrue);
+    expect(props.any((p) => p.name == 'label'), isTrue);
+  });
+
+  // block_alignment_editor.dart lines 78-85: debugFillProperties
+  testWidgets('BlockAlignmentEditor debugFillProperties includes value', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: BlockAlignmentEditor(
+            value: BlockAlignment.center,
+            onChanged: (_) {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final element = tester.element(find.byType(BlockAlignmentEditor));
+    final props = element.toDiagnosticsNode().getProperties();
+    expect(props.any((p) => p.name == 'value'), isTrue);
+    expect(props.any((p) => p.name == 'onChanged'), isTrue);
+  });
+
+  // document_format_toggle.dart lines 91-97: debugFillProperties
+  testWidgets('DocumentFormatToggle debugFillProperties includes icon and tooltip', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: DocumentFormatToggle(
+            icon: Icons.format_bold,
+            tooltip: 'Bold',
+            isActive: true,
+            onPressed: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final element = tester.element(find.byType(DocumentFormatToggle));
+    final props = element.toDiagnosticsNode().getProperties();
+    expect(props.any((p) => p.name == 'icon'), isTrue);
+    expect(props.any((p) => p.name == 'tooltip'), isTrue);
+    expect(props.any((p) => p.name == 'isActive'), isTrue);
+  });
+
+  // dimension_field.dart lines 47-75: debugFillProperties and didUpdateWidget
+  testWidgets('DimensionField debugFillProperties includes value and hintText', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: DimensionField(
+            value: 120.0,
+            onChanged: (_) {},
+            hintText: 'px',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final element = tester.element(find.byType(DimensionField));
+    final props = element.toDiagnosticsNode().getProperties();
+    expect(props.any((p) => p.name == 'value'), isTrue);
+    expect(props.any((p) => p.name == 'onChanged'), isTrue);
+    expect(props.any((p) => p.name == 'hintText'), isTrue);
+  });
+
+  testWidgets('DimensionField didUpdateWidget syncs text when not editing', (tester) async {
+    double? currentValue = 100.0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) => DimensionField(
+              value: currentValue,
+              onChanged: (v) => setState(() => currentValue = v),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Update the value externally to trigger didUpdateWidget.
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: DimensionField(
+            value: 200.0,
+            onChanged: (_) {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('200'), findsOneWidget);
+  });
+
+  // android_document_magnifier.dart lines 127-131: _MagnifierContainer debugFillProperties
+  testWidgets('AndroidDocumentMagnifier debugFillProperties includes focalPoint', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: AndroidDocumentMagnifier(
+            focalPoint: Offset(50, 100),
+            magnification: 1.5,
+            size: Size(120, 56),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final element = tester.element(find.byType(AndroidDocumentMagnifier));
+    final props = element.toDiagnosticsNode().getProperties();
+    expect(props.any((p) => p.name == 'focalPoint'), isTrue);
+    expect(props.any((p) => p.name == 'magnification'), isTrue);
+    expect(props.any((p) => p.name == 'size'), isTrue);
+  });
+
+  // document_change_event.dart lines 225-229: NodeMoved hashCode and toString
+  test('NodeMoved hashCode and toString', () {
+    const a = NodeMoved(nodeId: 'nm1', oldIndex: 0, newIndex: 2);
+    const b = NodeMoved(nodeId: 'nm1', oldIndex: 0, newIndex: 2);
+    expect(a.hashCode, b.hashCode);
+    expect(a.toString(), contains('nm1'));
+    expect(a.toString(), contains('0'));
+    expect(a.toString(), contains('2'));
+  });
+
+  // document_change_event.dart lines 225-229: NodeChangeEvent hashCode and toString
+  test('NodeChangeEvent hashCode and toString', () {
+    const a = NodeChangeEvent(nodeId: 'nc1');
+    const b = NodeChangeEvent(nodeId: 'nc1');
+    expect(a.hashCode, b.hashCode);
+    expect(a.toString(), contains('nc1'));
+  });
+
+  // document_scrollable.dart lines 203-204: swap from internal to external controller
+  testWidgets('DocumentScrollable swaps from internal to external controller', (tester) async {
+    final external = ScrollController();
+    addTearDown(external.dispose);
+
+    final doc = MutableDocument([
+      ParagraphNode(id: 'p1', text: AttributedText('x')),
+    ]);
+    final controller = DocumentEditingController(document: doc);
+    addTearDown(controller.dispose);
+    final layoutKey = GlobalKey<DocumentLayoutState>();
+
+    // Start with no external controller (internal one is created).
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: DocumentScrollable(
+          controller: controller,
+          layoutKey: layoutKey,
+          child: const SizedBox(height: 100),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // Swap to external controller (internal one is disposed).
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: DocumentScrollable(
+          controller: controller,
+          layoutKey: layoutKey,
+          scrollController: external,
+          child: const SizedBox(height: 100),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
   });
 }
 

@@ -39,8 +39,8 @@ jobs:
               # Use tenths for finer-grained check: 899 = 89.9%
               pct10=$((hit * 1000 / total))
               echo "Coverage: $pct% ($hit/$total lines, ${pct10} per-mille)"
-              if [ "$pct10" -lt 895 ]; then
-                echo "::error::Coverage ${pct10}/1000 is below 89.5% threshold"
+              if [ "$pct10" -lt 899 ]; then
+                echo "::error::Coverage ${pct10}/1000 is below 89.9% threshold"
                 exit 1
               fi
             else
