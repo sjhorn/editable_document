@@ -19,30 +19,16 @@ import 'sample_document.dart';
 import 'syntax_highlight.dart';
 
 void main() {
-  runApp(const ExampleApp());
+  runApp(const DocumentDemo());
 }
 
-/// Root widget for the editable_document example.
-class ExampleApp extends StatelessWidget {
-  /// Creates the example app.
-  const ExampleApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'EditableDocument Demo',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
-        useMaterial3: true,
-      ),
-      home: const DocumentDemo(),
-    );
-  }
-}
-
-/// Demonstrates EditableDocument as a rich-text block editor.
+/// A full-featured rich-text block editor demo.
+///
+/// Demonstrates [DocumentEditor] with built-in toolbar, property panel,
+/// settings panel, status bar, syntax-highlighted code blocks, and
+/// JSON save/load.
 class DocumentDemo extends StatefulWidget {
-  /// Creates the demo screen.
+  /// Creates the demo app.
   const DocumentDemo({super.key});
 
   @override
@@ -223,50 +209,57 @@ class _DocumentDemoState extends State<DocumentDemo> {
 
   @override
   Widget build(BuildContext context) {
-    return DocumentTheme(
-      data: DocumentThemeData(
-        caretColor: Colors.blue,
-        selectionColor: Colors.blue.withValues(alpha: 0.3),
-        codeBlockBackgroundColor: const Color(0xFFF5F5F5),
-        propertyPanelTheme: const PropertyPanelThemeData(width: 280),
+    return MaterialApp(
+      title: 'EditableDocument Demo',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
+        useMaterial3: true,
       ),
-      child: Scaffold(
-        body: DocumentEditor(
-          controller: _controller,
-          focusNode: _focusNode,
-          editor: _editor,
-          autofocus: true,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          showPropertyPanel: true,
-          showSettingsPanel: true,
-          onPickImageFile: _pickImageFile,
-          toolbarLeading: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.save_outlined, size: 18),
-                onPressed: _showSaveDialog,
-                tooltip: 'Save as JSON',
-                style: IconButton.styleFrom(
-                  minimumSize: const Size(32, 32),
-                  padding: const EdgeInsets.all(4),
+      home: DocumentTheme(
+        data: DocumentThemeData(
+          caretColor: Colors.blue,
+          selectionColor: Colors.blue.withValues(alpha: 0.3),
+          codeBlockBackgroundColor: const Color(0xFFF5F5F5),
+          propertyPanelTheme: const PropertyPanelThemeData(width: 280),
+        ),
+        child: Scaffold(
+          body: DocumentEditor(
+            controller: _controller,
+            focusNode: _focusNode,
+            editor: _editor,
+            autofocus: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            showPropertyPanel: true,
+            showSettingsPanel: true,
+            onPickImageFile: _pickImageFile,
+            toolbarLeading: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.save_outlined, size: 18),
+                  onPressed: _showSaveDialog,
+                  tooltip: 'Save as JSON',
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size(32, 32),
+                    padding: const EdgeInsets.all(4),
+                  ),
                 ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.file_open_outlined, size: 18),
-                onPressed: _showLoadDialog,
-                tooltip: 'Load from JSON',
-                style: IconButton.styleFrom(
-                  minimumSize: const Size(32, 32),
-                  padding: const EdgeInsets.all(4),
+                IconButton(
+                  icon: const Icon(Icons.file_open_outlined, size: 18),
+                  onPressed: _showLoadDialog,
+                  tooltip: 'Load from JSON',
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size(32, 32),
+                    padding: const EdgeInsets.all(4),
+                  ),
                 ),
-              ),
+              ],
+            ),
+            componentBuilders: [
+              _syntaxBuilder,
+              ...defaultComponentBuilders.where((b) => b is! CodeBlockComponentBuilder),
             ],
           ),
-          componentBuilders: [
-            _syntaxBuilder,
-            ...defaultComponentBuilders.where((b) => b is! CodeBlockComponentBuilder),
-          ],
         ),
       ),
     );
