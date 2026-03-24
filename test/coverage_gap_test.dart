@@ -287,4 +287,96 @@ void main() {
     block.debugFillProperties(builder);
     expect(builder.properties.any((p) => p.name == 'borderColor'), isTrue);
   });
+
+  // document_change_event.dart lines 225-229: NodeDeleted hashCode/toString
+  test('NodeDeleted hashCode and toString', () {
+    const a = NodeDeleted(nodeId: 'nd1', index: 0);
+    const b = NodeDeleted(nodeId: 'nd1', index: 0);
+    expect(a.hashCode, b.hashCode);
+    expect(a.toString(), contains('nd1'));
+  });
+
+  // document_scrollable.dart lines 198-204: didUpdateWidget scrollController swap
+  testWidgets('DocumentScrollable swaps to internal controller', (tester) async {
+    final external = ScrollController();
+    addTearDown(external.dispose);
+
+    final doc = MutableDocument([
+      ParagraphNode(id: 'p1', text: AttributedText('x')),
+    ]);
+    final controller = DocumentEditingController(document: doc);
+    addTearDown(controller.dispose);
+    final layoutKey = GlobalKey<DocumentLayoutState>();
+
+    // Start with external controller.
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: DocumentScrollable(
+          controller: controller,
+          layoutKey: layoutKey,
+          scrollController: external,
+          child: const SizedBox(height: 100),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // Swap to null (internal controller created).
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: DocumentScrollable(
+          controller: controller,
+          layoutKey: layoutKey,
+          child: const SizedBox(height: 100),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  // block_layout_mixin.dart lines 108, 136: set requestedWidth/Height to null
+  test('RenderImageBlock clearing width sets requestedWidth to null', () {
+    final block = RenderImageBlock(
+      nodeId: 'img1',
+      image: null,
+    );
+    block.requestedWidth = 200;
+    expect(block.requestedWidth, 200);
+    block.requestedWidth = null;
+    expect(block.requestedWidth, isNull);
+    block.requestedHeight = 100;
+    expect(block.requestedHeight, 100);
+    block.requestedHeight = null;
+    expect(block.requestedHeight, isNull);
+  });
+
+  // editor.dart lines 193-196: InsertTextAtBinaryNodeRequest mapping
+  test('Editor processes InsertTextAtBinaryNodeRequest', () {
+    final doc = MutableDocument([
+      HorizontalRuleNode(id: 'hr1'),
+    ]);
+    final controller = DocumentEditingController(document: doc);
+    final editor = Editor(
+      editContext: EditContext(document: doc, controller: controller),
+    );
+
+    editor.submit(InsertTextAtBinaryNodeRequest(
+      nodeId: 'hr1',
+      nodePosition: BinaryNodePositionType.downstream,
+      text: AttributedText('inserted'),
+    ));
+
+    // A new text node should have been inserted after the HR.
+    expect(doc.nodes.length, greaterThan(1));
+    controller.dispose();
+  });
+
+  // render_document_caret.dart line 206: devicePixelRatio getter/setter
+  test('RenderDocumentCaret devicePixelRatio setter', () {
+    final caret = RenderDocumentCaret();
+    expect(caret.devicePixelRatio, 1.0);
+    caret.devicePixelRatio = 2.0;
+    expect(caret.devicePixelRatio, 2.0);
+  });
 }
