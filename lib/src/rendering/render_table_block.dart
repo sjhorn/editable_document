@@ -788,20 +788,31 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
       }
     }
 
-    // --- Paint borders ---
+    // --- Paint internal grid lines only (outer border is drawn by BlockBorder) ---
     if (_borderWidth > 0) {
-      final paint = Paint()
+      final gridPaint = Paint()
         ..color = _borderColor
         ..strokeWidth = _borderWidth
         ..style = PaintingStyle.stroke;
-      for (int r = 0; r < _rowCount; r++) {
-        for (int c = 0; c < _columnCount; c++) {
-          final cell = layouts[r][c];
-          context.canvas.drawRect(
-            cell.cellRect.shift(offset).inflate(_borderWidth / 2),
-            paint,
-          );
-        }
+
+      // Horizontal lines between rows (skip top of row 0 and bottom of last row).
+      for (var r = 1; r < _rowCount; r++) {
+        final y = layouts[r][0].cellRect.top;
+        context.canvas.drawLine(
+          Offset(layouts[r][0].cellRect.left, y) + offset,
+          Offset(layouts[r][_columnCount - 1].cellRect.right, y) + offset,
+          gridPaint,
+        );
+      }
+
+      // Vertical lines between columns (skip left of col 0 and right of last col).
+      for (var c = 1; c < _columnCount; c++) {
+        final x = layouts[0][c].cellRect.left;
+        context.canvas.drawLine(
+          Offset(x, layouts[0][0].cellRect.top) + offset,
+          Offset(x, layouts[_rowCount - 1][0].cellRect.bottom) + offset,
+          gridPaint,
+        );
       }
     }
   }
