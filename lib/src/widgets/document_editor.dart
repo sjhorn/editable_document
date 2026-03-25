@@ -1006,11 +1006,11 @@ class DocumentEditorState extends State<DocumentEditor> with TickerProviderState
               newShowH = false;
               newShowV = false;
             case TableBorderOption.allBorders:
-              newBorder = const BlockBorder(style: BlockBorderStyle.solid);
+              newBorder = const BlockBorder(style: BlockBorderStyle.solid, color: Color(0xFFCCCCCC));
               newShowH = true;
               newShowV = true;
             case TableBorderOption.outsideBorders:
-              newBorder = const BlockBorder(style: BlockBorderStyle.solid);
+              newBorder = const BlockBorder(style: BlockBorderStyle.solid, color: Color(0xFFCCCCCC));
               newShowH = false;
               newShowV = false;
             case TableBorderOption.insideBorders:
