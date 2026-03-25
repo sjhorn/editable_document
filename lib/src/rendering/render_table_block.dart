@@ -836,42 +836,51 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
       }
     }
 
-    // --- Paint internal grid lines (outer border is drawn by BlockBorder) ---
+    // --- Paint internal grid lines (outer border is drawn separately) ---
     if (_borderWidth > 0) {
       final gridPaint = Paint()
         ..color = _borderColor
         ..strokeWidth = _borderWidth
-        ..style = PaintingStyle.stroke;
+        ..style = PaintingStyle.stroke
+        ..isAntiAlias = false; // Crisp 1px lines on integer pixels
 
       final cb = _cellBorders;
+      final half = _borderWidth / 2;
 
-      // Horizontal edges between rows.
+      // Horizontal edges between rows — draw as continuous spans.
       for (var r = 1; r < _rowCount; r++) {
-        for (var c = 0; c < _columnCount; c++) {
-          final drawEdge =
-              cb != null ? (cb[r - 1][c].bottom || cb[r][c].top) : _showHorizontalGridLines;
-          if (!drawEdge) continue;
-          final cellBelow = layouts[r][c].cellRect;
-          context.canvas.drawLine(
-            Offset(cellBelow.left, cellBelow.top) + offset,
-            Offset(cellBelow.right, cellBelow.top) + offset,
-            gridPaint,
-          );
+        final y = (layouts[r][0].cellRect.top + offset.dy).roundToDouble() + half;
+        int spanStart = -1;
+        for (var c = 0; c <= _columnCount; c++) {
+          final draw = c < _columnCount &&
+              (cb != null ? (cb[r - 1][c].bottom || cb[r][c].top) : _showHorizontalGridLines);
+          if (draw && spanStart < 0) {
+            spanStart = c;
+          } else if (!draw && spanStart >= 0) {
+            // End of span — draw the line.
+            final x0 = (layouts[r][spanStart].cellRect.left + offset.dx).roundToDouble();
+            final x1 = (layouts[r][c - 1].cellRect.right + offset.dx).roundToDouble();
+            context.canvas.drawLine(Offset(x0, y), Offset(x1, y), gridPaint);
+            spanStart = -1;
+          }
         }
       }
 
-      // Vertical edges between columns.
+      // Vertical edges between columns — draw as continuous spans.
       for (var c = 1; c < _columnCount; c++) {
-        for (var r = 0; r < _rowCount; r++) {
-          final drawEdge =
-              cb != null ? (cb[r][c - 1].right || cb[r][c].left) : _showVerticalGridLines;
-          if (!drawEdge) continue;
-          final cellRight = layouts[r][c].cellRect;
-          context.canvas.drawLine(
-            Offset(cellRight.left, cellRight.top) + offset,
-            Offset(cellRight.left, cellRight.bottom) + offset,
-            gridPaint,
-          );
+        final x = (layouts[0][c].cellRect.left + offset.dx).roundToDouble() + half;
+        int spanStart = -1;
+        for (var r = 0; r <= _rowCount; r++) {
+          final draw = r < _rowCount &&
+              (cb != null ? (cb[r][c - 1].right || cb[r][c].left) : _showVerticalGridLines);
+          if (draw && spanStart < 0) {
+            spanStart = r;
+          } else if (!draw && spanStart >= 0) {
+            final y0 = (layouts[spanStart][c].cellRect.top + offset.dy).roundToDouble();
+            final y1 = (layouts[r - 1][c].cellRect.bottom + offset.dy).roundToDouble();
+            context.canvas.drawLine(Offset(x, y0), Offset(x, y1), gridPaint);
+            spanStart = -1;
+          }
         }
       }
     }
@@ -894,15 +903,16 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
     final color = b.color ?? const Color(0xFF000000);
     final half = b.width / 2;
     final rect = Rect.fromLTRB(
-      gridRect.left + offset.dx - half,
-      gridRect.top + offset.dy - half,
-      gridRect.right + offset.dx + half,
-      gridRect.bottom + offset.dy + half,
+      (gridRect.left + offset.dx).roundToDouble() - half,
+      (gridRect.top + offset.dy).roundToDouble() - half,
+      (gridRect.right + offset.dx).roundToDouble() + half,
+      (gridRect.bottom + offset.dy).roundToDouble() + half,
     );
     final paint = Paint()
       ..color = color
       ..strokeWidth = b.width
-      ..style = PaintingStyle.stroke;
+      ..style = PaintingStyle.stroke
+      ..isAntiAlias = false;
     canvas.drawRect(rect, paint);
   }
 

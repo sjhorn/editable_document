@@ -1048,13 +1048,17 @@ class DocumentEditorState extends State<DocumentEditor> with TickerProviderState
                   newShowH = false;
                   newShowV = false;
                 case TableBorderOption.allBorders:
-                  newBorder =
-                      const BlockBorder(style: BlockBorderStyle.solid, color: Color(0xFFCCCCCC));
+                  newBorder = BlockBorder(
+                    style: BlockBorderStyle.solid,
+                    color: node.gridBorderColor ?? const Color(0xFFCCCCCC),
+                  );
                   newShowH = true;
                   newShowV = true;
                 case TableBorderOption.outsideBorders:
-                  newBorder =
-                      const BlockBorder(style: BlockBorderStyle.solid, color: Color(0xFFCCCCCC));
+                  newBorder = BlockBorder(
+                    style: BlockBorderStyle.solid,
+                    color: node.gridBorderColor ?? const Color(0xFFCCCCCC),
+                  );
                   newShowH = false;
                   newShowV = false;
                 case TableBorderOption.insideBorders:
@@ -1115,13 +1119,23 @@ class DocumentEditorState extends State<DocumentEditor> with TickerProviderState
     required int maxCol,
   }) {
     // Build a mutable copy of the current cellBorders grid.
+    // When cellBorders is null, initialize from table-wide grid settings
+    // so existing visible borders are preserved.
     final borders = node.cellBorders != null
         ? [
             for (final row in node.cellBorders!) [for (final cb in row) cb],
           ]
         : [
             for (var r = 0; r < node.rowCount; r++)
-              [for (var c = 0; c < node.columnCount; c++) CellBorders.none],
+              [
+                for (var c = 0; c < node.columnCount; c++)
+                  CellBorders(
+                    top: node.showHorizontalGridLines && r > 0,
+                    bottom: node.showHorizontalGridLines && r < node.rowCount - 1,
+                    left: node.showVerticalGridLines && c > 0,
+                    right: node.showVerticalGridLines && c < node.columnCount - 1,
+                  ),
+              ],
           ];
 
     for (var r = minRow; r <= maxRow; r++) {
