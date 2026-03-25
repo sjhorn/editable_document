@@ -1004,6 +1004,8 @@ class DocumentEditorState extends State<DocumentEditor> with TickerProviderState
             showHorizontalGridLines: node.showHorizontalGridLines,
             showVerticalGridLines: node.showVerticalGridLines,
             gridBorderColor: node.gridBorderColor,
+            gridBorderStyle: node.gridBorderStyle,
+            gridBorderWidth: node.gridBorderWidth,
             onGridBorderColorChanged: (color) {
               _effectiveEditor.submit(
                 ReplaceNodeRequest(
@@ -1039,6 +1041,59 @@ class DocumentEditorState extends State<DocumentEditor> with TickerProviderState
                 return;
               }
 
+              // Style options change gridBorderStyle and outer border style.
+              if (option == TableBorderOption.styleSolid ||
+                  option == TableBorderOption.styleDotted ||
+                  option == TableBorderOption.styleDashed) {
+                final newStyle = switch (option) {
+                  TableBorderOption.styleDotted => BlockBorderStyle.dotted,
+                  TableBorderOption.styleDashed => BlockBorderStyle.dashed,
+                  _ => BlockBorderStyle.solid,
+                };
+                final newBorderOuter = node.border != null
+                    ? BlockBorder(
+                        style: newStyle,
+                        width: node.border!.width,
+                        color: node.border!.color,
+                      )
+                    : null;
+                _effectiveEditor.submit(
+                  ReplaceNodeRequest(
+                    nodeId: node.id,
+                    newNode: node.copyWith(
+                      gridBorderStyle: newStyle,
+                      border: newBorderOuter,
+                    ),
+                  ),
+                );
+                _effectiveFocusNode.requestFocus();
+                return;
+              }
+
+              // Width options change gridBorderWidth.
+              if (option == TableBorderOption.widthThin ||
+                  option == TableBorderOption.widthThick) {
+                final newWidth = option == TableBorderOption.widthThick ? 2.0 : 1.0;
+                final newBorderOuter = node.border != null
+                    ? BlockBorder(
+                        style: node.border!.style,
+                        width: newWidth,
+                        color: node.border!.color,
+                      )
+                    : null;
+                _effectiveEditor.submit(
+                  ReplaceNodeRequest(
+                    nodeId: node.id,
+                    newNode: node.copyWith(
+                      gridBorderWidth: newWidth,
+                      border: newBorderOuter,
+                    ),
+                  ),
+                );
+                _effectiveFocusNode.requestFocus();
+                return;
+              }
+
               final BlockBorder? newBorder;
               final bool newShowH;
               final bool newShowV;
@@ -1049,14 +1104,14 @@ class DocumentEditorState extends State<DocumentEditor> with TickerProviderState
                   newShowV = false;
                 case TableBorderOption.allBorders:
                   newBorder = BlockBorder(
-                    style: BlockBorderStyle.solid,
+                    style: node.gridBorderStyle,
                     color: node.gridBorderColor ?? const Color(0xFFCCCCCC),
                   );
                   newShowH = true;
                   newShowV = true;
                 case TableBorderOption.outsideBorders:
                   newBorder = BlockBorder(
-                    style: BlockBorderStyle.solid,
+                    style: node.gridBorderStyle,
                     color: node.gridBorderColor ?? const Color(0xFFCCCCCC),
                   );
                   newShowH = false;
@@ -1073,11 +1128,16 @@ class DocumentEditorState extends State<DocumentEditor> with TickerProviderState
                   newBorder = null;
                   newShowH = false;
                   newShowV = true;
-                // Per-cell options already handled above.
+                // Handled above.
                 case TableBorderOption.bottomBorder:
                 case TableBorderOption.topBorder:
                 case TableBorderOption.leftBorder:
                 case TableBorderOption.rightBorder:
+                case TableBorderOption.styleSolid:
+                case TableBorderOption.styleDotted:
+                case TableBorderOption.styleDashed:
+                case TableBorderOption.widthThin:
+                case TableBorderOption.widthThick:
                   return;
               }
               _effectiveEditor.submit(

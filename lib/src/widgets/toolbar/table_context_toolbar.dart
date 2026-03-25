@@ -80,6 +80,8 @@ class TableContextToolbar extends StatelessWidget {
     this.showHorizontalGridLines = true,
     this.showVerticalGridLines = true,
     this.gridBorderColor,
+    this.gridBorderStyle = BlockBorderStyle.solid,
+    this.gridBorderWidth = 1.0,
     this.onBorderOptionSelected,
     this.onGridBorderColorChanged,
   });
@@ -132,6 +134,16 @@ class TableContextToolbar extends StatelessWidget {
 
   /// Current grid border color, or `null` for default grey.
   final Color? gridBorderColor;
+
+  /// Current visual style of the internal grid lines.
+  ///
+  /// Defaults to [BlockBorderStyle.solid].
+  final BlockBorderStyle gridBorderStyle;
+
+  /// Current stroke width of the internal grid lines in logical pixels.
+  ///
+  /// Defaults to `1.0`.
+  final double gridBorderWidth;
 
   /// Called when the user selects a border option from the dropdown.
   ///
@@ -334,6 +346,8 @@ class TableContextToolbar extends StatelessWidget {
               showHorizontalGridLines: showHorizontalGridLines,
               showVerticalGridLines: showVerticalGridLines,
               gridBorderColor: gridBorderColor ?? const Color(0xFFCCCCCC),
+              gridBorderStyle: gridBorderStyle,
+              gridBorderWidth: gridBorderWidth,
               onSelected: onBorderOptionSelected,
               onColorChanged: onGridBorderColorChanged,
             ),
@@ -397,6 +411,14 @@ class TableContextToolbar extends StatelessWidget {
         value: showVerticalGridLines, ifTrue: 'showVerticalGridLines'));
     properties.add(ColorProperty('gridBorderColor', gridBorderColor, defaultValue: null));
     properties.add(
+      EnumProperty<BlockBorderStyle>(
+        'gridBorderStyle',
+        gridBorderStyle,
+        defaultValue: BlockBorderStyle.solid,
+      ),
+    );
+    properties.add(DoubleProperty('gridBorderWidth', gridBorderWidth, defaultValue: 1.0));
+    properties.add(
       ObjectFlagProperty<ValueChanged<TableBorderOption>?>.has(
         'onBorderOptionSelected',
         onBorderOptionSelected,
@@ -446,6 +468,21 @@ enum TableBorderOption {
 
   /// Apply a right edge border to the selected cells.
   rightBorder,
+
+  /// Change grid line style to solid.
+  styleSolid,
+
+  /// Change grid line style to dotted.
+  styleDotted,
+
+  /// Change grid line style to dashed.
+  styleDashed,
+
+  /// Change grid line width to thin (1.0 px).
+  widthThin,
+
+  /// Change grid line width to thick (2.0 px).
+  widthThick,
 }
 
 // ---------------------------------------------------------------------------
@@ -458,6 +495,8 @@ class _TableBorderDropdown extends StatelessWidget {
     required this.showHorizontalGridLines,
     required this.showVerticalGridLines,
     required this.gridBorderColor,
+    required this.gridBorderStyle,
+    required this.gridBorderWidth,
     required this.onSelected,
     required this.onColorChanged,
   });
@@ -466,6 +505,13 @@ class _TableBorderDropdown extends StatelessWidget {
   final bool showHorizontalGridLines;
   final bool showVerticalGridLines;
   final Color gridBorderColor;
+
+  /// Current visual style of the grid lines.
+  final BlockBorderStyle gridBorderStyle;
+
+  /// Current stroke width of the grid lines.
+  final double gridBorderWidth;
+
   final ValueChanged<TableBorderOption>? onSelected;
   final ValueChanged<Color?>? onColorChanged;
 
@@ -552,6 +598,73 @@ class _TableBorderDropdown extends StatelessWidget {
             },
           ),
         ),
+        const PopupMenuDivider(),
+        const PopupMenuItem<TableBorderOption>(
+          enabled: false,
+          padding: EdgeInsets.zero,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.line_style, size: 16),
+                SizedBox(width: 8),
+                Text('Style', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              ],
+            ),
+          ),
+        ),
+        _item(
+          TableBorderOption.styleSolid,
+          Icons.horizontal_rule,
+          'Solid',
+          gridBorderStyle == BlockBorderStyle.solid,
+          colorScheme,
+        ),
+        _item(
+          TableBorderOption.styleDotted,
+          Icons.more_horiz,
+          'Dotted',
+          gridBorderStyle == BlockBorderStyle.dotted,
+          colorScheme,
+        ),
+        _item(
+          TableBorderOption.styleDashed,
+          Icons.drag_handle,
+          'Dashed',
+          gridBorderStyle == BlockBorderStyle.dashed,
+          colorScheme,
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem<TableBorderOption>(
+          enabled: false,
+          padding: EdgeInsets.zero,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.line_weight, size: 16),
+                SizedBox(width: 8),
+                Text('Width', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              ],
+            ),
+          ),
+        ),
+        _item(
+          TableBorderOption.widthThin,
+          Icons.remove,
+          'Thin (1px)',
+          gridBorderWidth == 1.0,
+          colorScheme,
+        ),
+        _item(
+          TableBorderOption.widthThick,
+          Icons.add,
+          'Thick (2px)',
+          gridBorderWidth == 2.0,
+          colorScheme,
+        ),
       ],
       child: Container(
         constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -601,6 +714,14 @@ class _TableBorderDropdown extends StatelessWidget {
     properties.add(FlagProperty('showVerticalGridLines',
         value: showVerticalGridLines, ifTrue: 'showVerticalGridLines'));
     properties.add(ColorProperty('gridBorderColor', gridBorderColor));
+    properties.add(
+      EnumProperty<BlockBorderStyle>(
+        'gridBorderStyle',
+        gridBorderStyle,
+        defaultValue: BlockBorderStyle.solid,
+      ),
+    );
+    properties.add(DoubleProperty('gridBorderWidth', gridBorderWidth, defaultValue: 1.0));
     properties.add(
       ObjectFlagProperty<ValueChanged<TableBorderOption>?>.has('onSelected', onSelected),
     );

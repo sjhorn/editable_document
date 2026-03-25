@@ -177,6 +177,7 @@ class TableNode extends DocumentNode implements HasBlockLayout {
     this.spaceAfter,
     this.border = const BlockBorder(style: BlockBorderStyle.solid, color: Color(0xFFCCCCCC)),
     this.gridBorderWidth = 1.0,
+    this.gridBorderStyle = BlockBorderStyle.solid,
     this.gridBorderColor,
     this.showHorizontalGridLines = true,
     this.showVerticalGridLines = true,
@@ -294,6 +295,10 @@ class TableNode extends DocumentNode implements HasBlockLayout {
   /// Defaults to `1.0`.
   final double gridBorderWidth;
 
+  /// Visual style of the internal cell grid lines.
+  /// Defaults to [BlockBorderStyle.solid].
+  final BlockBorderStyle gridBorderStyle;
+
   /// Color of the internal cell grid lines.
   /// When `null`, defaults to grey (`0xFFCCCCCC`) at render time.
   final Color? gridBorderColor;
@@ -349,6 +354,7 @@ class TableNode extends DocumentNode implements HasBlockLayout {
     double? spaceAfter,
     Object? border = _sentinel,
     double? gridBorderWidth,
+    BlockBorderStyle? gridBorderStyle,
     Object? gridBorderColor = _sentinel,
     bool? showHorizontalGridLines,
     bool? showVerticalGridLines,
@@ -377,6 +383,7 @@ class TableNode extends DocumentNode implements HasBlockLayout {
       spaceAfter: spaceAfter ?? this.spaceAfter,
       border: identical(border, _sentinel) ? this.border : border as BlockBorder?,
       gridBorderWidth: gridBorderWidth ?? this.gridBorderWidth,
+      gridBorderStyle: gridBorderStyle ?? this.gridBorderStyle,
       gridBorderColor:
           identical(gridBorderColor, _sentinel) ? this.gridBorderColor : gridBorderColor as Color?,
       showHorizontalGridLines: showHorizontalGridLines ?? this.showHorizontalGridLines,
@@ -404,6 +411,7 @@ class TableNode extends DocumentNode implements HasBlockLayout {
         other.spaceAfter != spaceAfter ||
         other.border != border ||
         other.gridBorderWidth != gridBorderWidth ||
+        other.gridBorderStyle != gridBorderStyle ||
         other.gridBorderColor != gridBorderColor ||
         other.showHorizontalGridLines != showHorizontalGridLines ||
         other.showVerticalGridLines != showVerticalGridLines ||
@@ -496,7 +504,7 @@ class TableNode extends DocumentNode implements HasBlockLayout {
       spaceBefore,
       spaceAfter,
       border,
-      gridBorderWidth,
+      Object.hash(gridBorderWidth, gridBorderStyle),
       gridBorderColor,
       showHorizontalGridLines,
       showVerticalGridLines,
@@ -545,6 +553,13 @@ class TableNode extends DocumentNode implements HasBlockLayout {
     properties.add(DoubleProperty('spaceAfter', spaceAfter, defaultValue: null));
     properties.add(DiagnosticsProperty<BlockBorder?>('border', border, defaultValue: null));
     properties.add(DoubleProperty('gridBorderWidth', gridBorderWidth, defaultValue: 1.0));
+    properties.add(
+      EnumProperty<BlockBorderStyle>(
+        'gridBorderStyle',
+        gridBorderStyle,
+        defaultValue: BlockBorderStyle.solid,
+      ),
+    );
     properties.add(ColorProperty('gridBorderColor', gridBorderColor, defaultValue: null));
     properties.add(
       FlagProperty(

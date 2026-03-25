@@ -130,6 +130,7 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
     double cellPadding = 8.0,
     double borderWidth = 1.0,
     Color borderColor = const Color(0xFFCCCCCC),
+    BlockBorderStyle gridBorderStyle = BlockBorderStyle.solid,
     bool showHorizontalGridLines = true,
     bool showVerticalGridLines = true,
     Color selectionColor = const Color(0x663399FF),
@@ -153,6 +154,7 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
         _cellPadding = cellPadding,
         _borderWidth = borderWidth,
         _borderColor = borderColor,
+        _gridBorderStyle = gridBorderStyle,
         _showHorizontalGridLines = showHorizontalGridLines,
         _showVerticalGridLines = showVerticalGridLines,
         _selectionColor = selectionColor,
@@ -184,6 +186,7 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
   double _cellPadding;
   double _borderWidth;
   Color _borderColor;
+  BlockBorderStyle _gridBorderStyle;
   bool _showHorizontalGridLines;
   bool _showVerticalGridLines;
   Color _selectionColor;
@@ -388,6 +391,17 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
   set borderColor(Color value) {
     if (_borderColor == value) return;
     _borderColor = value;
+    markNeedsPaint();
+  }
+
+  /// Visual style of the internal grid lines (solid, dotted, or dashed).
+  // ignore: diagnostic_describe_all_properties
+  BlockBorderStyle get gridBorderStyle => _gridBorderStyle;
+
+  /// Sets the grid border style and schedules a repaint.
+  set gridBorderStyle(BlockBorderStyle value) {
+    if (_gridBorderStyle == value) return;
+    _gridBorderStyle = value;
     markNeedsPaint();
   }
 
@@ -857,10 +871,9 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
           if (draw && spanStart < 0) {
             spanStart = c;
           } else if (!draw && spanStart >= 0) {
-            // End of span — draw the line.
             final x0 = (layouts[r][spanStart].cellRect.left + offset.dx).roundToDouble();
             final x1 = (layouts[r][c - 1].cellRect.right + offset.dx).roundToDouble();
-            context.canvas.drawLine(Offset(x0, y), Offset(x1, y), gridPaint);
+            _paintGridLine(context.canvas, Offset(x0, y), Offset(x1, y), gridPaint);
             spanStart = -1;
           }
         }
@@ -878,7 +891,7 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
           } else if (!draw && spanStart >= 0) {
             final y0 = (layouts[spanStart][c].cellRect.top + offset.dy).roundToDouble();
             final y1 = (layouts[r - 1][c].cellRect.bottom + offset.dy).roundToDouble();
-            context.canvas.drawLine(Offset(x, y0), Offset(x, y1), gridPaint);
+            _paintGridLine(context.canvas, Offset(x, y0), Offset(x, y1), gridPaint);
             spanStart = -1;
           }
         }
@@ -894,6 +907,71 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
         layouts[_rowCount - 1][_columnCount - 1].cellRect.bottom,
       );
       _paintTableBorder(context.canvas, gridRect, offset);
+    }
+  }
+
+  /// Paints a single grid line from [p0] to [p1] using [paint], respecting
+  /// the current [_gridBorderStyle].
+  ///
+  /// - [BlockBorderStyle.solid]: delegates to [Canvas.drawLine].
+  /// - [BlockBorderStyle.dotted]: draws small circles every 4 px.
+  /// - [BlockBorderStyle.dashed]: draws 6 px segments with 3 px gaps.
+  /// - [BlockBorderStyle.none]: no-op (should not be reached).
+  void _paintGridLine(Canvas canvas, Offset p0, Offset p1, Paint paint) {
+    switch (_gridBorderStyle) {
+      case BlockBorderStyle.solid:
+      case BlockBorderStyle.none:
+        canvas.drawLine(p0, p1, paint);
+      case BlockBorderStyle.dotted:
+        _paintDottedLine(canvas, p0, p1, paint);
+      case BlockBorderStyle.dashed:
+        _paintDashedLine(canvas, p0, p1, paint);
+    }
+  }
+
+  /// Paints a dotted line using small circles at 4 px intervals.
+  void _paintDottedLine(Canvas canvas, Offset p0, Offset p1, Paint paint) {
+    const interval = 4.0;
+    final dotPaint = Paint()
+      ..color = paint.color
+      ..style = PaintingStyle.fill;
+    final radius = (paint.strokeWidth / 2).clamp(0.5, 2.0);
+    final dx = p1.dx - p0.dx;
+    final dy = p1.dy - p0.dy;
+    // For axis-aligned grid lines use the larger absolute delta as the length.
+    final dist = dx.abs() > dy.abs() ? dx.abs() : dy.abs();
+    if (dist == 0) return;
+    final steps = (dist / interval).floor();
+    final ux = dx / dist;
+    final uy = dy / dist;
+    for (var i = 0; i <= steps; i++) {
+      final cx = p0.dx + ux * i * interval;
+      final cy = p0.dy + uy * i * interval;
+      canvas.drawCircle(Offset(cx, cy), radius, dotPaint);
+    }
+  }
+
+  /// Paints a dashed line with 6 px segments and 3 px gaps.
+  void _paintDashedLine(Canvas canvas, Offset p0, Offset p1, Paint paint) {
+    const dashLen = 6.0;
+    const gapLen = 3.0;
+    const stepLen = dashLen + gapLen;
+    final dx = p1.dx - p0.dx;
+    final dy = p1.dy - p0.dy;
+    // For axis-aligned grid lines use the larger absolute delta as the length.
+    final dist = dx.abs() > dy.abs() ? dx.abs() : dy.abs();
+    if (dist == 0) return;
+    final ux = dx / dist;
+    final uy = dy / dist;
+    var pos = 0.0;
+    while (pos < dist) {
+      final segEnd = (pos + dashLen).clamp(0.0, dist);
+      canvas.drawLine(
+        Offset(p0.dx + ux * pos, p0.dy + uy * pos),
+        Offset(p0.dx + ux * segEnd, p0.dy + uy * segEnd),
+        paint,
+      );
+      pos += stepLen;
     }
   }
 
@@ -1104,6 +1182,10 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
     properties.add(DoubleProperty('cellPadding', _cellPadding));
     properties.add(DoubleProperty('borderWidth', _borderWidth));
     properties.add(ColorProperty('borderColor', _borderColor));
+    properties.add(
+      EnumProperty<BlockBorderStyle>('gridBorderStyle', _gridBorderStyle,
+          defaultValue: BlockBorderStyle.solid),
+    );
     properties.add(FlagProperty('showHorizontalGridLines',
         value: _showHorizontalGridLines, ifTrue: 'showHorizontalGridLines'));
     properties.add(FlagProperty('showVerticalGridLines',

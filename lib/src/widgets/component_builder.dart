@@ -1493,6 +1493,7 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
   /// [cellBorders] is an optional rowCount × columnCount grid of per-cell edge
   ///   visibility overrides. When non-null it takes priority over
   ///   [showHorizontalGridLines] and [showVerticalGridLines] for interior edges.
+  /// [gridBorderStyle] controls whether internal lines are solid, dotted, or dashed.
   /// [alignment] is the horizontal alignment within the layout.
   /// [textWrap] controls how surrounding text interacts with this block.
   /// [requestedWidth] and [requestedHeight] are optional explicit dimensions.
@@ -1511,6 +1512,7 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
     this.cellPadding = 8.0,
     this.borderWidth = 1.0,
     this.borderColor = const Color(0xFFCCCCCC),
+    this.gridBorderStyle = BlockBorderStyle.solid,
     this.showHorizontalGridLines = true,
     this.showVerticalGridLines = true,
     this.alignment = BlockAlignment.stretch,
@@ -1600,6 +1602,11 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
   /// Defaults to `true`.
   final bool showVerticalGridLines;
 
+  /// Visual style of the internal cell grid lines.
+  ///
+  /// Defaults to [BlockBorderStyle.solid].
+  final BlockBorderStyle gridBorderStyle;
+
   /// The horizontal alignment of this table within the layout.
   ///
   /// Defaults to [BlockAlignment.stretch].
@@ -1652,6 +1659,7 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
         other.cellPadding != cellPadding ||
         other.borderWidth != borderWidth ||
         other.borderColor != borderColor ||
+        other.gridBorderStyle != gridBorderStyle ||
         other.showHorizontalGridLines != showHorizontalGridLines ||
         other.showVerticalGridLines != showVerticalGridLines ||
         other.alignment != alignment ||
@@ -1716,6 +1724,7 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
       cellPadding,
       borderWidth,
       borderColor,
+      gridBorderStyle,
       showHorizontalGridLines,
       showVerticalGridLines,
       alignment,
@@ -1726,10 +1735,10 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
       spaceAfter,
       border,
       nodeSelection,
-      isSelected,
     );
+    final scalarHash2 = Object.hash(scalarHash, isSelected);
     return Object.hash(
-      scalarHash,
+      scalarHash2,
       Object.hashAll(cellHashes),
       Object.hashAll(columnWidths ?? const <double?>[]),
       Object.hashAll(rowHeights ?? const <double?>[]),
@@ -1773,6 +1782,7 @@ class TableComponentBuilder extends ComponentBuilder {
       cellBorders: node.cellBorders,
       borderWidth: node.gridBorderWidth,
       borderColor: node.gridBorderColor ?? const Color(0xFFCCCCCC),
+      gridBorderStyle: node.gridBorderStyle,
       showHorizontalGridLines: node.showHorizontalGridLines,
       showVerticalGridLines: node.showVerticalGridLines,
       alignment: node.alignment,
@@ -1815,6 +1825,7 @@ class _TableBlockWidget extends LeafRenderObjectWidget {
       cellPadding: viewModel.cellPadding,
       borderWidth: viewModel.borderWidth,
       borderColor: viewModel.borderColor,
+      gridBorderStyle: viewModel.gridBorderStyle,
       showHorizontalGridLines: viewModel.showHorizontalGridLines,
       showVerticalGridLines: viewModel.showVerticalGridLines,
       blockAlignment: viewModel.alignment,
@@ -1844,6 +1855,7 @@ class _TableBlockWidget extends LeafRenderObjectWidget {
       ..cellPadding = viewModel.cellPadding
       ..borderWidth = viewModel.borderWidth
       ..borderColor = viewModel.borderColor
+      ..gridBorderStyle = viewModel.gridBorderStyle
       ..showHorizontalGridLines = viewModel.showHorizontalGridLines
       ..showVerticalGridLines = viewModel.showVerticalGridLines
       ..spaceBefore = viewModel.spaceBefore
