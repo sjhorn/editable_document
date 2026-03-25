@@ -709,6 +709,7 @@ class DocumentEditorState extends State<DocumentEditor> with TickerProviderState
 
     _effectiveFocusNode.addListener(_onFocusChanged);
     _effectiveController.addListener(_onControllerChanged);
+    _effectiveController.document.changes.addListener(_onDocumentChanged);
 
     _blockSpacing = widget.blockSpacing;
     _defaultLineHeight = widget.style?.height;
@@ -731,9 +732,11 @@ class DocumentEditorState extends State<DocumentEditor> with TickerProviderState
     if (widget.controller != null && oldWidget.controller == null) {
       // Caller has started providing a controller — dispose the internal one.
       _internalController!.removeListener(_onControllerChanged);
+      _internalController!.document.changes.removeListener(_onDocumentChanged);
       _internalController!.dispose();
       _internalController = null;
       newController.addListener(_onControllerChanged);
+      newController.document.changes.addListener(_onDocumentChanged);
     } else if (widget.controller == null && oldWidget.controller != null) {
       // Caller has stopped providing a controller — create an internal one.
       _internalController = DocumentEditingController(
@@ -742,10 +745,14 @@ class DocumentEditorState extends State<DocumentEditor> with TickerProviderState
         ]),
       );
       oldController.removeListener(_onControllerChanged);
+      oldController.document.changes.removeListener(_onDocumentChanged);
       _internalController!.addListener(_onControllerChanged);
+      _internalController!.document.changes.addListener(_onDocumentChanged);
     } else if (!identical(oldController, newController)) {
       oldController.removeListener(_onControllerChanged);
+      oldController.document.changes.removeListener(_onDocumentChanged);
       newController.addListener(_onControllerChanged);
+      newController.document.changes.addListener(_onDocumentChanged);
     }
 
     // Handle editor swap.
@@ -799,6 +806,7 @@ class DocumentEditorState extends State<DocumentEditor> with TickerProviderState
     _contextMenuController.remove();
     _effectiveFocusNode.removeListener(_onFocusChanged);
     _effectiveController.removeListener(_onControllerChanged);
+    _effectiveController.document.changes.removeListener(_onDocumentChanged);
     _internalController?.dispose();
     _internalFocusNode?.dispose();
     _internalEditor = null; // UndoableEditor has no dispose method.
@@ -814,6 +822,14 @@ class DocumentEditorState extends State<DocumentEditor> with TickerProviderState
     if (!_effectiveFocusNode.hasFocus) {
       _contextMenuController.remove();
     }
+  }
+
+  void _onDocumentChanged() {
+    setState(() {
+      // Rebuild so the table toolbar and other content reflect document mutations
+      // (e.g. border changes, node replacements) that don't trigger controller
+      // notifications.
+    });
   }
 
   void _onControllerChanged() {
