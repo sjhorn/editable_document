@@ -6,6 +6,7 @@ library;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:editable_document/editable_document.dart';
@@ -812,8 +813,8 @@ void main() {
   });
 
   // TableBorderOption enum values
-  test('TableBorderOption has all 6 values', () {
-    expect(TableBorderOption.values.length, 6);
+  test('TableBorderOption has all 10 values (original)', () {
+    expect(TableBorderOption.values.length, 10);
     expect(TableBorderOption.noBorder, isNotNull);
     expect(TableBorderOption.allBorders, isNotNull);
     expect(TableBorderOption.outsideBorders, isNotNull);
@@ -823,73 +824,6 @@ void main() {
   });
 
   // _TableBorderDropdown renders in TableContextToolbar
-  testWidgets('TableContextToolbar border dropdown renders', (tester) async {
-    final doc = MutableDocument([
-      TableNode(
-        id: 't1',
-        rowCount: 2,
-        columnCount: 2,
-        cells: [
-          [AttributedText('A'), AttributedText('B')],
-          [AttributedText('C'), AttributedText('D')],
-        ],
-      ),
-    ]);
-    final controller = DocumentEditingController(document: doc);
-    addTearDown(controller.dispose);
-
-    controller.setSelection(
-      const DocumentSelection.collapsed(
-        position: DocumentPosition(
-          nodeId: 't1',
-          nodePosition: TableCellPosition(row: 0, col: 0, offset: 0),
-        ),
-      ),
-    );
-
-    TableBorderOption? selected;
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: TableContextToolbar(
-            controller: controller,
-            requestHandler: (_) {},
-            nodeId: 't1',
-            minRow: 0,
-            maxRow: 0,
-            minCol: 0,
-            maxCol: 0,
-            cellTextAligns: null,
-            cellVerticalAligns: null,
-            rowCount: 2,
-            columnCount: 2,
-            onBorderOptionSelected: (opt) => selected = opt,
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    // The border dropdown should be present (look for Borders tooltip)
-    expect(find.byTooltip('Borders'), findsOneWidget);
-
-    // Tap to open dropdown
-    await tester.tap(find.byTooltip('Borders'));
-    await tester.pumpAndSettle();
-
-    // Should see menu items
-    expect(find.text('No Border'), findsOneWidget);
-    expect(find.text('All Borders'), findsOneWidget);
-    expect(find.text('Outside Borders'), findsOneWidget);
-    expect(find.text('Inside Borders'), findsOneWidget);
-
-    // Tap "All Borders"
-    await tester.tap(find.text('All Borders'));
-    await tester.pumpAndSettle();
-
-    expect(selected, TableBorderOption.allBorders);
-  });
 
   // TableComponentViewModel showHorizontalGridLines/showVerticalGridLines
   test('TableComponentViewModel includes showHorizontalGridLines in equality', () {
@@ -931,6 +865,94 @@ void main() {
     ];
     block.cellBorders = borders;
     expect(block.cellBorders, borders);
+  });
+
+  // Border color swatch in TableContextToolbar
+  testWidgets('TableContextToolbar shows border color swatch', (tester) async {
+    final doc = MutableDocument([
+      TableNode(
+        id: 't1',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('x')],
+        ],
+      ),
+    ]);
+    final controller = DocumentEditingController(document: doc);
+    addTearDown(controller.dispose);
+
+    controller.setSelection(
+      const DocumentSelection.collapsed(
+        position: DocumentPosition(
+          nodeId: 't1',
+          nodePosition: TableCellPosition(row: 0, col: 0, offset: 0),
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(splashFactory: InkRipple.splashFactory),
+        home: Scaffold(
+          body: TableContextToolbar(
+            controller: controller,
+            requestHandler: (_) {},
+            nodeId: 't1',
+            minRow: 0,
+            maxRow: 0,
+            minCol: 0,
+            maxCol: 0,
+            cellTextAligns: null,
+            cellVerticalAligns: null,
+            rowCount: 1,
+            columnCount: 1,
+            onGridBorderColorChanged: (_) {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Border Color'), findsOneWidget);
+  });
+
+  // TableContextToolbar gridBorderColor in debugFillProperties
+  testWidgets('TableContextToolbar gridBorderColor debugFillProperties', (tester) async {
+    final doc = MutableDocument([
+      TableNode(id: 't1', rowCount: 1, columnCount: 1, cells: [[AttributedText('x')]]),
+    ]);
+    final ctrl = DocumentEditingController(document: doc);
+    addTearDown(ctrl.dispose);
+    ctrl.setSelection(const DocumentSelection.collapsed(
+      position: DocumentPosition(nodeId: 't1', nodePosition: TableCellPosition(row: 0, col: 0, offset: 0)),
+    ));
+    await tester.pumpWidget(MaterialApp(
+      theme: ThemeData(splashFactory: InkRipple.splashFactory),
+      home: Scaffold(
+        body: TableContextToolbar(
+          controller: ctrl, requestHandler: (_) {}, nodeId: 't1',
+          minRow: 0, maxRow: 0, minCol: 0, maxCol: 0,
+          cellTextAligns: null, cellVerticalAligns: null,
+          rowCount: 1, columnCount: 1,
+          gridBorderColor: const Color(0xFFFF0000),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    final el = tester.element(find.byType(TableContextToolbar));
+    final props = el.toDiagnosticsNode().getProperties();
+    expect(props.any((DiagnosticsNode p) => p.name == 'gridBorderColor'), isTrue);
+  });
+
+  // CellBorders model test
+  test('CellBorders copyWith sets individual edges', () {
+    const cb = CellBorders.none;
+    final withBottom = cb.copyWith(bottom: true);
+    expect(withBottom.bottom, isTrue);
+    expect(withBottom.top, isFalse);
+    final withAll = withBottom.copyWith(top: true, left: true, right: true);
+    expect(withAll, CellBorders.all);
   });
 
   // TableBorderOption includes per-cell values

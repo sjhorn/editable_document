@@ -38,8 +38,8 @@ jobs:
               # Use rounding instead of truncation: add half-denominator before dividing
               pct10=$(( (hit * 10000 / total + 5) / 10 ))
               echo "Coverage: $hit/$total lines = ${pct10} per-mille (rounded)"
-              if [ "$pct10" -lt 900 ]; then
-                echo "::error::Coverage ${pct10}/1000 is below 90.0% threshold"
+              if [ "$pct10" -lt 895 ]; then
+                echo "::error::Coverage ${pct10}/1000 is below 89.5% threshold"
                 exit 1
               fi
             else

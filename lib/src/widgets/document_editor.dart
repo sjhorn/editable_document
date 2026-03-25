@@ -996,6 +996,25 @@ class DocumentEditorState extends State<DocumentEditor> with TickerProviderState
         border: node.border,
         showHorizontalGridLines: node.showHorizontalGridLines,
         showVerticalGridLines: node.showVerticalGridLines,
+        gridBorderColor: node.gridBorderColor,
+        onGridBorderColorChanged: (color) {
+          _effectiveEditor.submit(
+            ReplaceNodeRequest(
+              nodeId: node.id,
+              newNode: node.copyWith(
+                gridBorderColor: color,
+                border: node.border != null
+                    ? BlockBorder(
+                        style: node.border!.style,
+                        width: node.border!.width,
+                        color: color,
+                      )
+                    : null,
+              ),
+            ),
+          );
+          _effectiveFocusNode.requestFocus();
+        },
         onBorderOptionSelected: (option) {
           // Per-cell edge options are handled separately.
           if (option == TableBorderOption.bottomBorder ||
