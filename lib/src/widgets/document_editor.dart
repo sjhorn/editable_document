@@ -981,104 +981,109 @@ class DocumentEditorState extends State<DocumentEditor> with TickerProviderState
     return Positioned(
       left: tableOffset.dx,
       top: tableOffset.dy - 36,
-      child: TableContextToolbar(
-        controller: _effectiveController,
-        requestHandler: _effectiveEditor.submit,
-        nodeId: node.id,
-        minRow: minRow,
-        maxRow: maxRow,
-        minCol: minCol,
-        maxCol: maxCol,
-        cellTextAligns: node.cellTextAligns,
-        cellVerticalAligns: node.cellVerticalAligns,
-        rowCount: node.rowCount,
-        columnCount: node.columnCount,
-        border: node.border,
-        showHorizontalGridLines: node.showHorizontalGridLines,
-        showVerticalGridLines: node.showVerticalGridLines,
-        gridBorderColor: node.gridBorderColor,
-        onGridBorderColorChanged: (color) {
-          _effectiveEditor.submit(
-            ReplaceNodeRequest(
-              nodeId: node.id,
-              newNode: node.copyWith(
-                gridBorderColor: color,
-                border: node.border != null
-                    ? BlockBorder(
-                        style: node.border!.style,
-                        width: node.border!.width,
-                        color: color,
-                      )
-                    : null,
+      child: FocusScope(
+        canRequestFocus: false,
+        child: TableContextToolbar(
+          controller: _effectiveController,
+          requestHandler: _effectiveEditor.submit,
+          nodeId: node.id,
+          minRow: minRow,
+          maxRow: maxRow,
+          minCol: minCol,
+          maxCol: maxCol,
+          cellTextAligns: node.cellTextAligns,
+          cellVerticalAligns: node.cellVerticalAligns,
+          rowCount: node.rowCount,
+          columnCount: node.columnCount,
+          border: node.border,
+          showHorizontalGridLines: node.showHorizontalGridLines,
+          showVerticalGridLines: node.showVerticalGridLines,
+          gridBorderColor: node.gridBorderColor,
+          onGridBorderColorChanged: (color) {
+            _effectiveEditor.submit(
+              ReplaceNodeRequest(
+                nodeId: node.id,
+                newNode: node.copyWith(
+                  gridBorderColor: color,
+                  border: node.border != null
+                      ? BlockBorder(
+                          style: node.border!.style,
+                          width: node.border!.width,
+                          color: color,
+                        )
+                      : null,
+                ),
               ),
-            ),
-          );
-          _effectiveFocusNode.requestFocus();
-        },
-        onBorderOptionSelected: (option) {
-          // Per-cell edge options are handled separately.
-          if (option == TableBorderOption.bottomBorder ||
-              option == TableBorderOption.topBorder ||
-              option == TableBorderOption.leftBorder ||
-              option == TableBorderOption.rightBorder) {
-            _applySelectionBorder(
-              node,
-              option,
-              minRow: minRow,
-              maxRow: maxRow,
-              minCol: minCol,
-              maxCol: maxCol,
             );
-            return;
-          }
-
-          final BlockBorder? newBorder;
-          final bool newShowH;
-          final bool newShowV;
-          switch (option) {
-            case TableBorderOption.noBorder:
-              newBorder = null;
-              newShowH = false;
-              newShowV = false;
-            case TableBorderOption.allBorders:
-              newBorder = const BlockBorder(style: BlockBorderStyle.solid, color: Color(0xFFCCCCCC));
-              newShowH = true;
-              newShowV = true;
-            case TableBorderOption.outsideBorders:
-              newBorder = const BlockBorder(style: BlockBorderStyle.solid, color: Color(0xFFCCCCCC));
-              newShowH = false;
-              newShowV = false;
-            case TableBorderOption.insideBorders:
-              newBorder = null;
-              newShowH = true;
-              newShowV = true;
-            case TableBorderOption.horizontalInsideBorders:
-              newBorder = null;
-              newShowH = true;
-              newShowV = false;
-            case TableBorderOption.verticalInsideBorders:
-              newBorder = null;
-              newShowH = false;
-              newShowV = true;
-            // Per-cell options already handled above.
-            case TableBorderOption.bottomBorder:
-            case TableBorderOption.topBorder:
-            case TableBorderOption.leftBorder:
-            case TableBorderOption.rightBorder:
+            _effectiveFocusNode.requestFocus();
+          },
+          onBorderOptionSelected: (option) {
+            // Per-cell edge options are handled separately.
+            if (option == TableBorderOption.bottomBorder ||
+                option == TableBorderOption.topBorder ||
+                option == TableBorderOption.leftBorder ||
+                option == TableBorderOption.rightBorder) {
+              _applySelectionBorder(
+                node,
+                option,
+                minRow: minRow,
+                maxRow: maxRow,
+                minCol: minCol,
+                maxCol: maxCol,
+              );
               return;
-          }
-          _effectiveEditor.submit(
-            ReplaceNodeRequest(
-              nodeId: node.id,
-              newNode: node.copyWith(
-                border: newBorder,
-                showHorizontalGridLines: newShowH,
-                showVerticalGridLines: newShowV,
+            }
+
+            final BlockBorder? newBorder;
+            final bool newShowH;
+            final bool newShowV;
+            switch (option) {
+              case TableBorderOption.noBorder:
+                newBorder = null;
+                newShowH = false;
+                newShowV = false;
+              case TableBorderOption.allBorders:
+                newBorder =
+                    const BlockBorder(style: BlockBorderStyle.solid, color: Color(0xFFCCCCCC));
+                newShowH = true;
+                newShowV = true;
+              case TableBorderOption.outsideBorders:
+                newBorder =
+                    const BlockBorder(style: BlockBorderStyle.solid, color: Color(0xFFCCCCCC));
+                newShowH = false;
+                newShowV = false;
+              case TableBorderOption.insideBorders:
+                newBorder = null;
+                newShowH = true;
+                newShowV = true;
+              case TableBorderOption.horizontalInsideBorders:
+                newBorder = null;
+                newShowH = true;
+                newShowV = false;
+              case TableBorderOption.verticalInsideBorders:
+                newBorder = null;
+                newShowH = false;
+                newShowV = true;
+              // Per-cell options already handled above.
+              case TableBorderOption.bottomBorder:
+              case TableBorderOption.topBorder:
+              case TableBorderOption.leftBorder:
+              case TableBorderOption.rightBorder:
+                return;
+            }
+            _effectiveEditor.submit(
+              ReplaceNodeRequest(
+                nodeId: node.id,
+                newNode: node.copyWith(
+                  border: newBorder,
+                  showHorizontalGridLines: newShowH,
+                  showVerticalGridLines: newShowV,
+                ),
               ),
-            ),
-          );
-          _effectiveFocusNode.requestFocus();
-        },
+            );
+            _effectiveFocusNode.requestFocus();
+          },
+        ),
       ),
     );
   }
