@@ -114,7 +114,7 @@ class TableNode extends DocumentNode implements HasBlockLayout {
     this.height,
     this.spaceBefore,
     this.spaceAfter,
-    this.border,
+    this.border = const BlockBorder(style: BlockBorderStyle.solid, color: Color(0xFFCCCCCC)),
     this.gridBorderWidth = 1.0,
     this.gridBorderColor,
     this.showHorizontalGridLines = true,

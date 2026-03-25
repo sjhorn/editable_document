@@ -304,9 +304,15 @@ class _TableDividerResizeHandlesState extends State<TableDividerResizeHandles> {
     }
   }
 
+  /// The start dimension of the column/row adjacent (after) the dragged one.
+  double? _dragAdjacentStartDimension;
+
   void _onPointerDown(PointerDownEvent event) {
     final hit = _hitTestDivider(event.position);
     if (hit == null) return;
+
+    // Record the adjacent column/row start dimension for redistribution.
+    _dragAdjacentStartDimension = _getAdjacentDimension(hit);
 
     setState(() {
       _dragType = hit.type;
@@ -322,6 +328,25 @@ class _TableDividerResizeHandlesState extends State<TableDividerResizeHandles> {
     TableDividerResizeHandles.isDragging = true;
   }
 
+  /// Returns the computed dimension of the column/row after [hit.index],
+  /// or `null` if there is no adjacent column/row.
+  double? _getAdjacentDimension(
+      ({_DragType type, String nodeId, int index, double startDimension, double cellPadding}) hit) {
+    final layoutState = widget.layoutKey.currentState;
+    if (layoutState == null) return null;
+    final comp = layoutState.componentForNode(hit.nodeId);
+    if (comp is! RenderTableBlock) return null;
+
+    if (hit.type == _DragType.column) {
+      final widths = comp.computedOuterColumnWidths;
+      final next = hit.index + 1;
+      return next < widths.length ? widths[next] : null;
+    } else {
+      // For rows, compute from cell heights.
+      return null; // Row redistribution handled in command if heights are set.
+    }
+  }
+
   void _onPointerMove(PointerMoveEvent event) {
     if (_dragType == null) return;
     final startPos = _dragStartPosition;
@@ -334,7 +359,11 @@ class _TableDividerResizeHandlesState extends State<TableDividerResizeHandles> {
 
     if (_dragType == _DragType.column) {
       final deltaX = event.position.dx - startPos.dx;
-      final newWidth = (startDim + deltaX).clamp(minDimension, double.infinity);
+      // Clamp so adjacent column doesn't go below minimum.
+      final adjStart = _dragAdjacentStartDimension;
+      final maxDelta = adjStart != null ? adjStart - minDimension : double.infinity;
+      final clampedDelta = deltaX.clamp(-startDim + minDimension, maxDelta);
+      final newWidth = startDim + clampedDelta;
       widget.onColumnResize?.call(nodeId, index, newWidth);
     } else {
       final deltaY = event.position.dy - startPos.dy;
@@ -359,6 +388,7 @@ class _TableDividerResizeHandlesState extends State<TableDividerResizeHandles> {
       _dragIndex = null;
       _dragStartPosition = null;
       _dragStartDimension = null;
+      _dragAdjacentStartDimension = null;
       _currentCursor = MouseCursor.defer;
     });
     TableDividerResizeHandles.isDragging = false;

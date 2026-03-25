@@ -2754,7 +2754,23 @@ class ChangeTableColumnWidthCommand extends EditCommand {
     final widths = node.columnWidths != null
         ? List<double?>.of(node.columnWidths!)
         : List<double?>.filled(node.columnCount, null);
+
+    // Redistribute: when an internal divider is dragged, the delta is
+    // added to the left column and subtracted from the right column so
+    // the overall table width stays constant.
+    final oldWidth = widths[colIndex];
     widths[colIndex] = newWidth;
+
+    final nextCol = colIndex + 1;
+    final effectiveNewWidth = newWidth;
+    if (nextCol < node.columnCount && oldWidth != null && effectiveNewWidth != null) {
+      final delta = effectiveNewWidth - oldWidth;
+      final nextOld = widths[nextCol];
+      if (nextOld != null) {
+        const minDim = 10.0; // minimum column width
+        widths[nextCol] = (nextOld - delta).clamp(minDim, double.infinity);
+      }
+    }
 
     doc.replaceNode(nodeId, node.copyWith(columnWidths: widths));
     return [NodeChangeEvent(nodeId: nodeId)];
@@ -2803,7 +2819,23 @@ class ChangeTableRowHeightCommand extends EditCommand {
     final heights = node.rowHeights != null
         ? List<double?>.of(node.rowHeights!)
         : List<double?>.filled(node.rowCount, null);
+
+    // Redistribute: when an internal divider is dragged, the delta is
+    // added to the top row and subtracted from the bottom row so
+    // the overall table height stays constant.
+    final oldHeight = heights[rowIndex];
     heights[rowIndex] = newHeight;
+
+    final nextRow = rowIndex + 1;
+    final effectiveNewHeight = newHeight;
+    if (nextRow < node.rowCount && oldHeight != null && effectiveNewHeight != null) {
+      final delta = effectiveNewHeight - oldHeight;
+      final nextOld = heights[nextRow];
+      if (nextOld != null) {
+        final minDim = 10.0; // minimum row height
+        heights[nextRow] = (nextOld - delta).clamp(minDim, double.infinity);
+      }
+    }
 
     doc.replaceNode(nodeId, node.copyWith(rowHeights: heights));
     return [NodeChangeEvent(nodeId: nodeId)];
