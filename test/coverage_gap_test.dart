@@ -913,6 +913,58 @@ void main() {
     );
     expect(a == b, isFalse);
   });
+
+  // RenderTableBlock cellBorders setter
+  test('RenderTableBlock cellBorders getter/setter', () {
+    final block = RenderTableBlock(
+      nodeId: 't1',
+      rowCount: 1,
+      columnCount: 1,
+      cells: [
+        [AttributedText('x')],
+      ],
+      textStyle: const TextStyle(fontSize: 14),
+    );
+    expect(block.cellBorders, isNull);
+    final borders = [
+      [CellBorders.all],
+    ];
+    block.cellBorders = borders;
+    expect(block.cellBorders, borders);
+  });
+
+  // TableBorderOption includes per-cell values
+  test('TableBorderOption has all 10 values', () {
+    expect(TableBorderOption.values.length, 10);
+    expect(TableBorderOption.bottomBorder, isNotNull);
+    expect(TableBorderOption.topBorder, isNotNull);
+    expect(TableBorderOption.leftBorder, isNotNull);
+    expect(TableBorderOption.rightBorder, isNotNull);
+  });
+
+  // TableComponentViewModel cellBorders in equality
+  test('TableComponentViewModel cellBorders affects equality', () {
+    final a = TableComponentViewModel(
+      nodeId: 't1',
+      rowCount: 1,
+      columnCount: 1,
+      cells: [
+        [AttributedText('x')],
+      ],
+    );
+    final b = TableComponentViewModel(
+      nodeId: 't1',
+      rowCount: 1,
+      columnCount: 1,
+      cells: [
+        [AttributedText('x')],
+      ],
+      cellBorders: [
+        [CellBorders.all],
+      ],
+    );
+    expect(a == b, isFalse);
+  });
 }
 
 /// A test-only [EditRequest] subclass that no command handler knows about.

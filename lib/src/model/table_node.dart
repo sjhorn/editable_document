@@ -20,6 +20,67 @@ import 'node_position.dart';
 import 'table_vertical_alignment.dart';
 import 'text_wrap_mode.dart';
 
+/// Per-cell border edge flags.
+///
+/// Each cell can independently control which of its four edges are drawn.
+/// When a cell's edge is `true`, the border is drawn; when `false`, it is
+/// not. Adjacent cells sharing an edge only need one of them to be `true`
+/// for the line to appear.
+@immutable
+class CellBorders {
+  /// Creates a [CellBorders] with the given edge flags.
+  const CellBorders({
+    this.top = false,
+    this.right = false,
+    this.bottom = false,
+    this.left = false,
+  });
+
+  /// No borders on any edge.
+  static const CellBorders none = CellBorders();
+
+  /// Borders on all four edges.
+  static const CellBorders all = CellBorders(top: true, right: true, bottom: true, left: true);
+
+  /// Whether the top edge of this cell has a border.
+  final bool top;
+
+  /// Whether the right edge of this cell has a border.
+  final bool right;
+
+  /// Whether the bottom edge of this cell has a border.
+  final bool bottom;
+
+  /// Whether the left edge of this cell has a border.
+  final bool left;
+
+  /// Returns a copy with the given edges overridden.
+  CellBorders copyWith({bool? top, bool? right, bool? bottom, bool? left}) {
+    return CellBorders(
+      top: top ?? this.top,
+      right: right ?? this.right,
+      bottom: bottom ?? this.bottom,
+      left: left ?? this.left,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is CellBorders &&
+        other.top == top &&
+        other.right == right &&
+        other.bottom == bottom &&
+        other.left == left;
+  }
+
+  @override
+  int get hashCode => Object.hash(top, right, bottom, left);
+
+  @override
+  String toString() => 'CellBorders(top: $top, right: $right, bottom: $bottom, left: $left)';
+}
+
 /// A [DocumentNode] representing a block-level table.
 ///
 /// [TableNode] stores a 2D grid of [AttributedText] cells identified by
@@ -119,6 +180,7 @@ class TableNode extends DocumentNode implements HasBlockLayout {
     this.gridBorderColor,
     this.showHorizontalGridLines = true,
     this.showVerticalGridLines = true,
+    List<List<CellBorders>>? cellBorders,
     super.metadata,
   })  : _cells = List<List<AttributedText>>.unmodifiable(
           cells.map((row) => List<AttributedText>.unmodifiable(row)),
@@ -135,6 +197,11 @@ class TableNode extends DocumentNode implements HasBlockLayout {
                 cellVerticalAligns.map(
                   (row) => List<TableVerticalAlignment>.unmodifiable(row),
                 ),
+              )
+            : null,
+        cellBorders = cellBorders != null
+            ? List<List<CellBorders>>.unmodifiable(
+                cellBorders.map((row) => List<CellBorders>.unmodifiable(row)),
               )
             : null;
 
@@ -175,6 +242,14 @@ class TableNode extends DocumentNode implements HasBlockLayout {
   /// list has exactly [columnCount] entries. Both the outer and inner lists are
   /// unmodifiable.
   final List<List<TableVerticalAlignment>>? cellVerticalAligns;
+
+  /// Per-cell border edges, or `null` to use table-wide grid line settings.
+  ///
+  /// When non-null, must be a `rowCount × columnCount` 2D grid of
+  /// [CellBorders]. Each cell independently controls its four edges.
+  /// Both the outer list and each inner list are wrapped in
+  /// [List.unmodifiable].
+  final List<List<CellBorders>>? cellBorders;
 
   /// How the table block is horizontally aligned within the available layout width.
   ///
@@ -277,6 +352,7 @@ class TableNode extends DocumentNode implements HasBlockLayout {
     Object? gridBorderColor = _sentinel,
     bool? showHorizontalGridLines,
     bool? showVerticalGridLines,
+    Object? cellBorders = _sentinel,
     Map<String, dynamic>? metadata,
   }) {
     return TableNode(
@@ -305,6 +381,9 @@ class TableNode extends DocumentNode implements HasBlockLayout {
           identical(gridBorderColor, _sentinel) ? this.gridBorderColor : gridBorderColor as Color?,
       showHorizontalGridLines: showHorizontalGridLines ?? this.showHorizontalGridLines,
       showVerticalGridLines: showVerticalGridLines ?? this.showVerticalGridLines,
+      cellBorders: identical(cellBorders, _sentinel)
+          ? this.cellBorders
+          : cellBorders as List<List<CellBorders>>?,
       metadata: metadata ?? this.metadata,
     );
   }
@@ -349,6 +428,13 @@ class TableNode extends DocumentNode implements HasBlockLayout {
         if (!_listEquals(other.cellVerticalAligns![r], cellVerticalAligns![r])) return false;
       }
     }
+    // Compare cellBorders row by row.
+    if ((other.cellBorders == null) != (cellBorders == null)) return false;
+    if (cellBorders != null) {
+      for (int r = 0; r < rowCount; r++) {
+        if (!_listEquals(other.cellBorders![r], cellBorders![r])) return false;
+      }
+    }
     // Compare cells row by row.
     for (int r = 0; r < rowCount; r++) {
       for (int c = 0; c < columnCount; c++) {
@@ -385,6 +471,15 @@ class TableNode extends DocumentNode implements HasBlockLayout {
         }
       }
     }
+    // Hash cellBorders as a flat sequence.
+    final cellBordersHashes = <int>[];
+    if (cellBorders != null) {
+      for (final row in cellBorders!) {
+        for (final borders in row) {
+          cellBordersHashes.add(borders.hashCode);
+        }
+      }
+    }
     return Object.hash(
       id,
       rowCount,
@@ -405,7 +500,10 @@ class TableNode extends DocumentNode implements HasBlockLayout {
       gridBorderColor,
       showHorizontalGridLines,
       showVerticalGridLines,
-      Object.hashAll(metadata.entries.map((e) => e)),
+      Object.hash(
+        Object.hashAll(cellBordersHashes),
+        Object.hashAll(metadata.entries.map((e) => e)),
+      ),
     );
   }
 
@@ -436,6 +534,11 @@ class TableNode extends DocumentNode implements HasBlockLayout {
     properties.add(DiagnosticsProperty<List<List<TableVerticalAlignment>>?>(
       'cellVerticalAligns',
       cellVerticalAligns,
+      defaultValue: null,
+    ));
+    properties.add(DiagnosticsProperty<List<List<CellBorders>>?>(
+      'cellBorders',
+      cellBorders,
       defaultValue: null,
     ));
     properties.add(DoubleProperty('spaceBefore', spaceBefore, defaultValue: null));
@@ -480,8 +583,8 @@ class TableNode extends DocumentNode implements HasBlockLayout {
 /// Sentinel object used by [TableNode.copyWith] to distinguish "not provided"
 /// from an explicit `null` for nullable fields: [TableNode.columnWidths],
 /// [TableNode.rowHeights], [TableNode.cellTextAligns],
-/// [TableNode.cellVerticalAligns], [TableNode.border], and
-/// [TableNode.gridBorderColor].
+/// [TableNode.cellVerticalAligns], [TableNode.cellBorders], [TableNode.border],
+/// and [TableNode.gridBorderColor].
 const Object _sentinel = Object();
 
 /// Null-safe shallow equality for nullable lists.

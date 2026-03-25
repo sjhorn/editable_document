@@ -1921,6 +1921,388 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
+  // CellBorders — class
+  // ---------------------------------------------------------------------------
+  group('CellBorders', () {
+    test('default constructor sets all edges to false', () {
+      const b = CellBorders();
+      expect(b.top, isFalse);
+      expect(b.right, isFalse);
+      expect(b.bottom, isFalse);
+      expect(b.left, isFalse);
+    });
+
+    test('none constant has all edges false', () {
+      expect(CellBorders.none.top, isFalse);
+      expect(CellBorders.none.right, isFalse);
+      expect(CellBorders.none.bottom, isFalse);
+      expect(CellBorders.none.left, isFalse);
+    });
+
+    test('all constant has all edges true', () {
+      expect(CellBorders.all.top, isTrue);
+      expect(CellBorders.all.right, isTrue);
+      expect(CellBorders.all.bottom, isTrue);
+      expect(CellBorders.all.left, isTrue);
+    });
+
+    test('constructor accepts individual edge flags', () {
+      const b = CellBorders(top: true, right: false, bottom: true, left: false);
+      expect(b.top, isTrue);
+      expect(b.right, isFalse);
+      expect(b.bottom, isTrue);
+      expect(b.left, isFalse);
+    });
+
+    test('copyWith overrides top', () {
+      const b = CellBorders();
+      expect(b.copyWith(top: true).top, isTrue);
+    });
+
+    test('copyWith overrides right', () {
+      const b = CellBorders();
+      expect(b.copyWith(right: true).right, isTrue);
+    });
+
+    test('copyWith overrides bottom', () {
+      const b = CellBorders();
+      expect(b.copyWith(bottom: true).bottom, isTrue);
+    });
+
+    test('copyWith overrides left', () {
+      const b = CellBorders();
+      expect(b.copyWith(left: true).left, isTrue);
+    });
+
+    test('copyWith preserves unspecified edges', () {
+      const b = CellBorders(top: true, right: true, bottom: true, left: true);
+      final copy = b.copyWith(top: false);
+      expect(copy.top, isFalse);
+      expect(copy.right, isTrue);
+      expect(copy.bottom, isTrue);
+      expect(copy.left, isTrue);
+    });
+
+    test('equal when all edges match', () {
+      const a = CellBorders(top: true, right: false, bottom: true, left: false);
+      const b = CellBorders(top: true, right: false, bottom: true, left: false);
+      expect(a, equals(b));
+    });
+
+    test('unequal when top differs', () {
+      expect(
+        const CellBorders(top: true),
+        isNot(equals(const CellBorders(top: false))),
+      );
+    });
+
+    test('unequal when right differs', () {
+      expect(
+        const CellBorders(right: true),
+        isNot(equals(const CellBorders(right: false))),
+      );
+    });
+
+    test('unequal when bottom differs', () {
+      expect(
+        const CellBorders(bottom: true),
+        isNot(equals(const CellBorders(bottom: false))),
+      );
+    });
+
+    test('unequal when left differs', () {
+      expect(
+        const CellBorders(left: true),
+        isNot(equals(const CellBorders(left: false))),
+      );
+    });
+
+    test('identical instance equals itself', () {
+      const b = CellBorders(top: true);
+      expect(b, equals(b));
+    });
+
+    test('hashCode is equal for equal instances', () {
+      const a = CellBorders(top: true, right: true);
+      const b = CellBorders(top: true, right: true);
+      expect(a.hashCode, equals(b.hashCode));
+    });
+
+    test('toString includes all four edge values', () {
+      const b = CellBorders(top: true, right: false, bottom: true, left: false);
+      final s = b.toString();
+      expect(s, contains('top: true'));
+      expect(s, contains('right: false'));
+      expect(s, contains('bottom: true'));
+      expect(s, contains('left: false'));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // TableNode — cellBorders field
+  // ---------------------------------------------------------------------------
+  group('TableNode cellBorders', () {
+    test('cellBorders defaults to null', () {
+      final node = TableNode(
+        id: 'tbl-cb1',
+        rowCount: 1,
+        columnCount: 2,
+        cells: [
+          [AttributedText('a'), AttributedText('b')]
+        ],
+      );
+      expect(node.cellBorders, isNull);
+    });
+
+    test('accepts explicit cellBorders 2D grid', () {
+      final node = TableNode(
+        id: 'tbl-cb2',
+        rowCount: 2,
+        columnCount: 2,
+        cells: [
+          [AttributedText('a'), AttributedText('b')],
+          [AttributedText('c'), AttributedText('d')],
+        ],
+        cellBorders: [
+          [CellBorders.all, CellBorders.none],
+          [CellBorders.none, CellBorders.all],
+        ],
+      );
+      expect(node.cellBorders, isNotNull);
+      expect(node.cellBorders![0][0], CellBorders.all);
+      expect(node.cellBorders![0][1], CellBorders.none);
+      expect(node.cellBorders![1][0], CellBorders.none);
+      expect(node.cellBorders![1][1], CellBorders.all);
+    });
+
+    test('cellBorders outer list is unmodifiable', () {
+      final node = TableNode(
+        id: 'tbl-cb3',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        cellBorders: [
+          [CellBorders.all],
+        ],
+      );
+      expect(
+        () => (node.cellBorders as List<List<CellBorders>>).add([CellBorders.none]),
+        throwsUnsupportedError,
+      );
+    });
+
+    test('cellBorders inner lists are unmodifiable', () {
+      final node = TableNode(
+        id: 'tbl-cb4',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        cellBorders: [
+          [CellBorders.all],
+        ],
+      );
+      expect(
+        () => (node.cellBorders![0]).add(CellBorders.none),
+        throwsUnsupportedError,
+      );
+    });
+
+    test('mutating original cellBorders list does not affect node', () {
+      final original = [
+        [CellBorders.all],
+      ];
+      final node = TableNode(
+        id: 'tbl-cb5',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        cellBorders: original,
+      );
+      original[0][0] = CellBorders.none;
+      expect(node.cellBorders![0][0], CellBorders.all);
+    });
+
+    test('copyWith replaces cellBorders', () {
+      final node = TableNode(
+        id: 'tbl-cb6',
+        rowCount: 1,
+        columnCount: 2,
+        cells: [
+          [AttributedText('a'), AttributedText('b')]
+        ],
+        cellBorders: [
+          [CellBorders.all, CellBorders.none],
+        ],
+      );
+      final copy = node.copyWith(
+        cellBorders: [
+          [CellBorders.none, CellBorders.all],
+        ],
+      );
+      expect(copy.cellBorders![0][0], CellBorders.none);
+      expect(copy.cellBorders![0][1], CellBorders.all);
+    });
+
+    test('copyWith preserves cellBorders when not specified', () {
+      final node = TableNode(
+        id: 'tbl-cb7',
+        rowCount: 1,
+        columnCount: 2,
+        cells: [
+          [AttributedText('a'), AttributedText('b')]
+        ],
+        cellBorders: [
+          [CellBorders.all, CellBorders.none],
+        ],
+      );
+      final copy = node.copyWith(id: 'tbl-cb7-copy');
+      expect(copy.cellBorders![0][0], CellBorders.all);
+      expect(copy.cellBorders![0][1], CellBorders.none);
+    });
+
+    test('copyWith clears cellBorders when passed explicit null', () {
+      final node = TableNode(
+        id: 'tbl-cb8',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        cellBorders: [
+          [CellBorders.all],
+        ],
+      );
+      final copy = node.copyWith(cellBorders: null);
+      expect(copy.cellBorders, isNull);
+    });
+
+    test('nodes with same cellBorders are equal', () {
+      final a = TableNode(
+        id: 'tbl-cb9',
+        rowCount: 1,
+        columnCount: 2,
+        cells: [
+          [AttributedText('a'), AttributedText('b')]
+        ],
+        cellBorders: [
+          [CellBorders.all, CellBorders.none],
+        ],
+      );
+      final b = TableNode(
+        id: 'tbl-cb9',
+        rowCount: 1,
+        columnCount: 2,
+        cells: [
+          [AttributedText('a'), AttributedText('b')]
+        ],
+        cellBorders: [
+          [CellBorders.all, CellBorders.none],
+        ],
+      );
+      expect(a, equals(b));
+    });
+
+    test('nodes with different cellBorders are not equal', () {
+      final a = TableNode(
+        id: 'tbl-cb10',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        cellBorders: [
+          [CellBorders.all],
+        ],
+      );
+      final b = TableNode(
+        id: 'tbl-cb10',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        cellBorders: [
+          [CellBorders.none],
+        ],
+      );
+      expect(a, isNot(equals(b)));
+    });
+
+    test('node with cellBorders is not equal to node without', () {
+      final a = TableNode(
+        id: 'tbl-cb11',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        cellBorders: [
+          [CellBorders.all],
+        ],
+      );
+      final b = TableNode(
+        id: 'tbl-cb11',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+      );
+      expect(a, isNot(equals(b)));
+    });
+
+    test('equal nodes with cellBorders have equal hashCodes', () {
+      final a = TableNode(
+        id: 'tbl-cb12',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        cellBorders: [
+          [CellBorders.all],
+        ],
+      );
+      final b = TableNode(
+        id: 'tbl-cb12',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        cellBorders: [
+          [CellBorders.all],
+        ],
+      );
+      expect(a.hashCode, equals(b.hashCode));
+    });
+
+    test('debugFillProperties includes cellBorders', () {
+      final node = TableNode(
+        id: 'tbl-cb13',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [
+          [AttributedText('a')]
+        ],
+        cellBorders: [
+          [CellBorders.all],
+        ],
+      );
+      final builder = DiagnosticPropertiesBuilder();
+      node.debugFillProperties(builder);
+      final names = builder.properties.map((p) => p.name).toList();
+      expect(names, contains('cellBorders'));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // TableNode — border
   // ---------------------------------------------------------------------------
   group('TableNode border', () {

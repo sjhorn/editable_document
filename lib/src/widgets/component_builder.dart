@@ -1490,6 +1490,9 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
   /// [borderWidth] is the stroke width of the grid lines.
   /// [borderColor] is the color of the grid lines.
   /// [showHorizontalGridLines] and [showVerticalGridLines] control which grid lines are drawn.
+  /// [cellBorders] is an optional rowCount × columnCount grid of per-cell edge
+  ///   visibility overrides. When non-null it takes priority over
+  ///   [showHorizontalGridLines] and [showVerticalGridLines] for interior edges.
   /// [alignment] is the horizontal alignment within the layout.
   /// [textWrap] controls how surrounding text interacts with this block.
   /// [requestedWidth] and [requestedHeight] are optional explicit dimensions.
@@ -1503,6 +1506,7 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
     this.rowHeights,
     this.cellTextAligns,
     this.cellVerticalAligns,
+    this.cellBorders,
     this.textStyle,
     this.cellPadding = 8.0,
     this.borderWidth = 1.0,
@@ -1557,6 +1561,14 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
   /// When non-null, this is a rowCount × columnCount 2D grid of
   /// [TableVerticalAlignment] values. Each inner list corresponds to one row.
   final List<List<TableVerticalAlignment>>? cellVerticalAligns;
+
+  /// Per-cell edge visibility overrides, or `null` to use [showHorizontalGridLines]
+  /// and [showVerticalGridLines] for all interior edges.
+  ///
+  /// When non-null, this is a rowCount × columnCount 2D grid of [CellBorders]
+  /// values. Each inner list corresponds to one row. A `true` edge on either
+  /// of the two cells sharing a border causes that border to be drawn.
+  final List<List<CellBorders>>? cellBorders;
 
   /// The base [TextStyle] applied to all cell text before attributions.
   ///
@@ -1653,7 +1665,7 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
         other.isSelected != isSelected) {
       return false;
     }
-    // Compare columnWidths, rowHeights, cellTextAligns, cellVerticalAligns.
+    // Compare columnWidths, rowHeights, cellTextAligns, cellVerticalAligns, cellBorders.
     if (!_listEquals(other.columnWidths, columnWidths)) return false;
     if (!_listEquals(other.rowHeights, rowHeights)) return false;
     // Compare cellTextAligns row by row.
@@ -1668,6 +1680,13 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
     if (cellVerticalAligns != null) {
       for (int r = 0; r < rowCount; r++) {
         if (!_listEquals(other.cellVerticalAligns![r], cellVerticalAligns![r])) return false;
+      }
+    }
+    // Compare cellBorders row by row.
+    if ((other.cellBorders == null) != (cellBorders == null)) return false;
+    if (cellBorders != null) {
+      for (int r = 0; r < rowCount; r++) {
+        if (!_listEquals(other.cellBorders![r], cellBorders![r])) return false;
       }
     }
     // Compare cells row by row.
@@ -1720,6 +1739,8 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
       Object.hashAll(cellVerticalAligns == null
           ? const <TableVerticalAlignment>[]
           : [for (final row in cellVerticalAligns!) ...row]),
+      Object.hashAll(
+          cellBorders == null ? const <CellBorders>[] : [for (final row in cellBorders!) ...row]),
     );
   }
 }
@@ -1749,6 +1770,7 @@ class TableComponentBuilder extends ComponentBuilder {
       rowHeights: node.rowHeights,
       cellTextAligns: node.cellTextAligns,
       cellVerticalAligns: node.cellVerticalAligns,
+      cellBorders: node.cellBorders,
       borderWidth: node.gridBorderWidth,
       borderColor: node.gridBorderColor ?? const Color(0xFFCCCCCC),
       showHorizontalGridLines: node.showHorizontalGridLines,
@@ -1789,6 +1811,7 @@ class _TableBlockWidget extends LeafRenderObjectWidget {
       rowHeights: viewModel.rowHeights,
       cellTextAligns: viewModel.cellTextAligns,
       cellVerticalAligns: viewModel.cellVerticalAligns,
+      cellBorders: viewModel.cellBorders,
       cellPadding: viewModel.cellPadding,
       borderWidth: viewModel.borderWidth,
       borderColor: viewModel.borderColor,
@@ -1817,6 +1840,7 @@ class _TableBlockWidget extends LeafRenderObjectWidget {
       ..rowHeights = viewModel.rowHeights
       ..cellTextAligns = viewModel.cellTextAligns
       ..cellVerticalAligns = viewModel.cellVerticalAligns
+      ..cellBorders = viewModel.cellBorders
       ..cellPadding = viewModel.cellPadding
       ..borderWidth = viewModel.borderWidth
       ..borderColor = viewModel.borderColor

@@ -19,6 +19,7 @@ import '../model/block_border.dart';
 import '../model/block_dimension.dart';
 import '../model/document_selection.dart';
 import '../model/node_position.dart';
+import '../model/table_node.dart' show CellBorders;
 import '../model/table_vertical_alignment.dart';
 import '../model/text_wrap_mode.dart';
 import 'block_layout_mixin.dart';
@@ -141,6 +142,7 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
     TextWrapMode textWrap = TextWrapMode.none,
     List<List<TextAlign>>? cellTextAligns,
     List<List<TableVerticalAlignment>>? cellVerticalAligns,
+    List<List<CellBorders>>? cellBorders,
   })  : _nodeId = nodeId,
         _rowCount = rowCount,
         _columnCount = columnCount,
@@ -156,7 +158,8 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
         _selectionColor = selectionColor,
         _textDirection = textDirection,
         _cellTextAligns = cellTextAligns,
-        _cellVerticalAligns = cellVerticalAligns {
+        _cellVerticalAligns = cellVerticalAligns,
+        _cellBorders = cellBorders {
     initBlockLayout(
       blockAlignment: blockAlignment,
       widthDimension:
@@ -187,6 +190,7 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
   TextDirection _textDirection;
   List<List<TextAlign>>? _cellTextAligns;
   List<List<TableVerticalAlignment>>? _cellVerticalAligns;
+  List<List<CellBorders>>? _cellBorders;
   DocumentSelection? _nodeSelection;
   double? _spaceBefore;
   double? _spaceAfter;
@@ -454,6 +458,22 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
     if (_cellVerticalAligns == value) return;
     _cellVerticalAligns = value;
     markNeedsLayout();
+  }
+
+  /// Per-cell edge visibility overrides as a 2-D grid (rowCount × columnCount),
+  /// or `null` when interior edges are controlled by [showHorizontalGridLines]
+  /// and [showVerticalGridLines].
+  ///
+  /// When non-null, a `true` edge flag on either adjacent cell causes the
+  /// shared interior border to be drawn.
+  // ignore: diagnostic_describe_all_properties
+  List<List<CellBorders>>? get cellBorders => _cellBorders;
+
+  /// Sets the per-cell border overrides and schedules a repaint.
+  set cellBorders(List<List<CellBorders>>? value) {
+    if (identical(_cellBorders, value)) return;
+    _cellBorders = value;
+    markNeedsPaint();
   }
 
   // ---------------------------------------------------------------------------
@@ -817,32 +837,44 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
     }
 
     // --- Paint internal grid lines (outer border is drawn by BlockBorder) ---
-    final gridPaint = Paint()
-      ..color = _borderColor
-      ..strokeWidth = _borderWidth
-      ..style = PaintingStyle.stroke;
+    if (_borderWidth > 0) {
+      final gridPaint = Paint()
+        ..color = _borderColor
+        ..strokeWidth = _borderWidth
+        ..style = PaintingStyle.stroke;
 
-    if (_borderWidth > 0 && _showHorizontalGridLines) {
-      // Horizontal lines between rows (skip top of row 0 and bottom of last row).
+      final cb = _cellBorders;
+
+      // Horizontal edges between rows.
       for (var r = 1; r < _rowCount; r++) {
-        final y = layouts[r][0].cellRect.top;
-        context.canvas.drawLine(
-          Offset(layouts[r][0].cellRect.left, y) + offset,
-          Offset(layouts[r][_columnCount - 1].cellRect.right, y) + offset,
-          gridPaint,
-        );
+        for (var c = 0; c < _columnCount; c++) {
+          final drawEdge = cb != null
+              ? (cb[r - 1][c].bottom || cb[r][c].top)
+              : _showHorizontalGridLines;
+          if (!drawEdge) continue;
+          final cellBelow = layouts[r][c].cellRect;
+          context.canvas.drawLine(
+            Offset(cellBelow.left, cellBelow.top) + offset,
+            Offset(cellBelow.right, cellBelow.top) + offset,
+            gridPaint,
+          );
+        }
       }
-    }
 
-    if (_borderWidth > 0 && _showVerticalGridLines) {
-      // Vertical lines between columns (skip left of col 0 and right of last col).
+      // Vertical edges between columns.
       for (var c = 1; c < _columnCount; c++) {
-        final x = layouts[0][c].cellRect.left;
-        context.canvas.drawLine(
-          Offset(x, layouts[0][0].cellRect.top) + offset,
-          Offset(x, layouts[_rowCount - 1][0].cellRect.bottom) + offset,
-          gridPaint,
-        );
+        for (var r = 0; r < _rowCount; r++) {
+          final drawEdge = cb != null
+              ? (cb[r][c - 1].right || cb[r][c].left)
+              : _showVerticalGridLines;
+          if (!drawEdge) continue;
+          final cellRight = layouts[r][c].cellRect;
+          context.canvas.drawLine(
+            Offset(cellRight.left, cellRight.top) + offset,
+            Offset(cellRight.left, cellRight.bottom) + offset,
+            gridPaint,
+          );
+        }
       }
     }
 
@@ -1082,6 +1114,10 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
     properties.add(
       DiagnosticsProperty<List<List<TableVerticalAlignment>>>(
           'cellVerticalAligns', _cellVerticalAligns,
+          defaultValue: null),
+    );
+    properties.add(
+      DiagnosticsProperty<List<List<CellBorders>>>('cellBorders', _cellBorders,
           defaultValue: null),
     );
     debugFillBlockLayoutProperties(properties);

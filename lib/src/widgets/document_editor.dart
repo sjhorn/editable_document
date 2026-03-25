@@ -997,6 +997,22 @@ class DocumentEditorState extends State<DocumentEditor> with TickerProviderState
         showHorizontalGridLines: node.showHorizontalGridLines,
         showVerticalGridLines: node.showVerticalGridLines,
         onBorderOptionSelected: (option) {
+          // Per-cell edge options are handled separately.
+          if (option == TableBorderOption.bottomBorder ||
+              option == TableBorderOption.topBorder ||
+              option == TableBorderOption.leftBorder ||
+              option == TableBorderOption.rightBorder) {
+            _applySelectionBorder(
+              node,
+              option,
+              minRow: minRow,
+              maxRow: maxRow,
+              minCol: minCol,
+              maxCol: maxCol,
+            );
+            return;
+          }
+
           final BlockBorder? newBorder;
           final bool newShowH;
           final bool newShowV;
@@ -1025,6 +1041,12 @@ class DocumentEditorState extends State<DocumentEditor> with TickerProviderState
               newBorder = null;
               newShowH = false;
               newShowV = true;
+            // Per-cell options already handled above.
+            case TableBorderOption.bottomBorder:
+            case TableBorderOption.topBorder:
+            case TableBorderOption.leftBorder:
+            case TableBorderOption.rightBorder:
+              return;
           }
           _effectiveEditor.submit(
             ReplaceNodeRequest(
@@ -1040,6 +1062,57 @@ class DocumentEditorState extends State<DocumentEditor> with TickerProviderState
         },
       ),
     );
+  }
+
+  // -------------------------------------------------------------------------
+  // Per-cell border helper
+  // -------------------------------------------------------------------------
+
+  /// Applies a single-edge [CellBorders] override to the selected cell range.
+  ///
+  /// Reads the current [TableNode.cellBorders] grid (initialising from
+  /// [CellBorders.none] when absent), sets the requested edge to `true` for
+  /// every cell in `[minRow..maxRow] × [minCol..maxCol]`, then submits a
+  /// [ReplaceNodeRequest] with the updated grid.
+  ///
+  /// [range] is `(minRow, maxRow, minCol, maxCol)` as a positional record.
+  void _applySelectionBorder(
+    TableNode node,
+    TableBorderOption edge, {
+    required int minRow,
+    required int maxRow,
+    required int minCol,
+    required int maxCol,
+  }) {
+    // Build a mutable copy of the current cellBorders grid.
+    final borders = node.cellBorders != null
+        ? [
+            for (final row in node.cellBorders!) [for (final cb in row) cb],
+          ]
+        : [
+            for (var r = 0; r < node.rowCount; r++)
+              [for (var c = 0; c < node.columnCount; c++) CellBorders.none],
+          ];
+
+    for (var r = minRow; r <= maxRow; r++) {
+      for (var c = minCol; c <= maxCol; c++) {
+        borders[r][c] = switch (edge) {
+          TableBorderOption.bottomBorder => borders[r][c].copyWith(bottom: true),
+          TableBorderOption.topBorder => borders[r][c].copyWith(top: true),
+          TableBorderOption.leftBorder => borders[r][c].copyWith(left: true),
+          TableBorderOption.rightBorder => borders[r][c].copyWith(right: true),
+          _ => borders[r][c],
+        };
+      }
+    }
+
+    _effectiveEditor.submit(
+      ReplaceNodeRequest(
+        nodeId: node.id,
+        newNode: node.copyWith(cellBorders: borders),
+      ),
+    );
+    _effectiveFocusNode.requestFocus();
   }
 
   // -------------------------------------------------------------------------

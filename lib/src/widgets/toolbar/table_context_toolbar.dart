@@ -410,6 +410,18 @@ enum TableBorderOption {
 
   /// Apply only vertical inside grid lines (columns only).
   verticalInsideBorders,
+
+  /// Apply a bottom edge border to the selected cells.
+  bottomBorder,
+
+  /// Apply a top edge border to the selected cells.
+  topBorder,
+
+  /// Apply a left edge border to the selected cells.
+  leftBorder,
+
+  /// Apply a right edge border to the selected cells.
+  rightBorder,
 }
 
 // ---------------------------------------------------------------------------
@@ -450,7 +462,7 @@ class _TableBorderDropdown extends StatelessWidget {
       enabled: onSelected != null,
       onSelected: onSelected,
       position: PopupMenuPosition.under,
-      itemBuilder: (context) => [
+      itemBuilder: (context) => <PopupMenuEntry<TableBorderOption>>[
         _item(
           TableBorderOption.noBorder,
           Icons.border_clear,
@@ -493,6 +505,15 @@ class _TableBorderDropdown extends StatelessWidget {
           !showHorizontalGridLines && showVerticalGridLines,
           colorScheme,
         ),
+        const PopupMenuDivider(),
+        _item(TableBorderOption.bottomBorder, Icons.border_bottom, 'Bottom Border', false,
+            colorScheme),
+        _item(
+            TableBorderOption.topBorder, Icons.border_top, 'Top Border', false, colorScheme),
+        _item(
+            TableBorderOption.leftBorder, Icons.border_left, 'Left Border', false, colorScheme),
+        _item(TableBorderOption.rightBorder, Icons.border_right, 'Right Border', false,
+            colorScheme),
       ],
       child: Container(
         constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
