@@ -848,9 +848,8 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
       // Horizontal edges between rows.
       for (var r = 1; r < _rowCount; r++) {
         for (var c = 0; c < _columnCount; c++) {
-          final drawEdge = cb != null
-              ? (cb[r - 1][c].bottom || cb[r][c].top)
-              : _showHorizontalGridLines;
+          final drawEdge =
+              cb != null ? (cb[r - 1][c].bottom || cb[r][c].top) : _showHorizontalGridLines;
           if (!drawEdge) continue;
           final cellBelow = layouts[r][c].cellRect;
           context.canvas.drawLine(
@@ -864,9 +863,8 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
       // Vertical edges between columns.
       for (var c = 1; c < _columnCount; c++) {
         for (var r = 0; r < _rowCount; r++) {
-          final drawEdge = cb != null
-              ? (cb[r][c - 1].right || cb[r][c].left)
-              : _showVerticalGridLines;
+          final drawEdge =
+              cb != null ? (cb[r][c - 1].right || cb[r][c].left) : _showVerticalGridLines;
           if (!drawEdge) continue;
           final cellRight = layouts[r][c].cellRect;
           context.canvas.drawLine(
@@ -1117,8 +1115,7 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
           defaultValue: null),
     );
     properties.add(
-      DiagnosticsProperty<List<List<CellBorders>>>('cellBorders', _cellBorders,
-          defaultValue: null),
+      DiagnosticsProperty<List<List<CellBorders>>>('cellBorders', _cellBorders, defaultValue: null),
     );
     debugFillBlockLayoutProperties(properties);
     properties.add(IterableProperty<double>('computedColumnWidths', computedColumnWidths));

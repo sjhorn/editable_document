@@ -55,6 +55,13 @@ import 'table_size_picker.dart';
 /// )
 /// ```
 class TableContextToolbar extends StatelessWidget {
+  /// Whether the toolbar is currently being interacted with.
+  ///
+  /// Set to `true` by the pointer-down handler on the toolbar's wrapper
+  /// and cleared by pointer-up. Checked by [DocumentMouseInteractor] to
+  /// skip selection changes when the user clicks the toolbar.
+  static bool isInteracting = false;
+
   /// Creates a [TableContextToolbar].
   const TableContextToolbar({
     super.key,
@@ -528,12 +535,10 @@ class _TableBorderDropdown extends StatelessWidget {
         const PopupMenuDivider(),
         _item(TableBorderOption.bottomBorder, Icons.border_bottom, 'Bottom Border', false,
             colorScheme),
+        _item(TableBorderOption.topBorder, Icons.border_top, 'Top Border', false, colorScheme),
+        _item(TableBorderOption.leftBorder, Icons.border_left, 'Left Border', false, colorScheme),
         _item(
-            TableBorderOption.topBorder, Icons.border_top, 'Top Border', false, colorScheme),
-        _item(
-            TableBorderOption.leftBorder, Icons.border_left, 'Left Border', false, colorScheme),
-        _item(TableBorderOption.rightBorder, Icons.border_right, 'Right Border', false,
-            colorScheme),
+            TableBorderOption.rightBorder, Icons.border_right, 'Right Border', false, colorScheme),
       ],
       child: Container(
         constraints: const BoxConstraints(minWidth: 32, minHeight: 32),

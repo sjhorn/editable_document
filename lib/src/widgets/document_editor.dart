@@ -983,7 +983,9 @@ class DocumentEditorState extends State<DocumentEditor> with TickerProviderState
       top: tableOffset.dy - 36,
       child: Listener(
         behavior: HitTestBehavior.opaque,
-        onPointerDown: (_) {}, // Absorb to prevent DocumentMouseInteractor
+        onPointerDown: (_) => TableContextToolbar.isInteracting = true,
+        onPointerUp: (_) => TableContextToolbar.isInteracting = false,
+        onPointerCancel: (_) => TableContextToolbar.isInteracting = false,
         child: FocusScope(
           canRequestFocus: false,
           child: TableContextToolbar(

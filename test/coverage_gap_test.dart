@@ -920,21 +920,31 @@ void main() {
   // TableContextToolbar gridBorderColor in debugFillProperties
   testWidgets('TableContextToolbar gridBorderColor debugFillProperties', (tester) async {
     final doc = MutableDocument([
-      TableNode(id: 't1', rowCount: 1, columnCount: 1, cells: [[AttributedText('x')]]),
+      TableNode(id: 't1', rowCount: 1, columnCount: 1, cells: [
+        [AttributedText('x')]
+      ]),
     ]);
     final ctrl = DocumentEditingController(document: doc);
     addTearDown(ctrl.dispose);
     ctrl.setSelection(const DocumentSelection.collapsed(
-      position: DocumentPosition(nodeId: 't1', nodePosition: TableCellPosition(row: 0, col: 0, offset: 0)),
+      position: DocumentPosition(
+          nodeId: 't1', nodePosition: TableCellPosition(row: 0, col: 0, offset: 0)),
     ));
     await tester.pumpWidget(MaterialApp(
       theme: ThemeData(splashFactory: InkRipple.splashFactory),
       home: Scaffold(
         body: TableContextToolbar(
-          controller: ctrl, requestHandler: (_) {}, nodeId: 't1',
-          minRow: 0, maxRow: 0, minCol: 0, maxCol: 0,
-          cellTextAligns: null, cellVerticalAligns: null,
-          rowCount: 1, columnCount: 1,
+          controller: ctrl,
+          requestHandler: (_) {},
+          nodeId: 't1',
+          minRow: 0,
+          maxRow: 0,
+          minCol: 0,
+          maxCol: 0,
+          cellTextAligns: null,
+          cellVerticalAligns: null,
+          rowCount: 1,
+          columnCount: 1,
           gridBorderColor: const Color(0xFFFF0000),
         ),
       ),

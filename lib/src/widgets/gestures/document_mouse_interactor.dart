@@ -46,6 +46,7 @@ import '../../model/node_position.dart';
 import '../block_drag_overlay.dart';
 import '../block_resize_handles.dart';
 import '../table_divider_resize_handles.dart';
+import '../toolbar/table_context_toolbar.dart';
 import '../../model/table_node.dart';
 import '../../model/text_node.dart';
 import '../document_layout.dart';
@@ -351,10 +352,12 @@ class DocumentMouseInteractorState extends State<DocumentMouseInteractor> {
       // Non-primary-button mouse press — ignore.
       return;
     }
-    // Skip drag-selection when a block resize handle or block drag is active.
+    // Skip drag-selection when a block resize handle, block drag, or
+    // table toolbar is active.
     if (BlockResizeHandles.isDragging) return;
     if (TableDividerResizeHandles.isDragging) return;
     if (BlockDragOverlay.isDragging) return;
+    if (TableContextToolbar.isInteracting) return;
 
     // Check whether the pointer is on a fully-selected draggable block node
     // that could be dragged to a new position.
@@ -563,6 +566,7 @@ class DocumentMouseInteractorState extends State<DocumentMouseInteractor> {
   /// third in the sequence and triggers full-block selection instead.
   void _onTapDown(TapDownDetails details) {
     if (!widget.enabled) return;
+    if (TableContextToolbar.isInteracting) return;
 
     // Request focus so clicking the document steals focus from other widgets.
     widget.focusNode?.requestFocus();
