@@ -978,33 +978,49 @@ class DocumentEditorState extends State<DocumentEditor> with TickerProviderState
         rowCount: node.rowCount,
         columnCount: node.columnCount,
         border: node.border,
-        gridBorderStyle: node.gridBorderStyle,
+        showHorizontalGridLines: node.showHorizontalGridLines,
+        showVerticalGridLines: node.showVerticalGridLines,
         onBorderOptionSelected: (option) {
           final BlockBorder? newBorder;
-          final BlockBorderStyle newGridStyle;
+          final bool newShowH;
+          final bool newShowV;
           switch (option) {
             case TableBorderOption.noBorder:
               newBorder = null;
-              newGridStyle = BlockBorderStyle.none;
+              newShowH = false;
+              newShowV = false;
             case TableBorderOption.allBorders:
               newBorder = const BlockBorder(style: BlockBorderStyle.solid);
-              newGridStyle = BlockBorderStyle.solid;
+              newShowH = true;
+              newShowV = true;
             case TableBorderOption.outsideBorders:
               newBorder = const BlockBorder(style: BlockBorderStyle.solid);
-              newGridStyle = BlockBorderStyle.none;
+              newShowH = false;
+              newShowV = false;
             case TableBorderOption.insideBorders:
               newBorder = null;
-              newGridStyle = BlockBorderStyle.solid;
+              newShowH = true;
+              newShowV = true;
+            case TableBorderOption.horizontalInsideBorders:
+              newBorder = null;
+              newShowH = true;
+              newShowV = false;
+            case TableBorderOption.verticalInsideBorders:
+              newBorder = null;
+              newShowH = false;
+              newShowV = true;
           }
           _effectiveEditor.submit(
             ReplaceNodeRequest(
               nodeId: node.id,
               newNode: node.copyWith(
                 border: newBorder,
-                gridBorderStyle: newGridStyle,
+                showHorizontalGridLines: newShowH,
+                showVerticalGridLines: newShowV,
               ),
             ),
           );
+          _effectiveFocusNode.requestFocus();
         },
       ),
     );

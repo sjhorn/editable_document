@@ -70,7 +70,8 @@ class TableContextToolbar extends StatelessWidget {
     required this.rowCount,
     required this.columnCount,
     this.border,
-    this.gridBorderStyle = BlockBorderStyle.solid,
+    this.showHorizontalGridLines = true,
+    this.showVerticalGridLines = true,
     this.onBorderOptionSelected,
   });
 
@@ -110,11 +111,15 @@ class TableContextToolbar extends StatelessWidget {
   /// The current outer border of the table, or `null` for no border.
   final BlockBorder? border;
 
-  /// The current visual style of the internal grid lines.
+  /// Whether horizontal grid lines between rows are currently shown.
   ///
-  /// Defaults to [BlockBorderStyle.solid]. Set to [BlockBorderStyle.none] to
-  /// indicate that grid lines are hidden.
-  final BlockBorderStyle gridBorderStyle;
+  /// Defaults to `true`.
+  final bool showHorizontalGridLines;
+
+  /// Whether vertical grid lines between columns are currently shown.
+  ///
+  /// Defaults to `true`.
+  final bool showVerticalGridLines;
 
   /// Called when the user selects a border option from the dropdown.
   ///
@@ -311,7 +316,8 @@ class TableContextToolbar extends StatelessWidget {
             // Border dropdown
             _TableBorderDropdown(
               border: border,
-              gridBorderStyle: gridBorderStyle,
+              showHorizontalGridLines: showHorizontalGridLines,
+              showVerticalGridLines: showVerticalGridLines,
               onSelected: onBorderOptionSelected,
             ),
             divider(),
@@ -368,7 +374,10 @@ class TableContextToolbar extends StatelessWidget {
     properties.add(
         IterableProperty<List<TableVerticalAlignment>>('cellVerticalAligns', cellVerticalAligns));
     properties.add(DiagnosticsProperty<BlockBorder?>('border', border, defaultValue: null));
-    properties.add(EnumProperty<BlockBorderStyle>('gridBorderStyle', gridBorderStyle));
+    properties.add(FlagProperty('showHorizontalGridLines',
+        value: showHorizontalGridLines, ifTrue: 'showHorizontalGridLines'));
+    properties.add(FlagProperty('showVerticalGridLines',
+        value: showVerticalGridLines, ifTrue: 'showVerticalGridLines'));
     properties.add(
       ObjectFlagProperty<ValueChanged<TableBorderOption>?>.has(
         'onBorderOptionSelected',
@@ -395,6 +404,12 @@ enum TableBorderOption {
 
   /// Apply only the inside grid lines (keep outer as-is).
   insideBorders,
+
+  /// Apply only horizontal inside grid lines (rows only).
+  horizontalInsideBorders,
+
+  /// Apply only vertical inside grid lines (columns only).
+  verticalInsideBorders,
 }
 
 // ---------------------------------------------------------------------------
@@ -404,16 +419,18 @@ enum TableBorderOption {
 class _TableBorderDropdown extends StatelessWidget {
   const _TableBorderDropdown({
     required this.border,
-    required this.gridBorderStyle,
+    required this.showHorizontalGridLines,
+    required this.showVerticalGridLines,
     required this.onSelected,
   });
 
   final BlockBorder? border;
-  final BlockBorderStyle gridBorderStyle;
+  final bool showHorizontalGridLines;
+  final bool showVerticalGridLines;
   final ValueChanged<TableBorderOption>? onSelected;
 
   bool get _hasOutside => border != null;
-  bool get _hasInside => gridBorderStyle != BlockBorderStyle.none;
+  bool get _hasInside => showHorizontalGridLines || showVerticalGridLines;
   bool get _hasAll => _hasOutside && _hasInside;
 
   /// Returns the icon that best represents the current state.
@@ -462,6 +479,20 @@ class _TableBorderDropdown extends StatelessWidget {
           !_hasOutside && _hasInside,
           colorScheme,
         ),
+        _item(
+          TableBorderOption.horizontalInsideBorders,
+          Icons.border_horizontal,
+          'Horizontal Inside',
+          showHorizontalGridLines && !showVerticalGridLines,
+          colorScheme,
+        ),
+        _item(
+          TableBorderOption.verticalInsideBorders,
+          Icons.border_vertical,
+          'Vertical Inside',
+          !showHorizontalGridLines && showVerticalGridLines,
+          colorScheme,
+        ),
       ],
       child: Container(
         constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -506,7 +537,10 @@ class _TableBorderDropdown extends StatelessWidget {
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
     properties.add(DiagnosticsProperty<BlockBorder?>('border', border, defaultValue: null));
-    properties.add(EnumProperty<BlockBorderStyle>('gridBorderStyle', gridBorderStyle));
+    properties.add(FlagProperty('showHorizontalGridLines',
+        value: showHorizontalGridLines, ifTrue: 'showHorizontalGridLines'));
+    properties.add(FlagProperty('showVerticalGridLines',
+        value: showVerticalGridLines, ifTrue: 'showVerticalGridLines'));
     properties.add(
       ObjectFlagProperty<ValueChanged<TableBorderOption>?>.has('onSelected', onSelected),
     );

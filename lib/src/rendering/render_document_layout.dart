@@ -17,6 +17,7 @@ import '../model/node_position.dart';
 import '../model/text_wrap_mode.dart';
 import 'block_layout_mixin.dart';
 import 'render_document_block.dart';
+import 'render_table_block.dart';
 
 // ---------------------------------------------------------------------------
 // DocumentBlockParentData
@@ -1229,7 +1230,8 @@ class RenderDocumentLayout extends RenderBox
       final parentData = child.parentData as DocumentBlockParentData;
       if (parentData.isFloat && parentData.wrapMode == TextWrapMode.behindText) {
         context.paintChild(child, offset + parentData.offset);
-        if (child.border != null) {
+        // RenderTableBlock paints its own outer border; skip _paintBlockBorder.
+        if (child.border != null && child is! RenderTableBlock) {
           _paintBlockBorder(context.canvas, child.border!, child.size, offset + parentData.offset);
         }
       }
@@ -1242,7 +1244,8 @@ class RenderDocumentLayout extends RenderBox
       final parentData = child.parentData as DocumentBlockParentData;
       if (!parentData.isFloat) {
         context.paintChild(child, offset + parentData.offset);
-        if (child.border != null) {
+        // RenderTableBlock paints its own outer border; skip _paintBlockBorder.
+        if (child.border != null && child is! RenderTableBlock) {
           _paintBlockBorder(context.canvas, child.border!, child.size, offset + parentData.offset);
         }
       }
@@ -1255,7 +1258,8 @@ class RenderDocumentLayout extends RenderBox
       final parentData = child.parentData as DocumentBlockParentData;
       if (parentData.isFloat && parentData.wrapMode != TextWrapMode.behindText) {
         context.paintChild(child, offset + parentData.offset);
-        if (child.border != null) {
+        // RenderTableBlock paints its own outer border; skip _paintBlockBorder.
+        if (child.border != null && child is! RenderTableBlock) {
           _paintBlockBorder(context.canvas, child.border!, child.size, offset + parentData.offset);
         }
       }

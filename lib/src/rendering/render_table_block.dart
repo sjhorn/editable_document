@@ -129,7 +129,8 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
     double cellPadding = 8.0,
     double borderWidth = 1.0,
     Color borderColor = const Color(0xFFCCCCCC),
-    BlockBorderStyle gridBorderStyle = BlockBorderStyle.solid,
+    bool showHorizontalGridLines = true,
+    bool showVerticalGridLines = true,
     Color selectionColor = const Color(0x663399FF),
     TextDirection textDirection = TextDirection.ltr,
     BlockAlignment blockAlignment = BlockAlignment.stretch,
@@ -150,7 +151,8 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
         _cellPadding = cellPadding,
         _borderWidth = borderWidth,
         _borderColor = borderColor,
-        _gridBorderStyle = gridBorderStyle,
+        _showHorizontalGridLines = showHorizontalGridLines,
+        _showVerticalGridLines = showVerticalGridLines,
         _selectionColor = selectionColor,
         _textDirection = textDirection,
         _cellTextAligns = cellTextAligns,
@@ -179,7 +181,8 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
   double _cellPadding;
   double _borderWidth;
   Color _borderColor;
-  BlockBorderStyle _gridBorderStyle;
+  bool _showHorizontalGridLines;
+  bool _showVerticalGridLines;
   Color _selectionColor;
   TextDirection _textDirection;
   List<List<TextAlign>>? _cellTextAligns;
@@ -384,16 +387,25 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
     markNeedsPaint();
   }
 
-  /// The visual style of the internal grid lines.
-  ///
-  /// Set to [BlockBorderStyle.none] to hide all internal grid lines.
+  /// Whether horizontal grid lines between rows are drawn.
   // ignore: diagnostic_describe_all_properties
-  BlockBorderStyle get gridBorderStyle => _gridBorderStyle;
+  bool get showHorizontalGridLines => _showHorizontalGridLines;
 
-  /// Sets the grid border style and schedules a repaint.
-  set gridBorderStyle(BlockBorderStyle value) {
-    if (_gridBorderStyle == value) return;
-    _gridBorderStyle = value;
+  /// Sets whether horizontal grid lines are shown and schedules a repaint.
+  set showHorizontalGridLines(bool value) {
+    if (_showHorizontalGridLines == value) return;
+    _showHorizontalGridLines = value;
+    markNeedsPaint();
+  }
+
+  /// Whether vertical grid lines between columns are drawn.
+  // ignore: diagnostic_describe_all_properties
+  bool get showVerticalGridLines => _showVerticalGridLines;
+
+  /// Sets whether vertical grid lines are shown and schedules a repaint.
+  set showVerticalGridLines(bool value) {
+    if (_showVerticalGridLines == value) return;
+    _showVerticalGridLines = value;
     markNeedsPaint();
   }
 
@@ -804,13 +816,13 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
       }
     }
 
-    // --- Paint internal grid lines only (outer border is drawn by BlockBorder) ---
-    if (_borderWidth > 0 && _gridBorderStyle != BlockBorderStyle.none) {
-      final gridPaint = Paint()
-        ..color = _borderColor
-        ..strokeWidth = _borderWidth
-        ..style = PaintingStyle.stroke;
+    // --- Paint internal grid lines (outer border is drawn by BlockBorder) ---
+    final gridPaint = Paint()
+      ..color = _borderColor
+      ..strokeWidth = _borderWidth
+      ..style = PaintingStyle.stroke;
 
+    if (_borderWidth > 0 && _showHorizontalGridLines) {
       // Horizontal lines between rows (skip top of row 0 and bottom of last row).
       for (var r = 1; r < _rowCount; r++) {
         final y = layouts[r][0].cellRect.top;
@@ -820,7 +832,9 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
           gridPaint,
         );
       }
+    }
 
+    if (_borderWidth > 0 && _showVerticalGridLines) {
       // Vertical lines between columns (skip left of col 0 and right of last col).
       for (var c = 1; c < _columnCount; c++) {
         final x = layouts[0][c].cellRect.left;
@@ -831,6 +845,35 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
         );
       }
     }
+
+    // --- Paint outer border (table paints its own border, not RenderDocumentLayout) ---
+    if (_border != null && _border!.style != BlockBorderStyle.none) {
+      final gridRect = Rect.fromLTRB(
+        layouts[0][0].cellRect.left,
+        layouts[0][0].cellRect.top,
+        layouts[_rowCount - 1][_columnCount - 1].cellRect.right,
+        layouts[_rowCount - 1][_columnCount - 1].cellRect.bottom,
+      );
+      _paintTableBorder(context.canvas, gridRect, offset);
+    }
+  }
+
+  void _paintTableBorder(Canvas canvas, Rect gridRect, Offset offset) {
+    final b = _border!;
+    if (b.style == BlockBorderStyle.none) return;
+    final color = b.color ?? const Color(0xFF000000);
+    final half = b.width / 2;
+    final rect = Rect.fromLTRB(
+      gridRect.left + offset.dx - half,
+      gridRect.top + offset.dy - half,
+      gridRect.right + offset.dx + half,
+      gridRect.bottom + offset.dy + half,
+    );
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = b.width
+      ..style = PaintingStyle.stroke;
+    canvas.drawRect(rect, paint);
   }
 
   void _paintSelectionHighlights(
@@ -1021,7 +1064,10 @@ class RenderTableBlock extends RenderDocumentBlock with BlockLayoutMixin {
     properties.add(DoubleProperty('cellPadding', _cellPadding));
     properties.add(DoubleProperty('borderWidth', _borderWidth));
     properties.add(ColorProperty('borderColor', _borderColor));
-    properties.add(EnumProperty<BlockBorderStyle>('gridBorderStyle', _gridBorderStyle));
+    properties.add(FlagProperty('showHorizontalGridLines',
+        value: _showHorizontalGridLines, ifTrue: 'showHorizontalGridLines'));
+    properties.add(FlagProperty('showVerticalGridLines',
+        value: _showVerticalGridLines, ifTrue: 'showVerticalGridLines'));
     properties.add(ColorProperty('selectionColor', _selectionColor));
     properties.add(
       EnumProperty<TextDirection>('textDirection', _textDirection),

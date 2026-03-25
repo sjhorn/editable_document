@@ -8,10 +8,11 @@
 /// reactions and listeners.
 library;
 
-import 'dart:ui' show TextAlign;
+import 'dart:ui' show Color, TextAlign;
 
 import 'attribution.dart';
 import 'attributed_text.dart';
+import 'block_border.dart';
 import 'blockquote_node.dart';
 import 'code_block_node.dart';
 import 'document_change_event.dart';
@@ -1505,6 +1506,7 @@ class InsertTableCommand extends EditCommand {
       rowCount: rowCount,
       columnCount: columnCount,
       cells: cells,
+      border: const BlockBorder(style: BlockBorderStyle.solid, color: Color(0xFFCCCCCC)),
     );
 
     final index = insertIndex ?? doc.nodeCount;

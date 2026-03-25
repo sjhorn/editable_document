@@ -1489,7 +1489,7 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
   /// [cellPadding] is the horizontal and vertical padding inside each cell.
   /// [borderWidth] is the stroke width of the grid lines.
   /// [borderColor] is the color of the grid lines.
-  /// [gridBorderStyle] controls the visual style of the internal grid lines.
+  /// [showHorizontalGridLines] and [showVerticalGridLines] control which grid lines are drawn.
   /// [alignment] is the horizontal alignment within the layout.
   /// [textWrap] controls how surrounding text interacts with this block.
   /// [requestedWidth] and [requestedHeight] are optional explicit dimensions.
@@ -1507,7 +1507,8 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
     this.cellPadding = 8.0,
     this.borderWidth = 1.0,
     this.borderColor = const Color(0xFFCCCCCC),
-    this.gridBorderStyle = BlockBorderStyle.solid,
+    this.showHorizontalGridLines = true,
+    this.showVerticalGridLines = true,
     this.alignment = BlockAlignment.stretch,
     this.textWrap = TextWrapMode.none,
     this.requestedWidth,
@@ -1577,11 +1578,15 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
   /// Defaults to `Color(0xFFCCCCCC)` (light grey).
   final Color borderColor;
 
-  /// The visual style of the internal grid lines.
+  /// Whether horizontal grid lines between rows are drawn.
   ///
-  /// Use [BlockBorderStyle.none] to hide all internal grid lines.
-  /// Defaults to [BlockBorderStyle.solid].
-  final BlockBorderStyle gridBorderStyle;
+  /// Defaults to `true`.
+  final bool showHorizontalGridLines;
+
+  /// Whether vertical grid lines between columns are drawn.
+  ///
+  /// Defaults to `true`.
+  final bool showVerticalGridLines;
 
   /// The horizontal alignment of this table within the layout.
   ///
@@ -1635,7 +1640,8 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
         other.cellPadding != cellPadding ||
         other.borderWidth != borderWidth ||
         other.borderColor != borderColor ||
-        other.gridBorderStyle != gridBorderStyle ||
+        other.showHorizontalGridLines != showHorizontalGridLines ||
+        other.showVerticalGridLines != showVerticalGridLines ||
         other.alignment != alignment ||
         other.textWrap != textWrap ||
         other.requestedWidth != requestedWidth ||
@@ -1691,7 +1697,8 @@ class TableComponentViewModel extends ComponentViewModel implements HasLayoutFie
       cellPadding,
       borderWidth,
       borderColor,
-      gridBorderStyle,
+      showHorizontalGridLines,
+      showVerticalGridLines,
       alignment,
       textWrap,
       requestedWidth,
@@ -1744,7 +1751,8 @@ class TableComponentBuilder extends ComponentBuilder {
       cellVerticalAligns: node.cellVerticalAligns,
       borderWidth: node.gridBorderWidth,
       borderColor: node.gridBorderColor ?? const Color(0xFFCCCCCC),
-      gridBorderStyle: node.gridBorderStyle,
+      showHorizontalGridLines: node.showHorizontalGridLines,
+      showVerticalGridLines: node.showVerticalGridLines,
       alignment: node.alignment,
       textWrap: node.textWrap,
       requestedWidth: node.width,
@@ -1784,7 +1792,8 @@ class _TableBlockWidget extends LeafRenderObjectWidget {
       cellPadding: viewModel.cellPadding,
       borderWidth: viewModel.borderWidth,
       borderColor: viewModel.borderColor,
-      gridBorderStyle: viewModel.gridBorderStyle,
+      showHorizontalGridLines: viewModel.showHorizontalGridLines,
+      showVerticalGridLines: viewModel.showVerticalGridLines,
       blockAlignment: viewModel.alignment,
       widthDimension: viewModel.requestedWidth,
       heightDimension: viewModel.requestedHeight,
@@ -1811,7 +1820,8 @@ class _TableBlockWidget extends LeafRenderObjectWidget {
       ..cellPadding = viewModel.cellPadding
       ..borderWidth = viewModel.borderWidth
       ..borderColor = viewModel.borderColor
-      ..gridBorderStyle = viewModel.gridBorderStyle
+      ..showHorizontalGridLines = viewModel.showHorizontalGridLines
+      ..showVerticalGridLines = viewModel.showVerticalGridLines
       ..spaceBefore = viewModel.spaceBefore
       ..spaceAfter = viewModel.spaceAfter
       ..border = viewModel.border

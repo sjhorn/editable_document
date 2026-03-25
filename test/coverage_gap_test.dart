@@ -747,7 +747,7 @@ void main() {
   });
 
   // TableNode grid border fields
-  test('TableNode gridBorderWidth/Color/Style defaults', () {
+  test('TableNode gridBorderWidth/Color/Lines defaults', () {
     final node = TableNode(
       id: 't1',
       rowCount: 1,
@@ -758,10 +758,11 @@ void main() {
     );
     expect(node.gridBorderWidth, 1.0);
     expect(node.gridBorderColor, isNull);
-    expect(node.gridBorderStyle, BlockBorderStyle.solid);
+    expect(node.showHorizontalGridLines, isTrue);
+    expect(node.showVerticalGridLines, isTrue);
   });
 
-  test('TableNode copyWith gridBorderStyle to none', () {
+  test('TableNode copyWith showHorizontalGridLines to false', () {
     final node = TableNode(
       id: 't1',
       rowCount: 1,
@@ -770,8 +771,9 @@ void main() {
         [AttributedText('x')],
       ],
     );
-    final updated = node.copyWith(gridBorderStyle: BlockBorderStyle.none);
-    expect(updated.gridBorderStyle, BlockBorderStyle.none);
+    final updated = node.copyWith(showHorizontalGridLines: false);
+    expect(updated.showHorizontalGridLines, isFalse);
+    expect(updated.showVerticalGridLines, isTrue);
     expect(updated.gridBorderWidth, 1.0);
   });
 
@@ -790,8 +792,8 @@ void main() {
     expect(cleared.gridBorderColor, isNull);
   });
 
-  // RenderTableBlock gridBorderStyle setter
-  test('RenderTableBlock gridBorderStyle getter/setter', () {
+  // RenderTableBlock showHorizontalGridLines/showVerticalGridLines setter
+  test('RenderTableBlock showHorizontalGridLines/showVerticalGridLines getter/setter', () {
     final block = RenderTableBlock(
       nodeId: 't1',
       rowCount: 1,
@@ -801,18 +803,23 @@ void main() {
       ],
       textStyle: const TextStyle(fontSize: 14),
     );
-    expect(block.gridBorderStyle, BlockBorderStyle.solid);
-    block.gridBorderStyle = BlockBorderStyle.none;
-    expect(block.gridBorderStyle, BlockBorderStyle.none);
+    expect(block.showHorizontalGridLines, isTrue);
+    expect(block.showVerticalGridLines, isTrue);
+    block.showHorizontalGridLines = false;
+    expect(block.showHorizontalGridLines, isFalse);
+    block.showVerticalGridLines = false;
+    expect(block.showVerticalGridLines, isFalse);
   });
 
   // TableBorderOption enum values
-  test('TableBorderOption has all 4 values', () {
-    expect(TableBorderOption.values.length, 4);
+  test('TableBorderOption has all 6 values', () {
+    expect(TableBorderOption.values.length, 6);
     expect(TableBorderOption.noBorder, isNotNull);
     expect(TableBorderOption.allBorders, isNotNull);
     expect(TableBorderOption.outsideBorders, isNotNull);
     expect(TableBorderOption.insideBorders, isNotNull);
+    expect(TableBorderOption.horizontalInsideBorders, isNotNull);
+    expect(TableBorderOption.verticalInsideBorders, isNotNull);
   });
 
   // _TableBorderDropdown renders in TableContextToolbar
@@ -884,8 +891,8 @@ void main() {
     expect(selected, TableBorderOption.allBorders);
   });
 
-  // TableComponentViewModel gridBorderStyle
-  test('TableComponentViewModel includes gridBorderStyle in equality', () {
+  // TableComponentViewModel showHorizontalGridLines/showVerticalGridLines
+  test('TableComponentViewModel includes showHorizontalGridLines in equality', () {
     final a = TableComponentViewModel(
       nodeId: 't1',
       rowCount: 1,
@@ -893,7 +900,7 @@ void main() {
       cells: [
         [AttributedText('x')],
       ],
-      gridBorderStyle: BlockBorderStyle.solid,
+      showHorizontalGridLines: true,
     );
     final b = TableComponentViewModel(
       nodeId: 't1',
@@ -902,7 +909,7 @@ void main() {
       cells: [
         [AttributedText('x')],
       ],
-      gridBorderStyle: BlockBorderStyle.none,
+      showHorizontalGridLines: false,
     );
     expect(a == b, isFalse);
   });

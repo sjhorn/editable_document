@@ -117,7 +117,8 @@ class TableNode extends DocumentNode implements HasBlockLayout {
     this.border,
     this.gridBorderWidth = 1.0,
     this.gridBorderColor,
-    this.gridBorderStyle = BlockBorderStyle.solid,
+    this.showHorizontalGridLines = true,
+    this.showVerticalGridLines = true,
     super.metadata,
   })  : _cells = List<List<AttributedText>>.unmodifiable(
           cells.map((row) => List<AttributedText>.unmodifiable(row)),
@@ -222,9 +223,11 @@ class TableNode extends DocumentNode implements HasBlockLayout {
   /// When `null`, defaults to grey (`0xFFCCCCCC`) at render time.
   final Color? gridBorderColor;
 
-  /// Style of the internal cell grid lines.
-  /// Defaults to [BlockBorderStyle.solid].
-  final BlockBorderStyle gridBorderStyle;
+  /// Whether horizontal grid lines are drawn between rows. Defaults to `true`.
+  final bool showHorizontalGridLines;
+
+  /// Whether vertical grid lines are drawn between columns. Defaults to `true`.
+  final bool showVerticalGridLines;
 
   /// Internal unmodifiable storage of the 2D cell grid.
   final List<List<AttributedText>> _cells;
@@ -272,7 +275,8 @@ class TableNode extends DocumentNode implements HasBlockLayout {
     Object? border = _sentinel,
     double? gridBorderWidth,
     Object? gridBorderColor = _sentinel,
-    BlockBorderStyle? gridBorderStyle,
+    bool? showHorizontalGridLines,
+    bool? showVerticalGridLines,
     Map<String, dynamic>? metadata,
   }) {
     return TableNode(
@@ -299,7 +303,8 @@ class TableNode extends DocumentNode implements HasBlockLayout {
       gridBorderWidth: gridBorderWidth ?? this.gridBorderWidth,
       gridBorderColor:
           identical(gridBorderColor, _sentinel) ? this.gridBorderColor : gridBorderColor as Color?,
-      gridBorderStyle: gridBorderStyle ?? this.gridBorderStyle,
+      showHorizontalGridLines: showHorizontalGridLines ?? this.showHorizontalGridLines,
+      showVerticalGridLines: showVerticalGridLines ?? this.showVerticalGridLines,
       metadata: metadata ?? this.metadata,
     );
   }
@@ -321,7 +326,8 @@ class TableNode extends DocumentNode implements HasBlockLayout {
         other.border != border ||
         other.gridBorderWidth != gridBorderWidth ||
         other.gridBorderColor != gridBorderColor ||
-        other.gridBorderStyle != gridBorderStyle ||
+        other.showHorizontalGridLines != showHorizontalGridLines ||
+        other.showVerticalGridLines != showVerticalGridLines ||
         !mapEquals(other.metadata, metadata)) {
       return false;
     }
@@ -397,7 +403,8 @@ class TableNode extends DocumentNode implements HasBlockLayout {
       border,
       gridBorderWidth,
       gridBorderColor,
-      gridBorderStyle,
+      showHorizontalGridLines,
+      showVerticalGridLines,
       Object.hashAll(metadata.entries.map((e) => e)),
     );
   }
@@ -437,10 +444,21 @@ class TableNode extends DocumentNode implements HasBlockLayout {
     properties.add(DoubleProperty('gridBorderWidth', gridBorderWidth, defaultValue: 1.0));
     properties.add(ColorProperty('gridBorderColor', gridBorderColor, defaultValue: null));
     properties.add(
-      EnumProperty<BlockBorderStyle>(
-        'gridBorderStyle',
-        gridBorderStyle,
-        defaultValue: BlockBorderStyle.solid,
+      FlagProperty(
+        'showHorizontalGridLines',
+        value: showHorizontalGridLines,
+        ifTrue: 'showHorizontalGridLines',
+        ifFalse: 'hideHorizontalGridLines',
+        defaultValue: true,
+      ),
+    );
+    properties.add(
+      FlagProperty(
+        'showVerticalGridLines',
+        value: showVerticalGridLines,
+        ifTrue: 'showVerticalGridLines',
+        ifFalse: 'hideVerticalGridLines',
+        defaultValue: true,
       ),
     );
   }
