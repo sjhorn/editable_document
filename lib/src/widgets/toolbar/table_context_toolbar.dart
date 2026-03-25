@@ -328,16 +328,13 @@ class TableContextToolbar extends StatelessWidget {
               ),
             ),
             divider(),
-            // Border dropdown
+            // Border dropdown (includes color picker)
             _TableBorderDropdown(
               border: border,
               showHorizontalGridLines: showHorizontalGridLines,
               showVerticalGridLines: showVerticalGridLines,
+              gridBorderColor: gridBorderColor ?? const Color(0xFFCCCCCC),
               onSelected: onBorderOptionSelected,
-            ),
-            // Border color picker
-            _BorderColorSwatch(
-              color: gridBorderColor ?? const Color(0xFFCCCCCC),
               onColorChanged: onGridBorderColorChanged,
             ),
             divider(),
@@ -460,13 +457,17 @@ class _TableBorderDropdown extends StatelessWidget {
     required this.border,
     required this.showHorizontalGridLines,
     required this.showVerticalGridLines,
+    required this.gridBorderColor,
     required this.onSelected,
+    required this.onColorChanged,
   });
 
   final BlockBorder? border;
   final bool showHorizontalGridLines;
   final bool showVerticalGridLines;
+  final Color gridBorderColor;
   final ValueChanged<TableBorderOption>? onSelected;
+  final ValueChanged<Color?>? onColorChanged;
 
   bool get _hasOutside => border != null;
   bool get _hasInside => showHorizontalGridLines || showVerticalGridLines;
@@ -539,6 +540,18 @@ class _TableBorderDropdown extends StatelessWidget {
         _item(TableBorderOption.leftBorder, Icons.border_left, 'Left Border', false, colorScheme),
         _item(
             TableBorderOption.rightBorder, Icons.border_right, 'Right Border', false, colorScheme),
+        const PopupMenuDivider(),
+        PopupMenuItem<TableBorderOption>(
+          enabled: false,
+          padding: EdgeInsets.zero,
+          child: _ColorRow(
+            currentColor: gridBorderColor,
+            onColorSelected: (color) {
+              Navigator.of(context).pop(); // Close the popup
+              onColorChanged?.call(color);
+            },
+          ),
+        ),
       ],
       child: Container(
         constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -587,77 +600,69 @@ class _TableBorderDropdown extends StatelessWidget {
         value: showHorizontalGridLines, ifTrue: 'showHorizontalGridLines'));
     properties.add(FlagProperty('showVerticalGridLines',
         value: showVerticalGridLines, ifTrue: 'showVerticalGridLines'));
+    properties.add(ColorProperty('gridBorderColor', gridBorderColor));
     properties.add(
       ObjectFlagProperty<ValueChanged<TableBorderOption>?>.has('onSelected', onSelected),
+    );
+    properties.add(
+      ObjectFlagProperty<ValueChanged<Color?>?>.has('onColorChanged', onColorChanged),
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// _BorderColorSwatch — compact color picker for border color
+// _ColorRow — inline color swatch row for the border dropdown
 // ---------------------------------------------------------------------------
 
-class _BorderColorSwatch extends StatelessWidget {
-  const _BorderColorSwatch({
-    required this.color,
-    required this.onColorChanged,
+class _ColorRow extends StatelessWidget {
+  const _ColorRow({
+    required this.currentColor,
+    required this.onColorSelected,
   });
 
-  final Color color;
-  final ValueChanged<Color?>? onColorChanged;
+  final Color currentColor;
+  final ValueChanged<Color> onColorSelected;
 
   static const _colors = [
-    Color(0xFFCCCCCC), // Default grey
-    Color(0xFF000000), // Black
-    Color(0xFF2196F3), // Blue
-    Color(0xFFF44336), // Red
-    Color(0xFF4CAF50), // Green
-    Color(0xFFFF9800), // Orange
-    Color(0xFF9C27B0), // Purple
+    Color(0xFFCCCCCC),
+    Color(0xFF000000),
+    Color(0xFF2196F3),
+    Color(0xFFF44336),
+    Color(0xFF4CAF50),
+    Color(0xFFFF9800),
+    Color(0xFF9C27B0),
   ];
 
   @override
   Widget build(BuildContext context) {
-    return PopupMenuButton<Color>(
-      tooltip: 'Border Color',
-      enabled: onColorChanged != null,
-      position: PopupMenuPosition.under,
-      onSelected: onColorChanged,
-      itemBuilder: (context) => [
-        for (final c in _colors)
-          PopupMenuItem<Color>(
-            value: c,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 16,
-                  height: 16,
-                  decoration: BoxDecoration(
-                    color: c,
-                    border: Border.all(color: Colors.grey.shade400),
-                    borderRadius: BorderRadius.circular(2),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.palette, size: 16),
+          const SizedBox(width: 8),
+          for (final c in _colors) ...[
+            GestureDetector(
+              onTap: () => onColorSelected(c),
+              child: Container(
+                width: 16,
+                height: 16,
+                margin: const EdgeInsets.only(right: 4),
+                decoration: BoxDecoration(
+                  color: c,
+                  border: Border.all(
+                    color: c == currentColor
+                        ? Theme.of(context).colorScheme.primary
+                        : Colors.grey.shade400,
+                    width: c == currentColor ? 2 : 1,
                   ),
+                  borderRadius: BorderRadius.circular(2),
                 ),
-                const SizedBox(width: 8),
-                if (c == color)
-                  Icon(Icons.check, size: 14, color: Theme.of(context).colorScheme.primary),
-              ],
+              ),
             ),
-          ),
-      ],
-      child: Container(
-        constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-        padding: const EdgeInsets.all(4),
-        child: Container(
-          width: 14,
-          height: 14,
-          decoration: BoxDecoration(
-            color: color,
-            border: Border.all(color: Colors.grey.shade400),
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
+          ],
+        ],
       ),
     );
   }
@@ -665,9 +670,9 @@ class _BorderColorSwatch extends StatelessWidget {
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
-    properties.add(ColorProperty('color', color));
+    properties.add(ColorProperty('currentColor', currentColor));
     properties.add(
-      ObjectFlagProperty<ValueChanged<Color?>?>.has('onColorChanged', onColorChanged),
+      ObjectFlagProperty<ValueChanged<Color>>.has('onColorSelected', onColorSelected),
     );
   }
 }
