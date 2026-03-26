@@ -544,6 +544,7 @@ class _TableBorderDropdown extends StatelessWidget {
 
     MenuItemButton item(TableBorderOption opt, IconData icon, String label, bool active) {
       return MenuItemButton(
+        closeOnActivate: false,
         leadingIcon: chk(active),
         trailingIcon: Icon(icon, size: 18),
         onPressed: () => _select(opt),
@@ -603,6 +604,7 @@ class _TableBorderDropdown extends StatelessWidget {
           menuChildren: [
             for (final c in _colors)
               MenuItemButton(
+                closeOnActivate: false,
                 leadingIcon: chk(c == gridBorderColor),
                 onPressed: () => onColorChanged?.call(c),
                 child: Container(
@@ -623,16 +625,19 @@ class _TableBorderDropdown extends StatelessWidget {
           leadingIcon: const Icon(Icons.line_style, size: 16),
           menuChildren: [
             MenuItemButton(
+              closeOnActivate: false,
               leadingIcon: chk(gridBorderStyle == BlockBorderStyle.solid),
               onPressed: () => _select(TableBorderOption.styleSolid),
               child: const Text('Solid'),
             ),
             MenuItemButton(
+              closeOnActivate: false,
               leadingIcon: chk(gridBorderStyle == BlockBorderStyle.dotted),
               onPressed: () => _select(TableBorderOption.styleDotted),
               child: const Text('Dotted'),
             ),
             MenuItemButton(
+              closeOnActivate: false,
               leadingIcon: chk(gridBorderStyle == BlockBorderStyle.dashed),
               onPressed: () => _select(TableBorderOption.styleDashed),
               child: const Text('Dashed'),
@@ -645,11 +650,13 @@ class _TableBorderDropdown extends StatelessWidget {
           leadingIcon: const Icon(Icons.line_weight, size: 16),
           menuChildren: [
             MenuItemButton(
+              closeOnActivate: false,
               leadingIcon: chk(gridBorderWidth == 1.0),
               onPressed: () => _select(TableBorderOption.widthThin),
               child: const Text('Thin'),
             ),
             MenuItemButton(
+              closeOnActivate: false,
               leadingIcon: chk(gridBorderWidth == 2.0),
               onPressed: () => _select(TableBorderOption.widthThick),
               child: const Text('Thick'),
