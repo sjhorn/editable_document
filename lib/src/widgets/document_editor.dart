@@ -1071,8 +1071,7 @@ class DocumentEditorState extends State<DocumentEditor> with TickerProviderState
               }
 
               // Width options change gridBorderWidth.
-              if (option == TableBorderOption.widthThin ||
-                  option == TableBorderOption.widthThick) {
+              if (option == TableBorderOption.widthThin || option == TableBorderOption.widthThick) {
                 final newWidth = option == TableBorderOption.widthThick ? 2.0 : 1.0;
                 final newBorderOuter = node.border != null
                     ? BlockBorder(
@@ -1094,61 +1093,14 @@ class DocumentEditorState extends State<DocumentEditor> with TickerProviderState
                 return;
               }
 
-              final BlockBorder? newBorder;
-              final bool newShowH;
-              final bool newShowV;
-              switch (option) {
-                case TableBorderOption.noBorder:
-                  newBorder = null;
-                  newShowH = false;
-                  newShowV = false;
-                case TableBorderOption.allBorders:
-                  newBorder = BlockBorder(
-                    style: node.gridBorderStyle,
-                    color: node.gridBorderColor ?? const Color(0xFFCCCCCC),
-                  );
-                  newShowH = true;
-                  newShowV = true;
-                case TableBorderOption.outsideBorders:
-                  newBorder = BlockBorder(
-                    style: node.gridBorderStyle,
-                    color: node.gridBorderColor ?? const Color(0xFFCCCCCC),
-                  );
-                  newShowH = false;
-                  newShowV = false;
-                case TableBorderOption.insideBorders:
-                  newBorder = null;
-                  newShowH = true;
-                  newShowV = true;
-                case TableBorderOption.horizontalInsideBorders:
-                  newBorder = null;
-                  newShowH = true;
-                  newShowV = false;
-                case TableBorderOption.verticalInsideBorders:
-                  newBorder = null;
-                  newShowH = false;
-                  newShowV = true;
-                // Handled above.
-                case TableBorderOption.bottomBorder:
-                case TableBorderOption.topBorder:
-                case TableBorderOption.leftBorder:
-                case TableBorderOption.rightBorder:
-                case TableBorderOption.styleSolid:
-                case TableBorderOption.styleDotted:
-                case TableBorderOption.styleDashed:
-                case TableBorderOption.widthThin:
-                case TableBorderOption.widthThick:
-                  return;
-              }
-              _effectiveEditor.submit(
-                ReplaceNodeRequest(
-                  nodeId: node.id,
-                  newNode: node.copyWith(
-                    border: newBorder,
-                    showHorizontalGridLines: newShowH,
-                    showVerticalGridLines: newShowV,
-                  ),
-                ),
+              // Layout options apply per-cell to the selection range.
+              _applyLayoutBorder(
+                node,
+                option,
+                minRow: minRow,
+                maxRow: maxRow,
+                minCol: minCol,
+                maxCol: maxCol,
               );
               _effectiveFocusNode.requestFocus();
             },
@@ -1217,6 +1169,78 @@ class DocumentEditorState extends State<DocumentEditor> with TickerProviderState
       ),
     );
     _effectiveFocusNode.requestFocus();
+  }
+
+  /// Applies a layout border option to the selected cell range.
+  ///
+  /// Unlike table-wide operations, this modifies [CellBorders] per-cell
+  /// for just the cells in `[minRow..maxRow] × [minCol..maxCol]`.
+  void _applyLayoutBorder(
+    TableNode node,
+    TableBorderOption option, {
+    required int minRow,
+    required int maxRow,
+    required int minCol,
+    required int maxCol,
+  }) {
+    final borders = node.cellBorders != null
+        ? [
+            for (final row in node.cellBorders!) [for (final cb in row) cb]
+          ]
+        : [
+            for (var r = 0; r < node.rowCount; r++)
+              [
+                for (var c = 0; c < node.columnCount; c++)
+                  CellBorders(
+                    top: node.showHorizontalGridLines && r > 0,
+                    bottom: node.showHorizontalGridLines && r < node.rowCount - 1,
+                    left: node.showVerticalGridLines && c > 0,
+                    right: node.showVerticalGridLines && c < node.columnCount - 1,
+                  ),
+              ],
+          ];
+
+    for (var r = minRow; r <= maxRow; r++) {
+      for (var c = minCol; c <= maxCol; c++) {
+        final isTop = r == minRow;
+        final isBottom = r == maxRow;
+        final isLeft = c == minCol;
+        final isRight = c == maxCol;
+
+        borders[r][c] = switch (option) {
+          TableBorderOption.noBorder => CellBorders.none,
+          TableBorderOption.allBorders => CellBorders.all,
+          TableBorderOption.outsideBorders => CellBorders(
+              top: isTop,
+              bottom: isBottom,
+              left: isLeft,
+              right: isRight,
+            ),
+          TableBorderOption.insideBorders => CellBorders(
+              top: !isTop,
+              bottom: !isBottom,
+              left: !isLeft,
+              right: !isRight,
+            ),
+          TableBorderOption.horizontalInsideBorders => CellBorders(
+              top: !isTop,
+              bottom: !isBottom,
+            ),
+          TableBorderOption.verticalInsideBorders => CellBorders(
+              left: !isLeft,
+              right: !isRight,
+            ),
+          _ => borders[r][c],
+        };
+      }
+    }
+
+    _effectiveEditor.submit(
+      ReplaceNodeRequest(
+        nodeId: node.id,
+        newNode: node.copyWith(cellBorders: borders),
+      ),
+    );
   }
 
   // -------------------------------------------------------------------------
