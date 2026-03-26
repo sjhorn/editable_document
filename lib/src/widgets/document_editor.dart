@@ -1235,10 +1235,39 @@ class DocumentEditorState extends State<DocumentEditor> with TickerProviderState
       }
     }
 
+    // Update the outer border based on whether any edge cells touch the
+    // table perimeter. If the selection includes a table edge and the option
+    // removes/adds borders there, sync the outer BlockBorder accordingly.
+    final touchesEdge = minRow == 0 ||
+        maxRow == node.rowCount - 1 ||
+        minCol == 0 ||
+        maxCol == node.columnCount - 1;
+
+    BlockBorder? newOuterBorder = node.border;
+    if (touchesEdge) {
+      final borderColor = node.gridBorderColor ?? const Color(0xFFCCCCCC);
+      switch (option) {
+        case TableBorderOption.noBorder:
+          newOuterBorder = null;
+        case TableBorderOption.allBorders:
+        case TableBorderOption.outsideBorders:
+          newOuterBorder = BlockBorder(
+            style: node.gridBorderStyle,
+            color: borderColor,
+            width: node.gridBorderWidth,
+          );
+        default:
+          break;
+      }
+    }
+
     _effectiveEditor.submit(
       ReplaceNodeRequest(
         nodeId: node.id,
-        newNode: node.copyWith(cellBorders: borders),
+        newNode: node.copyWith(
+          cellBorders: borders,
+          border: newOuterBorder,
+        ),
       ),
     );
   }
