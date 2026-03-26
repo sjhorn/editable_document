@@ -486,9 +486,11 @@ enum TableBorderOption {
 }
 
 // ---------------------------------------------------------------------------
-// _TableBorderDropdown — border option picker
+// _TableBorderDropdown — border option picker using MenuAnchor
 // ---------------------------------------------------------------------------
 
+/// A border menu button using [MenuAnchor] with [SubmenuButton] for Color,
+/// Style, and Width sub-menus.
 class _TableBorderDropdown extends StatelessWidget {
   const _TableBorderDropdown({
     required this.border,
@@ -505,13 +507,8 @@ class _TableBorderDropdown extends StatelessWidget {
   final bool showHorizontalGridLines;
   final bool showVerticalGridLines;
   final Color gridBorderColor;
-
-  /// Current visual style of the grid lines.
   final BlockBorderStyle gridBorderStyle;
-
-  /// Current stroke width of the grid lines.
   final double gridBorderWidth;
-
   final ValueChanged<TableBorderOption>? onSelected;
   final ValueChanged<Color?>? onColorChanged;
 
@@ -519,7 +516,6 @@ class _TableBorderDropdown extends StatelessWidget {
   bool get _hasInside => showHorizontalGridLines || showVerticalGridLines;
   bool get _hasAll => _hasOutside && _hasInside;
 
-  /// Returns the icon that best represents the current state.
   IconData get _currentIcon {
     if (_hasAll) return Icons.border_all;
     if (_hasOutside) return Icons.border_outer;
@@ -527,222 +523,7 @@ class _TableBorderDropdown extends StatelessWidget {
     return Icons.border_clear;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return PopupMenuButton<TableBorderOption>(
-      tooltip: 'Borders',
-      enabled: onSelected != null,
-      onSelected: onSelected,
-      position: PopupMenuPosition.under,
-      itemBuilder: (context) => <PopupMenuEntry<TableBorderOption>>[
-        _item(
-          TableBorderOption.noBorder,
-          Icons.border_clear,
-          'No Border',
-          !_hasOutside && !_hasInside,
-          colorScheme,
-        ),
-        _item(
-          TableBorderOption.allBorders,
-          Icons.border_all,
-          'All Borders',
-          _hasAll,
-          colorScheme,
-        ),
-        _item(
-          TableBorderOption.outsideBorders,
-          Icons.border_outer,
-          'Outside Borders',
-          _hasOutside && !_hasInside,
-          colorScheme,
-        ),
-        _item(
-          TableBorderOption.insideBorders,
-          Icons.border_inner,
-          'Inside Borders',
-          !_hasOutside && _hasInside,
-          colorScheme,
-        ),
-        _item(
-          TableBorderOption.horizontalInsideBorders,
-          Icons.border_horizontal,
-          'Horizontal Inside',
-          showHorizontalGridLines && !showVerticalGridLines,
-          colorScheme,
-        ),
-        _item(
-          TableBorderOption.verticalInsideBorders,
-          Icons.border_vertical,
-          'Vertical Inside',
-          !showHorizontalGridLines && showVerticalGridLines,
-          colorScheme,
-        ),
-        const PopupMenuDivider(),
-        _item(TableBorderOption.bottomBorder, Icons.border_bottom, 'Bottom Border', false,
-            colorScheme),
-        _item(TableBorderOption.topBorder, Icons.border_top, 'Top Border', false, colorScheme),
-        _item(TableBorderOption.leftBorder, Icons.border_left, 'Left Border', false, colorScheme),
-        _item(
-            TableBorderOption.rightBorder, Icons.border_right, 'Right Border', false, colorScheme),
-        const PopupMenuDivider(),
-        PopupMenuItem<TableBorderOption>(
-          enabled: false,
-          padding: EdgeInsets.zero,
-          child: _ColorRow(
-            currentColor: gridBorderColor,
-            onColorSelected: (color) {
-              Navigator.of(context).pop(); // Close the popup
-              onColorChanged?.call(color);
-            },
-          ),
-        ),
-        const PopupMenuDivider(),
-        const PopupMenuItem<TableBorderOption>(
-          enabled: false,
-          padding: EdgeInsets.zero,
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.line_style, size: 16),
-                SizedBox(width: 8),
-                Text('Style', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-              ],
-            ),
-          ),
-        ),
-        _item(
-          TableBorderOption.styleSolid,
-          Icons.horizontal_rule,
-          'Solid',
-          gridBorderStyle == BlockBorderStyle.solid,
-          colorScheme,
-        ),
-        _item(
-          TableBorderOption.styleDotted,
-          Icons.more_horiz,
-          'Dotted',
-          gridBorderStyle == BlockBorderStyle.dotted,
-          colorScheme,
-        ),
-        _item(
-          TableBorderOption.styleDashed,
-          Icons.drag_handle,
-          'Dashed',
-          gridBorderStyle == BlockBorderStyle.dashed,
-          colorScheme,
-        ),
-        const PopupMenuDivider(),
-        const PopupMenuItem<TableBorderOption>(
-          enabled: false,
-          padding: EdgeInsets.zero,
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.line_weight, size: 16),
-                SizedBox(width: 8),
-                Text('Width', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-              ],
-            ),
-          ),
-        ),
-        _item(
-          TableBorderOption.widthThin,
-          Icons.remove,
-          'Thin (1px)',
-          gridBorderWidth == 1.0,
-          colorScheme,
-        ),
-        _item(
-          TableBorderOption.widthThick,
-          Icons.add,
-          'Thick (2px)',
-          gridBorderWidth == 2.0,
-          colorScheme,
-        ),
-      ],
-      child: Container(
-        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Icon(
-          _currentIcon,
-          size: 18,
-          color: onSelected != null
-              ? colorScheme.onSurface
-              : colorScheme.onSurface.withValues(alpha: 0.38),
-        ),
-      ),
-    );
-  }
-
-  PopupMenuItem<TableBorderOption> _item(
-    TableBorderOption value,
-    IconData icon,
-    String label,
-    bool isActive,
-    ColorScheme colorScheme,
-  ) {
-    return PopupMenuItem<TableBorderOption>(
-      value: value,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (isActive)
-            Icon(Icons.check, size: 16, color: colorScheme.primary)
-          else
-            const SizedBox(width: 16),
-          const SizedBox(width: 8),
-          Icon(icon, size: 18),
-          const SizedBox(width: 8),
-          Text(label),
-        ],
-      ),
-    );
-  }
-
-  @override
-  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
-    super.debugFillProperties(properties);
-    properties.add(DiagnosticsProperty<BlockBorder?>('border', border, defaultValue: null));
-    properties.add(FlagProperty('showHorizontalGridLines',
-        value: showHorizontalGridLines, ifTrue: 'showHorizontalGridLines'));
-    properties.add(FlagProperty('showVerticalGridLines',
-        value: showVerticalGridLines, ifTrue: 'showVerticalGridLines'));
-    properties.add(ColorProperty('gridBorderColor', gridBorderColor));
-    properties.add(
-      EnumProperty<BlockBorderStyle>(
-        'gridBorderStyle',
-        gridBorderStyle,
-        defaultValue: BlockBorderStyle.solid,
-      ),
-    );
-    properties.add(DoubleProperty('gridBorderWidth', gridBorderWidth, defaultValue: 1.0));
-    properties.add(
-      ObjectFlagProperty<ValueChanged<TableBorderOption>?>.has('onSelected', onSelected),
-    );
-    properties.add(
-      ObjectFlagProperty<ValueChanged<Color?>?>.has('onColorChanged', onColorChanged),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// _ColorRow — inline color swatch row for the border dropdown
-// ---------------------------------------------------------------------------
-
-class _ColorRow extends StatelessWidget {
-  const _ColorRow({
-    required this.currentColor,
-    required this.onColorSelected,
-  });
-
-  final Color currentColor;
-  final ValueChanged<Color> onColorSelected;
+  void _select(TableBorderOption opt) => onSelected?.call(opt);
 
   static const _colors = [
     Color(0xFFCCCCCC),
@@ -756,44 +537,147 @@ class _ColorRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.palette, size: 16),
-          const SizedBox(width: 8),
-          for (final c in _colors) ...[
-            GestureDetector(
-              onTap: () => onColorSelected(c),
-              child: Container(
-                width: 16,
-                height: 16,
-                margin: const EdgeInsets.only(right: 4),
-                decoration: BoxDecoration(
-                  color: c,
-                  border: Border.all(
-                    color: c == currentColor
-                        ? Theme.of(context).colorScheme.primary
-                        : Colors.grey.shade400,
-                    width: c == currentColor ? 2 : 1,
+    final cs = Theme.of(context).colorScheme;
+
+    Widget chk(bool active) =>
+        active ? Icon(Icons.check, size: 14, color: cs.primary) : const SizedBox(width: 14);
+
+    MenuItemButton item(TableBorderOption opt, IconData icon, String label, bool active) {
+      return MenuItemButton(
+        leadingIcon: chk(active),
+        trailingIcon: Icon(icon, size: 18),
+        onPressed: () => _select(opt),
+        child: Text(label),
+      );
+    }
+
+    return MenuAnchor(
+      builder: (context, controller, child) {
+        return IconButton(
+          icon: Icon(_currentIcon, size: 18),
+          tooltip: 'Borders',
+          onPressed: onSelected != null
+              ? () {
+                  if (controller.isOpen) {
+                    controller.close();
+                  } else {
+                    controller.open();
+                  }
+                }
+              : null,
+          style: IconButton.styleFrom(
+            minimumSize: const Size(32, 32),
+            padding: const EdgeInsets.all(4),
+          ),
+        );
+      },
+      menuChildren: [
+        item(TableBorderOption.noBorder, Icons.border_clear, 'No Border',
+            !_hasOutside && !_hasInside),
+        item(TableBorderOption.allBorders, Icons.border_all, 'All Borders', _hasAll),
+        item(TableBorderOption.outsideBorders, Icons.border_outer, 'Outside',
+            _hasOutside && !_hasInside),
+        item(TableBorderOption.insideBorders, Icons.border_inner, 'Inside',
+            !_hasOutside && _hasInside),
+        item(TableBorderOption.horizontalInsideBorders, Icons.border_horizontal, 'Horizontal',
+            showHorizontalGridLines && !showVerticalGridLines),
+        item(TableBorderOption.verticalInsideBorders, Icons.border_vertical, 'Vertical',
+            !showHorizontalGridLines && showVerticalGridLines),
+        const Divider(height: 1),
+        item(TableBorderOption.bottomBorder, Icons.border_bottom, 'Bottom', false),
+        item(TableBorderOption.topBorder, Icons.border_top, 'Top', false),
+        item(TableBorderOption.leftBorder, Icons.border_left, 'Left', false),
+        item(TableBorderOption.rightBorder, Icons.border_right, 'Right', false),
+        const Divider(height: 1),
+        // Color submenu
+        SubmenuButton(
+          leadingIcon: Container(
+            width: 14,
+            height: 14,
+            decoration: BoxDecoration(
+              color: gridBorderColor,
+              border: Border.all(color: Colors.grey.shade400),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          menuChildren: [
+            for (final c in _colors)
+              MenuItemButton(
+                leadingIcon: chk(c == gridBorderColor),
+                onPressed: () => onColorChanged?.call(c),
+                child: Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: c,
+                    border: Border.all(color: Colors.grey.shade400),
+                    borderRadius: BorderRadius.circular(3),
                   ),
-                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
+          ],
+          child: const Text('Color'),
+        ),
+        // Style submenu
+        SubmenuButton(
+          leadingIcon: const Icon(Icons.line_style, size: 16),
+          menuChildren: [
+            MenuItemButton(
+              leadingIcon: chk(gridBorderStyle == BlockBorderStyle.solid),
+              onPressed: () => _select(TableBorderOption.styleSolid),
+              child: const Text('Solid'),
+            ),
+            MenuItemButton(
+              leadingIcon: chk(gridBorderStyle == BlockBorderStyle.dotted),
+              onPressed: () => _select(TableBorderOption.styleDotted),
+              child: const Text('Dotted'),
+            ),
+            MenuItemButton(
+              leadingIcon: chk(gridBorderStyle == BlockBorderStyle.dashed),
+              onPressed: () => _select(TableBorderOption.styleDashed),
+              child: const Text('Dashed'),
             ),
           ],
-        ],
-      ),
+          child: const Text('Style'),
+        ),
+        // Width submenu
+        SubmenuButton(
+          leadingIcon: const Icon(Icons.line_weight, size: 16),
+          menuChildren: [
+            MenuItemButton(
+              leadingIcon: chk(gridBorderWidth == 1.0),
+              onPressed: () => _select(TableBorderOption.widthThin),
+              child: const Text('Thin'),
+            ),
+            MenuItemButton(
+              leadingIcon: chk(gridBorderWidth == 2.0),
+              onPressed: () => _select(TableBorderOption.widthThick),
+              child: const Text('Thick'),
+            ),
+          ],
+          child: const Text('Width'),
+        ),
+      ],
     );
   }
 
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
-    properties.add(ColorProperty('currentColor', currentColor));
-    properties.add(
-      ObjectFlagProperty<ValueChanged<Color>>.has('onColorSelected', onColorSelected),
-    );
+    properties.add(DiagnosticsProperty<BlockBorder?>('border', border, defaultValue: null));
+    properties.add(FlagProperty('showHorizontalGridLines',
+        value: showHorizontalGridLines, ifTrue: 'showHorizontalGridLines'));
+    properties.add(FlagProperty('showVerticalGridLines',
+        value: showVerticalGridLines, ifTrue: 'showVerticalGridLines'));
+    properties.add(ColorProperty('gridBorderColor', gridBorderColor));
+    properties.add(EnumProperty<BlockBorderStyle>(
+      'gridBorderStyle',
+      gridBorderStyle,
+      defaultValue: BlockBorderStyle.solid,
+    ));
+    properties.add(DoubleProperty('gridBorderWidth', gridBorderWidth, defaultValue: 1.0));
+    properties
+        .add(ObjectFlagProperty<ValueChanged<TableBorderOption>?>.has('onSelected', onSelected));
+    properties.add(ObjectFlagProperty<ValueChanged<Color?>?>.has('onColorChanged', onColorChanged));
   }
 }
